@@ -5,9 +5,9 @@
     vim 
     acpi 
     tree 
-    light
     pciutils
     usbutils
   ];
 
+  programs.light.enable = true;
 }

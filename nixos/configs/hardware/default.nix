@@ -1,7 +1,6 @@
 { lib, ... }: {
 
   imports =[ 
-    <nixpkgs/nixos/modules/installer/scan/not-detected.nix>
     ./opengl.nix
     ./tlp.nix
     ./boot.nix
