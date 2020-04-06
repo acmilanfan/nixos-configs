@@ -1,0 +1,355 @@
+# Read `man 5 sway` for a complete reference.
+
+### Variables
+#
+# Logo key. Use Mod1 for Alt.
+set $mod Mod4
+# Home row direction keys, like vim
+set $left h
+set $down j
+set $up k
+set $right l
+# Your preferred terminal emulator
+set $term kitty
+# Your preferred application launcher
+# Note: it's recommended that you pass the final command to sway
+set $menu rofi -show drun
+
+set $laptop 'Chimei Innolux Corporation 0x15E8 0x00000000'
+
+### Output configuration
+#
+# Default wallpaper (more resolutions are available in /usr/share/backgrounds/sway/)
+#output * bg /usr/share/backgrounds/gnome/Wood.jpg fill
+
+#
+# Example configuration:
+#
+#   output HDMI-A-1 resolution 1920x1080 position 1920,0
+#
+
+#output DP-1 scale 1.1
+output DP-1 position 0 0 resolution 2560x1440
+output $laptop position 0 1440 resolution 1920x1080
+#output $laptop position 0 1310 resolution 1920x1080
+
+#
+# You can get the names of your outputs by running: swaymsg -t get_outputs
+#
+### Idle configuration
+exec swayidle -w \
+         timeout 300 'swaylock -f -c 000000' \
+         timeout 600 'swaymsg "output * dpms off"' \
+              resume 'swaymsg "output * dpms on"' \
+        before-sleep 'swaylock -f -c 000000'
+
+# This will lock your screen after 300 seconds of inactivity, then turn off
+# your displays after another 300 seconds, and turn your screens back on when
+# resumed. It will also lock your screen before your computer goes to sleep.
+
+#
+# Screen lock
+#
+
+bindsym $mod+Ctrl+l exec swaylock -f -c 000000
+
+### Input configuration
+#
+#
+  
+input "1267:12370:ELAN0651:00_04F3:3052_Touchpad" {
+       dwt enabled
+       tap enabled
+       natural_scroll enabled
+       middle_emulation enabled
+}
+
+input "1:1:AT_Translated_Set_2_keyboard" {
+       xkb_layout us,de,ru
+       xkb_options grp:alt_space_toggle
+}
+
+#
+# Read `man 5 sway-input` for more information about this section.
+
+### Key bindings
+#
+
+bindsym --to-code {
+
+#
+# Basics:
+#
+
+    # start a terminal
+    $mod+Return exec $term
+    
+    # kill focused window
+    $mod+Shift+q kill
+
+    # start your launcher
+    $mod+d exec $menu
+
+    # reload the configuration file
+    $mod+Shift+c reload
+
+    # exit sway (logs you out of your Wayland session)
+    $mod+Shift+e exec swaynag -t warning -m 'You pressed the exit shortcut. Do you really want to exit sway? This will end your Wayland session.' -b 'Yes, exit sway' 'swaymsg exit'
+
+#
+# Layout stuff:
+#
+    # You can "split" the current object of your focus with
+    # $mod+b or $mod+v, for horizontal and vertical splits
+    # respectively.
+    $mod+b splith
+    $mod+v splitv
+
+    # Switch the current container between different layout styles
+    $mod+s layout stacking
+    $mod+w layout tabbed
+    $mod+e layout toggle split
+
+    # Make the current focus fullscreen
+    $mod+f fullscreen
+
+    # Toggle the current focus between tiling and floating mode
+    $mod+Shift+space floating toggle
+
+    # Swap focus between the tiling area and the floating area
+    $mod+space focus mode_toggle
+
+    # move focus to the parent container
+    $mod+a focus parent
+#
+# Scratchpad:
+#
+    # Sway has a "scratchpad", which is a bag of holding for windows.
+    # You can send windows there and get them back later.
+
+    # Move the currently focused window to the scratchpad
+    $mod+Shift+minus move scratchpad
+
+    # Show the next scratchpad window or hide the focused scratchpad window.
+    # If there are multiple scratchpad windows, this command cycles through them.
+    $mod+minus scratchpad show
+
+    $mod+r mode "resize"
+
+    #$mod+m exec clipman --selector="rofi" -s
+    #$mod+m exec tac ~/.clipboard-history | rofi -dmenu | wl-copy
+    $mod+m exec clipman pick -t rofi
+}
+    # Drag floating windows by holding down $mod and left mouse button.
+    # Resize them with right mouse button + $mod.
+    # Despite the name, also works for non-floating windows.
+    # Change normal to inverse to use left mouse button for resizing and right
+    # mouse button for dragging.
+    floating_modifier $mod normal
+
+    # Drag floating windows by holding down $mod and left mouse button.
+    # Resize them with right mouse button + $mod.
+    # Despite the name, also works for non-floating windows.
+    # Change normal to inverse to use left mouse button for resizing and right
+    # mouse button for dragging.
+    floating_modifier $mod normal
+
+#
+# Moving around:
+#
+    # Move your focus around
+    bindsym $mod+$left focus left
+    bindsym $mod+$down focus down
+    bindsym $mod+$up focus up
+    bindsym $mod+$right focus right
+    # or use $mod+[up|down|left|right]
+    bindsym $mod+Left focus left
+    bindsym $mod+Down focus down
+    bindsym $mod+Up focus up
+    bindsym $mod+Right focus right
+
+    # _move_ the focused window with the same, but add Shift
+    bindsym $mod+Shift+$left move left
+    bindsym $mod+Shift+$down move down
+    bindsym $mod+Shift+$up move up
+    bindsym $mod+Shift+$right move right
+    # ditto, with arrow keys
+    bindsym $mod+Shift+Left move left
+    bindsym $mod+Shift+Down move down
+    bindsym $mod+Shift+Up move up
+    bindsym $mod+Shift+Right move right
+#
+# Workspaces:
+#
+    # switch to workspace
+    bindsym $mod+1 workspace 1
+    bindsym $mod+2 workspace 2
+    bindsym $mod+3 workspace 3
+    bindsym $mod+4 workspace 4
+    bindsym $mod+5 workspace 5
+    bindsym $mod+6 workspace 6
+    bindsym $mod+7 workspace 7
+    bindsym $mod+8 workspace 8
+    bindsym $mod+9 workspace 9
+    bindsym $mod+0 workspace 10
+    bindsym $mod+Alt+1 workspace 11
+    bindsym $mod+Alt+2 workspace 12
+    bindsym $mod+Alt+3 workspace 13
+    bindsym $mod+Alt+4 workspace 14
+    bindsym $mod+Alt+5 workspace 15
+    bindsym $mod+Alt+6 workspace 16
+    bindsym $mod+Alt+7 workspace 17
+    bindsym $mod+Alt+8 workspace 18
+    bindsym $mod+Alt+9 workspace 19
+    bindsym $mod+Alt+0 workspace 20
+
+    # move focused container to workspace
+    bindsym $mod+Shift+1 move container to workspace 1
+    bindsym $mod+Shift+2 move container to workspace 2
+    bindsym $mod+Shift+3 move container to workspace 3
+    bindsym $mod+Shift+4 move container to workspace 4
+    bindsym $mod+Shift+5 move container to workspace 5
+    bindsym $mod+Shift+6 move container to workspace 6
+    bindsym $mod+Shift+7 move container to workspace 7
+    bindsym $mod+Shift+8 move container to workspace 8
+    bindsym $mod+Shift+9 move container to workspace 9
+    bindsym $mod+Shift+0 move container to workspace 10
+
+    bindsym $mod+Shift+Alt+1 move container to workspace 11
+    bindsym $mod+Shift+Alt+2 move container to workspace 12
+    bindsym $mod+Shift+Alt+3 move container to workspace 13
+    bindsym $mod+Shift+Alt+4 move container to workspace 14
+    bindsym $mod+Shift+Alt+5 move container to workspace 15
+    bindsym $mod+Shift+Alt+6 move container to workspace 16
+    bindsym $mod+Shift+Alt+7 move container to workspace 17
+    bindsym $mod+Shift+Alt+8 move container to workspace 18
+    bindsym $mod+Shift+Alt+9 move container to workspace 19
+    bindsym $mod+Shift+Alt+0 move container to workspace 20
+
+    bindsym $mod+Alt+$left workspace prev
+    bindsym $mod+Alt+Left workspace prev
+    bindsym $mod+Alt+$right workspace next
+    bindsym $mod+Alt+Right workspace next
+
+# Workspaces 1-10 on laptop, 11-20 on external monitor 
+    workspace 1 output $laptop
+    workspace 2 output $laptop
+    workspace 3 output $laptop
+    workspace 4 output $laptop
+    workspace 5 output $laptop
+    workspace 6 output $laptop
+    workspace 7 output $laptop
+    workspace 8 output $laptop
+    workspace 9 output $laptop
+    workspace 10 output $laptop
+
+    workspace 11 output DP-1
+    workspace 12 output DP-1
+    workspace 13 output DP-1
+    workspace 14 output DP-1
+    workspace 15 output DP-1
+    workspace 16 output DP-1
+    workspace 17 output DP-1
+    workspace 18 output DP-1
+    workspace 19 output DP-1
+    workspace 20 output DP-1
+
+#
+# Resizing containers:
+#
+mode "resize" {
+    # left will shrink the containers width
+    # right will grow the containers width
+    # up will shrink the containers height
+    # down will grow the containers height
+    bindsym $left resize shrink width 10px
+    bindsym $down resize grow height 10px
+    bindsym $up resize shrink height 10px
+    bindsym $right resize grow width 10px
+
+    # ditto, with arrow keyr
+    bindsym Left resize shrink width 10px
+    bindsym Down resize grow height 10px
+    bindsym Up resize shrink height 10px
+    bindsym Right resize grow width 10px
+
+    # return to default mode
+    bindsym Return mode "default"
+    bindsym Escape mode "default"
+}
+
+#
+# Screenshots via grim and slurp
+#
+
+bindsym $mod+Print exec grim -o $(swaymsg -t get_outputs | jq -r '.[] | select(.focused) | .name') /home/andrei/Pictures/$(date +'%Y-%m-%d-%H%M%S_grim.png')
+bindsym $mod+Shift+Print exec grim -g "$(slurp)" /home/andrei/Pictures/$(date +'%Y-%m-%d-%H%M%S_grim.png')
+
+#
+# Additional keys
+#
+bindsym XF86MonBrightnessUp exec light -A 5
+bindsym XF86MonBrightnessDown exec light -U 5
+bindsym XF86AudioRaiseVolume exec pactl set-sink-volume @DEFAULT_SINK@ +5%
+bindsym XF86AudioLowerVolume exec pactl set-sink-volume @DEFAULT_SINK@ -5%
+bindsym XF86AudioMute exec pactl set-sink-mute @DEFAULT_SINK@ toggle
+bindsym XF86AudioMicMute exec pactl set-source-mute @DEFAULT_SOURCE@ toggle
+
+# Media player controls
+bindsym XF86AudioPlay exec playerctl play
+bindsym XF86AudioPause exec playerctl pause
+bindsym XF86AudioNext exec playerctl next
+bindsym XF86AudioPrev exec playerctl previous
+
+#
+# Status Bar:
+#
+bar {
+    swaybar_command waybar
+}
+
+# Application specific
+for_window [class="Spotify"] move to workspace 10
+for_window [class="jetbrains-toolbox"] floating enable
+for_window [class="jetbrains-toolbox"] border none
+
+# border / titlebar
+default_border pixel 1
+hide_edge_borders smart
+
+#bindsym Ctrl+Alt+x [class="^.*"] border toggle
+#bindsym Ctrl+Alt+x [class="^.*"] border toggle
+bindsym Ctrl+Alt+x border toggle
+
+for_window [floating] border none
+
+#for_window [class="^.*"] border pixel 1
+#for_window [class="URxvt"] border normal
+#for_window [class="Leafpad"] border normal
+#for_window [class="Lxappearance"] border normal
+#for_window [class="Vlc"] border pixel 0
+#for_window [class="mpv"] border pixel 0
+#for_window [class="Pcmanfm"] border pixel 0
+#for_window [class="Firefox"] border pixel 0
+#for_window [class="Geary"] border pixel 0
+#for_window [class="Lmms"] border pixel 0
+#for_window [class="Feh"] border pixel 0
+
+exec mako --anchor top-right
+exec_always redshift -t 6000:2500
+#exec clipman -d
+#exec_always wl-paste -w wl-paste -p >> ~/.clipboard-history
+exec wl-paste -t text --watch clipman store
+
+# Autohide mouse pointer after
+seat * hide_cursor 4000
+
+# Gnome customAdwaita-dark
+set $gnome-schema org.gnome.desktop.interface
+
+exec_always {
+    gsettings set $gnome-schema gtk-theme 'Adwaita-dark'
+    gsettings set $gnome-schema cursor-theme 'Adwaita'
+}
+
+include /etc/sway/config.d/*
