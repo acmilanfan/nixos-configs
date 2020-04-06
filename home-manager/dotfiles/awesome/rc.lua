@@ -93,6 +93,7 @@ awful.layout.layouts = {
 
 -- Autostart commands
 awful.spawn('nm-applet')
+awful.spawn('autorandr --change')
 
 -- {{{ Menu
 -- Create a launcher widget and a main menu
