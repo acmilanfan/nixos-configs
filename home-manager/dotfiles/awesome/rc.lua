@@ -417,7 +417,8 @@ globalkeys = gears.table.join(awful.key({ modkey, }, "s", hotkeys_popup.show_hel
 
     -- Lock screen
     awful.key({ modkey, "Control" }, "l", function()
-        awful.spawn("gdmflexiserver")
+        -- awful.spawn("gdmflexiserver")
+        awful.spawn("xscreensaver-command --lock")
     end,
         { description = "Lock the screen", group = "screen" }))
 
