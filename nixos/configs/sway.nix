@@ -28,13 +28,10 @@
 
   environment = {
     etc = {
-      "sway/config".source = ./dotfiles/sway/config;
-      "xdg/waybar/config".source = ./dotfiles/waybar/config;
-      "xdg/waybar/style.css".source = ./dotfiles/waybar/style.css;
-      "xdg//style.css".source = ./dotfiles/waybar/style.css;
-    };
-    variables = {
-      KITTY_CONFIG_DIRECTORY = "/etc/nixos/dotfiles/kitty/";
+      "sway/config".source = ../../dotfiles/sway/config;
+      "xdg/waybar/config".source = ../../dotfiles/waybar/config;
+      "xdg/waybar/style.css".source = ../../dotfiles/waybar/style.css;
+      "xdg//style.css".source = .../../dotfiles/waybar/style.css;
     };
   };
 }

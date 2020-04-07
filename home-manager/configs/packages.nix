@@ -18,6 +18,7 @@
     ranger
     networkmanagerapplet
     gnome3.polari
+    brave
   ];
 
   programs.firefox.enable = true;
