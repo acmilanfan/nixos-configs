@@ -18,7 +18,8 @@
     ranger
     networkmanagerapplet
     gnome3.polari
-    brave
+    chromium
+    nixfmt
   ];
 
   programs.firefox.enable = true;

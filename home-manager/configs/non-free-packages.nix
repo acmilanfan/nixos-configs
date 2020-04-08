@@ -6,6 +6,8 @@
     "skypeforlinux"
     "sublimetext3"
     "idea-ultimate"
+    "grammarly"
+    "matte-black-violet-theme"
   ];
 
   home.packages = with pkgs; [
