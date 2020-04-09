@@ -19,6 +19,7 @@
       ./dconf.nix
       ./ssh.nix
       ./gpg.nix
+      ./git-common.nix
   ];
 
   programs.home-manager.enable = true;
