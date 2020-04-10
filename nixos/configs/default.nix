@@ -15,6 +15,7 @@
       ./xserver.nix
       ./gnome.nix
       ./awesome.nix
+      ./gc.nix
     ];
 
   system.stateVersion = "19.09";
