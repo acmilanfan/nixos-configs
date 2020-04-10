@@ -20,6 +20,7 @@
     gnome3.polari
     chromium
     nixfmt
+    safeeyes
   ];
 
   programs.firefox.enable = true;
