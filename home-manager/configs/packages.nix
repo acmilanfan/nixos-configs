@@ -21,6 +21,7 @@
     chromium
     nixfmt
     safeeyes
+    flameshot
   ];
 
   programs.firefox.enable = true;
