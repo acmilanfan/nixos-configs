@@ -6,4 +6,6 @@
   services.autorandr.enable = true;
   services.greenclip.enable = true;
 
+  programs.light.enable = true;
+
 }
