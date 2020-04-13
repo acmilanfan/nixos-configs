@@ -22,6 +22,8 @@
     nixfmt
     safeeyes
     flameshot
+    mpv
+    audacious
   ];
 
   programs.firefox.enable = true;
