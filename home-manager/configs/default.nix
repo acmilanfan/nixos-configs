@@ -12,6 +12,7 @@
       ./awesome.nix
       ./kitty.nix
       ./nur.nix
+      ./games.nix
 
       ./gtk.nix
       ./xsession.nix
