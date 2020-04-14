@@ -6,7 +6,7 @@
       ./xserver-wacom.nix
       ./hardware/default.nix
       ./hardware/home.nix
-      ./hardware/games.nix
+      #./hardware/games.nix
     ];
 
   networking.hostName = "nixos";
