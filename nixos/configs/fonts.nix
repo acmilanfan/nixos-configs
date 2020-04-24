@@ -19,8 +19,4 @@
 
   fonts.fontconfig.defaultFonts.monospace = [ "Roboto Mono" ];
 
-  nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [
-    "corefonts"
-  ];
-
 }

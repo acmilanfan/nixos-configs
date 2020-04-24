@@ -10,13 +10,14 @@
       ./services.nix
       ./fonts.nix
       ./environment.nix
-      ./i18n.nix
+      ./console.nix
       ./timezone.nix
       ./xserver.nix
       ./gnome.nix
       ./awesome.nix
       ./gc.nix
+      ./unfree-packages.nix
     ];
 
-  system.stateVersion = "19.09";
+  system.stateVersion = "20.03";
 }

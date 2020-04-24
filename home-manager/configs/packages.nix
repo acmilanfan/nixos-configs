@@ -20,7 +20,7 @@
     gnome3.polari
     chromium
     nixfmt
-    safeeyes
+    #safeeyes
     flameshot
     mpv
     audacious
