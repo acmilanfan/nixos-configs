@@ -1,6 +1,5 @@
 { ... }: {
 
-
   services.xserver.libinput = {
     enable = true;
     naturalScrolling = true;
@@ -8,4 +7,7 @@
     horizontalScrolling = true;
   };
 
+  services.xserver.displayManager.sessionCommands = ''
+    xinput --set-prop '2.4G Mouse' 'libinput Natural Scrolling Enabled' 0
+  ''; 
 }
