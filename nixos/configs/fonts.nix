@@ -1,8 +1,6 @@
 { pkgs, lib, ... }: {
 
   fonts = {
-    #enableFontDir = true;
-    #enableGhostscriptFonts = true;
     fonts = with pkgs; [
       corefonts
       fira-code
@@ -14,7 +12,9 @@
       ubuntu_font_family
       inconsolata
       unifont
+      opensans-ttf
     ];
+    enableDefaultFonts = true;
   };
 
   fonts.fontconfig.defaultFonts.monospace = [ "Roboto Mono" ];
