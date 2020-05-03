@@ -3,7 +3,8 @@
   home.packages = with pkgs; [
     wine-staging
     winetricks
-    appimage-run
+    #appimage-run
+    #wineWowPackages.staging
     #lutris
     #lutris-free
   ];
