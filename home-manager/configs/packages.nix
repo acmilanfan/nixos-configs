@@ -21,7 +21,6 @@
     chromium
     nixfmt
     #safeeyes
-    flameshot
     mpv
     audacious
   ];
