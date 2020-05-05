@@ -1,1 +1,5 @@
-todo
+{ ... }: {
+
+  services.flameshot.enable = true;
+
+}
