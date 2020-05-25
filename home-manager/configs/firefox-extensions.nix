@@ -40,7 +40,7 @@
   };
   "neat-url" = buildFirefoxXpiAddon rec {
     pname = "neat-url";
-    version = "4.1.5";
+    version = "5.0.0";
     addonId = "neaturl@hugsmile.eu";
     url = "https://addons.mozilla.org/firefox/downloads/file/970953/neat_url-${version}-an+fx.xpi?src=";
     sha256 = "0q8sm3mxizzj457graa5f4lyn5pqyqn385ibhv0s9y2b8brdq63r";
@@ -53,7 +53,7 @@
   };
   "simple-translate" = buildFirefoxXpiAddon rec {
     pname = "simple-translate";
-    version = "2.2.0";
+    version = "2.3.0";
     addonId = "simple-translate@sienori";
     url = "https://addons.mozilla.org/firefox/downloads/file/3427958/simple_translate-${version}-fx.xpi?src=";
     sha256 = "0yzphahlks4ciz1r6afvrhifsw3yr4id5pm4j78ssyvdxpcl1pr6";
