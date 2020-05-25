@@ -2,7 +2,6 @@
 
   home.packages = with pkgs; [
     vimHugeX
-    pass
     git
     arandr
     ranger
@@ -23,6 +22,7 @@
     #safeeyes
     mpv
     audacious
+    htop
   ];
 
   programs.firefox.enable = true;
