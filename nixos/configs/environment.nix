@@ -13,7 +13,7 @@
 
   environment.shellAliases = {
     # todo move it to home manager or expose through environment variable
-    repass = "PASSWORD_STORE_DIR=$HOME/nixos/configs/secrets pass";
+    repass = "PASSWORD_STORE_DIR=$HOME/configs/secrets pass";
   };
 
 }
