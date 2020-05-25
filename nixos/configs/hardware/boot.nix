@@ -1,4 +1,4 @@
-{ config, ... }: {
+{ config, pkgs, ... }: {
 
   boot.initrd.availableKernelModules = [ "nvme" ];
   boot.initrd.kernelModules = [ "dm-snapshot" "i915" ];
@@ -10,5 +10,7 @@
     "i915.enable_fbc=1"
     "i915.enable_psr=2"
   ];
+
+  boot.kernelPackages = pkgs.linuxPackages_4_19;
 
 }
