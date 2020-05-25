@@ -8,11 +8,14 @@
     "idea-ultimate"
     "grammarly"
     "matte-black-violet-theme"
+    "zoom-us"
+    "reaper"
   ];
 
   home.packages = with pkgs; [
     slack
     skypeforlinux
     sublime3
+    zoom-us
   ];
 }
