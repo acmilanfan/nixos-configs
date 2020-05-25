@@ -1,5 +1,9 @@
-{ ... }: {
+{ pkgs, ... }: {
 
-  services.xserver.windowManager.awesome.enable = true;
+  services.xserver.windowManager.awesome = {
+    enable = true;
+    noArgb = true;
+    luaModules = [ pkgs.luaPackages.lgi ];
+  };
 
 }
