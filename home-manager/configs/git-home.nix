@@ -1,8 +1,11 @@
-{ ... }: {
+{ ... }: 
 
+let 
+  secrets = import ./../../secrets/secrets.nix;
+in {
   programs.git = {
     enable = true;
-    userEmail = "gentoo1993@gmail.com";
+    userEmail = secrets.homeEmail;
   };
 
 }
