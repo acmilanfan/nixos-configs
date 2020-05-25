@@ -21,6 +21,7 @@
       ./ssh.nix
       ./gpg.nix
       ./git-common.nix
+      ./services.nix
   ];
 
   programs.home-manager.enable = true;
