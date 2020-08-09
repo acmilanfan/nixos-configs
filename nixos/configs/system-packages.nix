@@ -7,6 +7,7 @@
     tree 
     pciutils
     usbutils
+    openconnect
   ];
 
   programs.light.enable = true;
