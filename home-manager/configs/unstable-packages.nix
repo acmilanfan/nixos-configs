@@ -1,18 +1,16 @@
 { config, pkgs, ... }:
 
-let unstableTarball = fetchTarball
-      https://github.com/NixOS/nixpkgs-channels/archive/nixos-unstable.tar.gz;
+let 
+  unstable = import <unstable> { 
+    config = {
+      allowUnfree = true; 
+    }; 
+  };
 in {
 
-  nixpkgs.config.packageOverrides = pkgs: {
-    unstable = import unstableTarball {
-      config = config.nixpkgs.config;
-    };
-  };
-
-  home.packages = with pkgs.unstable; [
-    tdesktop
-    jetbrains.idea-ultimate
+  home.packages = [
+    unstable.tdesktop
+    unstable.jetbrains.idea-ultimate
   ];
 
 }
