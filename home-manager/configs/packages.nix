@@ -23,6 +23,7 @@
     mpv
     audacious
     htop
+    partition-manager
   ];
 
   programs.firefox.enable = true;
