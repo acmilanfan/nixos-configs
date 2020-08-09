@@ -11,6 +11,5 @@
     "i915.enable_psr=2"
   ];
 
-  boot.kernelPackages = pkgs.linuxPackages_4_19;
 
 }
