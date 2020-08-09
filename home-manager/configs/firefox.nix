@@ -1,21 +1,21 @@
 { config, pkgs, lib, ... }: {
 
   programs.firefox = {
-    extensions = lib.mkIf config.programs.firefox.enable (
-      with pkgs.nur.repos.rycee.firefox-addons;
-        [
-          browserpass
-          https-everywhere
-          link-cleaner
-          swedish-dictionary
-          ublock-origin
-          vimium
-        ] ++ builtins.attrValues (import ./firefox-extensions.nix {
-            inherit (pkgs) stdenv fetchurl;
-            buildFirefoxXpiAddon =
-            pkgs.nur.repos.rycee.firefox-addons.buildFirefoxXpiAddon;
-          })
-      );
+#    extensions = lib.mkIf config.programs.firefox.enable (
+#      with pkgs.nur.repos.rycee.firefox-addons;
+#        [
+#          browserpass
+#          https-everywhere
+#          link-cleaner
+#          swedish-dictionary
+#          ublock-origin
+#          vimium
+#        ] ++ builtins.attrValues (import ./firefox-extensions.nix {
+#            inherit (pkgs) stdenv fetchurl;
+#            buildFirefoxXpiAddon =
+#            pkgs.nur.repos.rycee.firefox-addons.buildFirefoxXpiAddon;
+#          })
+#      );
     profiles = {
       default = {
         isDefault = true;
@@ -31,7 +31,6 @@
           "browser.fullscreen.autohide" = false;
           "browser.search.region" = "DE";
           "browser.startup.page" = 3;
-          "extensions.update.enabled" = false;
         };
       };
     };
