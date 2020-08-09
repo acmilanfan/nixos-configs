@@ -10,6 +10,7 @@
     "matte-black-violet-theme"
     "zoom-us"
     "reaper"
+    "faac"
   ];
 
   home.packages = with pkgs; [
