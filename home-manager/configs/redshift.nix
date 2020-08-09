@@ -6,7 +6,7 @@
     tray = true;
     temperature = {
       day = 6000;
-      night = 2500;
+      night = 2400;
     };
   };
 
