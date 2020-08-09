@@ -6,7 +6,7 @@
     arandr
     ranger
     httpie
-    jetbrains.jdk
+    adoptopenjdk-bin
     pavucontrol
     playerctl
     imv

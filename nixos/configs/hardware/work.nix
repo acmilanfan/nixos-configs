@@ -1,27 +1,45 @@
-{ ... }: {
+{ lib, ... }: {
 
-  #fileSystems."/" =
-  #  { device = "/dev/disk/by-uuid/8daaa821-b568-4aa9-ac66-2952d9263f64";
-  #    fsType = "ext4";
-  #  };
+  boot.initrd.luks.devices = {
+    root = {
+      name = "root";
+      device = "/dev/disk/by-uuid/36076a85-1aea-4d36-b9c8-607209ce05d0";
+      preLVM = true;
+      allowDiscards = true;
+    };
+  };
 
-  #fileSystems."/home" =
-  #  { device = "/dev/disk/by-uuid/429ea259-1782-4d44-9806-b3d823a7def2";
-  #    fsType = "ext4";
-  #  };
+  fileSystems."/" = { 
+    device = "/dev/disk/by-uuid/b53e5cd0-e812-430b-a007-9755f36ef797";
+    fsType = "ext4";
+  };
 
-  #fileSystems."/boot" =
-  #  { device = "/dev/disk/by-uuid/47556e8b-d1e5-44c0-b955-91ef5e2e8715";
-  #    fsType = "ext4";
-  #  };
+  fileSystems."/boot/efi" = { 
+    device = "/dev/disk/by-uuid/F4FE-B7DA";
+    fsType = "vfat";
+  };
 
-  #fileSystems."/boot" =
-  #  { device = "/dev/disk/by-uuid/9DE9-CA9D";
-  #    fsType = "vfat";
-  #  };
+  #fileSystems."/boot" = { 
+  #  device = "/dev/disk/by-uuid/6fdbf2ee-b8d1-498f-a944-f0c62285651b";
+  #  fsType = "ext4";
+  #};
 
-  #swapDevices =
-  #  [ { device = "/dev/disk/by-uuid/7e45a1fd-3ec4-4f5d-871b-4eee120b456f"; }
-  #  ];
+  swapDevices = [ 
+    { 
+      device = "/dev/disk/by-uuid/1cf3d766-b4ca-4cb8-9a0d-c3e930497a06"; 
+    }
+  ];
+
+  boot.loader.systemd-boot.enable = true;
+  boot.loader.efi.canTouchEfiVariables = true;
+  boot.loader.efi.efiSysMountPoint = "/boot/efi";
+
+  services.throttled.enable = lib.mkDefault true;
+
+  #boot.loader.grub.enable = true;
+  #boot.loader.grub.version = 2;
+  #boot.loader.grub.devices = [ "nodev" ];
+  #boot.loader.grub.efiSupport = true;
+  #boot.loader.grub.useOSProber = true;
 
 }
