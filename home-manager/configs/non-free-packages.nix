@@ -8,9 +8,11 @@
     "idea-ultimate"
     "grammarly"
     "matte-black-violet-theme"
-    "zoom-us"
+    "zoom"
     "reaper"
     "faac"
+    "spotify"
+    "bitwig-studio"
   ];
 
   home.packages = with pkgs; [

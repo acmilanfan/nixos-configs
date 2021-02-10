@@ -6,7 +6,6 @@
     arandr
     ranger
     httpie
-    adoptopenjdk-bin
     pavucontrol
     playerctl
     imv

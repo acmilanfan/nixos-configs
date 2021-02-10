@@ -11,6 +11,7 @@ in {
   home.packages = [
     unstable.tdesktop
     unstable.jetbrains.idea-ultimate
+    unstable.jdk
   ];
 
 }
