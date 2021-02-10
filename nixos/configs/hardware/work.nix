@@ -1,4 +1,4 @@
-{ lib, ... }: {
+{ lib, pkgs, ... }: {
 
   boot.initrd.luks.devices = {
     root = {
@@ -35,6 +35,8 @@
   boot.loader.efi.efiSysMountPoint = "/boot/efi";
 
   services.throttled.enable = lib.mkDefault true;
+
+  boot.kernelPackages = pkgs.linuxPackages_latest;
 
   #boot.loader.grub.enable = true;
   #boot.loader.grub.version = 2;
