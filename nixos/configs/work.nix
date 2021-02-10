@@ -3,6 +3,7 @@
   imports =
     [ 
       ./default.nix
+      ./bootloader-work.nix
       ./hardware/default.nix
       ./hardware/work.nix
     ];
