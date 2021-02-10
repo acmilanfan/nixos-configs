@@ -2,7 +2,6 @@
 
   imports =
     [ 
-      ./bootloader.nix
       ./hosts.nix
       ./networking.nix
       ./system-packages.nix
