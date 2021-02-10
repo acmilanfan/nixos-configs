@@ -3,6 +3,7 @@
   imports =
     [
       ./default.nix
+      ./bootloader-home.nix
       ./xserver-wacom.nix
       ./hardware/default.nix
       ./hardware/home.nix
