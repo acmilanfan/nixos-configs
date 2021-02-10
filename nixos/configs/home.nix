@@ -7,6 +7,7 @@
       ./xserver-wacom.nix
       ./hardware/default.nix
       ./hardware/home.nix
+      ./home-manager-home.nix
       #./hardware/games.nix
     ];
 

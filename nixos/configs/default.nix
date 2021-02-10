@@ -16,8 +16,7 @@
       ./awesome.nix
       ./gc.nix
       ./unfree-packages.nix
-      ./home-manager.nix
     ];
 
-  system.stateVersion = "20.03";
+  system.stateVersion = "20.09";
 }

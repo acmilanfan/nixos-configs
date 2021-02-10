@@ -6,6 +6,7 @@
       ./bootloader-work.nix
       ./hardware/default.nix
       ./hardware/work.nix
+      ./home-manager-work.nix
     ];
 
   networking.hostName = "ashumailov-nixos";
