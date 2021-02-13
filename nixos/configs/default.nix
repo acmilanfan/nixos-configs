@@ -14,6 +14,7 @@
       ./xserver.nix
       ./gnome.nix
       ./awesome.nix
+      ./sway.nix
       ./gc.nix
       ./unfree-packages.nix
     ];

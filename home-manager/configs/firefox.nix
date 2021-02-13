@@ -16,6 +16,7 @@
 #            pkgs.nur.repos.rycee.firefox-addons.buildFirefoxXpiAddon;
 #          })
 #      );
+    package = pkgs.firefox-wayland;
     profiles = {
       default = {
         isDefault = true;

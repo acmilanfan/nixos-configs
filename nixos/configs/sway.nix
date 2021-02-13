@@ -7,23 +7,23 @@
       swayidle
       swaybg
       xwayland
-      waybar
       mako
-      rofi
       light
       slurp
       grim
       wl-clipboard
       kitty
       imv
-      rofi-pass
-      (import (fetchTarball "channel:nixos-unstable") {}).redshift-wlr
-      (import (fetchTarball "channel:nixos-unstable") {}).clipman
+      libappindicator
+      gammastep 
+      (import (fetchTarball "channel:nixos-unstable") {}).swappy
+      (import (fetchTarball "channel:nixos-unstable") {}).waybar
     ];
     extraSessionCommands = ''
       export SDL_VIDEODRIVER=wayland
       export _JAVA_AWT_WM_NONREPARENTING=1
     '';
+    wrapperFeatures.gtk = true;
   };
 
   environment = {
@@ -31,7 +31,6 @@
       "sway/config".source = ./../../dotfiles/sway/config;
       "xdg/waybar/config".source = ./../../dotfiles/waybar/config;
       "xdg/waybar/style.css".source = ./../../dotfiles/waybar/style.css;
-      "xdg//style.css".source = ./../../dotfiles/waybar/style.css;
     };
   };
 }
