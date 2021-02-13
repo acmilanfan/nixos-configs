@@ -26,5 +26,5 @@
 
   programs.home-manager.enable = true;
 
-  home.stateVersion = "20.03";
+  home.stateVersion = "20.09";
 }
