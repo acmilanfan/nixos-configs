@@ -13,6 +13,9 @@
     "faac"
     "spotify"
     "bitwig-studio"
+    "genymotion"
+    "android-studio-stable"
+    "teamviewer"
   ];
 
   home.packages = with pkgs; [

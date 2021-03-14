@@ -2,7 +2,8 @@
 
   nix.gc = {
     automatic = true;
-    dates = "*:0/60";
+    dates = "weekly";
+    options = "--delete-older-than 30d";
   };
 
   systemd.services.nix-gc.unitConfig.ConditionACPower = true;

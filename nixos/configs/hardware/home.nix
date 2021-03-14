@@ -1,4 +1,4 @@
-{ ... }: {
+{ pkgs, ... }: {
 
   boot.supportedFilesystems = [ "ntfs" ];
 
@@ -28,7 +28,5 @@
   boot.loader.grub.devices = [ "nodev" ];
   boot.loader.grub.efiSupport = true;
   boot.loader.grub.useOSProber = true;
-
-  boot.kernelPackages = pkgs.linuxPackages_4_19;
 
 }

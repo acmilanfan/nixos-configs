@@ -4,9 +4,10 @@
     wine-staging
     guitarix
     musescore
-    audacity
     ardour
-    reaper
+    bitwig-studio3
+    carla
+    libjack2
   ];
 
 }

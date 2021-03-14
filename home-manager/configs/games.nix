@@ -1,10 +1,10 @@
 { pkgs, ... }: {
 
   home.packages = with pkgs; [
-    wine-staging
-    winetricks
+    #wine-staging
+    #winetricks
     #appimage-run
-    #wineWowPackages.staging
+    wineWowPackages.staging
     #lutris
     #lutris-free
   ];

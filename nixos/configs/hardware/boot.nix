@@ -8,8 +8,9 @@
   boot.kernelParams = [
     "nouveau.modeset=0"
     "i915.enable_fbc=1"
-    "i915.enable_psr=2"
+    "i915.enable_psr=0"
   ];
 
+  boot.kernelPackages = pkgs.linuxPackages_latest;
 
 }

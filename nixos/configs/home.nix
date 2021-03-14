@@ -8,6 +8,7 @@
       ./hardware/default.nix
       ./hardware/home.nix
       ./home-manager-home.nix
+      ./music.nix
       #./hardware/games.nix
     ];
 
