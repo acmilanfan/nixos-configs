@@ -2,11 +2,19 @@
   
   sound.enable = true;
   hardware.pulseaudio = {
-    enable = true;
-    package = pkgs.pulseaudioFull;
+    enable = false;
     extraModules = [ pkgs. pulseaudio-modules-bt ];
   };
 
-  nixpkgs.config.pulseaudio = true;
+  services.pipewire = {
+    enable = true;
+    alsa.enable = true;
+    alsa.support32Bit = true;
+    jack.enable = true;
+    pulse.enable = true;
+    socketActivation = true;
+  };
+
+    environment.systemPackages = with pkgs; [ pamixer ];
 
 }
