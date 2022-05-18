@@ -9,7 +9,7 @@
 
   services.tlp.enable = false;
   security.sudo.extraConfig = ''
-    andrei  ALL=(ALL) NOPASSWD: ${pkgs.systemd}/bin/systemctl
+    gentooway  ALL=(ALL) NOPASSWD: ${pkgs.systemd}/bin/systemctl
   '';
 
   musnix = {
@@ -36,7 +36,7 @@
   #  ];
   #};
 
-  users.users.andrei.extraGroups = [ "jackaudio" "audio" ];
+  users.users.gentooway.extraGroups = [ "jackaudio" "audio" ];
 }
 
 
