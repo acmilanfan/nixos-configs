@@ -1,12 +1,12 @@
 { pkgs, ... }: {
 
-  services.xserver.desktopManager.gnome3.enable = true;
+  services.xserver.desktopManager.gnome.enable = true;
 
-  services.gnome3 = {
+  services.gnome = {
     #todo
   };
 
-  environment.gnome3.excludePackages = with pkgs.gnome3; [
+  environment.gnome.excludePackages = with pkgs.gnome3; [
     totem
     gnome-software
     cheese

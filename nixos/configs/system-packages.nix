@@ -8,6 +8,7 @@
     pciutils
     usbutils
     openconnect
+    cudatoolkit
   ];
 
   programs.light.enable = true;

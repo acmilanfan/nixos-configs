@@ -4,7 +4,7 @@
     [
       ./default.nix
       ./bootloader-home.nix
-      ./xserver-wacom.nix
+      #./xserver-wacom.nix
       ./hardware/default.nix
       ./hardware/home.nix
       ./home-manager-home.nix
@@ -14,9 +14,9 @@
 
   networking.hostName = "nixos";
 
-  users.users.andrei = {
+  users.users.gentooway = {
     isNormalUser = true;
-    extraGroups = [ "wheel" "networkmanager" "video" "audio" ];
+    extraGroups = [ "wheel" "networkmanager" "video" "audio" "plugdev" ];
   };
 
 }

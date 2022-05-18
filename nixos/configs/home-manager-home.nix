@@ -4,6 +4,6 @@
     <home-manager/nixos>
   ];
 
-  home-manager.users.andrei = import ./../../home-manager/home.nix;
+  home-manager.users.gentooway = import ./../../home-manager/home.nix;
 
 }

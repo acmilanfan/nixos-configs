@@ -5,6 +5,7 @@
     ./tlp.nix
     ./boot.nix
     ./ssd.nix
+    ./games.nix
   ]; 
 
   nix.maxJobs = lib.mkDefault 8;

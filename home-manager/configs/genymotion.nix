@@ -3,9 +3,9 @@
 let
 
   packages = with pkgs; [
-    libpulseaudio libsForQt5.qca-qt5 stdenv.cc.cc zlib glib xorg.libX11 libxkbcommon xorg.libXmu xorg.libXi xorg.libXext libGL xorg.libxcb fontconfig.lib freetype 
+    libpulseaudio libsForQt5.qca-qt5 stdenv.cc.cc zlib glib xorg.libX11 libxkbcommon xorg.libXmu xorg.libXi xorg.libXext libGL xorg.libxcb fontconfig.lib freetype systemd 
   ];
-  libPath = pkgs.stdenv.lib.makeLibraryPath packages;
+  libPath = pkgs.lib.makeLibraryPath packages;
 
 in {
 
@@ -14,17 +14,17 @@ in {
   packageOverrides = pkgs: {
     genymotion = pkgs.genymotion.overrideAttrs ( 
       _: rec { 
-        version = "3.1.1"; 
+        version = "3.2.1"; 
         src = pkgs.fetchurl {
           url = "https://dl.genymotion.com/releases/genymotion-${version}/genymotion-${version}-linux_x64.bin";
           name = "genymotion-${version}-linux_x64.bin";
-          sha256 = "1hk2cwqss7b9pfh8gcdzk2mlh5fkq434cwa95g9n2yrajr74y7rz";
+          sha256 = "0lz4pl2mh77d297dn2z22l65wy5n3mihx35b76yynwlcz18k69y8";
         };
         
-        nativeBuildInputs = [ pkgs.qt5.wrapQtAppsHook pkgs.qt5.qttools pkgs.which ];
+      nativeBuildInputs = [ pkgs.qt5.wrapQtAppsHook pkgs.qt5.qttools pkgs.which ];
 
       buildInputs = [ pkgs.makeWrapper pkgs.xdg_utils ];
-       
+
       fixupPhase = ''
         patchInterpreter() {
          patchelf --set-interpreter "$(cat $NIX_CC/nix-support/dynamic-linker)" \
@@ -49,7 +49,7 @@ in {
          patchTool glewinfo
         '';
 
-        installPhase = ''
+      installPhase = ''
           mkdir -p $out/bin $out/libexec
           mv genymotion $out/libexec/
 

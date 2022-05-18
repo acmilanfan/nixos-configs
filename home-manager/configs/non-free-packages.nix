@@ -16,6 +16,13 @@
     "genymotion"
     "android-studio-stable"
     "teamviewer"
+    "steam"
+    "steam-original"
+    "steam-runtime"
+    "discord"
+    "spotify-unwrapped"
+    "obsidian"
+    "electron"
   ];
 
   home.packages = with pkgs; [
@@ -23,5 +30,6 @@
     skypeforlinux
     sublime3
     zoom-us
+    spotify
   ];
 }

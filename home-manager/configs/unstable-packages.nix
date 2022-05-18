@@ -13,9 +13,11 @@ in {
 
   home.packages = [
     unstable.tdesktop
-    unstable.jetbrains.idea-ultimate
+    #unstable.jetbrains.idea-ultimate
+    pkgs.jetbrains.idea-ultimate
     #genymotionPkgs.genymotion
     unstable.jdk
+    unstable.notion-app-enhanced
   ];
 
 }
