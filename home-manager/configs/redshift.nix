@@ -2,7 +2,9 @@
 
   services.redshift = {
     enable = true;
-    provider = "geoclue2";
+    provider = "manual";
+    latitude = 52.494865;
+    longitude = 13.353801;
     tray = true;
     temperature = {
       day = 6000;
