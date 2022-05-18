@@ -20,5 +20,5 @@
       #./printing.nix
     ];
 
-  system.stateVersion = "20.09";
+  system.stateVersion = "21.11";
 }

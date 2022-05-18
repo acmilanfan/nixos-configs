@@ -12,7 +12,6 @@
       ./awesome.nix
       ./kitty.nix
       ./nur.nix
-      #./games.nix
       ./gtk.nix
       ./xsession.nix
       ./xscreensaver.nix
@@ -25,5 +24,5 @@
 
   programs.home-manager.enable = true;
 
-  home.stateVersion = "20.09";
+  home.stateVersion = "21.11";
 }
