@@ -12,7 +12,7 @@
       ubuntu_font_family
       inconsolata
       unifont
-      opensans-ttf
+      open-sans
     ];
     enableDefaultFonts = true;
   };

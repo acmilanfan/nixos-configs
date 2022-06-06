@@ -11,7 +11,6 @@
     gnome-software
     cheese
     geary
-    gnome-photos
     gnome-contacts
     gnome-calendar
     gnome-maps

@@ -1,10 +1,9 @@
 { pkgs, ... }: {
 
-  xsession = {
-    pointerCursor = {
-      package = pkgs.vanilla-dmz;
-      name = "Vanilla-DMZ";
-    };
+  home.pointerCursor = {
+    x11.enable = true;
+    package = pkgs.vanilla-dmz;
+    name = "Vanilla-DMZ";
   };
 
 }
