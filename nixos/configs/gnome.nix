@@ -6,6 +6,8 @@
     #todo
   };
 
+  environment.systemPackages = with pkgs; [ gnome.adwaita-icon-theme gnome.gnome-themes-extra ];
+
   environment.gnome.excludePackages = with pkgs.gnome3; [
     totem
     gnome-software

@@ -6,9 +6,10 @@
     MOZ_USE_XINPUT2="1";
 
     #todo wayland config
-    #MOZ_ENABLE_WAYLAND="1";
-    #QT_QPA_PLATFORM="wayland";
-    #QT_WAYLAND_DISABLE_WINDOWDECORATION="1";
+    MOZ_ENABLE_WAYLAND="1";
+    QT_QPA_PLATFORM="wayland";
+    QT_WAYLAND_DISABLE_WINDOWDECORATION="1";
+    #WLR_DRM_NO_MODIFIERS="1";
   };
 
   environment.shellAliases = {

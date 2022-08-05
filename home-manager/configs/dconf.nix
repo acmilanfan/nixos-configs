@@ -19,6 +19,7 @@
       gtk-im-module="gtk-im-context-simple";
       gtk-theme="Adwaita-dark";
       show-battery-percentage=false;
+      color-scheme="prefer-dark";
     };
     "org/gnome/desktop/wm/preferences" = {
       auto-raise=false;

@@ -7,8 +7,8 @@
     tree 
     pciutils
     usbutils
-    openconnect
-    cudatoolkit
+    #openconnect
+    killall
   ];
 
   programs.light.enable = true;
