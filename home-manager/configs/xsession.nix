@@ -6,4 +6,5 @@
     name = "Vanilla-DMZ";
   };
 
+  xsession.enable = true;
 }

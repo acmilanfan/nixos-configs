@@ -14,7 +14,7 @@
       ./nur.nix
       ./gtk.nix
       ./xsession.nix
-      ./xscreensaver.nix
+      ./screenlock.nix
       ./dconf.nix
       ./ssh.nix
       ./gpg.nix

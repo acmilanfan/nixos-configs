@@ -18,8 +18,14 @@
       gammastep 
       wdisplays
       clipman
-      (import (fetchTarball "channel:nixos-unstable") {}).flameshot
-      (import (fetchTarball "channel:nixos-unstable") {}).waybar
+      wlogout
+      cliphist
+      nwg-drawer
+      poweralertd
+      kanshi
+      #flameshot
+      waybar
+      #(import (fetchTarball "channel:nixos-unstable") {}).waybar
     ];
     extraSessionCommands = ''
       export SDL_VIDEODRIVER=wayland
