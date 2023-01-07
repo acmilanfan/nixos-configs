@@ -9,20 +9,22 @@
     pavucontrol
     playerctl
     imv
-    rofi-pass
     grim
     slurp
     kitty
+    alacritty
     ranger
     networkmanagerapplet
     gnome3.polari
     chromium
     nixfmt
-    #safeeyes
     mpv
     audacious
     htop
     partition-manager
+    pcmanfm
+    konsole
+    dolphin
   ];
 
   programs.firefox.enable = true;
