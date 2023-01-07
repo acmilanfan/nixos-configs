@@ -9,14 +9,23 @@
       source-code-pro
       roboto
       roboto-mono
+      roboto-slab
       ubuntu_font_family
       inconsolata
       unifont
       open-sans
+#      noto-fonts
     ];
     enableDefaultFonts = true;
   };
 
-  fonts.fontconfig.defaultFonts.monospace = [ "Roboto Mono" ];
+  fonts.fontconfig = {
+      hinting.autohint = true;
+      defaultFonts = {
+        monospace = [ "Roboto Mono Medium 13" ];
+        sansSerif = [ "Roboto Medium 13" ];
+        serif = [ "Roboto Slab Medium 13" "Inter 13" ];
+    };
+  };
 
 }

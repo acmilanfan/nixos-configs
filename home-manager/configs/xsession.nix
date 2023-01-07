@@ -2,8 +2,9 @@
 
   home.pointerCursor = {
     x11.enable = true;
-    package = pkgs.vanilla-dmz;
-    name = "Vanilla-DMZ";
+    package = pkgs.libsForQt5.breeze-gtk;
+    name = "breeze_cursors";
+    size = 16;
   };
 
   xsession.enable = true;
