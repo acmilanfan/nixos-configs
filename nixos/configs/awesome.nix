@@ -6,4 +6,6 @@
     luaModules = [ pkgs.luaPackages.lgi ];
   };
 
+  services.picom.enable = true;
+
 }
