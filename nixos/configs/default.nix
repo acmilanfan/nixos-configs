@@ -13,6 +13,8 @@
       ./timezone.nix
       ./xserver.nix
       ./gnome.nix
+      ./qt.nix
+      #./kde.nix
       ./awesome.nix
       #./sway.nix
       ./gc.nix
@@ -20,5 +22,5 @@
       #./printing.nix
     ];
 
-  system.stateVersion = "22.05";
+  system.stateVersion = "22.11";
 }
