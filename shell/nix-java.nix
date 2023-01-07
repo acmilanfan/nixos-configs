@@ -9,7 +9,7 @@ let fhs = pkgs.buildFHSUserEnv {
   name = "java-maven-env";
   targetPkgs = pkgs: (with pkgs;
     [
-      maven zlib pam gdb xorg.libXext xorg.libX11 xorg.libXrender xorg.libXtst xorg.libXi freetype gradle 
+      maven zlib pam gdb xorg.libXext xorg.libX11 xorg.libXrender xorg.libXtst xorg.libXi freetype gradle libaio numactl ncurses5
     ]);
   runScript = "bash";
 };
