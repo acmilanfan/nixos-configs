@@ -4,15 +4,13 @@
     vimHugeX
     git
     arandr
-    ranger
     httpie
     pavucontrol
     playerctl
+    kitty
     imv
     grim
     slurp
-    kitty
-    alacritty
     ranger
     networkmanagerapplet
     gnome3.polari
@@ -25,6 +23,7 @@
     pcmanfm
     konsole
     dolphin
+    lf
   ];
 
   programs.firefox.enable = true;
