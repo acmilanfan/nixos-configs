@@ -11,6 +11,7 @@
       ./rofi.nix
       ./awesome.nix
       ./kitty.nix
+      ./alacritty.nix
       ./nur.nix
       ./gtk.nix
       ./xsession.nix
@@ -20,6 +21,8 @@
       ./gpg.nix
       ./git-common.nix
       ./services.nix
+      ./shell.nix
+      ./neovim.nix
       #./kde.nix
   ];
 

@@ -1,4 +1,4 @@
-{ ... }: {
+{ pkgs, ... }: {
 
   environment.variables = {
     BROWSER="firefox";
@@ -16,5 +16,10 @@
     # todo move it to home manager or expose through environment variable
     repass = "PASSWORD_STORE_DIR=$HOME/configs/secrets pass";
   };
+
+  programs.zsh.enable = true;
+  environment.pathsToLink = [ "/share/zsh" ];
+  environment.shells = with pkgs; [ zsh ];
+  users.defaultUserShell = pkgs.zsh;
 
 }
