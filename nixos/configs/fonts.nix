@@ -21,6 +21,7 @@
 
   fonts.fontconfig = {
       hinting.autohint = true;
+      hinting.style = "hintfull";
       defaultFonts = {
         monospace = [ "Roboto Mono Medium 13" ];
         sansSerif = [ "Roboto Medium 13" ];
