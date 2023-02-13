@@ -7,7 +7,8 @@
     tree 
     pciutils
     usbutils
-    #openconnect
+    openconnect
+    curlFull
     killall
   ];
 
