@@ -23,6 +23,7 @@
       ./services.nix
       ./shell.nix
       ./neovim.nix
+      ./ideavim.nix
       #./kde.nix
   ];
 
