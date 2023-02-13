@@ -2,7 +2,7 @@
 
 buildGoModule rec {
   pname = "obs-cli";
-  version = "6bb6b06c959514f71344bd096e5d279f5463eb14";
+  version = "v0.5.0";
 
   src = fetchFromGitHub {
     owner = "muesli";
@@ -16,7 +16,7 @@ buildGoModule rec {
   meta = with lib; {
     description =
       "OBS-cli is a command-line remote control for OBS";
-    homepage = "https://gitlab.com/muesli/obs-cli";
+    homepage = "https://github.com/muesli/obs-cli";
     license = licenses.mit;
     platforms = platforms.linux;
     maintainers = with maintainers; [ acmilanfan ];
