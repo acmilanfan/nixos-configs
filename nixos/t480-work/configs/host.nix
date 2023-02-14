@@ -1,0 +1,5 @@
+{ ... }: {
+
+  networking.hostName = "ashumailov-nixos";
+
+}

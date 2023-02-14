@@ -16,11 +16,9 @@
       intel-media-driver
     ];
   };
-  #environment.sessionVariables.LIBVA_DRIVER_NAME = "radeonsi";
 
   hardware.cpu.intel.updateMicrocode =
     lib.mkDefault config.hardware.enableRedistributableFirmware;
-
 
   boot.kernelParams = [
     "nouveau.modeset=0"

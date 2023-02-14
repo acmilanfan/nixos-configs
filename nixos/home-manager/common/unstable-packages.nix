@@ -16,7 +16,6 @@ in {
     unstable.jetbrains.idea-ultimate
     #genymotionPkgs.genymotion
     unstable.jdk
-    unstable.notion-app-enhanced
   ];
 
 }
