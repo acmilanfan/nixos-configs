@@ -25,7 +25,6 @@
       kanshi
       #flameshot
       waybar
-      #(import (fetchTarball "channel:nixos-unstable") {}).waybar
     ];
     extraSessionCommands = ''
       export SDL_VIDEODRIVER=wayland
