@@ -1,10 +1,5 @@
 { pkgs, ... }: {
 
-#  programs.bash = {
-#    enable = true;
-#    historyIgnore = [ "ls", "cd", "exit" "tree" ];
-#    historySize = 50000;
-#  };
   home.packages = with pkgs; [
     zsh-you-should-use
   ];
@@ -18,7 +13,7 @@
     shellAliases = {
       ll = "ls -l";
       cup = "sudo nix-channel --update";
-      sup = "sudo nixos-rebuild switch --upgrade -I nixos-config=$HOME/nixos-configs/nixos/configuration.nix";
+      sup = "sudo nixos-rebuild switch --upgrade -I nixos-config=$HOME/configs/nixos-configs/nixos/configuration.nix";
     };
     initExtra = ''
       autoload -U colors && colors
@@ -28,7 +23,7 @@
       zmodload zsh/complist
       compinit
       _comp_options+=(globdots)
-      
+
       # Use vim keys in tab complete menu
       export KEYTIMEOUT=1
       bindkey -M menuselect 'h' vi-backward-char
@@ -38,12 +33,12 @@
       bindkey -v '^?' backward-delete-char
       # Change cursor shape for different vi modes.
       function zle-keymap-select {
-        if [[ $\{KEYMAP\} == vicmd ]] ||
+        if [[ ''${KEYMAP} == vicmd ]] ||
            [[ $1 = 'block' ]]; then
           echo -ne '\e[1 q'
-        elif [[ $\{KEYMAP\} == main ]] ||
-             [[ $\{KEYMAP\} == viins ]] ||
-             [[ $\{KEYMAP\} = \'\' ]] ||
+        elif [[ ''${KEYMAP} == main ]] ||
+             [[ ''${KEYMAP} == viins ]] ||
+             [[ ''${KEYMAP} = \'\' ]] ||
              [[ $1 = 'beam' ]]; then
           echo -ne '\e[5 q'
         fi
