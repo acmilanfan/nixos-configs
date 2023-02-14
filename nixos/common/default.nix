@@ -10,7 +10,6 @@
     ./gnome.nix
     ./hosts.nix
     ./networking.nix
-    ./qt.nix
     ./services.nix
     ./sound.nix
     ./system-packages.nix

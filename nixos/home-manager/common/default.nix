@@ -15,6 +15,7 @@
     ./nur.nix
     ./packages.nix
     ./password-store.nix
+    ./qt.nix
     ./redshift.nix
     ./rofi.nix
     ./screenlock.nix
