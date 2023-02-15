@@ -2,7 +2,9 @@
 
   nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [
     "corefonts"
-    "hplip"
+    "cudatoolkit"
+    "nvidia-x11"
+    "nvidia-settings"
   ];
 
 }
