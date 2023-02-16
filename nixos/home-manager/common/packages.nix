@@ -1,7 +1,6 @@
 { pkgs, ... }: {
 
   home.packages = with pkgs; [
-    vimHugeX
     git
     arandr
     httpie
@@ -12,7 +11,6 @@
     grim
     slurp
     networkmanagerapplet
-    gnome3.polari
     chromium
     nixfmt
     mpv

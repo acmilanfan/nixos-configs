@@ -14,6 +14,7 @@
       inconsolata
       unifont
       open-sans
+      nerdfonts
 #      noto-fonts
     ];
     enableDefaultFonts = true;

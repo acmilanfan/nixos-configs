@@ -2,14 +2,14 @@
 
   environment.systemPackages = with pkgs; [
     wget 
-    vim 
-    acpi 
+    acpi
     tree 
     pciutils
     usbutils
     openconnect
     curlFull
     killall
+    xclip
   ];
 
 }
