@@ -13,6 +13,7 @@
     shellAliases = {
       ll = "ls -l";
       alacritty = "WINIT_X11_SCALE_FACTOR=1.3 alacritty";
+      oi = "vim -c 'lcd ~/org' ~/org/index.org";
       cup = "sudo nix-channel --update";
       sup = "sudo nixos-rebuild switch --upgrade -I nixos-config=$HOME/configs/nixos-configs/nixos/$NIX_SYSTEM/configuration.nix";
     };
