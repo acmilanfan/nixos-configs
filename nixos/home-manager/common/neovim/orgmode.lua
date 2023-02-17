@@ -1,7 +1,7 @@
 lua << EOF
 
 require('org-bullets').setup()
-require('headlines').setup()
+--require('headlines').setup()
 
 require('orgmode').setup_ts_grammar()
 require('orgmode').setup({

@@ -1,6 +1,7 @@
 { pkgs, config, lib, ... }:
 
 let
+  unstable = import <unstable> { };
   customPlugins = pkgs.callPackage ./neovim/plugins.nix {
     inherit (pkgs.vimUtils) buildVimPluginFrom2Nix;
   };
@@ -10,7 +11,7 @@ in {
     enable = true;
     vimAlias = true;
     withNodeJs = true;
-    plugins = with pkgs.vimPlugins; [
+    plugins = with unstable.vimPlugins; [
       {
         plugin = (nvim-treesitter.withPlugins (plugins: with plugins; [
           tree-sitter-bash
@@ -78,6 +79,14 @@ in {
         plugin = comment-nvim;
         config = lib.readFile ./neovim/comment.lua;
       }
+      {
+        plugin = wilder-nvim;
+        config = lib.readFile ./neovim/wilder.lua;
+      }
+      {
+        plugin = which-key-nvim;
+        config = lib.readFile ./neovim/which-key.lua;
+      }
     ];
     extraConfig = ''
       nnoremap yy "+yy
@@ -91,7 +100,19 @@ in {
 
       set clipboard+=unnamedplus
       set nu rnu
+      set conceallevel=2
+      set concealcursor=nc
+      set shiftwidth=2
+      set tabstop=2
+      set autoindent
+      set smartindent
+
       let mapleader = " "
+
+      nnoremap <leader>ff <cmd>Telescope find_files<cr>
+      nnoremap <leader>fg <cmd>Telescope live_grep<cr>
+      nnoremap <leader>fb <cmd>Telescope buffers<cr>
+      nnoremap <leader>fh <cmd>Telescope help_tags<cr>
     '';
   };
 
