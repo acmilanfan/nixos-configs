@@ -7,6 +7,12 @@ require('orgmode').setup_ts_grammar()
 require('orgmode').setup({
   org_agenda_files = { '~/org/*', '~/org/**/*' },
   org_default_notes_file = '~/org/refile.org',
+  org_todo_keywords = { 'TODO(t)', 'DOING(p)', 'HOLD(h)', '|', 'DONE(d)', 'SKIP(s)' },
+  org_todo_keyword_faces = {
+    DOING = ':foreground orange :slant italic :underline on :weight bold',
+    HOLD = ':foreground grey :weight bold',
+    SKIP = ':foreground purple :weight bold',
+  }
 })
 
 vim.api.nvim_create_autocmd('FileType', {
@@ -23,7 +29,7 @@ require('legendary').setup({
     {
       function()
         --doSomeStuff()
-      -- todo add my agenda query functions
+        -- todo add my agenda query functions
       end,
       description = 'Do some stuff with a Lua function!',
     },
