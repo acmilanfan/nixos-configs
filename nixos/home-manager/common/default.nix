@@ -3,7 +3,6 @@
   imports = [
     ./alacritty.nix
     ./awesome.nix
-    ./emacs.nix
     ./dconf.nix
     ./firefox.nix
     ./git-common.nix
