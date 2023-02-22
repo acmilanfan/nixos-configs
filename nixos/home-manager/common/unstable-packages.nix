@@ -1,15 +1,4 @@
-{ config, pkgs, ... }:
-
-let 
-  unstable = import <unstable> { 
-    config = {
-      allowUnfree = true; 
-    }; 
-  };
-
-  #genymotionPkgs = import <nixpkgs> { config = import ./genymotion.nix; };
-
-in {
+{ config, unstable, ... }: {
 
   home.packages = [
     unstable.tdesktop

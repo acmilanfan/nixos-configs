@@ -1,9 +1,4 @@
-{ pkgs, ... }: {
-
-  imports =
-    [
-      <musnix>
-    ];
+{ pkgs, musnix, ... }: {
 
   environment.systemPackages = with pkgs; [ pavucontrol qjackctl carla libjack2 jack2 jack2Full jack_capture ];
 

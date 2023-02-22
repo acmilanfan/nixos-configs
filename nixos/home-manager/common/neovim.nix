@@ -1,7 +1,6 @@
-{ pkgs, config, lib, ... }:
+{ pkgs, config, lib, unstable, ... }:
 
 let
-  unstable = import <unstable> { };
   customPlugins = pkgs.callPackage ./neovim/plugins.nix {
     inherit (pkgs.vimUtils) buildVimPluginFrom2Nix;
   };
