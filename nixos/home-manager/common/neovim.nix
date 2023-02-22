@@ -101,7 +101,6 @@ in {
       set clipboard+=unnamedplus
       set nu rnu
       set conceallevel=2
-      set concealcursor=nc
       set shiftwidth=2
       set tabstop=2
       set autoindent

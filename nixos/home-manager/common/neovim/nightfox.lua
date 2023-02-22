@@ -2,6 +2,7 @@ lua << EOF
 
 require('nightfox').setup({
   options = {
+    dim_inactive = true;
     styles = {
       comments = "italic",
       keywords = "bold",
@@ -10,6 +11,6 @@ require('nightfox').setup({
   }
 })
 
-vim.cmd("colorscheme nightfox")
+vim.cmd("colorscheme nordfox")
 
 EOF
