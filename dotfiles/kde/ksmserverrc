@@ -1,0 +1,20 @@
+[$Version]
+update_info=ksmserver_update_loginMode_value.upd:ksmserver_update_loginMode_value_default_enum
+
+[LegacySession: saved at previous logout]
+count=0
+
+[Session: saved at previous logout]
+clientId1=101a61c216d1c2000167275752200000020630005
+clientId2=101a61c216d1c2000167276006400000020630014
+count=2
+discardCommand1[$e]=rm,$HOME/.config/session/konsole_101a61c216d1c2000167275752200000020630005_1672858002_648519
+discardCommand2[$e]=rm,$HOME/.config/session/konsole_101a61c216d1c2000167276006400000020630014_1672858002_648570
+program1=/run/current-system/sw/bin/konsole
+program2=/run/current-system/sw/bin/konsole
+restartCommand1=/run/current-system/sw/bin/konsole,-session,101a61c216d1c2000167275752200000020630005_1672858002_648519,-name,konsole
+restartCommand2=/run/current-system/sw/bin/konsole,-session,101a61c216d1c2000167276006400000020630014_1672858002_648570,-name,konsole
+restartStyleHint1=0
+restartStyleHint2=0
+userId1=ashumailov
+userId2=ashumailov

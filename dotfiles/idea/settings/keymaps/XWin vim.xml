@@ -1,0 +1,72 @@
+<keymap version="1" name="XWin vim" parent="Default for XWin">
+  <action id="Android.Designer.AutoArrange" />
+  <action id="ChangesView.ToggleCommitUi" />
+  <action id="CheckinProject" />
+  <action id="ConvertJavaToKotlin" />
+  <action id="EditorDown">
+    <keyboard-shortcut first-keystroke="down" />
+    <keyboard-shortcut first-keystroke="ctrl j" />
+  </action>
+  <action id="EditorLeft">
+    <keyboard-shortcut first-keystroke="left" />
+    <keyboard-shortcut first-keystroke="ctrl h" />
+  </action>
+  <action id="EditorRight">
+    <keyboard-shortcut first-keystroke="right" />
+    <keyboard-shortcut first-keystroke="ctrl l" />
+  </action>
+  <action id="EditorUp">
+    <keyboard-shortcut first-keystroke="up" />
+    <keyboard-shortcut first-keystroke="ctrl k" />
+  </action>
+  <action id="FindNext">
+    <keyboard-shortcut first-keystroke="f3" />
+  </action>
+  <action id="Git.Commit.Stage" />
+  <action id="InsertLiveTemplate" />
+  <action id="List-selectNextColumnExtendSelection">
+    <keyboard-shortcut first-keystroke="shift right" />
+  </action>
+  <action id="MoveLineDown">
+    <keyboard-shortcut first-keystroke="shift alt down" />
+    <keyboard-shortcut first-keystroke="shift alt j" />
+  </action>
+  <action id="MoveLineUp">
+    <keyboard-shortcut first-keystroke="shift alt up" />
+    <keyboard-shortcut first-keystroke="shift alt k" />
+  </action>
+  <action id="MoveStatementDown">
+    <keyboard-shortcut first-keystroke="shift ctrl down" />
+    <keyboard-shortcut first-keystroke="shift ctrl alt j" />
+  </action>
+  <action id="MoveStatementUp">
+    <keyboard-shortcut first-keystroke="shift ctrl up" />
+    <keyboard-shortcut first-keystroke="shift ctrl alt k" />
+  </action>
+  <action id="NextTab">
+    <keyboard-shortcut first-keystroke="alt right" />
+    <keyboard-shortcut first-keystroke="shift alt l" />
+  </action>
+  <action id="PreviousTab">
+    <keyboard-shortcut first-keystroke="alt left" />
+    <keyboard-shortcut first-keystroke="shift alt h" />
+  </action>
+  <action id="SelectAllOccurrences" />
+  <action id="SelectNextOccurrence" />
+  <action id="Table-selectNextColumnExtendSelection">
+    <keyboard-shortcut first-keystroke="shift right" />
+  </action>
+  <action id="Table-selectPreviousColumnExtendSelection">
+    <keyboard-shortcut first-keystroke="shift left" />
+  </action>
+  <action id="TableResult.UnselectPreviousOccurrence" />
+  <action id="Terminal.ClearBuffer" />
+  <action id="Tree-selectParentExtendSelection">
+    <keyboard-shortcut first-keystroke="shift left" />
+  </action>
+  <action id="TypeHierarchy" />
+  <action id="TypeHierarchyBase.BaseOnThisType" />
+  <action id="UnselectPreviousOccurrence" />
+  <action id="Vcs.Log.FocusTextFilter" />
+  <action id="context.load" />
+</keymap>

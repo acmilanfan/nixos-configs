@@ -1,0 +1,11 @@
+com.github.leomillon.uuidgenerator
+org.intellij.plugins.hcl
+IdeaVIM
+io.openapiprocessor.intellij
+au.com.glassechidna.luanalysis
+com.crunch42.openapi
+org.jetbrains.plugins.go
+dev.flikas.idea.spring.boot.assistant.plugin
+com.intellij.lang.jsgraphql
+dev.arunkumar.scabbard.idea-plugin
+nix-idea

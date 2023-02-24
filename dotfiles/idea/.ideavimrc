@@ -1,0 +1,104 @@
+set number relativenumber
+set idearefactormode=keep
+set ideajoin
+set surround
+set easymotion
+set surround
+set multiple-cursors
+set highlightedyank
+set commentary
+set argtextobj
+set textobj-entire
+set vim-paragraph-motion
+set textobj-indent
+set exchange
+set visualbell
+
+let mapleader = " "
+
+" Show a few lines of context around the cursor. Note that this makes the
+" text scroll if you mouse-click near the start or end of the window.
+set scrolloff=5
+
+" Do incremental searching.
+set incsearch
+set ignorecase
+
+" Don't use Ex mode, use Q for formatting.
+map Q gq
+
+sethandler <C-h> n:ide
+sethandler <C-v> i:ide
+sethandler <C-e> n:ide
+sethandler <C-E> n:ide
+sethandler <C-h> n:ide
+sethandler <C-j> n:ide
+sethandler <C-k> n:ide
+sethandler <C-l> n:ide
+
+set NERDTree
+let g:NERDTreeMapActivateNode='l'
+let g:NERDTreeMapJumpParent='h'
+
+" clipboard
+nnoremap yy "+yy
+vnoremap y "+y
+nnoremap p "+p
+vnoremap p "+p
+nnoremap P "+P
+vnoremap P "+P
+nnoremap dd "+dd
+vnoremap d "+d
+
+" scrolling
+nmap <leader>d <C-d>
+nmap <leader>u <C-u>
+vmap <leader>d <C-d>
+vmap <leader>u <C-u>
+
+" actions
+nmap <leader>k <action>(PreviousTab)
+nmap <leader>j <action>(NextTab)
+nmap <leader>i <action>(Generate)
+nmap <leader>m <action>(Git.Menu)
+nmap <leader>/ <action>(ShowErrorDescription)
+nmap <leader>e <action>(GotoNextError)
+nmap g] :action GotoImplementation<CR>
+
+nnoremap <c-t> :action ActivateTerminalToolWindow<CR>
+nnoremap <leader>t :action Terminal.OpenInTerminal<CR>
+nnoremap <c-z> :action ToggleDistractionFreeMode<CR>
+nnoremap <leader>q :action CloseContent<CR>
+nnoremap <leader>qa :action CloseAllEditors<CR>
+nnoremap <leader>zc :action CollapseAllRegions<CR>
+nnoremap <leader>zo :action ExpandAllRegions<CR>
+nnoremap <leader>u :action FindUsages<CR>
+nnoremap <c-p> :action JumpToLastWindow<CR>
+nnoremap <c-x> :action HideAllWindows<CR>
+nnoremap <leader>rt :action ContextRun<CR>
+nnoremap <leader>ra :action RunClass<CR>
+nnoremap <leader>rr :action Rerun<CR>
+nnoremap <leader>ft :action RerunFailedTests<CR>
+nnoremap <leader>rd :action ContextDebug<CR>
+
+map <leader>cn :action RenameElement<CR>
+map <leader>cp :action Move<CR>
+map <leader>si <Action>(SelectIn)
+map <leader>w <Action>(EditorSelectWord)
+map <leader>a <Action>(AnalyzeActionsPopup)
+
+map <C-o> <Action>(Back)
+map <C-i> <Action>(Forward)
+map g; <Action>(JumpToLastChange)
+map g, <Action>(JumpToNextChange)
+
+noremap <Left>  <NOP>
+noremap <Right> <NOP>
+noremap <Up>    <NOP>
+noremap <Down>  <NOP>
+vnoremap <Left>  <NOP>
+vnoremap <Right> <NOP>
+vnoremap <Up>    <NOP>
+vnoremap <Down>  <NOP>
+
+" Dont forget to remap Up, Down, Left, Right in keymap settings
