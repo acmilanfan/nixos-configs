@@ -31,11 +31,11 @@
         inherit system;
         specialArgs = { inherit inputs; };
         modules = [
-          ./legion5/configuration.nix
+          ./nixos/legion5/configuration.nix
           home-manager.nixosModules.home-manager {
             home-manager.useGlobalPkgs = true;
             home-manager.useUserPackages = true;
-            home-manager.users.gentooway = import ./legion5/home.nix;
+            home-manager.users.gentooway = import ./nixos/legion5/home.nix;
             home-manager.extraSpecialArgs = {
               inherit pkgs;
               inherit unstable;

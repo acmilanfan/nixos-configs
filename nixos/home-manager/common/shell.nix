@@ -14,7 +14,8 @@
       ll = "ls -l";
       alacritty = "WINIT_X11_SCALE_FACTOR=1.3 alacritty";
       oi = "vim -c 'lcd ~/org' ~/org/index.org";
-      sup = "sudo nixos-rebuild switch --upgrade --flake $HOME/configs/nixos-configs/nixos/# --impure";
+      up = "cd $HOME/configs/nixos-configs && nix flake update";
+      sup = "sudo nixos-rebuild switch --flake $HOME/configs/nixos-configs/#nixos --impure";
     };
     initExtra = ''
       autoload -U colors && colors
