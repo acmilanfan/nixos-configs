@@ -1,7 +1,7 @@
 { config, ... }: {
 
-  home.file.".password-store".source = /home/gentooway/configs/nixos-configs/secrets;
-  home.file.".password-store".recursive = true;
+  #home.file.".password-store".source = /home/ashumailov/configs/nixos-configs/secrets;
+  #home.file.".password-store".recursive = true;
 
   # todo make it work
   #programs.password-store = {
