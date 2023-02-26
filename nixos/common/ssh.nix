@@ -1,8 +1,7 @@
 { ... }: {
 
   programs.ssh = {
-    enable = true;
-    #todo configs
+    startAgent = true;
   };
 
 }

@@ -12,6 +12,7 @@
     ./networking.nix
     ./services.nix
     ./sound.nix
+    ./ssh.nix
     ./system-packages.nix
     ./timezone.nix
     ./unfree-packages.nix
