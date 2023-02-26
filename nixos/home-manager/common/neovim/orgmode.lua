@@ -7,6 +7,7 @@ require('orgmode').setup_ts_grammar()
 local org = require('orgmode').setup({
   org_agenda_files = { '~/org/*', '~/org/**/*' },
   org_default_notes_file = '~/org/refile.org',
+  org_tags_column = 0,
   org_todo_keywords = { 'TODO(t)', 'DOING(p)', 'HOLD(h)', 'IDEA(i)', '|', 'DONE(d)', 'SKIP(s)' },
   org_todo_keyword_faces = {
     DOING = ':foreground orange :slant italic :underline on :weight bold',
