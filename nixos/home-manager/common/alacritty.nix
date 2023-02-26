@@ -4,7 +4,7 @@
     enable = true;
     settings = {
       font = {
-        size = 15;
+        size = 13;
       };
       selection = {
         save_to_clipboard = true;
