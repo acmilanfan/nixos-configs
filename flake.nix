@@ -27,7 +27,7 @@
       lib = nixpkgs.lib;
     in {
     nixosConfigurations = {
-      nixos = lib.nixosSystem {
+      legion5 = lib.nixosSystem {
         inherit system;
         specialArgs = { inherit inputs; };
         modules = [
@@ -44,6 +44,25 @@
           }
           musnix.nixosModules.musnix
           nixos-hardware.nixosModules.common-cpu-amd
+          nixos-hardware.nixosModules.common-pc-laptop
+          nixos-hardware.nixosModules.common-pc-laptop-ssd
+        ];
+      };
+      t480-work = lib.nixosSystem {
+        inherit system;
+        specialArgs = { inherit inputs; };
+        modules = [
+          ./nixos/t480-work/configuration.nix
+          home-manager.nixosModules.home-manager {
+            home-manager.useGlobalPkgs = true;
+            home-manager.useUserPackages = true;
+            home-manager.users.ashumailov = import ./nixos/t480-work/home.nix;
+            home-manager.extraSpecialArgs = {
+              inherit pkgs;
+              inherit unstable;
+              inherit system;
+            };
+          }
           nixos-hardware.nixosModules.common-pc-laptop
           nixos-hardware.nixosModules.common-pc-laptop-ssd
         ];

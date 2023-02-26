@@ -3,28 +3,31 @@
   boot.initrd.luks.devices = {
     root = {
       name = "root";
-      device = "/dev/disk/by-uuid/36076a85-1aea-4d36-b9c8-607209ce05d0";
+      device = "/dev/disk/by-uuid/751b5532-933e-410d-92ed-c6d3e6726ec8";
       preLVM = true;
       allowDiscards = true;
     };
   };
 
   fileSystems."/" = { 
-    device = "/dev/disk/by-uuid/b53e5cd0-e812-430b-a007-9755f36ef797";
+    device = "/dev/disk/by-uuid/3076190a-cd62-442f-ada1-fbb1bed899d8";
     fsType = "ext4";
   };
 
-  fileSystems."/boot/efi" = { 
-    device = "/dev/disk/by-uuid/F4FE-B7DA";
+  fileSystems."/home" = { 
+    device = "/dev/disk/by-uuid/8e39877c-72af-41d0-a546-103f9f2e10a6";
+    fsType = "ext4";
+  };
+
+  fileSystems."/boot" = { 
+    device = "/dev/disk/by-uuid/BED8-662D";
     fsType = "vfat";
   };
 
   swapDevices = [
     { 
-      device = "/dev/disk/by-uuid/1cf3d766-b4ca-4cb8-9a0d-c3e930497a06"; 
+      device = "/dev/disk/by-uuid/15353a9b-6cc2-405d-a80b-5bb7e1052c3d"; 
     }
   ];
-
-  boot.loader.efi.efiSysMountPoint = "/boot/efi";
 
 }

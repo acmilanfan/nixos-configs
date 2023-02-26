@@ -1,7 +1,7 @@
 { ... }: 
 
 let 
-  secrets = import ./../../../secrets/secrets.nix;
+  secrets = import /home/ashumailov/configs/nixos-configs/secrets/secrets.nix;
 in {
   programs.git = {
     enable = true;
