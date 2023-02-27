@@ -8,9 +8,20 @@
     home-manager.url = "github:nix-community/home-manager/release-22.11";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
     nixos-hardware.url = "github:NixOS/nixos-hardware/master";
+    nix-doom-emacs.url = "github:nix-community/nix-doom-emacs";
   };
 
-  outputs = inputs@{ self, nixpkgs, unstable-nixpkgs, musnix, nur, home-manager, nixos-hardware, ... }:
+  outputs = inputs@{
+    self,
+    nixpkgs,
+    unstable-nixpkgs,
+    musnix,
+    nur,
+    home-manager,
+    nixos-hardware,
+    nix-doom-emacs,
+    ...
+  }:
     let
       system = "x86_64-linux";
 
@@ -40,6 +51,7 @@
               inherit pkgs;
               inherit unstable;
               inherit system;
+              inherit inputs;
             };
           }
           musnix.nixosModules.musnix
@@ -61,6 +73,7 @@
               inherit pkgs;
               inherit unstable;
               inherit system;
+              inherit inputs;
             };
           }
           nixos-hardware.nixosModules.common-pc-laptop

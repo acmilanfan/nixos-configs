@@ -4,6 +4,7 @@
     ./alacritty.nix
     ./awesome.nix
     ./dconf.nix
+    ./doom.nix
     ./firefox.nix
     ./git-common.nix
     ./gpg.nix
