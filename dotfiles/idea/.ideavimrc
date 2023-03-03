@@ -34,6 +34,7 @@ sethandler <C-E> n:ide
 sethandler <C-h> n:ide
 sethandler <C-j> n:ide
 sethandler <C-k> n:ide
+sethandler <C-k> i:ide
 sethandler <C-l> n:ide
 
 set NERDTree
@@ -80,6 +81,9 @@ nnoremap <leader>ra :action RunClass<CR>
 nnoremap <leader>rr :action Rerun<CR>
 nnoremap <leader>ft :action RerunFailedTests<CR>
 nnoremap <leader>rd :action ContextDebug<CR>
+nnoremap <leader>ff :action Vcs.UpdateProject<CR>
+
+" todo add map open and reopen projects
 
 map <leader>cn :action RenameElement<CR>
 map <leader>cp :action Move<CR>
