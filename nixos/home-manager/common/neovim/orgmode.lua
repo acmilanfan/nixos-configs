@@ -15,6 +15,24 @@ local org = require('orgmode').setup({
     HOLD = ':foreground grey :weight bold',
     SKIP = ':foreground purple :weight bold',
     IDEA = ':foreground green :slant italic',
+  },
+  org_capture_templates = {
+    t = { description = 'Task', template = '* TODO %?\n  %u' },
+    l = {
+      description = 'YouTube low importance',
+      target = '~/org/consume/youtube.org',
+      template = '** TODO %?\n%u\n:PROPERTIES:\n:Link: [[%x]]\n:Rating:\n:Importance: 3\n:Duration: \n:Revisiting: No\n:Created: %U\n:END:\n'
+    },
+    m = {
+      description = 'YouTube med importance',
+      target = '~/org/consume/youtube.org',
+      template = '** TODO %?\n%u\n:PROPERTIES:\n:Link: [[%x]]\n:Rating:\n:Importance: 4\n:Duration: \n:Revisiting: No\n:Created: %U\n:END:\n'
+    },
+    h = {
+      description = 'YouTube high importance',
+      target = '~/org/consume/youtube.org',
+      template = '** TODO %?\n%u\n:PROPERTIES:\n:Link: [[%x]]\n:Rating:\n:Importance: 5\n:Duration: \n:Revisiting: No\n:Created: %U\n:END:\n'
+    },
   }
 })
 
