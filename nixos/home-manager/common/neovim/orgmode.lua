@@ -9,30 +9,18 @@ local org = require('orgmode').setup({
   org_default_notes_file = '~/org/refile.org',
   org_tags_column = 0,
   org_hide_emphasis_markers = true,
-  org_todo_keywords = { 'TODO(t)', 'DOING(p)', 'HOLD(h)', 'IDEA(i)', '|', 'DONE(d)', 'SKIP(s)' },
+  org_todo_keywords = { 'TODO(t)', 'DOING(p)', 'HOLD(h)', 'IDEA(i)', 'NOTE(n)', '|', 'DONE(d)', 'SKIP(s)' },
   org_todo_keyword_faces = {
     DOING = ':foreground orange :slant italic :underline on :weight bold',
     HOLD = ':foreground grey :weight bold',
     SKIP = ':foreground purple :weight bold',
     IDEA = ':foreground green :slant italic',
+    NOTE = ':foreground yellow :weight bold',
   },
   org_capture_templates = {
     t = { description = 'Task', template = '* TODO %?\n  %u' },
-    l = {
-      description = 'YouTube low importance',
-      target = '~/org/consume/youtube.org',
-      template = '** TODO %?\n%u\n:PROPERTIES:\n:Link: [[%x]]\n:Rating:\n:Importance: 3\n:Duration: \n:Revisiting: No\n:Created: %U\n:END:\n'
-    },
-    m = {
-      description = 'YouTube med importance',
-      target = '~/org/consume/youtube.org',
-      template = '** TODO %?\n%u\n:PROPERTIES:\n:Link: [[%x]]\n:Rating:\n:Importance: 4\n:Duration: \n:Revisiting: No\n:Created: %U\n:END:\n'
-    },
-    h = {
-      description = 'YouTube high importance',
-      target = '~/org/consume/youtube.org',
-      template = '** TODO %?\n%u\n:PROPERTIES:\n:Link: [[%x]]\n:Rating:\n:Importance: 5\n:Duration: \n:Revisiting: No\n:Created: %U\n:END:\n'
-    },
+    i = { description = 'Idea', template = '* IDEA %?\n  %u' },
+    n = { description = 'Note', template = '* NOTE %?\n  %u' },
   }
 })
 
