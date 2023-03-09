@@ -12,8 +12,12 @@
     autocd = true;
     shellAliases = {
       ll = "ls -l";
+      gs = "git status";
+      gp = "git pull";
       alacritty = "WINIT_X11_SCALE_FACTOR=1.3 alacritty";
       oi = "vim -c 'lcd ~/org' ~/org/index.org";
+      os = "(cd ~/org && git pull)";
+      op = "(cd ~/org && git add . && git commit -m \"Sync\" && git push)";
       up = "cd $HOME/configs/nixos-configs && nix flake update";
       sup = "sudo nixos-rebuild switch --flake $HOME/configs/nixos-configs/#$NIX_SYSTEM --impure";
     };
