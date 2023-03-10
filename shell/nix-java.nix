@@ -18,7 +18,7 @@ in pkgs.stdenv.mkDerivation {
   nativeBuildInputs = [ fhs ];
   shellHook = ''
     export LANG=en_US.UTF-8 
-    unset TZ
+    export TZ=Europe/Berlin
     exec java-maven-env
   '';
 }
