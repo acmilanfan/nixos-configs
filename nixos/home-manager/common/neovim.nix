@@ -42,6 +42,7 @@ in {
       customPlugins.headlines-nvim
       legendary-nvim
       diffview-nvim
+      nord-nvim
       {
         plugin = lualine-nvim;
         config = lib.readFile ./neovim/lualine.lua;
