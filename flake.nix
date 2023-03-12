@@ -81,6 +81,25 @@
           nixos-hardware.nixosModules.common-pc-laptop-ssd
         ];
       };
+      t480-home = lib.nixosSystem {
+        inherit system;
+        specialArgs = { inherit inputs; };
+        modules = [
+          ./nixos/t480-home/configuration.nix
+          home-manager.nixosModules.home-manager {
+            home-manager.useGlobalPkgs = true;
+            home-manager.useUserPackages = true;
+            home-manager.users.gentooway = import ./nixos/t480-home/home.nix;
+            home-manager.extraSpecialArgs = {
+              inherit pkgs;
+              inherit unstable;
+              inherit system;
+              inherit inputs;
+            };
+          }
+          nixos-hardware.nixosModules.lenovo-thinkpad-t480
+        ];
+      };
     };
   };
 
