@@ -21,6 +21,7 @@ local org = require('orgmode').setup({
     t = { description = 'Task', template = '* TODO %?\n  %u' },
     i = { description = 'Idea', template = '* IDEA %?\n  %u' },
     n = { description = 'Note', template = '* NOTE %?\n  %u' },
+    j = { description = 'Journal', template = '** %u day journal\n %?', target = '~/org/journal/journal.org' },
   }
 })
 
