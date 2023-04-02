@@ -3,6 +3,13 @@
   programs.alacritty = {
     enable = true;
     settings = {
+      key_bindings = [
+        {
+          key = "I";
+          mods = "Control";
+          chars = "\\x1b[105;5u";
+        }
+      ];
       font = {
         size = 13;
       };
