@@ -11,7 +11,6 @@
     grim
     slurp
     networkmanagerapplet
-    chromium
     nixfmt
     mpv
     audacious
@@ -21,6 +20,7 @@
     konsole
     dolphin
     lf
+    libreoffice
   ];
 
 }
