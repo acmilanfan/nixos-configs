@@ -18,8 +18,8 @@
     src = fetchFromGitHub {
       owner = "akinsho";
       repo = "org-bullets.nvim";
-      rev = "f71ac901fca4b52c9aebe6f0f5899d9f38162d46";
-      sha256 = "0d2mgy8jpykp7krbqq4mbwa44nx3p4c2pn7aqflnlzp00q1k1rdx";
+      rev = "d5a91e06d0a6bb0dd865cb3d0d69555e63a32de3";
+      sha256 = "077fiyc0db45h7lin2maigzyv5ixzdxfa61r9v5pxvhsqap0b3lh";
     };
   };
 
@@ -29,8 +29,8 @@
     src = fetchFromGitHub {
       owner = "lukas-reineke";
       repo = "headlines.nvim";
-      rev = "1cd93a641c03419bb255f8b3fe734451517763b1";
-      sha256 = "1035jmy21in2vc56pcyvprwa0c1wg277vdad3cgx55aqsj3labqb";
+      rev = "6496b6229ce708253a906daed07067c1d32a427b";
+      sha256 = "0565b3h1i7zfdzkzymsqrxvqizgpyigrngx30wj0w48zzrzd6n8k";
     };
   };
 
