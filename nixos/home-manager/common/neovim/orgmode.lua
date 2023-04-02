@@ -31,32 +31,66 @@ vim.api.nvim_create_autocmd('FileType', {
   callback = function()
     vim.keymap.set('n', '<leader>tp', require('telescope').extensions.orgmode.refile_heading)
     vim.keymap.set('n', '<leader>ts', require('telescope').extensions.orgmode.search_headings)
-    --vim.keymap.set('n', '<leader>cor', function()
-    --  org.agenda:tags({ todo_only = true, search = 'recurring' })
-    --end)
-    --vim.keymap.set('n', '<leader>cor',
-    --    function()
-    --      local AgendaSearchView = require('orgmode.agenda.views.search')
-    --      org.agenda:open_agenda_view(AgendaSearchView, 'search', { search = 'install' })
-    --    end
-    --)
-    --vim.keymap.set('n', '<leader>cor',
-    --    function() org.agenda:agenda({ org_agenda_start_day = '-3d', show_clock_report = true }) end
-    --)
+    vim.keymap.set('n', '<leader>os',
+        function()
+          local parseDate = function(date)
+            local Y, M, D, h, m, s = date:match("(%d+)-(%d+)-(%d+)T(%d+):(%d+):(%d+)")
+            if Y == nil then
+              error("Wrong ISO date format: " .. date)
+              return os.time()
+            end
+            return os.time({ year = Y, month = M, day = D, hour = h, min = m, sec = s })
+          end
+
+          local sort_todos = function(todos)
+            if todos == nil then
+              return {}
+            end
+            table.sort(todos, function(a, b)
+              local a_published = a:get_property('Published')
+              local a_created = a:get_property('Created')
+              local b_published = b:get_property('Published')
+              local b_created = b:get_property('Created')
+              if a_published and b_published then
+                return parseDate(a_published) < parseDate(b_published)
+              else
+                if a_created and b_created then
+                  return parseDate(a_created) < parseDate(b_created)
+                else
+                  if a:get_priority_sort_value() ~= b:get_priority_sort_value() then
+                    return a:get_priority_sort_value() > b:get_priority_sort_value()
+                  end
+                  return a.category < b.category
+                end
+              end
+            end)
+            return todos
+          end
+
+          local utils = require('orgmode.utils')
+          local AgendaTodosView = require('orgmode.agenda.views.todos')
+          AgendaTodosView.generate_view = function(items, content, filters, win_width)
+            items = sort_todos(items)
+
+            local offset = #content
+            local longest_category = utils.reduce(items, function(acc, todo)
+              return math.max(acc, vim.api.nvim_strwidth(todo:get_category()))
+            end, 0)
+
+            for i, headline in ipairs(items) do
+              if filters:matches(headline) then
+                table.insert(content, AgendaTodosView.generate_todo_item(headline, longest_category, i + offset, win_width))
+              end
+            end
+
+            return { items = items, content = content }
+          end
+
+          org.agenda.filters:parse('+youtube', true)
+          org.agenda:open_agenda_view(AgendaTodosView, 'todos', {})
+        end
+    )
   end,
 })
-
---require('legendary').setup({
---  keymaps = {
---    {
---      '<leader>con',
---      function() org.agenda:tags({ todo_only = true, search = '-recurring' }) end,
---      description = 'Not recurring TODO tasks',
---    },
---    {
---      itemgroup = 'orgmode queries',
---    },
---  },
---})
 
 EOF
