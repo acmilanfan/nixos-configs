@@ -20,6 +20,7 @@
       op = "(cd ~/org && git add . && git commit -m \"Sync\" && git push)";
       up = "cd $HOME/configs/nixos-configs && nix flake update";
       sup = "sudo nixos-rebuild switch --flake $HOME/configs/nixos-configs/#$NIX_SYSTEM --impure";
+      nb = "newsboat --url-file=~/org/rss";
     };
     initExtra = ''
       autoload -U colors && colors

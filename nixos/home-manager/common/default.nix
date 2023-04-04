@@ -25,6 +25,7 @@
     ./ssh.nix
     ./unstable-packages.nix
     ./xsession.nix
+    ./rss.nix
   ];
 
 }
