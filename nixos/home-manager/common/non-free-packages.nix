@@ -10,10 +10,12 @@
     "genymotion"
     "discord"
     "electron"
+    "spotify"
   ];
 
   home.packages = with pkgs; [
     slack
     zoom-us
+    spotify
   ];
 }
