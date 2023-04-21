@@ -10,6 +10,7 @@ in {
     enable = true;
     vimAlias = true;
     withNodeJs = true;
+    package = unstable.neovim-unwrapped;
     plugins = with unstable.vimPlugins; [
       {
         plugin = (nvim-treesitter.withPlugins (plugins: with plugins; [
