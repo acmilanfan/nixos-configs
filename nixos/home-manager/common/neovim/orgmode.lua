@@ -31,7 +31,7 @@ vim.api.nvim_create_autocmd('FileType', {
   callback = function()
     vim.keymap.set('n', '<leader>tp', require('telescope').extensions.orgmode.refile_heading)
     vim.keymap.set('n', '<leader>ts', require('telescope').extensions.orgmode.search_headings)
-    vim.keymap.set('n', '<leader>oft', function() org.agenda:tags({ todo_only = true, search = '-recurring-idea-work-youtube/TODO' }) end)
+    vim.keymap.set('n', '<leader>oft', function() org.agenda:tags({ todo_only = true, search = '-recurring-idea-work-youtube-article/TODO' }) end)
     vim.keymap.set('n', '<leader>ofi', function() org.agenda:tags({ todo_only = true, search = 'idea' }) end)
     vim.keymap.set('n', '<leader>os',
         function()
