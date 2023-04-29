@@ -77,7 +77,8 @@ laptop_monitor = os.getenv("LAPTOP_MONITOR")
 -- If you do not like this or do not have such a key,
 -- I suggest you to remap Mod4 to another key using xmodmap or other tools.
 -- However, you can use another modifier like Mod1, but it may interact with others.
-modkey = "Mod4"
+-- modkey = "Mod4"
+modkey = "Mod1"
 
 -- Table of layouts to cover with awful.layout.inc, order matters.
 awful.layout.layouts = {
@@ -140,7 +141,7 @@ menubar.utils.terminal = terminal -- Set the terminal for applications that requ
 
 -- Keyboard map indicator and switcher
 mykeyboardlayout = awful.widget.keyboardlayout()
-awful.key({ "Mod1" }, "space", function()
+awful.key({ modkey }, "space", function()
     mykeyboardlayout.next_layout();
 end)
 
@@ -497,12 +498,12 @@ globalkeys = gears.table.join(awful.key({ modkey, }, "s", hotkeys_popup.show_hel
         awful.tag.incncol(-1, nil, true)
     end,
         { description = "decrease the number of columns", group = "layout" }),
-    awful.key({ modkey, }, "space", function()
+    awful.key({ "Mod4", }, "space", function()
         awful.layout.inc(1)
     end,
         { description = "select next", group = "layout" }),
 
-    awful.key({ modkey, "Shift" }, "space", function()
+    awful.key({ "Mod4", "Shift" }, "space", function()
         awful.layout.inc(-1)
     end,
         { description = "select previous", group = "layout" }),
@@ -528,7 +529,7 @@ globalkeys = gears.table.join(awful.key({ modkey, }, "s", hotkeys_popup.show_hel
     end,
         { description = "run rofi top", group = "launcher" }),
 
-    awful.key({ modkey, "Mod1" }, "i", function()
+    awful.key({ modkey, "Mod4" }, "i", function()
         awful.spawn("rofi -show emoji -modi emoji")
     end,
         { description = "run rofi emoji", group = "launcher" }),
@@ -553,7 +554,7 @@ globalkeys = gears.table.join(awful.key({ modkey, }, "s", hotkeys_popup.show_hel
     end,
         { description = "launch rofi pulse select input", group = "launcher" }),
 
-    awful.key({ modkey, "Mod1" }, "c", function()
+    awful.key({ modkey, "Mod4" }, "c", function()
         awful.spawn("rofi -show calc -modi calc -no-show-match -no-sort")
     end,
         { description = "launch rofi calc", group = "launcher" }),
@@ -603,8 +604,9 @@ globalkeys = gears.table.join(awful.key({ modkey, }, "s", hotkeys_popup.show_hel
         { description = "show the menubar", group = "launcher" }),
 
     -- Lock screen
-    awful.key({ modkey, "Shift", "Control", "Mod1"}, "l", function()
-        awful.spawn("i3lock -n -c 000000")
+    awful.key({ modkey, "Shift", "Control", "Mod4"}, "l", function()
+        -- awful.spawn("i3lock -n -c 000000")
+        awful.spawn("xscreensaver-command --lock")
     end,
         { description = "Lock the screen", group = "screen" }))
 
@@ -718,7 +720,7 @@ end
 for i = 11, 19 do
     globalkeys = gears.table.join(globalkeys,
         -- View tag only.
-        awful.key({ modkey, "Mod1" }, "" .. (i - 10),
+        awful.key({ modkey, "Control" }, "" .. (i - 10),
             function()
                 local tag = awful.tag.find_by_name(nil, tostring(i))
                 if tag then
@@ -727,7 +729,7 @@ for i = 11, 19 do
             end,
             { description = "view tag #" .. i, group = "tag" }),
         -- Move client to tag.
-        awful.key({ "Mod1", modkey, "Shift" }, "" .. (i - 10),
+        awful.key({ "Control", modkey, "Shift" }, "" .. (i - 10),
             function()
                 if client.focus then
                     local tag = awful.tag.find_by_name(nil, tostring(i))
@@ -763,7 +765,7 @@ globalkeys = gears.table.join(globalkeys,
 
 globalkeys = gears.table.join(globalkeys,
     -- View tag only.
-    awful.key({ modkey, "Mod1" }, "" .. 0,
+    awful.key({ modkey, "Control" }, "" .. 0,
         function()
             local tag = awful.tag.find_by_name(nil, tostring(20))
             if tag then
@@ -772,7 +774,7 @@ globalkeys = gears.table.join(globalkeys,
         end,
         { description = "view tag #" .. 20, group = "tag" }),
     -- Move client to tag.
-    awful.key({ "Mod1", modkey, "Shift" }, "" .. 0,
+    awful.key({ "Control", modkey, "Shift" }, "" .. 0,
         function()
             if client.focus then
                 local tag = awful.tag.find_by_name(nil, tostring(20))
@@ -816,11 +818,11 @@ globalkeys = gears.table.join(globalkeys,
 	{ description = "Audio prev", group = "audio" }),
 
 
-    awful.key({ "Shift", "Mod1" }, "v", function ()
+    awful.key({ "Shift", modkey }, "v", function ()
         awful.util.spawn("rofi -modi \"clipboard:greenclip print\" -show clipboard -run-command '{cmd}'") end,
 	{ description = "Show clipboard selection menu", group = "clipboard" }),
 
-    awful.key({ "Shift", "Mod1" }, "p", function ()
+    awful.key({ "Shift", modkey }, "p", function ()
         awful.util.spawn("rofi-pass") end,
 	{ description = "Show pass selection menu", group = "password" }),
 
