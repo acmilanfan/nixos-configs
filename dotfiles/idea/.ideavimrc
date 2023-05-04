@@ -64,35 +64,41 @@ nmap <leader>i <action>(Generate)
 nmap <leader>m <action>(Git.Menu)
 nmap <leader>/ <action>(ShowErrorDescription)
 nmap <leader>e <action>(GotoNextError)
-nmap g] :action GotoImplementation<CR>
+nmap g] <action>(GotoImplementation)
+nmap <c-t> <action>(ActivateTerminalToolWindow)
+nmap <leader>t <action>(Terminal.OpenInTerminal)
+nmap <c-z> <action>(ToggleDistractionFreeMode)
+nmap <leader>q <action>(CloseContent)
+nmap <leader>qa <action>(CloseAllEditors)
+nmap <leader>zc <action>(CollapseAllRegions)
+nmap <leader>zo <action>(ExpandAllRegions)
+nmap <leader>u <action>(FindUsa)
+nmap <c-p> <action>(JumpToLastWindow)
+nmap <c-x> <action>(HideAllWindows)
+nmap <leader>rt <action>(ContextRun)
+nmap <leader>ra <action>(RunClass)
+nmap <leader>rr <action>(Rerun)
+nmap <leader>ft <action>(RerunFailedTests)
+nmap <leader>rd <action>(ContextDebug)
+nmap <leader>ff <action>(Vcs.UpdateProject)
+nmap <leader>fo <action>(ReformatCode)
+nmap <leader>fi <action>(ActivateProjectToolWindow)
+nmap <leader>he <action>(ShowIntentionActions)
+nmap <leader>aa <action>(GotoAction)
+nmap <leader>ca <action>(ActivateCommitToolWindow)
+nmap <leader>at <action>(VimFindActionIdAction)
 
-nnoremap <c-t> :action ActivateTerminalToolWindow<CR>
-nnoremap <leader>t :action Terminal.OpenInTerminal<CR>
-nnoremap <c-z> :action ToggleDistractionFreeMode<CR>
-nnoremap <leader>q :action CloseContent<CR>
-nnoremap <leader>qa :action CloseAllEditors<CR>
-nnoremap <leader>zc :action CollapseAllRegions<CR>
-nnoremap <leader>zo :action ExpandAllRegions<CR>
-nnoremap <leader>u :action FindUsages<CR>
-nnoremap <c-p> :action JumpToLastWindow<CR>
-nnoremap <c-x> :action HideAllWindows<CR>
-nnoremap <leader>rt :action ContextRun<CR>
-nnoremap <leader>ra :action RunClass<CR>
-nnoremap <leader>rr :action Rerun<CR>
-nnoremap <leader>ft :action RerunFailedTests<CR>
-nnoremap <leader>rd :action ContextDebug<CR>
-nnoremap <leader>ff :action Vcs.UpdateProject<CR>
-
+" todo group commands by keybind/action type
 " todo add map open and reopen projects
 
-map <leader>cn :action RenameElement<CR>
-map <leader>cp :action Move<CR>
-map <leader>si <Action>(SelectIn)
-map <leader>w <Action>(EditorSelectWord)
-map <leader>a <Action>(AnalyzeActionsPopup)
+map <leader>cn <action>(RenameElement)
+map <leader>cp <action>(Move)
+map <leader>si <action>(SelectIn)
+map <leader>w <action>(EditorSelectWord)
+map <leader>ac <action>(AnalyzeActionsPopup)
 
-map <C-o> <Action>(Back)
-map <C-i> <Action>(Forward)
+map <C-o> <action>(Back)
+map <C-i> <action>(Forward)
 map g; <Action>(JumpToLastChange)
 map g, <Action>(JumpToNextChange)
 
