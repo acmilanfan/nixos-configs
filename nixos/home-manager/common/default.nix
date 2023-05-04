@@ -22,7 +22,7 @@
     ./screenlock.nix
     ./services.nix
     ./shell.nix
-    ./ssh.nix
+#    ./ssh.nix
     ./unstable-packages.nix
     ./xsession.nix
     ./rss.nix
