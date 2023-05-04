@@ -114,6 +114,10 @@ in {
       nnoremap <leader>fb <cmd>Telescope buffers<cr>
       nnoremap <leader>fh <cmd>Telescope help_tags<cr>
       nnoremap <leader>nw <cmd>set wrap!<cr>
+      nnoremap <leader>se <cmd>setlocal spell spelllang=en<cr>
+      nnoremap <leader>sr <cmd>setlocal spell spelllang=ru<cr>
+      nnoremap <leader>sd <cmd>setlocal spell spelllang=de<cr>
+      nnoremap <leader>sc <cmd>setlocal spell spelllang=<cr>
       nnoremap <C-I> <C-I>
     '';
   };
