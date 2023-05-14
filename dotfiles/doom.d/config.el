@@ -50,6 +50,32 @@
             ("IDEA" . (:foreground "LimeGreen" :weight bold :slant italic)))
   ))
 
+(eval-when-compile (require 'cl))
+
+(defun cmp-date-property (prop)
+  (lexical-let ((prop prop))
+  #'(lambda (a b)
+    (let* ((a-pos (get-text-property 0 'org-marker a))
+           (b-pos (get-text-property 0 'org-marker b))
+           (a-date (or (org-entry-get a-pos prop)
+                       (format "<%s>" (org-read-date t nil "now"))))
+           (b-date (or (org-entry-get b-pos prop)
+                       (format "<%s>" (org-read-date t nil "now"))))
+           (cmp (compare-strings a-date nil nil b-date nil nil))
+           )
+      (if (eq cmp t) nil (signum cmp))
+      ))))
+
+(setq org-agenda-custom-commands
+	'(("h" . "youtube + tag searches")
+		("hl" tags-todo "+youtube+Focus=0+Importance=5"
+		  ((org-agenda-cmp-user-defined (cmp-date-property "Published"))
+      (org-agenda-sorting-strategy '(user-defined-up))))
+		("hh" tags-todo "+youtube+Focus=1+Importance=5"
+		  ((org-agenda-cmp-user-defined (cmp-date-property "Published"))
+      (org-agenda-sorting-strategy '(user-defined-up))))
+		))
+
 ;; (global-org-modern-mode)
 
 (setq doom-theme 'doom-nord)
