@@ -87,6 +87,12 @@ nmap <leader>he <action>(ShowIntentionActions)
 nmap <leader>aa <action>(GotoAction)
 nmap <leader>ca <action>(ActivateCommitToolWindow)
 nmap <leader>at <action>(VimFindActionIdAction)
+nmap <leader>nm <action>(ExtractMethod)
+vmap <leader>nm <action>(ExtractMethod)
+nmap <leader>nv <action>(IntroduceVariable)
+nmap <leader>nc <action>(IntroduceConstant)
+nmap <leader>nf <action>(IntroduceField)
+nmap <leader>np <action>(IntroduceParameter)
 
 " todo group commands by keybind/action type
 " todo add map open and reopen projects
