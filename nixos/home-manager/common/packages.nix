@@ -21,6 +21,7 @@
     dolphin
     lf
     libreoffice
+    ripgrep
   ];
 
 }
