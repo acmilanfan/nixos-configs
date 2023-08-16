@@ -3,6 +3,7 @@
   home.packages = [
     unstable.tdesktop
     unstable.jetbrains.idea-ultimate
+    unstable.jetbrains.idea-community
     # pkgs.jetbrains.idea-ultimate
     #genymotionPkgs.genymotion
     unstable.jdk

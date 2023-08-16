@@ -39,15 +39,15 @@
       lib = nixpkgs.lib;
     in {
     nixosConfigurations = {
-      legion5 = lib.nixosSystem {
+      z16 = lib.nixosSystem {
         inherit system;
         specialArgs = { inherit inputs; };
         modules = [
-          ./nixos/legion5/configuration.nix
+          ./nixos/z16/configuration.nix
           home-manager.nixosModules.home-manager {
             home-manager.useGlobalPkgs = true;
             home-manager.useUserPackages = true;
-            home-manager.users.gentooway = import ./nixos/legion5/home.nix;
+            home-manager.users.gentooway = import ./nixos/z16/home.nix;
             home-manager.extraSpecialArgs = {
               inherit pkgs;
               inherit unstable;
@@ -56,9 +56,7 @@
             };
           }
           musnix.nixosModules.musnix
-          nixos-hardware.nixosModules.common-cpu-amd
-          nixos-hardware.nixosModules.common-pc-laptop
-          nixos-hardware.nixosModules.common-pc-laptop-ssd
+          nixos-hardware.nixosModules.lenovo-thinkpad-z
         ];
       };
       t480-work = lib.nixosSystem {
