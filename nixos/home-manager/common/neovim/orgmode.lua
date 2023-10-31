@@ -5,8 +5,8 @@ require('org-bullets').setup()
 
 require('orgmode').setup_ts_grammar()
 local org = require('orgmode').setup({
-  org_agenda_files = { '~/org/*', '~/org/**/*' },
-  org_default_notes_file = '~/org/refile.org',
+  org_agenda_files = { '~/org/life/**/*', ('%s/*.org'):format(vim.fn.getcwd()) },
+  org_default_notes_file = '~/org/life/refile.org',
   org_tags_column = 0,
   org_hide_emphasis_markers = true,
   org_todo_keywords = { 'TODO(t)', 'DOING(p)', 'HOLD(h)', 'IDEA(i)', 'NOTE(n)', '|', 'DONE(d)', 'SKIP(s)' },
@@ -21,7 +21,7 @@ local org = require('orgmode').setup({
     t = { description = 'Task', template = '* TODO %?\n  %u' },
     i = { description = 'Idea', template = '* IDEA %?\n  %u' },
     n = { description = 'Note', template = '* NOTE %?\n  %u' },
-    j = { description = 'Journal', template = '** %u day journal\n %?', target = '~/org/journal/journal.org' },
+    j = { description = 'Journal', template = '** %u day journal\n %?', target = '~/org/life/journal/journal.org' },
   }
 })
 

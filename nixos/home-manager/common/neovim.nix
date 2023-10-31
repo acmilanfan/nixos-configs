@@ -11,24 +11,23 @@ in {
     vimAlias = true;
     withNodeJs = true;
     package = unstable.neovim-unwrapped;
+    extraPackages = with pkgs; [
+      tree-sitter
+      ripgrep
+      gopls
+      lua-language-server
+      nil
+      lazygit
+      go
+      fzf
+      fd
+      nodePackages.volar
+      nodePackages.typescript
+      nodePackages.typescript-language-server
+    ];
     plugins = with unstable.vimPlugins; [
       {
-        plugin = (nvim-treesitter.withPlugins (plugins: with plugins; [
-          tree-sitter-bash
-          tree-sitter-go
-          tree-sitter-hcl
-          tree-sitter-html
-          tree-sitter-http
-          tree-sitter-java
-          tree-sitter-javascript
-          tree-sitter-lua
-          tree-sitter-make
-          tree-sitter-markdown
-          tree-sitter-nix
-          tree-sitter-python
-          tree-sitter-sql
-          tree-sitter-org-nvim
-        ]));
+        plugin = nvim-treesitter.withAllGrammars;
         config = lib.readFile ./neovim/treesitter.lua;
       }
       vim-nix
@@ -44,6 +43,16 @@ in {
       legendary-nvim
       diffview-nvim
       nord-nvim
+      nvim-notify
+      luasnip
+      trouble-nvim
+      lazygit-nvim
+      plenary-nvim
+      telescope-symbols-nvim
+      vim-sleuth
+      telescope-fzf-native-nvim
+      nvim-lspconfig
+      cmp-nvim-lsp
       {
         plugin = lualine-nvim;
         config = lib.readFile ./neovim/lualine.lua;
@@ -81,45 +90,47 @@ in {
         config = lib.readFile ./neovim/comment.lua;
       }
       {
-        plugin = wilder-nvim;
-        config = lib.readFile ./neovim/wilder.lua;
-      }
-      {
         plugin = which-key-nvim;
         config = lib.readFile ./neovim/which-key.lua;
       }
+      {
+        plugin = noice-nvim;
+        config = lib.readFile ./neovim/noice.lua;
+      }
+      {
+        plugin = inc-rename-nvim;
+        config = lib.readFile ./neovim/inc-rename.lua;
+      }
+      {
+        plugin = fidget-nvim;
+        config = lib.readFile ./neovim/fidget.lua;
+      }
+      {
+        plugin = gitsigns-nvim;
+        config = lib.readFile ./neovim/gitsigns.lua;
+      }
+      {
+        plugin = go-nvim;
+        config = lib.readFile ./neovim/go.lua;
+      }
+      {
+        plugin = todo-comments-nvim;
+        config = lib.readFile ./neovim/todo-comments.lua;
+      }
+      {
+        plugin = harpoon;
+        config = lib.readFile ./neovim/harpoon.lua;
+      }
+      {
+        plugin = null-ls-nvim;
+        config = lib.readFile ./neovim/null-ls.lua;
+      }
+      {
+        plugin = nvim-autopairs;
+        config = lib.readFile ./neovim/autopairs.lua;
+      }
     ];
-    extraConfig = ''
-      nnoremap yy "+yy
-      vnoremap y "+y
-      nnoremap p "+p
-      vnoremap p "+p
-      nnoremap P "+P
-      vnoremap P "+P
-      nnoremap dd "+dd
-      vnoremap d "+d
-
-      set clipboard+=unnamedplus
-      set nu rnu
-      set conceallevel=2
-      set shiftwidth=2
-      set tabstop=2
-      set autoindent
-      set smartindent
-
-      let mapleader = " "
-
-      nnoremap <leader>ff <cmd>Telescope find_files<cr>
-      nnoremap <leader>fg <cmd>Telescope live_grep<cr>
-      nnoremap <leader>fb <cmd>Telescope buffers<cr>
-      nnoremap <leader>fh <cmd>Telescope help_tags<cr>
-      nnoremap <leader>nw <cmd>set wrap!<cr>
-      nnoremap <leader>se <cmd>setlocal spell spelllang=en<cr>
-      nnoremap <leader>sr <cmd>setlocal spell spelllang=ru<cr>
-      nnoremap <leader>sd <cmd>setlocal spell spelllang=de<cr>
-      nnoremap <leader>sc <cmd>setlocal spell spelllang=<cr>
-      nnoremap <C-I> <C-I>
-    '';
+    extraLuaConfig = lib.readFile ./neovim/config.lua;
   };
 
 }
