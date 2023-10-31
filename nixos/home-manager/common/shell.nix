@@ -15,7 +15,8 @@
       gs = "git status";
       gp = "git pull";
       alacritty = "WINIT_X11_SCALE_FACTOR=1.3 alacritty";
-      oi = "vim -c 'lcd ~/org' ~/org/index.org";
+      oi = "cd ~/org/life && vim ~/org/life/index.org";
+      yt = "cd ~/org/consume/youtube && vim ~/org/consume/youtube/youtube1.org";
       os = "(cd ~/org && git pull)";
       op = "(cd ~/org && git add . && git commit -m \"Sync\" && git push)";
       up = "cd $HOME/configs/nixos-configs && nix flake update";
