@@ -11,7 +11,7 @@
         }
       ];
       font = {
-        size = 13;
+        size = 12;
       };
       selection = {
         save_to_clipboard = true;
