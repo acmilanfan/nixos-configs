@@ -18,7 +18,8 @@
 #          })
 #      );
     #package = pkgs.firefox-wayland;
-    package = pkgs.firefox;
+    # package = pkgs.firefox;
+    package = pkgs.firefox-bin;
     profiles = {
       default = {
         isDefault = true;
