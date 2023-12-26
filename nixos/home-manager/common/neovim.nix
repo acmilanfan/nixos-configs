@@ -27,7 +27,26 @@ in {
     ];
     plugins = with unstable.vimPlugins; [
       {
-        plugin = nvim-treesitter.withAllGrammars;
+        plugin = (nvim-treesitter.withPlugins (plugins: with plugins; [
+          tree-sitter-bash
+          tree-sitter-go
+          tree-sitter-hcl
+          tree-sitter-html
+          tree-sitter-http
+          tree-sitter-java
+          tree-sitter-javascript
+          tree-sitter-typescript
+          tree-sitter-vue
+          tree-sitter-lua
+          tree-sitter-make
+          tree-sitter-markdown
+          tree-sitter-nix
+          tree-sitter-python
+          tree-sitter-sql
+          tree-sitter-org-nvim
+          tree-sitter-vim
+          tree-sitter-comment
+        ]));
         config = lib.readFile ./neovim/treesitter.lua;
       }
       vim-nix
