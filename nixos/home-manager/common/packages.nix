@@ -22,6 +22,7 @@
     lf
     libreoffice
     yt-dlp
+    google-chrome
   ];
 
 }
