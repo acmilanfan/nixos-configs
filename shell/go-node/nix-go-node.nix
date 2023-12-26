@@ -4,7 +4,7 @@ let fhs = pkgs.buildFHSUserEnv {
   name = "dev-env";
   targetPkgs = pkgs: (with pkgs;
     [
-      go nodejs yarn ungoogled-chromium
+      go nodejs yarn
     ]);
   runScript = "bash";
 };
