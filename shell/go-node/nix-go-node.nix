@@ -4,7 +4,7 @@ let fhs = pkgs.buildFHSUserEnv {
   name = "dev-env";
   targetPkgs = pkgs: (with pkgs;
     [
-      go nodejs yarn
+      go nodejs yarn sqlc gofumpt goimports-reviser jq
     ]);
   runScript = "bash";
 };
