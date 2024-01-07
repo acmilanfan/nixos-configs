@@ -5,10 +5,10 @@
     pname = "telescope-orgmode";
     version = "main";
     src = fetchFromGitHub {
-      owner = "joaomsa";
+      owner = "seflue";
       repo = "telescope-orgmode.nvim";
-      rev = "eabff061c3852a9aa94e672a7d2fa4a1ef63f9e2";
-      sha256 = "02mr0khz6in0hhqbdx4dy83hn47hjh5x43hq830fmjjvy2yviigy";
+      rev = "6e2a0876f27d0e991f325d0c443e2f1fe1765216";
+      sha256 = "0z6cflpbj79fppfyl60n008149qpwiqbk6aidy4xarm07w37aywx";
     };
   };
 

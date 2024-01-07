@@ -1,4 +1,4 @@
-{ pkgs, config, lib, unstable, ... }:
+{ pkgs, lib, unstable, ... }:
 
 let
   customPlugins = pkgs.callPackage ./neovim/plugins.nix {
@@ -17,6 +17,7 @@ in {
       gopls
       lua-language-server
       nil
+      sqls
       lazygit
       go
       fzf
@@ -24,6 +25,7 @@ in {
       nodePackages.volar
       nodePackages.typescript
       nodePackages.typescript-language-server
+      nodePackages.vscode-json-languageserver
     ];
     plugins = with unstable.vimPlugins; [
       {

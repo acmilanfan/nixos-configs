@@ -48,16 +48,16 @@ end, { desc = '[/] Fuzzily search in current buffer' })
 local hop = require('hop')
 local directions = require('hop.hint').HintDirection
 vim.keymap.set('', 'f', function()
-    hop.hint_char1({ direction = directions.AFTER_CURSOR, current_line_only = true })
+  hop.hint_char1({ direction = directions.AFTER_CURSOR, current_line_only = true })
 end, { remap = true })
 vim.keymap.set('', 'F', function()
-    hop.hint_char1({ direction = directions.BEFORE_CURSOR, current_line_only = true })
+  hop.hint_char1({ direction = directions.BEFORE_CURSOR, current_line_only = true })
 end, { remap = true })
 vim.keymap.set('', 't', function()
-    hop.hint_char1({ direction = directions.AFTER_CURSOR, current_line_only = true, hint_offset = -1 })
+  hop.hint_char1({ direction = directions.AFTER_CURSOR, current_line_only = true, hint_offset = -1 })
 end, { remap = true })
 vim.keymap.set('', 'T', function()
-    hop.hint_char1({ direction = directions.BEFORE_CURSOR, current_line_only = true, hint_offset = 1 })
+  hop.hint_char1({ direction = directions.BEFORE_CURSOR, current_line_only = true, hint_offset = 1 })
 end, { remap = true })
 
 vim.keymap.set('n', '<leader>cn', ':IncRename ')
@@ -117,13 +117,14 @@ vim.api.nvim_create_autocmd('LspAttach', {
     vim.api.nvim_buf_create_user_command(ev.buf, 'Format', function(_)
       vim.lsp.buf.format()
     end, { desc = 'Format current buffer with LSP' })
+    vim.keymap.set('n', '<leader>fo', vim.lsp.buf.format, opts)
   end,
 })
 
 local capabilities = vim.lsp.protocol.make_client_capabilities()
 capabilities = require('cmp_nvim_lsp').default_capabilities(capabilities)
 
-require'lspconfig'.gopls.setup {
+require 'lspconfig'.gopls.setup {
   capabilities = capabilities,
   settings = {
     gopls = {
@@ -135,7 +136,7 @@ require'lspconfig'.gopls.setup {
     },
   },
 }
-require'lspconfig'.lua_ls.setup {
+require 'lspconfig'.lua_ls.setup {
   settings = {
     Lua = {
       diagnostics = {
@@ -146,19 +147,25 @@ require'lspconfig'.lua_ls.setup {
     },
   },
 }
-require'lspconfig'.nil_ls.setup {
+require 'lspconfig'.nil_ls.setup {
   capabilities = capabilities,
 }
-require'lspconfig'.volar.setup {
+require 'lspconfig'.volar.setup {
   init_options = {
     typescript = {
       tsdk = ''
     },
   },
   capabilities = capabilities,
-  filetypes = {'typescript', 'javascript', 'javascriptreact', 'typescriptreact', 'vue', 'json'}
+  filetypes = { 'typescript', 'javascript', 'javascriptreact', 'typescriptreact', 'vue', 'json' }
 }
-require'lspconfig'.tsserver.setup {
+require 'lspconfig'.tsserver.setup {
+  capabilities = capabilities,
+}
+require 'lspconfig'.sqls.setup {
+  capabilities = capabilities,
+}
+require'lspconfig'.jsonls.setup {
   capabilities = capabilities,
 }
 
