@@ -65,6 +65,11 @@ vim.keymap.set('n', '<leader>cw', function()
   return ':IncRename ' .. vim.fn.expand('<cword>')
 end, { expr = true })
 
+vim.keymap.set("n", "<C-h>", ":NvimTreeToggle<cr>", { silent = true, noremap = true })
+vim.keymap.set("n", "<Leader>si", ":NvimTreeFindFile<cr>", { silent = true, noremap = true })
+
+vim.keymap.set("n", "<Leader>kk", function() require('notify').dismiss() end, {})
+
 vim.keymap.set('n', '<Leader>nw', ':set wrap!<cr>', {})
 vim.keymap.set('n', '<Leader>se', ':setlocal spell spelllang=en<cr>', {})
 vim.keymap.set('n', '<Leader>sr', ':setlocal spell spelllang=ru<cr>', {})
@@ -165,7 +170,7 @@ require 'lspconfig'.tsserver.setup {
 require 'lspconfig'.sqls.setup {
   capabilities = capabilities,
 }
-require'lspconfig'.jsonls.setup {
+require 'lspconfig'.jsonls.setup {
   capabilities = capabilities,
 }
 
