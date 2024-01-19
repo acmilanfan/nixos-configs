@@ -1,4 +1,4 @@
-{ pkgs, lib, ... }: {
+{ pkgs, ... }: {
 
   fonts = {
     fonts = with pkgs; [
@@ -24,9 +24,9 @@
       hinting.autohint = true;
       hinting.style = "hintfull";
       defaultFonts = {
-        monospace = [ "Roboto Mono Medium 13" ];
-        sansSerif = [ "Roboto Medium 13" ];
-        serif = [ "Roboto Slab Medium 13" "Inter 13" ];
+        monospace = [ "RobotoMono Nerd Font SemiBold 13" ];
+        sansSerif = [ "Roboto SemiBold 13" ];
+        serif = [ "Roboto Slab SemiBold 13" "Inter 13" ];
     };
   };
 
