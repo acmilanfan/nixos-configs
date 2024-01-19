@@ -10,6 +10,12 @@
     enableSyntaxHighlighting = true;
     defaultKeymap = "viins";
     autocd = true;
+    plugins = [
+      {
+        name = "zsh-nix-shell";
+        src = pkgs.zsh-nix-shell;
+      }
+    ];
     shellAliases = {
       ll = "ls -l";
       gs = "git status";
@@ -25,7 +31,7 @@
     };
     initExtra = ''
       autoload -U colors && colors
-      PS1="%B%{$fg[red]%}[%{$fg[yellow]%}%n%{$fg[green]%}@%{$fg[blue]%}%M %{$fg[magenta]%}%~%{$fg[red]%}]%{$reset_color%}$%b "
+      PS1="%B%{$fg[cyan]%}$IN_NIX_SHELL%{$fg[red]%}[%{$fg[yellow]%}%n%{$fg[green]%}@%{$fg[blue]%}%M %{$fg[magenta]%}%~%{$fg[red]%}]%{$reset_color%}$%b "
 
       zstyle ':completion:*' menu select
       zmodload zsh/complist
