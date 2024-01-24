@@ -25,6 +25,7 @@
     ./unstable-packages.nix
     ./xsession.nix
     ./rss.nix
+    ./tmux.nix
   ];
 
 }

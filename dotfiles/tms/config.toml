@@ -1,0 +1,17 @@
+search_paths = []
+
+[[search_dirs]]
+path = '/home/gentooway/IdeaProjects'
+depth = 3
+
+[[search_dirs]]
+path = '/home/gentooway/Work/IdeaProjects'
+depth = 3
+
+[[search_dirs]]
+path = '/home/gentooway/Projects'
+depth = 3
+
+[[search_dirs]]
+path = '/home/gentooway/configs'
+depth = 3
