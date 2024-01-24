@@ -5,7 +5,9 @@ let
     inherit (pkgs.vimUtils) buildVimPluginFrom2Nix;
   };
 in {
-  home.sessionVariables = { EDITOR = "nvim"; };
+  home.sessionVariables = {
+    EDITOR = "nvim";
+  };
   programs.neovim = {
     enable = true;
     vimAlias = true;
@@ -28,6 +30,27 @@ in {
       nodePackages.vscode-json-languageserver
     ];
     plugins = with unstable.vimPlugins; [
+      vim-nix
+      customPlugins.telescope-orgmode
+      vim-table-mode
+      sniprun
+      customPlugins.org-bullets
+      customPlugins.headlines-nvim
+      legendary-nvim
+      diffview-nvim
+      nord-nvim
+      nvim-notify
+      luasnip
+      trouble-nvim
+      lazygit-nvim
+      plenary-nvim
+      telescope-symbols-nvim
+      vim-sleuth
+      telescope-fzf-native-nvim
+      nvim-lspconfig
+      cmp-nvim-lsp
+      firenvim
+      vim-tmux-navigator
       {
         plugin = (nvim-treesitter.withPlugins (plugins: with plugins; [
           tree-sitter-bash
@@ -51,29 +74,10 @@ in {
         ]));
         config = lib.readFile ./neovim/treesitter.lua;
       }
-      vim-nix
-      customPlugins.telescope-orgmode
       {
         plugin = telescope-nvim;
         config = lib.readFile ./neovim/telescope.lua;
       }
-      vim-table-mode
-      sniprun
-      customPlugins.org-bullets
-      customPlugins.headlines-nvim
-      legendary-nvim
-      diffview-nvim
-      nord-nvim
-      nvim-notify
-      luasnip
-      trouble-nvim
-      lazygit-nvim
-      plenary-nvim
-      telescope-symbols-nvim
-      vim-sleuth
-      telescope-fzf-native-nvim
-      nvim-lspconfig
-      cmp-nvim-lsp
       {
         plugin = lualine-nvim;
         config = lib.readFile ./neovim/lualine.lua;
@@ -143,12 +147,16 @@ in {
         config = lib.readFile ./neovim/harpoon.lua;
       }
       {
-        plugin = null-ls-nvim;
+        plugin = none-ls-nvim;
         config = lib.readFile ./neovim/null-ls.lua;
       }
       {
         plugin = nvim-autopairs;
         config = lib.readFile ./neovim/autopairs.lua;
+      }
+      {
+        plugin = highlight-undo-nvim;
+        config = lib.readFile ./neovim/highlight-undo.lua;
       }
     ];
     extraLuaConfig = lib.readFile ./neovim/config.lua;

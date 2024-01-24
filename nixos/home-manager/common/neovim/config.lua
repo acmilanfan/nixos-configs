@@ -9,9 +9,15 @@ vim.o.completeopt = 'menuone,noselect'
 vim.o.termguicolors = true
 vim.o.smartindent = true
 vim.o.autoindent = true
+vim.o.expandtab = true
 vim.o.tabstop = 4
+vim.o.softtabstop = 4
 vim.o.shiftwidth = 4
 vim.o.conceallevel = 2
+vim.o.scrolloff = 8
+vim.o.updatetime = 50
+vim.o.colorcolumn = "120"
+vim.o.wrap = false
 vim.wo.number = true
 vim.wo.relativenumber = true
 vim.wo.cursorline = true
@@ -32,6 +38,8 @@ vim.keymap.set('n', '<Leader>ff', builtin.find_files, {})
 vim.keymap.set('n', '<Leader>fg', builtin.live_grep, {})
 vim.keymap.set('n', '<Leader>fb', builtin.buffers, {})
 vim.keymap.set('n', '<Leader>fh', builtin.help_tags, {})
+vim.keymap.set('n', '<Leader>aa', builtin.keymaps, {})
+vim.keymap.set('n', '<Leader>ac', builtin.commands, {})
 vim.keymap.set('n', '<leader>fw', builtin.grep_string, { desc = '[S]earch current [W]ord' })
 vim.keymap.set('n', '<leader>fd', builtin.diagnostics, { desc = '[S]earch [D]iagnostics' })
 vim.keymap.set('n', '<leader>fr', builtin.resume, { desc = '[S]earch [R]esume' })
@@ -65,7 +73,7 @@ vim.keymap.set('n', '<leader>cw', function()
   return ':IncRename ' .. vim.fn.expand('<cword>')
 end, { expr = true })
 
-vim.keymap.set("n", "<C-h>", ":NvimTreeToggle<cr>", { silent = true, noremap = true })
+vim.keymap.set("n", "<Leader>sf", ":NvimTreeToggle<cr>", { silent = true, noremap = true })
 vim.keymap.set("n", "<Leader>si", ":NvimTreeFindFile<cr>", { silent = true, noremap = true })
 
 vim.keymap.set("n", "<Leader>kk", function() require('notify').dismiss() end, {})
@@ -85,6 +93,16 @@ vim.keymap.set('n', '[d', vim.diagnostic.goto_prev, { desc = 'Go to previous dia
 vim.keymap.set('n', ']d', vim.diagnostic.goto_next, { desc = 'Go to next diagnostic message' })
 vim.keymap.set('n', '<leader>e', vim.diagnostic.open_float, { desc = 'Open floating diagnostic message' })
 vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagnostics list' })
+
+vim.keymap.set("v", "J", ":m '>+1<CR>gv=gv")
+vim.keymap.set("v", "K", ":m '<-2<CR>gv=gv")
+vim.keymap.set("n", "J", "mzJ`z")
+vim.keymap.set("n", "<C-d>", "<C-d>zz")
+vim.keymap.set("n", "<C-u>", "<C-u>zz")
+vim.keymap.set("n", "n", "nzzzv")
+vim.keymap.set("n", "N", "Nzzzv")
+vim.keymap.set("x", "<leader>p", [["_dP]])
+vim.keymap.set({"n", "v"}, "<leader>d", [["_d]])
 
 -- [[ Configure LSP ]]
 -- vim.lsp.set_log_level("debug")
@@ -220,3 +238,23 @@ cmp.setup {
     { name = 'luasnip' },
   },
 }
+
+vim.g.firenvim_config = {
+  localSettings = {
+    [ [[.*]] ] = {
+      cmdline = 'neovim',
+      priority = 0,
+      selector = 'textarea:not([readonly]):not([class="handsontableInput"]), div[role="textbox"]',
+      takeover = 'always',
+    },
+    [ [[.*notion\.so.*]] ] = {
+      priority = 9,
+      takeover = 'never',
+    },
+    [ [[.*docs\.google\.com.*]] ] = {
+      priority = 9,
+      takeover = 'never',
+    },
+  },
+}
+
