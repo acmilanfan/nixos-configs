@@ -1,4 +1,4 @@
-{ pkgs, lib, unstable, ... }: {
+{ pkgs, lib, ... }: {
 
   programs.tmux = {
     enable = true;
@@ -8,23 +8,22 @@
     clock24 = true;
     baseIndex = 1;
     escapeTime = 0;
-    sensibleOnTop = true;
+    keyMode = "vi";
     extraConfig = lib.readFile ./tmux/tmux.conf;
     plugins = with pkgs.tmuxPlugins; [
       sensible
       yank
       vim-tmux-navigator
-      nord
       tmux-fzf
+      {
+        plugin = dracula;
+        extraConfig = ''
+          set -g @dracula-plugins "git"
+          set -g @dracula-refresh-rate 10
+          set -g @dracula-show-left-icon session
+        '';
+      }
     ];
-  };
-
-  home.packages = [
-    unstable.tmux-sessionizer
-  ];
-
-  xdg.configFile = {
-    "tms/default-config.toml".source = ./../../../dotfiles/tms/config.toml;
   };
 
 }
