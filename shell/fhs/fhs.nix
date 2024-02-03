@@ -6,9 +6,12 @@ let fhs = pkgs.buildFHSUserEnv {
     [
       
     ]);
-  runScript = "bash";
+  runScript = "zsh";
 };
 in pkgs.stdenv.mkDerivation {
-  name = "fhs-template";
+  name = "fhs-generic";
   nativeBuildInputs = [ fhs ];
+  shellHook = ''
+    exec fhs-env
+  '';
 }
