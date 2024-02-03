@@ -8,6 +8,7 @@
     gnome.gnome-themes-extra
     gnome.gnome-power-manager
     gnome.gnome-screenshot
+    gnome.gnome-tweaks
   ];
 
   environment.gnome.excludePackages = with pkgs.gnome3; [

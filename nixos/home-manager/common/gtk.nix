@@ -3,8 +3,9 @@
   gtk = {
     enable = true;
     font = {
-      name = "Roboto Bold";
+      name = "Roboto Medium";
       size = 13;
+      package = pkgs.roboto;
     };
     theme = {
       name = "Adwaita-dark";
@@ -16,6 +17,6 @@
     };
   };
 
-  fonts.fontconfig.enable = true;
+  fonts.fontconfig.enable = false;
 
 }

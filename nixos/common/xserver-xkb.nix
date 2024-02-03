@@ -1,8 +1,8 @@
 { ... }: {
 
-  services.xserver = {
+  services.xserver.xkb = {
     layout = "us,de,ru";
-    xkbOptions = "grp:alt_space_toggle,caps:escape";
+    options = "grp:alt_space_toggle,caps:escape";
   };
 
 }

@@ -1,33 +1,41 @@
 { pkgs, ... }: {
 
   fonts = {
-    fonts = with pkgs; [
-      corefonts
-      fira-code
-      font-awesome
-      hack-font
-      source-code-pro
+    packages = with pkgs; [
       roboto
       roboto-mono
       roboto-slab
+      roboto-serif
       ubuntu_font_family
-      inconsolata
-      unifont
-      open-sans
       nerdfonts
-#      noto-fonts
+      corefonts
+      jetbrains-mono
+      font-awesome
+      noto-fonts
+      inter
     ];
-    enableDefaultFonts = true;
+    enableDefaultPackages = true;
   };
 
   fonts.fontconfig = {
-      hinting.autohint = true;
-      hinting.style = "hintfull";
-      defaultFonts = {
-        monospace = [ "RobotoMono Nerd Font SemiBold 13" ];
-        sansSerif = [ "Roboto SemiBold 13" ];
-        serif = [ "Roboto Slab SemiBold 13" "Inter 13" ];
+    enable = true;
+    antialias = true;
+    hinting.enable = true;
+    hinting.autohint = true;
+    hinting.style = "full";
+    subpixel.rgba = "rgb";
+    subpixel.lcdfilter = "default";
+    defaultFonts = {
+      monospace = [ "RobotoMono Nerd Font SmBd" ];
+      sansSerif = [ "Roboto Medium" ];
+      serif = [ "Roboto Slab Medium" "Inter" ];
+      # monospace = [ "JetBrains Mono" ];
     };
+  };
+
+  i18n.extraLocaleSettings = {
+    LC_TIME = "de_DE.UTF-8";
+    LC_ALL = "en_US.UTF-8";
   };
 
 }
