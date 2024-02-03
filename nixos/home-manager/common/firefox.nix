@@ -2,29 +2,48 @@
 
   programs.firefox = {
     enable = true;
-#    extensions = lib.mkIf config.programs.firefox.enable (
-#      with pkgs.nur.repos.rycee.firefox-addons;
-#        [
-#          browserpass
-#          https-everywhere
-#          link-cleaner
-#          swedish-dictionary
-#          ublock-origin
-#          vimium
-#        ] ++ builtins.attrValues (import ./firefox-extensions.nix {
-#            inherit (pkgs) stdenv fetchurl;
-#            buildFirefoxXpiAddon =
-#            pkgs.nur.repos.rycee.firefox-addons.buildFirefoxXpiAddon;
-#          })
-#      );
+    #    extensions = lib.mkIf config.programs.firefox.enable (
+    #      with pkgs.nur.repos.rycee.firefox-addons;
+    #        [
+    #          browserpass
+    #          https-everywhere
+    #          link-cleaner
+    #          swedish-dictionary
+    #          ublock-origin
+    #          vimium
+    #        ] ++ builtins.attrValues (import ./firefox-extensions.nix {
+    #            inherit (pkgs) stdenv fetchurl;
+    #            buildFirefoxXpiAddon =
+    #            pkgs.nur.repos.rycee.firefox-addons.buildFirefoxXpiAddon;
+    #          })
+    #      );
     #package = pkgs.firefox-wayland;
-    # package = pkgs.firefox;
-    package = pkgs.firefox-bin;
+    package = pkgs.firefox;
+    # package = pkgs.firefox-bin;
     profiles = {
       default = {
         isDefault = true;
+        userChrome = ''
+          @namespace url("http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"); /* set default namespace to XUL */
+          * {
+            font-family: Inter !important;
+          }
+          #urlbar {
+            font-size: 16pt !important
+          }
+          menupopup,popup {
+            font-size: 13pt !important;
+            # font-weight: bold !important;
+          }
+          .tabbrowser-tab .tab-label {
+            font-size: 13pt !important;
+            font-weight: bold !important;
+          }
+        '';
         settings = {
           "browser.tabs.closeWindowWithLastTab" = true;
+          "toolkit.legacyUserProfileCustomizations.stylesheets" = true;
+          "layout.css.devPixelsPerPx" = -1.0;
           "devtools.theme" = "dark";
           "experiments.activeExperiment" = false;
           "experiments.enabled" = false;
