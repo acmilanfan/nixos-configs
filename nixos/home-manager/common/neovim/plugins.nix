@@ -34,4 +34,15 @@
     };
   };
 
+  nvim-macroni = buildVimPluginFrom2Nix {
+    pname = "macroni";
+    version = "master";
+    src = fetchFromGitHub {
+      owner = "jesseleite";
+      repo = "nvim-macroni";
+      rev = "0aec66f439b96f511935a9dcf2e37fca137972d2";
+      sha256 = "1q5v0734ry3z2vqy2wpvnm84s0bk28vm6yxcfpla7iaxp5lwwl7l";
+    };
+  };
+
 }

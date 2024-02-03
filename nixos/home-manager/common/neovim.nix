@@ -4,41 +4,70 @@ let
   customPlugins = pkgs.callPackage ./neovim/plugins.nix {
     inherit (pkgs.vimUtils) buildVimPluginFrom2Nix;
   };
+  jdtlsWrapped = pkgs.writeShellScriptBin "jdtls" ''
+    ${unstable.jdt-language-server}/bin/jdtls \
+      -data $HOME/.cache/jdtls/$PWD \
+      --jvm-arg=-javaagent:${unstable.lombok}/share/java/lombok.jar
+  '';
 in {
-  home.sessionVariables = {
-    EDITOR = "nvim";
-  };
+  home.packages = with pkgs; [
+    (writeShellScriptBin "tmux-sessionizer"
+      (lib.readFile ./scripts/tmux-sessionizer))
+    jdtlsWrapped
+    tree-sitter
+    ripgrep
+    gopls
+    lua-language-server
+    nil
+    sqls
+    lazygit
+    fzf
+    fd
+    tmux-sessionizer
+    go
+    lombok
+    maven
+    stylua
+    kotlin-language-server
+    terraform-ls
+    yaml-language-server
+    yamllint
+    yamlfix
+    statix
+    google-java-format
+    golines
+    goimports-reviser
+    lemminx
+    nodePackages.volar
+    nodePackages.typescript
+    nodePackages.typescript-language-server
+    nodePackages.vscode-json-languageserver
+    nodePackages.prettier
+    nodePackages.eslint
+    nodePackages.graphql-language-service-cli
+    nodePackages.fixjson
+    vscode-extensions.vscjava.vscode-java-test
+  ];
+
+  home.sessionVariables = { EDITOR = "nvim"; };
   programs.neovim = {
     enable = true;
     vimAlias = true;
     withNodeJs = true;
     package = unstable.neovim-unwrapped;
-    extraPackages = with pkgs; [
-      tree-sitter
-      ripgrep
-      gopls
-      lua-language-server
-      nil
-      sqls
-      lazygit
-      go
-      fzf
-      fd
-      nodePackages.volar
-      nodePackages.typescript
-      nodePackages.typescript-language-server
-      nodePackages.vscode-json-languageserver
-    ];
     plugins = with unstable.vimPlugins; [
       vim-nix
       customPlugins.telescope-orgmode
-      vim-table-mode
-      sniprun
       customPlugins.org-bullets
       customPlugins.headlines-nvim
-      legendary-nvim
+      customPlugins.nvim-macroni
+      vim-table-mode
+      sniprun
       diffview-nvim
       nord-nvim
+      dracula-nvim
+      # dracula-vim
+      kanagawa-nvim
       nvim-notify
       luasnip
       trouble-nvim
@@ -51,27 +80,57 @@ in {
       cmp-nvim-lsp
       firenvim
       vim-tmux-navigator
+      nvim-jdtls
+      cmp-emoji
+      friendly-snippets
+      FTerm-nvim
+      telescope-ui-select-nvim
+      actions-preview-nvim
       {
-        plugin = (nvim-treesitter.withPlugins (plugins: with plugins; [
-          tree-sitter-bash
-          tree-sitter-go
-          tree-sitter-hcl
-          tree-sitter-html
-          tree-sitter-http
-          tree-sitter-java
-          tree-sitter-javascript
-          tree-sitter-typescript
-          tree-sitter-vue
-          tree-sitter-lua
-          tree-sitter-make
-          tree-sitter-markdown
-          tree-sitter-nix
-          tree-sitter-python
-          tree-sitter-sql
-          tree-sitter-org-nvim
-          tree-sitter-vim
-          tree-sitter-comment
-        ]));
+        plugin = (nvim-treesitter.withPlugins (plugins:
+          with plugins; [
+            tree-sitter-bash
+            tree-sitter-go
+            tree-sitter-hcl
+            tree-sitter-html
+            tree-sitter-http
+            tree-sitter-java
+            tree-sitter-javascript
+            tree-sitter-typescript
+            tree-sitter-vue
+            tree-sitter-lua
+            tree-sitter-luadoc
+            tree-sitter-make
+            tree-sitter-markdown
+            tree-sitter-nix
+            tree-sitter-python
+            tree-sitter-sql
+            tree-sitter-org-nvim
+            tree-sitter-vim
+            tree-sitter-vimdoc
+            tree-sitter-comment
+            tree-sitter-json
+            tree-sitter-yaml
+            tree-sitter-toml
+            tree-sitter-xml
+            tree-sitter-c
+            tree-sitter-terraform
+            tree-sitter-kotlin
+            tree-sitter-jsdoc
+            tree-sitter-jq
+            tree-sitter-groovy
+            tree-sitter-graphql
+            tree-sitter-gosum
+            tree-sitter-gomod
+            tree-sitter-gitignore
+            tree-sitter-gitcommit
+            tree-sitter-gitattributes
+            tree-sitter-git_rebase
+            tree-sitter-git_config
+            tree-sitter-dockerfile
+            tree-sitter-diff
+            tree-sitter-css
+          ]));
         config = lib.readFile ./neovim/treesitter.lua;
       }
       {
@@ -96,7 +155,7 @@ in {
       }
       {
         plugin = nightfox-nvim;
-        config = lib.readFile ./neovim/nightfox.lua;
+        config = lib.readFile ./neovim/colorscheme.lua;
       }
       {
         plugin = nvim-web-devicons;
