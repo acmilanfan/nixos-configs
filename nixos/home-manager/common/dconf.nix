@@ -30,12 +30,6 @@
     "org/gnome/desktop/input-sources" = {
       per-window=false;
       show-all-sources=false;
-      # todo this will work afte 20.03 release
-      #sources=[ 
-      #  lib.hm.gvariant.mkTuple ["xkb" "us"] 
-      #  lib.hm.gvariant.mkTuple ["xkb" "de"] 
-      #  lib.hm.gvariant.mkTuple ["xkb" "ru"] 
-      #];
       xkb-options=["grp:alt_space_toggle"];
     };
     "org/gnome/shell/keybindings" = {
