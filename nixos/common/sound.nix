@@ -20,7 +20,7 @@
 
   environment.systemPackages = with pkgs; [
     pamixer
-    pulseaudio
+    pulseaudioFull
   ];
 
 }
