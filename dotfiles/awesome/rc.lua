@@ -575,7 +575,12 @@ globalkeys = gears.table.join(awful.key({ modkey, }, "s", hotkeys_popup.show_hel
         { description = "launch browser", group = "launcher" }),
 
     awful.key({ modkey, "Shift" }, "o", function()
-        awful.spawn(terminal .. " -o 'window.dimensions.lines=20' -o 'window.dimensions.columns=100' --class orgindex -e vim -c 'lcd ~/org' ./org/index.org")
+        awful.spawn(terminal .. " -o 'window.dimensions.lines=20' -o 'window.dimensions.columns=100' --class orgindex -e 'cd ~/org/life' & 'vim -c 'lua require(\"orgmode.api.agenda\").agenda({span = 1})'")
+    end,
+        { description = "open orgmode index file", group = "launcher" }),
+
+    awful.key({ modkey, "Shift" }, "w", function()
+        awful.spawn(terminal .. " -o 'window.dimensions.lines=20' -o 'window.dimensions.columns=100' --class orgindex -e vim -c 'lcd ~/org/life'")
     end,
         { description = "open orgmode index file", group = "launcher" }),
 
@@ -1102,3 +1107,4 @@ client.connect_signal("unfocus", function(c)
     c.border_color = beautiful.border_normal
 end)
 -- }}}
+
