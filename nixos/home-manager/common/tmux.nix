@@ -15,14 +15,13 @@
       yank
       vim-tmux-navigator
       tmux-fzf
-      {
-        plugin = dracula;
-        extraConfig = ''
-          set -g @dracula-plugins "git"
-          set -g @dracula-refresh-rate 10
-          set -g @dracula-show-left-icon session
-        '';
-      }
+      resurrect
+      continuum
+      jump
+      better-mouse-mode
+      onedark-theme
+      prefix-highlight
+      urlview
     ];
   };
 
