@@ -26,6 +26,8 @@
     ./xsession.nix
     ./rss.nix
     ./tmux.nix
+    ./lazygit.nix
+    ./greenclip.nix
   ];
 
 }
