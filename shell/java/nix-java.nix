@@ -1,18 +1,18 @@
-{ pkgs ? import <nixpkgs> 
+{ pkgs ? import <nixpkgs>
   { overlays = [ (self: super: {
       jdk = super.jetbrains.jdk;
     }) ];
-  } 
+  }
 }:
-
 let fhs = pkgs.buildFHSUserEnv {
-  name = "java-maven-env";
-  targetPkgs = pkgs: (with pkgs;
-    [
-      maven zlib pam gdb xorg.libXext xorg.libX11 xorg.libXrender xorg.libXtst xorg.libXi freetype gradle libaio numactl ncurses5 libxcrypt
-    ]);
-  runScript = "zsh";
-};
+    name = "java-maven-env";
+    targetPkgs = pkgs: (with pkgs;
+      [
+        maven zlib pam gdb xorg.libXext xorg.libX11 xorg.libXrender xorg.libXtst xorg.libXi freetype gradle libaio numactl ncurses5 libxcrypt
+        nodejs_18 nodePackages.mocha nodePackages.ts-node nodePackages.typescript
+      ]);
+    runScript = "bash";
+  };
 in pkgs.stdenv.mkDerivation {
   name = "maven-shell";
   nativeBuildInputs = [ fhs ];
@@ -22,3 +22,4 @@ in pkgs.stdenv.mkDerivation {
     exec java-maven-env
   '';
 }
+
