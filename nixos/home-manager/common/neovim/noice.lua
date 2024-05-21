@@ -22,4 +22,5 @@ require("noice").setup({
     inc_rename = true, -- enables an input dialog for inc-rename.nvim
   },
 })
+
 EOF

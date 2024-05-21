@@ -38,6 +38,7 @@ in {
     golines
     goimports-reviser
     lemminx
+    codeium
     nodePackages.volar
     nodePackages.typescript
     nodePackages.typescript-language-server
@@ -64,10 +65,10 @@ in {
       vim-table-mode
       sniprun
       diffview-nvim
-      nord-nvim
       dracula-nvim
       # dracula-vim
       kanagawa-nvim
+      onedark-nvim
       nvim-notify
       luasnip
       trouble-nvim
@@ -216,6 +217,18 @@ in {
       {
         plugin = highlight-undo-nvim;
         config = lib.readFile ./neovim/highlight-undo.lua;
+      }
+      {
+        plugin = nvim-surround;
+        config = lib.readFile ./neovim/nvim-surround.lua;
+      }
+      {
+        plugin = refactoring-nvim;
+        config = lib.readFile ./neovim/refactoring.lua;
+      }
+      {
+        plugin = rest-nvim;
+        config = lib.readFile ./neovim/rest-nvim.lua;
       }
     ];
     extraLuaConfig = lib.readFile ./neovim/config.lua;

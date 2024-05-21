@@ -5,7 +5,8 @@ require('org-bullets').setup()
 
 require('orgmode').setup_ts_grammar()
 local org = require('orgmode').setup({
-  org_agenda_files = { '~/org/life/**/*', ('%s/*.org'):format(vim.fn.getcwd()) },
+  -- org_agenda_files = { '~/org/life/**/*.org', ('%s/**/*.org'):format(vim.fn.getcwd()) },
+  org_agenda_files = { ('%s/**/*.org'):format(vim.fn.getcwd()) },
   org_default_notes_file = '~/org/life/refile.org',
   org_tags_column = 0,
   org_hide_emphasis_markers = true,
@@ -77,7 +78,7 @@ vim.api.nvim_create_autocmd('FileType', {
             local offset = #content
             local longest_category = utils.reduce(items, function(acc, todo)
               return math.max(acc, vim.api.nvim_strwidth(todo:get_category()))
-            end, 0)
+            end, 0) or 0
 
             for i, headline in ipairs(items) do
               if filters:matches(headline) then

@@ -152,6 +152,29 @@ vim.keymap.set("n", "<leader>ftm", function()
   require("FTerm").scratch({ cmd = "mvn clean compile" })
 end)
 
+vim.keymap.set({ "n", "x" }, "<leader>rr", function()
+  require("telescope").extensions.refactoring.refactors()
+end)
+
+vim.keymap.set("x", "<leader>nv", function()
+  require("refactoring").refactor("Extract Variable")
+end)
+
+vim.keymap.set("x", "<leader>nm", function()
+  require("refactoring").refactor("Extract Function")
+end)
+
+vim.keymap.set("n", "<leader>nb", function()
+  require("refactoring").refactor("Extract Block")
+end)
+
+vim.keymap.set("n", "<leader>mm", require("onedark").toggle, { noremap = true, silent = true })
+vim.keymap.set("n", "<leader>st", require("telescope.builtin").filetypes, { noremap = true, silent = true })
+
+vim.keymap.set("n", "<leader>sls", ":set lines=10<CR>", { silent = true })
+vim.keymap.set("n", "<leader>slm", ":set lines=20<CR>", { silent = true })
+vim.keymap.set("n", "<leader>sll", ":set lines=30<CR>", { silent = true })
+
 -- [[ Configure LSP ]]
 -- vim.lsp.set_log_level("debug")
 vim.api.nvim_create_autocmd("LspAttach", {
@@ -163,8 +186,8 @@ vim.api.nvim_create_autocmd("LspAttach", {
     -- See `:help vim.lsp.*` for documentation on any of the below functions
     local opts = { buffer = ev.buf }
     vim.keymap.set("n", "<leader>rn", vim.lsp.buf.rename, opts)
-    vim.keymap.set("n", "<leader>ca", vim.lsp.buf.code_action, opts)
-    vim.keymap.set({ "v", "n" }, "cp", require("actions-preview").code_actions)
+    vim.keymap.set({ "v", "n" }, "<leader>ca", vim.lsp.buf.code_action, opts)
+    vim.keymap.set({ "v", "n" }, "<leader>cp", require("actions-preview").code_actions)
 
     vim.keymap.set("n", "gd", require("telescope.builtin").lsp_definitions, opts)
     vim.keymap.set("n", "gr", require("telescope.builtin").lsp_references, opts)
@@ -189,7 +212,7 @@ vim.api.nvim_create_autocmd("LspAttach", {
     vim.api.nvim_buf_create_user_command(ev.buf, "Format", function(_)
       vim.lsp.buf.format()
     end, { desc = "Format current buffer with LSP" })
-    vim.keymap.set("n", "<leader>fo", vim.lsp.buf.format, opts)
+    vim.keymap.set({ "x", "n" }, "<leader>fo", vim.lsp.buf.format, opts)
   end,
 })
 
@@ -210,7 +233,7 @@ vim.api.nvim_create_autocmd("FileType", {
               url = vim.fn.expand(
                 "~/configs/nixos-configs/nixos/home-manager/common/neovim/java/formatter.xml"
               ),
-              profile = "CustomStyle",
+              profile = "CustomProfile",
             },
           },
         },
@@ -290,61 +313,13 @@ require("lspconfig").lemminx.setup({
   capabilities = capabilities,
 })
 
--- [[ Configure nvim-cmp ]]
-local cmp = require("cmp")
-local luasnip = require("luasnip")
-require("luasnip.loaders.from_vscode").lazy_load()
-luasnip.config.setup({})
-
-cmp.setup({
-  snippet = {
-    expand = function(args)
-      luasnip.lsp_expand(args.body)
-    end,
-  },
-  mapping = cmp.mapping.preset.insert({
-    ["<C-n>"] = cmp.mapping.select_next_item(),
-    ["<C-p>"] = cmp.mapping.select_prev_item(),
-    ["<C-d>"] = cmp.mapping.scroll_docs(-4),
-    ["<C-f>"] = cmp.mapping.scroll_docs(4),
-    ["<C-Space>"] = cmp.mapping.complete({}),
-    ["<CR>"] = cmp.mapping.confirm({
-      behavior = cmp.ConfirmBehavior.Replace,
-      select = true,
-    }),
-    ["<Tab>"] = cmp.mapping(function(fallback)
-      if cmp.visible() then
-        cmp.select_next_item()
-      elseif luasnip.expand_or_locally_jumpable() then
-        luasnip.expand_or_jump()
-      else
-        fallback()
-      end
-    end, { "i", "s" }),
-    ["<S-Tab>"] = cmp.mapping(function(fallback)
-      if cmp.visible() then
-        cmp.select_prev_item()
-      elseif luasnip.locally_jumpable(-1) then
-        luasnip.jump(-1)
-      else
-        fallback()
-      end
-    end, { "i", "s" }),
-  }),
-  sources = {
-    { name = "nvim_lsp" },
-    { name = "luasnip" },
-    { name = "emoji" },
-  },
-})
-
 vim.g.firenvim_config = {
   localSettings = {
     [ [[.*]] ] = {
       cmdline = "neovim",
       priority = 0,
       selector = 'textarea:not([readonly]):not([class="handsontableInput"]), div[role="textbox"]',
-      takeover = "always",
+      takeover = "never",
     },
     [ [[.*notion\.so.*]] ] = {
       priority = 9,
@@ -356,3 +331,4 @@ vim.g.firenvim_config = {
     },
   },
 }
+

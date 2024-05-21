@@ -28,10 +28,22 @@ require('kanagawa').setup({
   theme = "wave",
 })
 
--- vim.cmd("colorscheme duskfox")
+require('onedark').setup {
+    style = 'darker',
+
+    toggle_style_list = {'dark', 'darker', 'warm', 'warmer' },
+
+    code_style = {
+      comments = 'italic',
+      keywords = 'italic,bold',
+      functions = 'bold',
+    },
+}
+require('onedark').load()
+
 -- vim.cmd("colorscheme dracula")
--- vim.cmd("colorscheme dracula-soft")
-vim.cmd("colorscheme nightfox")
+-- vim.cmd("colorscheme nightfox")
 -- vim.cmd("colorscheme kanagawa")
+vim.cmd("colorscheme onedark")
 
 EOF
