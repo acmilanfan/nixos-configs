@@ -23,6 +23,9 @@
     libreoffice
     yt-dlp
     google-chrome
+    vial
+    calibre
+    davinci-resolve
   ];
 
 }
