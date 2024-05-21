@@ -12,17 +12,8 @@
     nix-doom-emacs.inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = inputs@{
-    self,
-    nixpkgs,
-    unstable-nixpkgs,
-    musnix,
-    nur,
-    home-manager,
-    nixos-hardware,
-    nix-doom-emacs,
-    ...
-  }:
+  outputs = inputs@{ self, nixpkgs, unstable-nixpkgs, musnix, nur, home-manager
+    , nixos-hardware, nix-doom-emacs, ... }:
     let
       system = "x86_64-linux";
 
@@ -38,67 +29,70 @@
 
       lib = nixpkgs.lib;
     in {
-    nixosConfigurations = {
-      z16 = lib.nixosSystem {
-        inherit system;
-        specialArgs = { inherit inputs; };
-        modules = [
-          ./nixos/z16/configuration.nix
-          home-manager.nixosModules.home-manager {
-            home-manager.useGlobalPkgs = true;
-            home-manager.useUserPackages = true;
-            home-manager.users.gentooway = import ./nixos/z16/home.nix;
-            home-manager.extraSpecialArgs = {
-              inherit pkgs;
-              inherit unstable;
-              inherit system;
-              inherit inputs;
-            };
-          }
-          musnix.nixosModules.musnix
-          nixos-hardware.nixosModules.lenovo-thinkpad-z
-        ];
-      };
-      t480-work = lib.nixosSystem {
-        inherit system;
-        specialArgs = { inherit inputs; };
-        modules = [
-          ./nixos/t480-work/configuration.nix
-          home-manager.nixosModules.home-manager {
-            home-manager.useGlobalPkgs = true;
-            home-manager.useUserPackages = true;
-            home-manager.users.ashumailov = import ./nixos/t480-work/home.nix;
-            home-manager.extraSpecialArgs = {
-              inherit pkgs;
-              inherit unstable;
-              inherit system;
-              inherit inputs;
-            };
-          }
-          nixos-hardware.nixosModules.common-pc-laptop
-          nixos-hardware.nixosModules.common-pc-laptop-ssd
-        ];
-      };
-      t480-home = lib.nixosSystem {
-        inherit system;
-        specialArgs = { inherit inputs; };
-        modules = [
-          ./nixos/t480-home/configuration.nix
-          home-manager.nixosModules.home-manager {
-            home-manager.useGlobalPkgs = true;
-            home-manager.useUserPackages = true;
-            home-manager.users.gentooway = import ./nixos/t480-home/home.nix;
-            home-manager.extraSpecialArgs = {
-              inherit pkgs;
-              inherit unstable;
-              inherit system;
-              inherit inputs;
-            };
-          }
-          nixos-hardware.nixosModules.lenovo-thinkpad-t480
-        ];
+      nixosConfigurations = {
+        z16 = lib.nixosSystem {
+          inherit system;
+          specialArgs = { inherit inputs; };
+          modules = [
+            ./nixos/z16/configuration.nix
+            home-manager.nixosModules.home-manager
+            {
+              home-manager.useGlobalPkgs = true;
+              home-manager.useUserPackages = true;
+              home-manager.users.gentooway = import ./nixos/z16/home.nix;
+              home-manager.extraSpecialArgs = {
+                inherit pkgs;
+                inherit unstable;
+                inherit system;
+                inherit inputs;
+              };
+            }
+            musnix.nixosModules.musnix
+            nixos-hardware.nixosModules.lenovo-thinkpad-z
+          ];
+        };
+        t480-work = lib.nixosSystem {
+          inherit system;
+          specialArgs = { inherit inputs; };
+          modules = [
+            ./nixos/t480-work/configuration.nix
+            home-manager.nixosModules.home-manager
+            {
+              home-manager.useGlobalPkgs = true;
+              home-manager.useUserPackages = true;
+              home-manager.users.ashumailov = import ./nixos/t480-work/home.nix;
+              home-manager.extraSpecialArgs = {
+                inherit pkgs;
+                inherit unstable;
+                inherit system;
+                inherit inputs;
+              };
+            }
+            nixos-hardware.nixosModules.common-pc-laptop
+            nixos-hardware.nixosModules.common-pc-laptop-ssd
+          ];
+        };
+        t480-home = lib.nixosSystem {
+          inherit system;
+          specialArgs = { inherit inputs; };
+          modules = [
+            ./nixos/t480-home/configuration.nix
+            home-manager.nixosModules.home-manager
+            {
+              home-manager.useGlobalPkgs = true;
+              home-manager.useUserPackages = true;
+              home-manager.users.gentooway = import ./nixos/t480-home/home.nix;
+              home-manager.extraSpecialArgs = {
+                inherit pkgs;
+                inherit unstable;
+                inherit system;
+                inherit inputs;
+              };
+            }
+            nixos-hardware.nixosModules.lenovo-thinkpad-t480
+          ];
+        };
       };
     };
-  };
 
 }
