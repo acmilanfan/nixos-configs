@@ -56,6 +56,12 @@ in {
     vimAlias = true;
     withNodeJs = true;
     package = unstable.neovim-unwrapped;
+    extraLuaPackages = luaPkgs: with luaPkgs; [
+      lua-curl
+      mimetypes
+      xml2lua
+      nvim-nio
+    ];
     plugins = with unstable.vimPlugins; [
       vim-nix
       customPlugins.telescope-orgmode

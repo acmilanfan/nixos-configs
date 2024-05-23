@@ -5,10 +5,10 @@
     pname = "telescope-orgmode";
     version = "main";
     src = fetchFromGitHub {
-      owner = "seflue";
+      owner = "lyz-code";
       repo = "telescope-orgmode.nvim";
-      rev = "6e2a0876f27d0e991f325d0c443e2f1fe1765216";
-      sha256 = "0z6cflpbj79fppfyl60n008149qpwiqbk6aidy4xarm07w37aywx";
+      rev = "02d6876ac80e7e039926fdb69e88300c04145541";
+      sha256 = "0hraic67rap7idm1gqk9f5nn21vzky43g4ppx3izv1njc25pcwdf";
     };
   };
 
@@ -18,8 +18,8 @@
     src = fetchFromGitHub {
       owner = "akinsho";
       repo = "org-bullets.nvim";
-      rev = "6e0d60e901bb939eb526139cb1f8d59065132fd9";
-      sha256 = "0z5nijd8lm0hb9rsjhcg0c9qg56yy8ha3ls1333vwlhzv1cvi967";
+      rev = "3623e86e0fa6d07f45042f7207fc333c014bf167";
+      sha256 = "0il7x6bp21vxnijl96gjq2kry33jin8dqxs9yvp3r60lv3aix0b8";
     };
   };
 
@@ -29,7 +29,7 @@
     src = fetchFromGitHub {
       owner = "lukas-reineke";
       repo = "headlines.nvim";
-      rev = "ddef41b2664f0ce25fe76520d708e2dc9dfebd70";
+      rev = "618ef1b2502c565c82254ef7d5b04402194d9ce3";
       sha256 = "02zri3vmzjxv47qnlll3nf71i9ji8nhdabpvf4566i7iwwagqpym";
     };
   };

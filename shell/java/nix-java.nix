@@ -11,7 +11,7 @@ let fhs = pkgs.buildFHSUserEnv {
         maven zlib pam gdb xorg.libXext xorg.libX11 xorg.libXrender xorg.libXtst xorg.libXi freetype gradle libaio numactl ncurses5 libxcrypt
         nodejs_18 nodePackages.mocha nodePackages.ts-node nodePackages.typescript
       ]);
-    runScript = "bash";
+    runScript = "zsh";
   };
 in pkgs.stdenv.mkDerivation {
   name = "maven-shell";

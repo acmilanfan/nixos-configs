@@ -3,7 +3,6 @@ lua << EOF
 require('org-bullets').setup()
 --require('headlines').setup()
 
-require('orgmode').setup_ts_grammar()
 local org = require('orgmode').setup({
   -- org_agenda_files = { '~/org/life/**/*.org', ('%s/**/*.org'):format(vim.fn.getcwd()) },
   org_agenda_files = { ('%s/**/*.org'):format(vim.fn.getcwd()) },
