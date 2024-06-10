@@ -94,6 +94,7 @@ in {
       FTerm-nvim
       telescope-ui-select-nvim
       actions-preview-nvim
+      undotree
       {
         plugin = (nvim-treesitter.withPlugins (plugins:
           with plugins; [

@@ -3,6 +3,8 @@ vim.g.maplocalleader = " "
 vim.o.clipboard = "unnamedplus"
 vim.o.breakindent = true
 vim.o.undofile = true
+vim.o.swapfile = false
+vim.o.backup = false
 vim.o.ignorecase = true
 vim.o.smartcase = true
 vim.o.completeopt = "menuone,noselect"
@@ -99,6 +101,8 @@ end, {})
 vim.keymap.set("n", "<Leader>hl", function()
   require("harpoon.ui").toggle_quick_menu()
 end, {})
+
+vim.keymap.set("n", "<leader>u", vim.cmd.UndotreeToggle)
 
 -- Diagnostic keymaps
 vim.keymap.set("n", "[d", vim.diagnostic.goto_prev, { desc = "Go to previous diagnostic message" })
