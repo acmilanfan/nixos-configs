@@ -39,6 +39,7 @@ in {
     goimports-reviser
     lemminx
     codeium
+    checkstyle
     nodePackages.volar
     nodePackages.typescript
     nodePackages.typescript-language-server
@@ -66,7 +67,7 @@ in {
       vim-nix
       customPlugins.telescope-orgmode
       customPlugins.org-bullets
-      customPlugins.headlines-nvim
+      # customPlugins.headlines-nvim
       customPlugins.nvim-macroni
       vim-table-mode
       sniprun
@@ -235,6 +236,10 @@ in {
       {
         plugin = rest-nvim;
         config = lib.readFile ./neovim/rest-nvim.lua;
+      }
+      {
+        plugin = codeium-nvim;
+        config = lib.readFile ./neovim/codeium.lua;
       }
     ];
     extraLuaConfig = lib.readFile ./neovim/config.lua;

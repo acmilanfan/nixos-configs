@@ -12,7 +12,7 @@ let
 in {
   home.packages = with pkgs; [
     obs
-    (callPackage ./obs-cli.nix {})
+    # (callPackage ./obs-cli.nix {})
     xdotool
     v4l-utils
     ffmpeg-full

@@ -1,21 +1,17 @@
 { pkgs, ... }: {
 
-  home.packages = with pkgs; [
-    zsh-you-should-use
-  ];
+  home.packages = with pkgs; [ zsh-you-should-use ];
 
   programs.zsh = {
     enable = true;
-    enableAutosuggestions = true;
+    autosuggestion.enable = true;
     syntaxHighlighting.enable = true;
     defaultKeymap = "viins";
     autocd = true;
-    plugins = [
-      {
-        name = "zsh-nix-shell";
-        src = pkgs.zsh-nix-shell;
-      }
-    ];
+    plugins = [{
+      name = "zsh-nix-shell";
+      src = pkgs.zsh-nix-shell;
+    }];
     shellAliases = {
       ll = "ls -l";
       gs = "git status";
@@ -24,10 +20,12 @@
       oi = "cd ~/org/life && vim ~/org/life/index.org";
       yt = "cd ~/org/consume && vim ~/org/consume/youtube/youtube1.org";
       os = "(cd ~/org && git pull)";
-      op = "(cd ~/org && git add . && git commit -m \"Sync\" && git push)";
+      op = ''(cd ~/org && git add . && git commit -m "Sync" && git push)'';
       up = "cd $HOME/configs/nixos-configs && nix flake update";
-      sup = "sudo nixos-rebuild switch --flake $HOME/configs/nixos-configs/#$NIX_SYSTEM --impure";
-      nb = "newsboat --url-file=~/org/rss --cache-file=~/Nextcloud/newsboat/cache.db";
+      sup =
+        "sudo nixos-rebuild switch --flake $HOME/configs/nixos-configs/#$NIX_SYSTEM --impure";
+      nb =
+        "newsboat --url-file=~/org/rss --cache-file=~/Nextcloud/newsboat/cache.db";
       java-shell = "nix develop ~/configs/nixos-configs/shell/java";
       go-shell = "nix develop ~/configs/nixos-configs/shell/go-node";
       fhs-shell = "nix develop ~/configs/nixos-configs/shell/fhs";

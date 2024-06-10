@@ -23,16 +23,16 @@
     };
   };
 
-  headlines-nvim = buildVimPluginFrom2Nix {
-    pname = "headlines";
-    version = "v3.3.0";
-    src = fetchFromGitHub {
-      owner = "lukas-reineke";
-      repo = "headlines.nvim";
-      rev = "618ef1b2502c565c82254ef7d5b04402194d9ce3";
-      sha256 = "02zri3vmzjxv47qnlll3nf71i9ji8nhdabpvf4566i7iwwagqpym";
-    };
-  };
+  # headlines-nvim = buildVimPluginFrom2Nix {
+  #   pname = "headlines";
+  #   version = "v3.3.0";
+  #   src = fetchFromGitHub {
+  #     owner = "lukas-reineke";
+  #     repo = "headlines.nvim";
+  #     rev = "618ef1b2502c565c82254ef7d5b04402194d9ce3";
+  #     sha256 = "02zri3vmzjxv47qnlll3nf71i9ji8nhdabpvf4566i7iwwagqpym";
+  #   };
+  # };
 
   nvim-macroni = buildVimPluginFrom2Nix {
     pname = "macroni";

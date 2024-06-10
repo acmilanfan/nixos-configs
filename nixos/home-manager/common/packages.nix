@@ -11,7 +11,7 @@
     grim
     slurp
     networkmanagerapplet
-    nixfmt
+    nixfmt-classic
     mpv
     audacious
     htop
@@ -26,6 +26,11 @@
     vial
     calibre
     davinci-resolve
+    wineWow64Packages.stagingFull
+    lutris
+    winetricks
+    jansson
+    samba
   ];
 
 }

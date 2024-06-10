@@ -4,7 +4,7 @@
     enable = true;
     mouse = true;
     shell = "${pkgs.zsh}/bin/zsh";
-    terminal = "screen-256color";
+    terminal = "xterm-256color";
     clock24 = true;
     baseIndex = 1;
     escapeTime = 0;
