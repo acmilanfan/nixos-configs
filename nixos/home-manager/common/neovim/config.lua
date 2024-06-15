@@ -105,6 +105,11 @@ vim.keymap.set("n", "<Leader>hl", function()
 end, {})
 
 vim.keymap.set("n", "<leader>u", vim.cmd.UndotreeToggle)
+vim.keymap.set("n", "<leader>lg", vim.cmd.LazyGit)
+vim.keymap.set("n", "<leader>lh", vim.cmd.LazyGitFilter)
+vim.keymap.set("n", "<leader>lf", vim.cmd.LazyGitFilterCurrentFile)
+
+vim.keymap.set("n", "<leader>sn", vim.cmd.Navbuddy)
 
 -- Diagnostic keymaps
 vim.keymap.set("n", "[d", vim.diagnostic.goto_prev, { desc = "Go to previous diagnostic message" })
@@ -158,6 +163,10 @@ vim.keymap.set("n", "<leader>ftm", function()
   require("FTerm").scratch({ cmd = "mvn clean compile" })
 end)
 
+vim.keymap.set("n", "<leader>ftp", function()
+  require("FTerm").scratch({ cmd = "mvn clean package" })
+end)
+
 vim.keymap.set({ "n", "x" }, "<leader>rr", function()
   require("telescope").extensions.refactoring.refactors()
 end)
@@ -180,6 +189,7 @@ vim.keymap.set("n", "<leader>st", require("telescope.builtin").filetypes, { nore
 vim.keymap.set("n", "<leader>sls", ":set lines=10<CR>", { silent = true })
 vim.keymap.set("n", "<leader>slm", ":set lines=20<CR>", { silent = true })
 vim.keymap.set("n", "<leader>sll", ":set lines=30<CR>", { silent = true })
+vim.keymap.set("n", "<leader>slr", ":set lines=999<CR>", { silent = true })
 
 -- [[ Configure LSP ]]
 -- vim.lsp.set_log_level("debug")
@@ -240,6 +250,23 @@ vim.api.nvim_create_autocmd("FileType", {
                 "~/configs/nixos-configs/nixos/home-manager/common/neovim/java/formatter.xml"
               ),
               profile = "CustomProfile",
+            },
+          },
+          completion = {
+            favoriteStaticMembers = {
+              "org.hamcrest.MatcherAssert.assertThat",
+              "org.hamcrest.Matchers.*",
+              "org.hamcrest.CoreMatchers.*",
+              "org.junit.jupiter.api.Assertions.*",
+              "java.util.Objects.requireNonNull",
+              "java.util.Objects.requireNonNullElse",
+              "org.mockito.Mockito.*",
+            },
+            importOrder = {
+              "java",
+              "javax",
+              "com",
+              "org",
             },
           },
         },
@@ -337,4 +364,3 @@ vim.g.firenvim_config = {
     },
   },
 }
-

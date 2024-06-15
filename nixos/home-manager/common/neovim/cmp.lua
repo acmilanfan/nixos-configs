@@ -81,9 +81,19 @@ cmp.setup({
         { name = "codeium" },
         { name = "nvim_lsp" },
         { name = "luasnip" },
+        { name = "nvim_lua" },
+        { name = "buffer" },
+        { name = "tmux" },
+        { name = "fuzzy_path" },
         { name = "emoji" },
         { name = "orgmode" },
     },
+})
+
+cmp.setup.cmdline(':', {
+  sources = cmp.config.sources({
+    { name = 'fuzzy_path' }
+  })
 })
 
 EOF

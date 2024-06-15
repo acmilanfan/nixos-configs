@@ -57,12 +57,13 @@ in {
     vimAlias = true;
     withNodeJs = true;
     package = unstable.neovim-unwrapped;
-    extraLuaPackages = luaPkgs: with luaPkgs; [
-      lua-curl
-      mimetypes
-      xml2lua
-      nvim-nio
-    ];
+    extraLuaPackages = luaPkgs:
+      with luaPkgs; [
+        lua-curl
+        mimetypes
+        xml2lua
+        nvim-nio
+      ];
     plugins = with unstable.vimPlugins; [
       vim-nix
       customPlugins.telescope-orgmode
@@ -95,6 +96,13 @@ in {
       telescope-ui-select-nvim
       actions-preview-nvim
       undotree
+      nvim-navic
+      rainbow-delimiters-nvim
+      cmp-fuzzy-path
+      cmp-fuzzy-buffer
+      cmp-nvim-lua
+      cmp-tmux
+      bigfile-nvim
       {
         plugin = (nvim-treesitter.withPlugins (plugins:
           with plugins; [
@@ -241,6 +249,18 @@ in {
       {
         plugin = codeium-nvim;
         config = lib.readFile ./neovim/codeium.lua;
+      }
+      {
+        plugin = barbecue-nvim;
+        config = lib.readFile ./neovim/barbecue.lua;
+      }
+      {
+        plugin = nvim-navbuddy;
+        config = lib.readFile ./neovim/navbuddy.lua;
+      }
+      {
+        plugin = hardtime-nvim;
+        config = lib.readFile ./neovim/hardtime.lua;
       }
     ];
     extraLuaConfig = lib.readFile ./neovim/config.lua;
