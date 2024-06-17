@@ -190,6 +190,7 @@ vim.keymap.set("n", "<leader>sls", ":set lines=10<CR>", { silent = true })
 vim.keymap.set("n", "<leader>slm", ":set lines=20<CR>", { silent = true })
 vim.keymap.set("n", "<leader>sll", ":set lines=30<CR>", { silent = true })
 vim.keymap.set("n", "<leader>slr", ":set lines=999<CR>", { silent = true })
+vim.keymap.set("n", "<leader>slw", "50<C-w>>", { silent = true })
 
 -- [[ Configure LSP ]]
 -- vim.lsp.set_log_level("debug")
