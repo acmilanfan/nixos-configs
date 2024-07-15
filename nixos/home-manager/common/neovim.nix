@@ -76,6 +76,7 @@ in {
       dracula-nvim
       # dracula-vim
       kanagawa-nvim
+      tokyonight-nvim
       onedark-nvim
       nvim-notify
       luasnip

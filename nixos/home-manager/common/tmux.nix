@@ -19,7 +19,7 @@
       continuum
       jump
       better-mouse-mode
-      onedark-theme
+      # onedark-theme
       prefix-highlight
       urlview
     ];

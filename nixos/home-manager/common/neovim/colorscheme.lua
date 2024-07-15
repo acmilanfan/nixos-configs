@@ -43,7 +43,8 @@ require('onedark').load()
 
 -- vim.cmd("colorscheme dracula")
 -- vim.cmd("colorscheme nightfox")
+-- vim.cmd("colorscheme onedark")
 -- vim.cmd("colorscheme kanagawa")
-vim.cmd("colorscheme onedark")
+vim.cmd("colorscheme tokyonight-night")
 
 EOF

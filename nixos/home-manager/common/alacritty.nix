@@ -7,33 +7,43 @@
       selection = { save_to_clipboard = true; };
       colors = {
         primary = {
-          background = "#1e2127";
-          foreground = "#abb2bf";
+          background = "#1a1b26";
+          foreground = "#c0caf5";
         };
         selection = {
           background = "#3e4452";
           text = "CellForeground";
         };
         normal = {
-          black = "#2c323c";
-          red = "#e06c75";
-          green = "#98c379";
-          yellow = "#e5c07b";
-          blue = "#61afef";
-          magenta = "#c678dd";
-          cyan = "#56b6c2";
-          white = "#e6efff";
+          black = "#15161e";
+          red = "#f7768e";
+          green = "#9ece6a";
+          yellow = "#e0af68";
+          blue = "#7aa2f7";
+          magenta = "#bb9af7";
+          cyan = "#7dcfff";
+          white = "#a9b1d6";
         };
         bright = {
-          black = "#3e4452";
-          red = "#e06c75";
+          black = "#414868";
+          red = "#9ece6a";
           green = "#98c379";
-          yellow = "#e5c07b";
-          blue = "#61afef";
-          magenta = "#c678dd";
-          cyan = "#56b6c2";
-          white = "#828791";
+          yellow = "#e0af68";
+          blue = "#7aa2f7";
+          magenta = "#bb9af7";
+          cyan = "#7dcfff";
+          white = "#c0caf5";
         };
+        indexed_colors = [
+          {
+            index = 16;
+            color = "#ff9e64";
+          }
+          {
+            index = 17;
+            color = "#db4b4b";
+          }
+        ];
       };
     };
   };
