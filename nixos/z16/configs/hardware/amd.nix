@@ -13,6 +13,7 @@
     rocm-opencl-icd
     rocm-opencl-runtime
     amdvlk
+    rocmPackages.clr.icd
   ];
 
   hardware.opengl.extraPackages32 = with pkgs; [ driversi686Linux.amdvlk ];

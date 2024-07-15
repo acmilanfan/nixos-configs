@@ -25,12 +25,9 @@
     google-chrome
     vial
     calibre
+    clinfo
     davinci-resolve
-    wineWow64Packages.stagingFull
     lutris
-    winetricks
-    jansson
-    samba
   ];
 
 }

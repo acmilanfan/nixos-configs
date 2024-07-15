@@ -5,7 +5,7 @@ let
   name = "dev-env";
   targetPkgs = pkgs: (with pkgs;
     [
-      go nodejs yarn sqlc gofumpt goimports-reviser jq
+      go nodejs yarn sqlc gofumpt goimports-reviser jq python3
     ]);
     runScript = "zsh";
   };
