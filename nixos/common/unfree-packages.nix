@@ -5,6 +5,7 @@
     "cudatoolkit"
     "nvidia-x11"
     "nvidia-settings"
+    "davinci-resolve"
   ];
 
 }

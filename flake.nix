@@ -28,6 +28,16 @@
       };
 
       lib = nixpkgs.lib;
+
+      overlay-davinci-resolve = old: prev: {
+        davinci-resolve = prev.davinci-resolve.override (old: {
+          buildFHSEnv = a:
+            (old.buildFHSEnv (a // {
+              extraBwrapArgs = a.extraBwrapArgs
+                ++ [ "--bind /run/opengl-driver/etc/OpenCL /etc/OpenCL" ];
+            }));
+        });
+      };
     in {
       nixosConfigurations = {
         z16 = lib.nixosSystem {
@@ -49,6 +59,9 @@
             }
             musnix.nixosModules.musnix
             nixos-hardware.nixosModules.lenovo-thinkpad-z
+            ({ config, pkgs, ... }: {
+              nixpkgs.overlays = [ overlay-davinci-resolve ];
+            })
           ];
         };
         t480-work = lib.nixosSystem {
