@@ -19,9 +19,9 @@ null_ls.setup({
         }),
         null_ls.builtins.code_actions.statix,
         null_ls.builtins.code_actions.gitsigns,
-        null_ls.builtins.code_actions.refactoring.with({
-            filetypes = { "java", "go", "javascript", "lua", "typescript" }
-        }),
+        -- null_ls.builtins.code_actions.refactoring.with({
+        --     filetypes = { "java", "go", "javascript", "lua", "typescript" }
+        -- }),
     },
 })
 

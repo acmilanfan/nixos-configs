@@ -28,6 +28,9 @@
     clinfo
     davinci-resolve
     lutris
+    jq
+    wineWowPackages.full
+    winetricks
   ];
 
 }
