@@ -254,6 +254,7 @@ vim.api.nvim_create_autocmd("FileType", {
                 "~/configs/nixos-configs/nixos/home-manager/common/neovim/java/formatter.xml"
               ),
               profile = "CustomProfile",
+              tabSize = 4,
             },
           },
           completion = {
