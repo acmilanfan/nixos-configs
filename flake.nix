@@ -30,7 +30,7 @@
       lib = nixpkgs.lib;
 
       overlay-davinci-resolve = old: prev: {
-        davinci-resolve = prev.davinci-resolve.override (old: {
+        davinci-resolve = prev.davinci-resolve-studio.override (old: {
           buildFHSEnv = a:
             (old.buildFHSEnv (a // {
               extraBwrapArgs = a.extraBwrapArgs
@@ -103,6 +103,30 @@
               };
             }
             nixos-hardware.nixosModules.lenovo-thinkpad-t480
+          ];
+        };
+        yogabook = lib.nixosSystem {
+          inherit system;
+          specialArgs = { inherit inputs; };
+          modules = [
+            ./nixos/yogabook/configuration.nix
+            home-manager.nixosModules.home-manager
+            {
+              home-manager.useGlobalPkgs = true;
+              home-manager.useUserPackages = true;
+              home-manager.users.gentooway = import ./nixos/yogabook/home.nix;
+              home-manager.extraSpecialArgs = {
+                inherit pkgs;
+                inherit unstable;
+                inherit system;
+                inherit inputs;
+              };
+            }
+            nixos-hardware.nixosModules.common-pc-laptop
+            nixos-hardware.nixosModules.common-pc-laptop-ssd
+            ({ config, pkgs, ... }: {
+              nixpkgs.overlays = [ overlay-davinci-resolve ];
+            })
           ];
         };
       };
