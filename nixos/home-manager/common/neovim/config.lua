@@ -1,6 +1,6 @@
 vim.g.mapleader = " "
 vim.g.maplocalleader = " "
-vim.o.clipboard = "unnamedplus"
+-- vim.o.clipboard = "unnamedplus"
 vim.o.breakindent = true
 vim.o.undofile = true
 vim.o.undodir = os.getenv("HOME") .. "/.vim/undodir"
@@ -10,7 +10,7 @@ vim.o.ignorecase = true
 vim.o.smartcase = true
 vim.o.hlsearch = false
 vim.o.incsearch = true
-vim.o.completeopt = "menuone,noselect"
+vim.o.completeopt = "menu,preview,menuone,noselect"
 vim.o.termguicolors = true
 vim.o.smartindent = true
 vim.o.expandtab = true
@@ -35,6 +35,13 @@ vim.api.nvim_create_autocmd("TextYankPost", {
   end,
   group = highlight_group,
   pattern = "*",
+})
+
+local bufwritegroup = vim.api.nvim_create_augroup("BufWriteGroup", {})
+vim.api.nvim_create_autocmd({ "BufWritePre" }, {
+  group = bufwritegroup,
+  pattern = "*",
+  command = [[%s/\s\+$//e]],
 })
 
 local builtin = require("telescope.builtin")
@@ -98,11 +105,17 @@ vim.keymap.set("n", "<Leader>sc", ":setlocal spell spelllang=<cr>", { silent = t
 vim.keymap.set("n", "<C-I>", "<C-I>", {})
 
 vim.keymap.set("n", "<Leader>ha", function()
-  require("harpoon.mark").add_file()
-end, {})
+  require("harpoon"):list():add()
+end)
 vim.keymap.set("n", "<Leader>hl", function()
-  require("harpoon.ui").toggle_quick_menu()
-end, {})
+  require("harpoon").ui:toggle_quick_menu(require("harpoon"):list())
+end)
+vim.keymap.set("n", "<Leader>hb", function()
+  require("harpoon"):list():prev()
+end)
+vim.keymap.set("n", "<Leader>hf", function()
+  require("harpoon"):list():next()
+end)
 
 vim.keymap.set("n", "<leader>u", vim.cmd.UndotreeToggle)
 vim.keymap.set("n", "<leader>lg", vim.cmd.LazyGit)
@@ -126,9 +139,12 @@ vim.keymap.set("n", "n", "nzzzv")
 vim.keymap.set("n", "N", "Nzzzv")
 vim.keymap.set("x", "<leader>p", [["_dP]])
 vim.keymap.set({ "n", "v" }, "<leader>d", [["_d]])
+vim.keymap.set({ "n", "v" }, "<leader>y", [["+y]])
+vim.keymap.set("n", "<leader>Y", [["+Y]])
+vim.keymap.set({ "n", "v" }, "<leader>i", [["+p]])
 
 vim.keymap.set("n", "<leader>j", "<cmd>cnext<CR>zz")
-vim.keymap.set("n", "<leader>k", "<cmd>cprev<CR>zz")
+vim.keymap.set("n", "<leader>kf", "<cmd>cprev<CR>zz")
 
 vim.keymap.set("n", "<C-f>", "<cmd>silent !tmux neww tmux-sessionizer<CR>")
 
@@ -137,6 +153,11 @@ vim.keymap.set("n", "<leader>zk", ":tab close<CR>", { silent = true })
 
 vim.keymap.set("n", "Q", "@qj")
 vim.keymap.set("x", "Q", ":norm @q<CR>")
+vim.keymap.set(
+    "n",
+    "<leader>hr",
+    "oif err != nil {<CR>}<Esc>Oreturn err<Esc>"
+)
 
 -- vim.keymap.set("n", "<leader>st", function()
 --   vim.cmd("normal! qq")
@@ -186,7 +207,7 @@ vim.keymap.set("n", "<leader>nb", function()
   require("refactoring").refactor("Extract Block")
 end)
 
-vim.keymap.set("n", "<leader>mm", require("onedark").toggle, { noremap = true, silent = true })
+-- vim.keymap.set("n", "<leader>mm", require("onedark").toggle, { noremap = true, silent = true })
 vim.keymap.set("n", "<leader>st", require("telescope.builtin").filetypes, { noremap = true, silent = true })
 
 vim.keymap.set("n", "<leader>sls", ":set lines=10<CR>", { silent = true })
@@ -254,7 +275,6 @@ vim.api.nvim_create_autocmd("FileType", {
                 "~/configs/nixos-configs/nixos/home-manager/common/neovim/java/formatter.xml"
               ),
               profile = "CustomProfile",
-              tabSize = 4,
             },
           },
           completion = {

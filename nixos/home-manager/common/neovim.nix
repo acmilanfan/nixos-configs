@@ -52,6 +52,55 @@ in {
   ];
 
   home.sessionVariables = { EDITOR = "nvim"; };
+
+  xdg.configFile."nvim/parser".source = "${
+      pkgs.symlinkJoin {
+        name = "treesitter-parsers";
+        paths = (pkgs.vimPlugins.nvim-treesitter.withPlugins (plugins:
+          with plugins; [
+            bash
+            go
+            hcl
+            html
+            http
+            java
+            javascript
+            typescript
+            vue
+            lua
+            luadoc
+            make
+            markdown
+            nix
+            python
+            sql
+            vim
+            vimdoc
+            comment
+            json
+            yaml
+            toml
+            xml
+            c
+            terraform
+            kotlin
+            jsdoc
+            jq
+            # groovy
+            graphql
+            gosum
+            gomod
+            gitignore
+            git_rebase
+            git_config
+            dockerfile
+            diff
+            css
+            org
+          ])).dependencies;
+      }
+    }/parser";
+
   programs.neovim = {
     enable = true;
     vimAlias = true;
@@ -95,7 +144,6 @@ in {
       friendly-snippets
       FTerm-nvim
       telescope-ui-select-nvim
-      actions-preview-nvim
       undotree
       nvim-navic
       rainbow-delimiters-nvim
@@ -104,51 +152,9 @@ in {
       cmp-nvim-lua
       cmp-tmux
       bigfile-nvim
+      vim-tmux-clipboard
       {
-        plugin = (nvim-treesitter.withPlugins (plugins:
-          with plugins; [
-            tree-sitter-bash
-            tree-sitter-go
-            tree-sitter-hcl
-            tree-sitter-html
-            tree-sitter-http
-            tree-sitter-java
-            tree-sitter-javascript
-            tree-sitter-typescript
-            tree-sitter-vue
-            tree-sitter-lua
-            tree-sitter-luadoc
-            tree-sitter-make
-            tree-sitter-markdown
-            tree-sitter-nix
-            tree-sitter-python
-            tree-sitter-sql
-            tree-sitter-org-nvim
-            tree-sitter-vim
-            tree-sitter-vimdoc
-            tree-sitter-comment
-            tree-sitter-json
-            tree-sitter-yaml
-            tree-sitter-toml
-            tree-sitter-xml
-            tree-sitter-c
-            tree-sitter-terraform
-            tree-sitter-kotlin
-            tree-sitter-jsdoc
-            tree-sitter-jq
-            tree-sitter-groovy
-            tree-sitter-graphql
-            tree-sitter-gosum
-            tree-sitter-gomod
-            tree-sitter-gitignore
-            tree-sitter-gitcommit
-            tree-sitter-gitattributes
-            tree-sitter-git_rebase
-            tree-sitter-git_config
-            tree-sitter-dockerfile
-            tree-sitter-diff
-            tree-sitter-css
-          ]));
+        plugin = nvim-treesitter;
         config = lib.readFile ./neovim/treesitter.lua;
       }
       {
@@ -220,7 +226,7 @@ in {
         config = lib.readFile ./neovim/todo-comments.lua;
       }
       {
-        plugin = harpoon;
+        plugin = harpoon2;
         config = lib.readFile ./neovim/harpoon.lua;
       }
       {
@@ -262,6 +268,10 @@ in {
       {
         plugin = hardtime-nvim;
         config = lib.readFile ./neovim/hardtime.lua;
+      }
+      {
+        plugin = actions-preview-nvim;
+        config = lib.readFile ./neovim/actions-preview.lua;
       }
     ];
     extraLuaConfig = lib.readFile ./neovim/config.lua;

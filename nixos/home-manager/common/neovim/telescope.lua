@@ -13,7 +13,17 @@ telescope.setup({
 			"node_modules/",
 			"vendor/",
 			".git/"
-		}
+		},
+		layout_strategy = "vertical",
+		layout_config = {
+			prompt_position = "top",
+			-- mirror = true,
+		},
+	},
+	extensions = {
+		["ui-select"] = {
+			require("telescope.themes").get_dropdown { }
+		},
 	},
 })
 

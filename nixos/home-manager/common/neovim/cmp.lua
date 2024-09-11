@@ -84,7 +84,6 @@ cmp.setup({
         { name = "nvim_lua" },
         { name = "buffer" },
         { name = "tmux" },
-        { name = "fuzzy_path" },
         { name = "emoji" },
         { name = "orgmode" },
     },
