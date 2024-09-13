@@ -1,0 +1,25 @@
+! Disable home page video suggestions
+www.youtube.com##.grid-disabled.ytd-browse.style-scope
+
+! Hide video end suggestions tile
+www.youtube.com##.ytp-show-tiles.videowall-endscreen.ytp-player-content.html5-endscreen
+
+! Related block and secondary container (hide suggested videos)
+www.youtube.com###related
+www.youtube.com###secondary
+
+! Hide subscriptions block
+www.youtube.com##ytd-guide-section-renderer.ytd-guide-renderer.style-scope:has-text('Subscriptions')+ytd-guide-section-renderer
+! Hide explore block
+www.youtube.com##ytd-guide-section-renderer.ytd-guide-renderer.style-scope:has-text('Explore')
+! Hide more from YouTube block
+www.youtube.com##ytd-guide-section-renderer.ytd-guide-renderer.style-scope:has-text('More from YouTube')
+
+# Remove short container: still plays sound when you click on Shorts and you cannot play your subscriptions shorts, I recommend to hidel that freaking button
+! www.youtube.com###shorts-container
+
+! Remove shorts button
+www.youtube.com##ytd-guide-entry-renderer.ytd-guide-section-renderer.style-scope:has-text('Shorts')
+www.youtube.com##ytd-mini-guide-entry-renderer.ytd-mini-guide-renderer.style-scope:has-text('Shorts')
+
+www.youtube.com##+js(nano-stb, resolve(1), *, 0.001)
