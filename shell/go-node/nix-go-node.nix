@@ -1,11 +1,11 @@
 { pkgs ? import <nixpkgs> {} }:
 
-let 
+let
   fhs = pkgs.buildFHSEnv {
   name = "dev-env";
   targetPkgs = pkgs: (with pkgs;
     [
-      go nodejs yarn sqlc gofumpt goimports-reviser jq python3
+      go nodejs yarn sqlc gofumpt goimports-reviser jq python3 supabase-cli
     ]);
     runScript = "zsh";
   };

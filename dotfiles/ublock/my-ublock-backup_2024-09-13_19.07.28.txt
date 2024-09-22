@@ -1,0 +1,39 @@
+{
+  "timeStamp": 1726247248772,
+  "version": "1.59.0",
+  "userSettings": {
+    "importedLists": [],
+    "popupPanelSections": 15
+  },
+  "selectedFilterLists": [
+    "user-filters",
+    "assets.json",
+    "public_suffix_list.dat",
+    "ublock-badlists",
+    "ublock-filters",
+    "ublock-badware",
+    "ublock-privacy",
+    "ublock-unbreak",
+    "ublock-quick-fixes",
+    "easylist",
+    "easyprivacy",
+    "urlhaus-1",
+    "plowe-0"
+  ],
+  "hiddenSettings": {},
+  "whitelist": [
+    "about-scheme",
+    "chrome-extension-scheme",
+    "chrome-scheme",
+    "edge-scheme",
+    "moz-extension-scheme",
+    "opera-scheme",
+    "vivaldi-scheme",
+    "www.hubermantranscripts.com",
+    "wyciwyg-scheme"
+  ],
+  "dynamicFilteringString": "behind-the-scene * * noop\nbehind-the-scene * inline-script noop\nbehind-the-scene * 1p-script noop\nbehind-the-scene * 3p-script noop\nbehind-the-scene * 3p-frame noop\nbehind-the-scene * image noop\nbehind-the-scene * 3p noop",
+  "urlFilteringString": "",
+  "hostnameSwitchesString": "no-large-media: behind-the-scene false\nno-csp-reports: * true",
+  "userFilters": "! Disable home page video suggestions\nwww.youtube.com##.grid-disabled.ytd-browse.style-scope\n\n! Hide video end suggestions tile\nwww.youtube.com##.ytp-show-tiles.videowall-endscreen.ytp-player-content.html5-endscreen\n\n! Related block and secondary container (hide suggested videos)\nwww.youtube.com###related\nwww.youtube.com###secondary\n\n! Hide subscriptions block\nwww.youtube.com##ytd-guide-section-renderer.ytd-guide-renderer.style-scope:has-text('Subscriptions')+ytd-guide-section-renderer\n! Hide explore block\nwww.youtube.com##ytd-guide-section-renderer.ytd-guide-renderer.style-scope:has-text('Explore')\n! Hide more from YouTube block\nwww.youtube.com##ytd-guide-section-renderer.ytd-guide-renderer.style-scope:has-text('More from YouTube')\n\n# Remove short container: still plays sound when you click on Shorts and you cannot play your subscriptions shorts, I recommend to hidel that freaking button\n! www.youtube.com###shorts-container\n\n! Remove shorts button\nwww.youtube.com##ytd-guide-entry-renderer.ytd-guide-section-renderer.style-scope:has-text('Shorts')\nwww.youtube.com##ytd-mini-guide-entry-renderer.ytd-mini-guide-renderer.style-scope:has-text('Shorts')\n\nwww.youtube.com##+js(nano-stb, resolve(1), *, 0.001)\n"
+}
