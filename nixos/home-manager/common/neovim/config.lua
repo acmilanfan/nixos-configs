@@ -336,7 +336,7 @@ require("lspconfig").volar.setup({
   capabilities = capabilities,
   filetypes = { "typescript", "javascript", "javascriptreact", "typescriptreact", "vue", "json" },
 })
-require("lspconfig").tsserver.setup({
+require("lspconfig").ts_ls.setup({
   capabilities = capabilities,
 })
 require("lspconfig").sqls.setup({

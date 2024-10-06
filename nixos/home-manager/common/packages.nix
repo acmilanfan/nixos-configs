@@ -30,6 +30,8 @@
     jq
     wineWowPackages.full
     winetricks
+    thinkfan
+    lm_sensors
   ];
 
 }
