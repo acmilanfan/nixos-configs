@@ -32,6 +32,7 @@
     winetricks
     thinkfan
     lm_sensors
+    vlc
   ];
 
 }
