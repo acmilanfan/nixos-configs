@@ -582,7 +582,7 @@ globalkeys = gears.table.join(
     awful.spawn(
       terminal
       ..
-      " -o 'window.dimensions.lines=20' -o 'window.dimensions.columns=100' --class orgindex -e zsh -c 'cd ~/org/life && vim ~/org/life/dump.org"
+      " -o 'window.dimensions.lines=20' -o 'window.dimensions.columns=100' --class orgindex -e zsh -c 'cd ~/org/life && vim ~/org/life/dump.org'"
     )
   end, { description = "open orgmode dump file", group = "launcher" }),
 
