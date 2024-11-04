@@ -33,6 +33,8 @@
     thinkfan
     lm_sensors
     vlc
+    scrcpy
+    android-tools
   ];
 
 }

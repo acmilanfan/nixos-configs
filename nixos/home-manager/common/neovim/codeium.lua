@@ -1,5 +1,5 @@
 lua << EOF
 
-require("codeium").setup()
+require("codeium").setup({})
 
 EOF

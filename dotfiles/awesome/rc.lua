@@ -599,7 +599,7 @@ globalkeys = gears.table.join(
     myscreen.mywibox.visible = not myscreen.mywibox.visible
   end, { description = "toggle statusbar" }),
 
-  awful.key({ modkey, "Shift" }, "y", function()
+  awful.key({ modkey, "mod4" }, "y", function()
     naughty.toggle()
     dnd.checked = not dnd.checked
   end, { description = "Toggle notifications" }),
