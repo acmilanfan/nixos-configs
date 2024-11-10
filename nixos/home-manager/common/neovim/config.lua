@@ -138,7 +138,7 @@ vim.keymap.set("n", "<C-u>", "<C-u>zz")
 vim.keymap.set("n", "n", "nzzzv")
 vim.keymap.set("n", "N", "Nzzzv")
 vim.keymap.set("x", "<leader>p", [["_dP]])
-vim.keymap.set({ "n", "v" }, "<leader>d", [["_d]])
+vim.keymap.set({ "n", "v" }, "<leader>d", "\"_d")
 vim.keymap.set({ "n", "v" }, "<leader>y", [["+y]])
 vim.keymap.set("n", "<leader>Y", [["+Y]])
 vim.keymap.set({ "n", "v" }, "<leader>i", [["+p]])
@@ -153,11 +153,7 @@ vim.keymap.set("n", "<leader>zk", ":tab close<CR>", { silent = true })
 
 vim.keymap.set("n", "Q", "@qj")
 vim.keymap.set("x", "Q", ":norm @q<CR>")
-vim.keymap.set(
-    "n",
-    "<leader>hr",
-    "oif err != nil {<CR>}<Esc>Oreturn err<Esc>"
-)
+vim.keymap.set("n", "<leader>hr", "oif err != nil {<CR>}<Esc>Oreturn err<Esc>")
 
 -- vim.keymap.set("n", "<leader>st", function()
 --   vim.cmd("normal! qq")
