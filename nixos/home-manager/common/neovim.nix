@@ -273,6 +273,10 @@ in {
         plugin = actions-preview-nvim;
         config = lib.readFile ./neovim/actions-preview.lua;
       }
+      {
+        plugin = zen-mode-nvim;
+        config = lib.readFile ./neovim/zen-mode.lua;
+      }
     ];
     extraLuaConfig = lib.readFile ./neovim/config.lua;
   };
