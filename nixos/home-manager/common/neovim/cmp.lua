@@ -3,10 +3,10 @@ lua << EOF
 local has_words_before = function()
     unpack = unpack or table.unpack
     local line, col = unpack(vim.api.nvim_win_get_cursor(0))
-    return col ~= 0 and vim.api.nvim_buf_get_lines(0, line - 1, line, true)[1]:sub(col, col):match('%s') == nil
+    return col ~= 0 and vim.api.nvim_buf_get_lines(0, line - 1, line, true)[1]:sub(col, col):match("%s") == nil
 end
 
-local cmp = require('cmp')
+local cmp = require("cmp")
 local luasnip = require("luasnip")
 require("luasnip.loaders.from_vscode").lazy_load()
 luasnip.config.setup({})
@@ -25,9 +25,9 @@ cmp.setup({
         ["<C-p>"] = cmp.mapping.select_prev_item(),
         ["<C-d>"] = cmp.mapping.scroll_docs(-4),
         ["<C-f>"] = cmp.mapping.scroll_docs(4),
-        ['<Tab>'] = function(fallback)
+        ["<Tab>"] = function(fallback)
             if not cmp.select_next_item() then
-                if vim.bo.buftype ~= 'prompt' and has_words_before() then
+                if vim.bo.buftype ~= "prompt" and has_words_before() then
                     cmp.complete()
                 elseif luasnip.expand_or_locally_jumpable() then
                     luasnip.expand_or_jump()
@@ -36,9 +36,9 @@ cmp.setup({
                 end
             end
         end,
-        ['<S-Tab>'] = function(fallback)
+        ["<S-Tab>"] = function(fallback)
             if not cmp.select_prev_item() then
-                if vim.bo.buftype ~= 'prompt' and has_words_before() then
+                if vim.bo.buftype ~= "prompt" and has_words_before() then
                     cmp.complete()
                 elseif luasnip.locally_jumpable(-1) then
                     luasnip.jump(-1)
@@ -70,15 +70,15 @@ cmp.setup({
         --     behavior = cmp.ConfirmBehavior.Insert,
         --     select = true,
         -- },
-        ['<CR>'] = cmp.mapping.confirm {
+        ["<CR>"] = cmp.mapping.confirm({
             behavior = cmp.ConfirmBehavior.Insert,
             -- TODO: add replace on a separate keybind
             -- behavior = cmp.ConfirmBehavior.Replace,
             select = true,
-        },
+        }),
     }),
     sources = {
-        { name = "codeium" },
+        { name = "codeium", max_item_count = 3 },
         { name = "nvim_lsp" },
         { name = "luasnip" },
         { name = "nvim_lua" },
@@ -87,12 +87,13 @@ cmp.setup({
         { name = "emoji" },
         { name = "orgmode" },
     },
+    formatting = { source_names = { codeium = "(Codeium)" } },
 })
 
-cmp.setup.cmdline(':', {
-  sources = cmp.config.sources({
-    { name = 'fuzzy_path' }
-  })
+cmp.setup.cmdline(":", {
+    sources = cmp.config.sources({
+        { name = "fuzzy_path" },
+    }),
 })
 
 EOF

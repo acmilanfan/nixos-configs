@@ -153,6 +153,7 @@ in {
       cmp-tmux
       bigfile-nvim
       vim-tmux-clipboard
+      twilight-nvim
       {
         plugin = nvim-treesitter;
         config = lib.readFile ./neovim/treesitter.lua;

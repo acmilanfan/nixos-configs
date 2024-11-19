@@ -35,6 +35,7 @@
     vlc
     scrcpy
     android-tools
+    pandoc
   ];
 
 }
