@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+
+# Screen identifiers
+TOP_SCREEN="eDP-1"
+BOTTOM_SCREEN="eDP-2"
+TOUCH_DEVICE="INGENIC Gadget Serial and keyboard"
+
+# Function to reset virtual monitor configuration
+reset_monitor() {
+    xrandr --output "$TOP_SCREEN" --off --output "$BOTTOM_SCREEN" --off
+    # Remove any virtual monitors created during combine modes
+    xrandr --delmonitor combined 2>/dev/null
+    # Reset touch input calibration to default
+    xinput set-prop "$touch_device" "Coordinate Transformation Matrix" 1 0 0 0 1 0 0 0 1
+}
+
+# Function to calibrate touch input based on the current configuration
+calibrate_touch() {
+    rotation="$1"
+    both_screens_on="$2"
+
+    if [[ "$both_screens_on" == "true" ]]; then
+        case "$rotation" in
+            "normal" | "inverted")
+                # Vertical stack: touch covers top half of combined screen
+                xinput set-prop "$TOUCH_DEVICE" "Coordinate Transformation Matrix" 1 0 0 0 0.5 0 0 0 1
+                ;;
+            "left" | "right")
+                # Horizontal stack: touch covers left half of combined screen
+                xinput set-prop "$TOUCH_DEVICE" "Coordinate Transformation Matrix" 0.5 0 0 0 1 0 0 0 1
+                ;;
+        esac
+    else
+        # Single top screen: normal touch matrix
+        xinput set-prop "$TOUCH_DEVICE" "Coordinate Transformation Matrix" 1 0 0 0 1 0 0 0 1
+    fi
+}
+
+# Mode functions
+
+default_mode() {
+    reset_monitor
+    xrandr --output "$TOP_SCREEN" --auto --rotate inverted \
+           --output "$BOTTOM_SCREEN" --auto --primary --below "$TOP_SCREEN"
+    calibrate_touch "normal" "true"
+}
+
+single_top() {
+    reset_monitor
+    xrandr --output "$TOP_SCREEN" --auto --primary --rotate inverted --output "$BOTTOM_SCREEN" --off
+    calibrate_touch "normal" "false"
+}
+
+single_bottom() {
+    reset_monitor
+    xrandr --output "$TOP_SCREEN" --off --output "$BOTTOM_SCREEN" --auto --primary
+}
+
+rotate_current() {
+    current_rotation=$(xrandr --query --verbose | grep "$TOP_SCREEN connected" | grep -oP "(inverted|left|right|normal)")
+    case "$current_rotation" in
+        "normal") new_rotation="left" ;;
+        "left") new_rotation="inverted" ;;
+        "inverted") new_rotation="right" ;;
+        "right") new_rotation="normal" ;;
+    esac
+    xrandr --output "$TOP_SCREEN" --rotate "$new_rotation"
+    both_screens_on=$(xrandr | grep "$BOTTOM_SCREEN connected" | grep -q "connected" && echo "true" || echo "false")
+    calibrate_touch "$new_rotation" "$both_screens_on"
+}
+
+book_mode_both() {
+    reset_monitor
+    xrandr --output "$TOP_SCREEN" --auto --primary --rotate left \
+           --output "$BOTTOM_SCREEN" --auto --rotate right --right-of "$TOP_SCREEN"
+    calibrate_touch "left" "true"
+}
+
+book_mode_single() {
+    reset_monitor
+    xrandr --output "$TOP_SCREEN" --auto --primary --rotate left --output "$BOTTOM_SCREEN" --off
+    calibrate_touch "left" "false"
+}
+
+combine_vertical() {
+    reset_monitor
+    xrandr --output "$TOP_SCREEN" --auto --primary --rotate inverted \
+           --output "$BOTTOM_SCREEN" --auto --rotate normal --below "$TOP_SCREEN"
+    xrandr --setmonitor combined 2880/289x3600/372+0+0 "$TOP_SCREEN","$BOTTOM_SCREEN"
+    calibrate_touch "normal" "true"
+}
+
+combine_horizontal() {
+    reset_monitor
+    xrandr --output "$TOP_SCREEN" --auto --primary --rotate left \
+           --output "$BOTTOM_SCREEN" --auto --rotate right --right-of "$TOP_SCREEN"
+    xrandr --setmonitor combined 3600/372x2880/289+0+0 "$TOP_SCREEN","$BOTTOM_SCREEN"
+    calibrate_touch "left" "true"
+}
+
+# Launch Rofi with icons and larger text
+launch_rofi_menu() {
+    choice=$(echo -e "  Default Mode\n  Single Top\n  Single Bottom\n  Rotate Current\n  Book Mode Both\n  Book Mode Single\n  Combine Vertical\n  Combine Horizontal" | \
+    rofi -dmenu -p "📺 Screen Mode" \
+    -theme-str 'listview { lines: 8; }' \
+    -theme-str 'window { width: 30%; }' \
+    -theme-str 'element { padding: 10px 20px; }' \
+    -theme-str 'element selected { background-color: #285577; }' \
+    -theme-str 'inputbar { font: "monospace 18"; }' \
+    -theme-str 'listview { font: "monospace 18"; }' \
+    -theme-str 'element { font: "monospace 18"; }')
+
+    case "$choice" in
+        "  Default Mode") default_mode ;;
+        "  Single Top") single_top ;;
+        "  Single Bottom") single_bottom ;;
+        "  Rotate Current") rotate_current ;;
+        "  Book Mode Both") book_mode_both ;;
+        "  Book Mode Single") book_mode_single ;;
+        "  Combine Vertical") combine_vertical ;;
+        "  Combine Horizontal") combine_horizontal ;;
+    esac
+}
+
+# Main execution
+launch_rofi_menu

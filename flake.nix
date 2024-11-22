@@ -124,6 +124,10 @@
             }
             nixos-hardware.nixosModules.common-pc-laptop
             nixos-hardware.nixosModules.common-pc-laptop-ssd
+            nixos-hardware.nixosModules.common-pc-laptop-acpi_call
+            nixos-hardware.nixosModules.common-hidpi
+            nixos-hardware.nixosModules.common-cpu-intel
+            nixos-hardware.nixosModules.common-gpu-intel
             ({ config, pkgs, ... }: {
               nixpkgs.overlays = [ overlay-davinci-resolve ];
             })
