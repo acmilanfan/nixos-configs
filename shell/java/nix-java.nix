@@ -8,8 +8,9 @@ let fhs = pkgs.buildFHSUserEnv {
     name = "java-maven-env";
     targetPkgs = pkgs: (with pkgs;
       [
-        maven zlib pam gdb xorg.libXext xorg.libX11 xorg.libXrender xorg.libXtst xorg.libXi freetype gradle libaio numactl ncurses5 libxcrypt
-        nodejs_18 nodePackages.mocha nodePackages.ts-node nodePackages.typescript docker
+        maven zlib pam gdb xorg.libXext xorg.libX11 xorg.libXrender xorg.libXtst xorg.libXi freetype gradle libaio
+        numactl ncurses5 libxcrypt libxcrypt-legacy nodejs_18 nodePackages.mocha nodePackages.ts-node
+        nodePackages.typescript docker openssl glibc mysql-client glibcLocales gnumake
       ]);
     runScript = "zsh";
   };
