@@ -11,28 +11,49 @@ reset_monitor() {
     # Remove any virtual monitors created during combine modes
     xrandr --delmonitor combined 2>/dev/null
     # Reset touch input calibration to default
-    xinput set-prop "$touch_device" "Coordinate Transformation Matrix" 1 0 0 0 1 0 0 0 1
+    xinput set-prop "$TOUCH_DEVICE" --type=float "Coordinate Transformation Matrix" 1 0 0 0 1 0 0 0 1
 }
 
 # Function to calibrate touch input based on the current configuration
 calibrate_touch() {
-    rotation="$1"
-    both_screens_on="$2"
+    local rotation=$1
+    local combined=$2 # Whether both screens are combined (vertical/horizontal) or not
 
-    if [[ "$both_screens_on" == "true" ]]; then
+    if [ "$combined" = "true" ]; then
+        # Combined mode (adjust to top screen only)
         case "$rotation" in
-            "normal" | "inverted")
-                # Vertical stack: touch covers top half of combined screen
-                xinput set-prop "$TOUCH_DEVICE" "Coordinate Transformation Matrix" 1 0 0 0 0.5 0 0 0 1
+            normal)
+                xinput set-prop "$TOUCH_DEVICE" --type=float "Coordinate Transformation Matrix" -1 0 1 0 -0.5 1 0 0 1
+                # xinput set-prop "$TOUCH_DEVICE" --type=float "Coordinate Transformation Matrix" 1 0 0 0 0.5 0 0 0 1
                 ;;
-            "left" | "right")
-                # Horizontal stack: touch covers left half of combined screen
-                xinput set-prop "$TOUCH_DEVICE" "Coordinate Transformation Matrix" 0.5 0 0 0 1 0 0 0 1
+            inverted)
+                xinput set-prop "$TOUCH_DEVICE" --type=float "Coordinate Transformation Matrix" 1 0 0 0 0.5 0 0 0 1
+                ;;
+            left)
+                xinput set-prop "$TOUCH_DEVICE" --type=float "Coordinate Transformation Matrix" 0 -1 1 0.5 0 0 0 0 1
+                # xinput set-prop "$TOUCH_DEVICE" --type=float "Coordinate Transformation Matrix" 0 -0.5 1 1 0 0 0 0 1
+                ;;
+            right)
+                xinput set-prop "$TOUCH_DEVICE" --type=float "Coordinate Transformation Matrix" 0 1 0 -0.5 0 1 0 0 1
+                # xinput set-prop "$TOUCH_DEVICE" --type=float "Coordinate Transformation Matrix" 0 0.5 0 -1 0 1 0 0 1
                 ;;
         esac
     else
-        # Single top screen: normal touch matrix
-        xinput set-prop "$TOUCH_DEVICE" "Coordinate Transformation Matrix" 1 0 0 0 1 0 0 0 1
+        # Single screen (top or bottom)
+        case "$rotation" in
+            normal)
+                xinput set-prop "$TOUCH_DEVICE" --type=float "Coordinate Transformation Matrix" -1 0 1 0 -1 1 0 0 1
+                ;;
+            inverted)
+                xinput set-prop "$TOUCH_DEVICE" --type=float "Coordinate Transformation Matrix" 1 0 0 0 1 0 0 0 1
+                ;;
+            left)
+                xinput set-prop "$TOUCH_DEVICE" --type=float "Coordinate Transformation Matrix" 0 1 0 -1 0 1 0 0 1
+                ;;
+            right)
+                xinput set-prop "$TOUCH_DEVICE" --type=float "Coordinate Transformation Matrix" 0 -1 1 1 0 0 0 0 1
+                ;;
+        esac
     fi
 }
 
@@ -42,13 +63,13 @@ default_mode() {
     reset_monitor
     xrandr --output "$TOP_SCREEN" --auto --rotate inverted \
            --output "$BOTTOM_SCREEN" --auto --primary --below "$TOP_SCREEN"
-    calibrate_touch "normal" "true"
+    calibrate_touch "inverted" "true"
 }
 
 single_top() {
     reset_monitor
     xrandr --output "$TOP_SCREEN" --auto --primary --rotate inverted --output "$BOTTOM_SCREEN" --off
-    calibrate_touch "normal" "false"
+    calibrate_touch "inverted" "false"
 }
 
 single_bottom() {
@@ -57,15 +78,25 @@ single_bottom() {
 }
 
 rotate_current() {
-    current_rotation=$(xrandr --query --verbose | grep "$TOP_SCREEN connected" | grep -oP "(inverted|left|right|normal)")
+    current_rotation=$(xrandr --query --verbose | grep "$TOP_SCREEN connected" | grep -oP "(normal|inverted|left|right)" | head -n 1)
+    echo "Current rotation: $current_rotation"
+
     case "$current_rotation" in
-        "normal") new_rotation="left" ;;
-        "left") new_rotation="inverted" ;;
-        "inverted") new_rotation="right" ;;
-        "right") new_rotation="normal" ;;
+        "normal") new_rotation="right" ;;
+        "right") new_rotation="inverted" ;;
+        "inverted") new_rotation="left" ;;
+        "left") new_rotation="normal" ;;
     esac
+
+    # Get the current rotation of eDP-1
+    echo "New rotation: $new_rotation"
+
+    # Apply the new rotation
     xrandr --output "$TOP_SCREEN" --rotate "$new_rotation"
-    both_screens_on=$(xrandr | grep "$BOTTOM_SCREEN connected" | grep -q "connected" && echo "true" || echo "false")
+
+    # Calibrate touch input
+    both_screens_on=$(xrandr | grep "$BOTTOM_SCREEN connected" | grep -q "primary" && echo "true" || echo "false")
+    echo "Both screens on: $both_screens_on"
     calibrate_touch "$new_rotation" "$both_screens_on"
 }
 
@@ -101,7 +132,9 @@ combine_horizontal() {
 # Launch Rofi with icons and larger text
 launch_rofi_menu() {
     choice=$(echo -e "  Default Mode\n  Single Top\n  Single Bottom\n  Rotate Current\n  Book Mode Both\n  Book Mode Single\n  Combine Vertical\n  Combine Horizontal" | \
-    rofi -dmenu -p "📺 Screen Mode" \
+    rofi -dmenu -p "📺 Screen Mode" -hover-select \
+    -me-select-entry '' \
+    -me-accept-entry MousePrimary \
     -theme-str 'listview { lines: 8; }' \
     -theme-str 'window { width: 30%; }' \
     -theme-str 'element { padding: 10px 20px; }' \
