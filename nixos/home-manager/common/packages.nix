@@ -1,6 +1,7 @@
 { pkgs, ... }: {
 
   home.packages = with pkgs; [
+    (writeShellScriptBin "screen-toggle" (lib.readFile ./scripts/screen-toggle))
     git
     arandr
     httpie
@@ -36,6 +37,7 @@
     scrcpy
     android-tools
     pandoc
+    alsa-scarlett-gui
   ];
 
 }

@@ -77,7 +77,7 @@ single_bottom() {
     xrandr --output "$TOP_SCREEN" --off --output "$BOTTOM_SCREEN" --auto --primary
 }
 
-rotate_current() {
+rotate_top() {
     current_rotation=$(xrandr --query --verbose | grep "$TOP_SCREEN connected" | grep -oP "(normal|inverted|left|right)" | head -n 1)
     echo "Current rotation: $current_rotation"
 
@@ -92,7 +92,10 @@ rotate_current() {
     echo "New rotation: $new_rotation"
 
     # Apply the new rotation
-    xrandr --output "$TOP_SCREEN" --rotate "$new_rotation"
+    # xrandr --output "$TOP_SCREEN" --auto --rotate "$new_rotation"
+
+    xrandr --output "$TOP_SCREEN" --auto --rotate "$new_rotation" \
+           --output "$BOTTOM_SCREEN" --auto --primary --rotate normal --below "$TOP_SCREEN"
 
     # Calibrate touch input
     both_screens_on=$(xrandr | grep "$BOTTOM_SCREEN connected" | grep -q "primary" && echo "true" || echo "false")
@@ -147,7 +150,7 @@ launch_rofi_menu() {
         "  Default Mode") default_mode ;;
         "  Single Top") single_top ;;
         "  Single Bottom") single_bottom ;;
-        "  Rotate Current") rotate_current ;;
+        "  Rotate Top Screen") rotate_top;;
         "  Book Mode Both") book_mode_both ;;
         "  Book Mode Single") book_mode_single ;;
         "  Combine Vertical") combine_vertical ;;

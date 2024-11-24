@@ -67,10 +67,11 @@ beautiful.init(os.getenv("HOME") .. "/.config/awesome/themes/purple/theme.lua")
 
 -- This is used later as the default terminal and editor to run.
 browser = "firefox"
-terminal = "env WINIT_X11_SCALE_FACTOR=1.3 alacritty"
+terminal = "alacritty"
 editor = os.getenv("EDITOR") or "vim"
 editor_cmd = terminal .. " -e " .. editor
 laptop_monitor = os.getenv("LAPTOP_MONITOR")
+extra_screen_brightness_cmd = os.getenv("EXTRA_SCREEN_BRIGHTNESS_CMD")
 
 -- Default modkey.
 -- Usually, Mod4 is the key with a logo between Control and Alt.
@@ -335,6 +336,24 @@ dnd:buttons(awful.button({}, 1, function()
   dnd.checked = not dnd.checked
 end))
 
+-- Create the widget button
+local screen_toggle_button = wibox.widget {
+    {
+        text = "🖥️",
+        widget = wibox.widget.textbox,
+        align = "center",
+        valign = "center",
+    },
+    margins = 4,
+    widget = wibox.container.margin,
+}
+
+-- Button click action
+screen_toggle_button:connect_signal("button::press", function()
+    awful.spawn.with_shell("screen-toggle")
+end)
+
+
 awful.screen.connect_for_each_screen(function(s)
   -- Wallpaper
   set_wallpaper(s)
@@ -402,6 +421,10 @@ awful.screen.connect_for_each_screen(function(s)
       -- Right widgets
       layout = wibox.layout.fixed.horizontal,
       spacing = 3,
+
+      wibox.widget.textbox(" | "),
+
+      screen_toggle_button,
 
       wibox.widget.textbox(" |"),
 
@@ -770,37 +793,65 @@ globalkeys = gears.table.join(
   end, { description = "move focused client to tag #" .. 20, group = "tag" })
 )
 
-globalkeys = gears.table.join(
-  globalkeys,
-  -- Brightness
-  awful.key({}, "XF86MonBrightnessDown", function()
-    awful.util.spawn("light -U 5")
-  end, { description = "Brightness down", group = "screen" }),
-  awful.key({}, "XF86MonBrightnessUp", function()
-    awful.util.spawn("light -A 5")
-  end, { description = "Brightness up", group = "screen" }),
-  awful.key({}, "XF86AudioRaiseVolume", function()
-    awful.util.spawn("pamixer -i 5")
-  end, { description = "Volume up", group = "audio" }),
-  awful.key({}, "XF86AudioLowerVolume", function()
-    awful.util.spawn("pamixer -d 5")
-  end, { description = "Volume down", group = "audio" }),
-  awful.key({}, "XF86AudioMute", function()
-    awful.util.spawn("pamixer -t")
-  end, { description = "Mute audio", group = "audio" }),
-  awful.key({}, "XF86AudioMicMute", function()
-    awful.util.spawn("pamixer --default-source -t")
-  end, { description = "Mute mic", group = "audio" }),
-
-  awful.key({}, "XF86AudioPlay", function()
-    awful.util.spawn("playerctl play-pause")
-  end, { description = "Audio play-pause", group = "audio" }),
-  awful.key({}, "XF86AudioNext", function()
-    awful.util.spawn("playerctl next")
-  end, { description = "Audio next", group = "audio" }),
-  awful.key({}, "XF86AudioPrev", function()
-    awful.util.spawn("playerctl prev")
-  end, { description = "Audio prev", group = "audio" }),
+-- globalkeys = gears.table.join(
+--   globalkeys,
+--   -- Brightness
+--   awful.key({}, "XF86MonBrightnessDown", function()
+--     awful.util.spawn("light -U 5")
+--   end, { description = "Brightness down", group = "screen" }),
+--   awful.key({}, "XF86MonBrightnessUp", function()
+--     awful.util.spawn("light -A 5")
+--   end, { description = "Brightness up", group = "screen" }),
+--   awful.key({}, "XF86AudioRaiseVolume", function()
+--     awful.util.spawn("pamixer -i 5")
+--   end, { description = "Volume up", group = "audio" }),
+--   awful.key({}, "XF86AudioLowerVolume", function()
+--     awful.util.spawn("pamixer -d 5")
+--   end, { description = "Volume down", group = "audio" }),
+--   awful.key({}, "XF86AudioMute", function()
+--     awful.util.spawn("pamixer -t")
+--   end, { description = "Mute audio", group = "audio" }),
+--   awful.key({}, "XF86AudioMicMute", function()
+--     awful.util.spawn("pamixer --default-source -t")
+--   end, { description = "Mute mic", group = "audio" }),
+--
+--   awful.key({}, "XF86AudioPlay", function()
+--     awful.util.spawn("playerctl play-pause")
+--   end, { description = "Audio play-pause", group = "audio" }),
+--   awful.key({}, "XF86AudioNext", function()
+--     awful.util.spawn("playerctl next")
+--   end, { description = "Audio next", group = "audio" }),
+--   awful.key({}, "XF86AudioPrev", function()
+--     awful.util.spawn("playerctl prev")
+--   end, { description = "Audio prev", group = "audio" }),
+globalkeys = gears.table.join(globalkeys,
+    -- Brightness
+    awful.key({ }, "XF86MonBrightnessDown", function ()
+        awful.util.spawn("light -U 5")
+        if extra_screen_brightness_cmd then
+            awful.util.spawn(extra_screen_brightness_cmd .. " -U 5")
+        end
+    end,
+	{ description = "Brightness down", group = "screen" }),
+    awful.key({ }, "XF86MonBrightnessUp", function ()
+        awful.util.spawn("light -A 5")
+        if extra_screen_brightness_cmd then
+            awful.util.spawn(extra_screen_brightness_cmd .. " -A 5")
+        end
+    end,
+	{ description = "Brightness up", group = "screen" }),
+    awful.key({ }, "XF86AudioRaiseVolume", function ()
+        awful.util.spawn("pamixer -i 5") end,
+	{ description = "Volume up", group = "audio" }),
+    awful.key({ }, "XF86AudioLowerVolume", function ()
+        awful.util.spawn("pamixer -d 5") end,
+	{ description = "Volume down", group = "audio" }),
+    awful.key({ }, "XF86AudioMute", function ()
+        awful.util.spawn("pamixer -t") end,
+	{ description = "Mute audio", group = "audio" }),
+    awful.key({ }, "XF86AudioMicMute", function ()
+        awful.util.spawn("pamixer --default-source -t") end,
+	{ description = "Mute mic", group = "audio" }),
 
   awful.key({ "Shift", modkey }, "v", function()
     awful.util.spawn("rofi -modi \"clipboard:greenclip print\" -show clipboard -run-command '{cmd}'")
@@ -821,7 +872,13 @@ globalkeys = gears.table.join(
   end, { description = "Disable laptop screen", group = "screen" }),
   awful.key({ modkey, "Control", "Shift" }, "d", function()
     awful.util.spawn("autorandr --change")
-  end, { description = "Restore correct full displays layout (run autorandr)", group = "screen" })
+  end, { description = "Restore correct full displays layout (run autorandr)", group = "screen" }),
+  awful.key({ "Control", "Shift" }, "s",
+  function()
+    awful.spawn.with_shell("screen-toggle")
+  end,
+  { description = "Toggle screen mode", group = "screen" }
+  )
 )
 
 -- Logic for laptop + external monitor setup
