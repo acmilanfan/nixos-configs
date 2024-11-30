@@ -213,6 +213,10 @@ vim.keymap.set("n", "<leader>sll", ":set lines=30<CR>", { silent = true })
 vim.keymap.set("n", "<leader>slr", ":set lines=999<CR>", { silent = true })
 vim.keymap.set("n", "<leader>slw", "50<C-w>>", { silent = true })
 
+local lsplinks = require("lsplinks")
+lsplinks.setup()
+vim.keymap.set("n", "gx", lsplinks.gx)
+
 -- [[ Configure LSP ]]
 -- vim.lsp.set_log_level("debug")
 vim.api.nvim_create_autocmd("LspAttach", {
@@ -342,6 +346,12 @@ require("lspconfig").sqls.setup({
 require("lspconfig").jsonls.setup({
   cmd = { "vscode-json-languageserver", "--stdio" },
   capabilities = capabilities,
+  settings = {
+    json = {
+      schemas = require("schemastore").json.schemas(),
+      validate = { enable = true },
+    },
+  },
 })
 
 require("lspconfig").graphql.setup({
@@ -362,10 +372,40 @@ require("lspconfig").terraformls.setup({
 
 require("lspconfig").yamlls.setup({
   capabilities = capabilities,
+  settings = {
+    yaml = {
+      schemaStore = {
+        -- You must disable built-in schemaStore support if you want to use
+        -- this plugin and its advanced options like `ignore`.
+        enable = false,
+        -- Avoid TypeError: Cannot read properties of undefined (reading 'length')
+        url = "",
+      },
+      schemas = require("schemastore").yaml.schemas(),
+    },
+  },
 })
 
+local lemminx_home = vim.env["LEMMINX_HOME"]
+if lemminx_home then
+  local common = require("utils.common")
+
+  local lemminx_jars = {}
+  for _, bundle in ipairs(vim.split(vim.fn.glob(lemminx_home .. "/*.jar"), "\n")) do
+    table.insert(lemminx_jars, bundle)
+  end
+
+  local lemminxStr = vim.fn.join(lemminx_jars, common.is_win and ";" or ":")
+  cmd = {
+    common.java_bin(),
+    "-cp",
+    lemminxStr,
+    "org.eclipse.lemminx.XMLServerLauncher",
+  }
+end
 require("lspconfig").lemminx.setup({
   capabilities = capabilities,
+  cmd = cmd,
 })
 
 vim.g.firenvim_config = {

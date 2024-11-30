@@ -45,4 +45,15 @@
     };
   };
 
+  lsplinks-nvim = buildVimPluginFrom2Nix {
+    pname = "macroni";
+    version = "master";
+    src = fetchFromGitHub {
+      owner = "icholy";
+      repo = "lsplinks.nvim";
+      rev = "088c91e7aa0eaa24508db77ccf827440ca72760f";
+      sha256 = "0inkgzbhgsd8rbca2smhm3znrqwlj0lvrh4k4kqb77v91p9zffjc";
+    };
+  };
+
 }

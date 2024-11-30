@@ -119,6 +119,7 @@ in {
       customPlugins.org-bullets
       # customPlugins.headlines-nvim
       customPlugins.nvim-macroni
+      customPlugins.lsplinks-nvim
       vim-table-mode
       sniprun
       diffview-nvim
@@ -154,6 +155,7 @@ in {
       bigfile-nvim
       vim-tmux-clipboard
       twilight-nvim
+      SchemaStore-nvim
       {
         plugin = nvim-treesitter;
         config = lib.readFile ./neovim/treesitter.lua;
@@ -277,6 +279,10 @@ in {
       {
         plugin = zen-mode-nvim;
         config = lib.readFile ./neovim/zen-mode.lua;
+      }
+      {
+        plugin = cloak-nvim;
+        config = lib.readFile ./neovim/cloak-nvim.lua;
       }
     ];
     extraLuaConfig = lib.readFile ./neovim/config.lua;
