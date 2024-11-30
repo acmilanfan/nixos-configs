@@ -815,15 +815,6 @@ globalkeys = gears.table.join(
 --     awful.util.spawn("pamixer --default-source -t")
 --   end, { description = "Mute mic", group = "audio" }),
 --
---   awful.key({}, "XF86AudioPlay", function()
---     awful.util.spawn("playerctl play-pause")
---   end, { description = "Audio play-pause", group = "audio" }),
---   awful.key({}, "XF86AudioNext", function()
---     awful.util.spawn("playerctl next")
---   end, { description = "Audio next", group = "audio" }),
---   awful.key({}, "XF86AudioPrev", function()
---     awful.util.spawn("playerctl prev")
---   end, { description = "Audio prev", group = "audio" }),
 globalkeys = gears.table.join(globalkeys,
     -- Brightness
     awful.key({ }, "XF86MonBrightnessDown", function ()
@@ -852,6 +843,16 @@ globalkeys = gears.table.join(globalkeys,
     awful.key({ }, "XF86AudioMicMute", function ()
         awful.util.spawn("pamixer --default-source -t") end,
 	{ description = "Mute mic", group = "audio" }),
+
+  awful.key({}, "XF86AudioPlay", function()
+    awful.util.spawn("playerctl play-pause")
+  end, { description = "Audio play-pause", group = "audio" }),
+  awful.key({}, "XF86AudioNext", function()
+    awful.util.spawn("playerctl next")
+  end, { description = "Audio next", group = "audio" }),
+  awful.key({}, "XF86AudioPrev", function()
+    awful.util.spawn("playerctl prev")
+  end, { description = "Audio prev", group = "audio" }),
 
   awful.key({ "Shift", modkey }, "v", function()
     awful.util.spawn("rofi -modi \"clipboard:greenclip print\" -show clipboard -run-command '{cmd}'")
