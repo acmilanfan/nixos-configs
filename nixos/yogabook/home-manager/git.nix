@@ -6,7 +6,6 @@ in {
   programs.git = {
     enable = true;
     userEmail = secrets.homeEmail;
-    userName = "Andrei Shumailov";
     extraConfig = {
       core = {
         sshCommand = "ssh -i ~/.ssh/id_ed25519 -o 'IdentitiesOnly yes'";
@@ -14,7 +13,7 @@ in {
     };
     includes = [
       {
-        condition = "gitdir:~/Work/**";
+        condition = "gitdir:~/Work/";
         contents = {
           user = {
             email = secrets.workEmail;

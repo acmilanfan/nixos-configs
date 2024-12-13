@@ -139,7 +139,7 @@ in {
       nvim-lspconfig
       cmp-nvim-lsp
       firenvim
-      vim-tmux-navigator
+      # vim-tmux-navigator
       nvim-jdtls
       cmp-emoji
       friendly-snippets
@@ -283,6 +283,10 @@ in {
       {
         plugin = cloak-nvim;
         config = lib.readFile ./neovim/cloak-nvim.lua;
+      }
+      {
+        plugin = nvim-pqf;
+        config = lib.readFile ./neovim/pqf.lua;
       }
     ];
     extraLuaConfig = lib.readFile ./neovim/config.lua;
