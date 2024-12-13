@@ -1,4 +1,4 @@
-{ pkgs, lib, ... }: 
+{ pkgs, lib, ... }:
 
 let
 
@@ -15,8 +15,8 @@ in {
   imports = [ <unstable/nixos/modules/hardware/video/nvidia.nix> ];
   disabledModules = [ "hardware/video/nvidia.nix" ];
 
-  hardware.opengl = {
-    driSupport32Bit = true;
+  hardware.graphics = {
+    enable32Bit = true;
   };
 
   services.xserver.videoDrivers = [ "nvidia" ];

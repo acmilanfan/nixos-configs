@@ -3,7 +3,7 @@
   environment.variables = {
     NIX_SYSTEM = "yogabook";
     LAPTOP_MONITOR = "eDP-2";
-    WINIT_X11_SCALE_FACTOR = lib.mkForce 1.9;
+    WINIT_X11_SCALE_FACTOR = lib.mkForce "1.9";
     EXTRA_SCREEN_BRIGHTNESS_CMD =
       lib.mkForce "light -s sysfs/backlight/intel_backlight";
   };
@@ -36,7 +36,6 @@
   # options snd_intel_dspcfg dsp_driver=1 rtw89_pci disable_clkreq=y disable_aspm_l1=y disable_aspm_l1ss=y
 
   hardware.bluetooth.enable = true;
-  sound.enable = true;
   services.pipewire.alsa.enable = true;
   hardware.sensor.iio.enable = true;
 
@@ -58,7 +57,7 @@
     vaapiIntel = pkgs.vaapiIntel.override { enableHybridCodec = true; };
   };
 
-  hardware.opengl = {
+  hardware.graphics = {
     enable = true;
     extraPackages = with pkgs; [
       # vaapiIntel

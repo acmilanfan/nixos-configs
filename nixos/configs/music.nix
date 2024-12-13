@@ -1,6 +1,6 @@
 { pkgs, musnix, ... }: {
 
-  environment.systemPackages = with pkgs; [ pavucontrol qjackctl carla libjack2 jack2 jack2Full jack_capture ];
+  environment.systemPackages = with pkgs; [ pavucontrol qjackctl carla libjack2 jack2 jack_capture ];
 
   services.tlp.enable = false;
   security.sudo.extraConfig = ''
@@ -15,7 +15,7 @@
     #alsaSeq.enable = true;
 
     #soundcardPciId = "00:1f.3";
-    
+
     #rtirq = {
     #  # highList = "snd_hrtimer";
     #  resetAll = 1;

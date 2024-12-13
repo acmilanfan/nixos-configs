@@ -8,13 +8,13 @@
     cudatoolkit
   ];
 
-  hardware.opengl.extraPackages = with pkgs; [
+  hardware.graphics.extraPackages = with pkgs; [
     rocm-opencl-icd
     rocm-opencl-runtime
     amdvlk
   ];
 
-  hardware.opengl.extraPackages32 = with pkgs; [
+  hardware.graphics.extraPackages32 = with pkgs; [
     driversi686Linux.amdvlk
   ];
 

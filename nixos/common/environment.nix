@@ -4,7 +4,7 @@
     BROWSER="firefox";
     EDITOR="vim";
     MOZ_USE_XINPUT2="1";
-    WINIT_X11_SCALE_FACTOR = 1.3;
+    WINIT_X11_SCALE_FACTOR = "1.3";
 
     #todo wayland config
     #MOZ_ENABLE_WAYLAND="1";

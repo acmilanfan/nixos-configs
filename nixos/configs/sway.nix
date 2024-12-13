@@ -15,7 +15,7 @@
       kitty
       imv
       libappindicator
-      gammastep 
+      gammastep
       wdisplays
       clipman
       wlogout
@@ -43,7 +43,7 @@
     };
   };
 
-  systemd.packages = with pkgs.gnome; [ gdm gnome-session gnome-shell ];
+  systemd.packages = with pkgs; [ gdm gnome-session gnome-shell ];
 
   services.xserver = {
     displayManager.gdm.wayland = true;

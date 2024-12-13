@@ -40,7 +40,6 @@ in {
     lemminx
     codeium
     checkstyle
-    nodePackages.volar
     nodePackages.typescript
     nodePackages.typescript-language-server
     nodePackages.vscode-json-languageserver
@@ -49,6 +48,7 @@ in {
     nodePackages.graphql-language-service-cli
     nodePackages.fixjson
     vscode-extensions.vscjava.vscode-java-test
+    vscode-extensions.vue.volar
   ];
 
   home.sessionVariables = { EDITOR = "nvim"; };

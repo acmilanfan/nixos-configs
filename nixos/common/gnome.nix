@@ -4,14 +4,14 @@
   services.xserver.displayManager.gdm.enable = true;
 
   environment.systemPackages = with pkgs; [
-    gnome.adwaita-icon-theme
-    gnome.gnome-themes-extra
-    gnome.gnome-power-manager
-    gnome.gnome-screenshot
-    gnome.gnome-tweaks
+    adwaita-icon-theme
+    gnome-themes-extra
+    gnome-power-manager
+    gnome-screenshot
+    gnome-tweaks
   ];
 
-  environment.gnome.excludePackages = with pkgs.gnome3; [
+  environment.gnome.excludePackages = with pkgs; [
     totem
     gnome-software
     cheese

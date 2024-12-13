@@ -1,5 +1,5 @@
 { pkgs, ... }: {
-  
+
   imports = [
     ./../common
     ./configs
@@ -7,12 +7,12 @@
   ];
 
   nix = {
-    package = pkgs.nixFlakes;
+    package = pkgs.nixVersions.stable;
     extraOptions = ''
       experimental-features = nix-command flakes
     '';
   };
 
-  system.stateVersion = "22.11";
+  system.stateVersion = "24.11";
 
 }

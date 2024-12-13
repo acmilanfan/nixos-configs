@@ -1,11 +1,11 @@
 { pkgs, ... }: {
 
-  hardware.opengl = 
+  hardware.graphics =
     let
       fn = oa: {
         nativeBuildInputs = oa.nativeBuildInputs ++ [ pkgs.glslang ];
         mesonFlags = oa.mesonFlags ++ [ "-Dvulkan-layers=device-select,overlay" ];
-#       patches = oa.patches ++ [ ./mesa-vulkan-layer-nvidia.patch ]; See below 
+#       patches = oa.patches ++ [ ./mesa-vulkan-layer-nvidia.patch ]; See below
         postInstall = oa.postInstall + ''
             mv $out/lib/libVkLayer* $drivers/lib
 
@@ -23,7 +23,7 @@
     in
     with pkgs; {
       enable = true;
-      driSupport32Bit = true;
+      enable32Bit = true;
       package = (mesa.overrideAttrs fn).drivers;
       package32 = (pkgsi686Linux.mesa.overrideAttrs fn).drivers;
     };
