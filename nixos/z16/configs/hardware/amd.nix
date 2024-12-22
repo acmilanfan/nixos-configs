@@ -2,7 +2,7 @@
 
   boot = {
     initrd.kernelModules = [ "amdgpu" ];
-    kernelModules = [ "amdgpu" ];
+    kernelModules = [ "amdgpu" "tp_smapi" ];
   };
 
   services.xserver.videoDrivers = [ "amdgpu" ];
