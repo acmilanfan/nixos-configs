@@ -230,7 +230,7 @@ vim.api.nvim_create_autocmd("LspAttach", {
     -- See `:help vim.lsp.*` for documentation on any of the below functions
     local opts = { buffer = ev.buf }
     vim.keymap.set("n", "<leader>rn", vim.lsp.buf.rename, opts)
-    vim.keymap.set({ "v", "n" }, "<leader>ca", vim.lsp.buf.code_action, opts)
+    vim.keymap.set({ "v", "n" }, "<leader>co", vim.lsp.buf.code_action, opts)
     vim.keymap.set({ "v", "n" }, "<leader>cp", require("actions-preview").code_actions)
 
     vim.keymap.set("n", "gd", require("telescope.builtin").lsp_definitions, opts)
