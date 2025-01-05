@@ -1,4 +1,4 @@
-{ pkgs, lib, ... }: {
+{ pkgs, lib, inputs, ... }: {
 
   programs.tmux = {
     enable = true;
@@ -22,6 +22,7 @@
       # onedark-theme
       prefix-highlight
       urlview
+      { plugin = inputs.minimal-tmux.packages.${pkgs.system}.default; }
     ];
   };
 

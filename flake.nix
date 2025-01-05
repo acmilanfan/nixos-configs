@@ -10,6 +10,10 @@
     nixos-hardware.url = "github:NixOS/nixos-hardware/master";
     nix-doom-emacs.url = "github:nix-community/nix-doom-emacs";
     nix-doom-emacs.inputs.nixpkgs.follows = "nixpkgs";
+    minimal-tmux = {
+      url = "github:niksingh710/minimal-tmux-status";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = inputs@{ self, nixpkgs, unstable-nixpkgs, musnix, nur, home-manager
