@@ -264,6 +264,14 @@ local capabilities = vim.lsp.protocol.make_client_capabilities()
 capabilities = require("cmp_nvim_lsp").default_capabilities(capabilities)
 
 vim.api.nvim_create_autocmd("FileType", {
+  pattern = "json",
+  callback = function(ev)
+    vim.bo[ev.buf].formatprg = "jq"
+    vim.bo[ev.buf].formatexpr = ""
+  end,
+})
+
+vim.api.nvim_create_autocmd("FileType", {
   pattern = { "java" },
   callback = function()
     local config = {

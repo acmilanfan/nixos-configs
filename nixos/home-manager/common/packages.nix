@@ -38,6 +38,7 @@
     android-tools
     pandoc
     alsa-scarlett-gui
+    btop
   ];
 
 }

@@ -1,5 +1,5 @@
 lua << EOF
 
-require("rest-nvim").setup()
+-- require("rest-nvim").setup()
 
 EOF
