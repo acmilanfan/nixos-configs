@@ -1,15 +1,16 @@
 { pkgs, ... }: {
 
   environment.systemPackages = with pkgs; [
-    wget 
+    wget
     acpi
-    tree 
+    tree
     pciutils
     usbutils
     openconnect
     curlFull
     killall
     xclip
+    ffmpeg-full
   ];
 
 }

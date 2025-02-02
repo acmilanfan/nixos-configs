@@ -7,6 +7,7 @@
     ardour
     carla
     libjack2
+    reaper
   ];
 
 }

@@ -19,6 +19,9 @@
     rocmPackages_5.rocminfo
     amdvlk
     rocmPackages_5.clr.icd
+    vaapiVdpau
+    libvdpau-va-gl
+    mesa
   ];
 
   hardware.graphics.extraPackages32 = with pkgs; [ driversi686Linux.amdvlk ];
