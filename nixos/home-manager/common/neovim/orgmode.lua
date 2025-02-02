@@ -22,6 +22,25 @@ local org = require('orgmode').setup({
     i = { description = 'Idea', template = '* IDEA %?\n  %u' },
     n = { description = 'Note', template = '* NOTE %?\n  %u' },
     j = { description = 'Journal', template = '** %u day journal\n %?', target = '~/org/life/journal/journal.org' },
+  },
+  org_agenda_custom_commands = {
+    i = {
+      description = 'Tasks and ideas review',
+      types = {
+        {
+          type = 'tags_todo',
+          org_agenda_todo_ignore_scheduled = 'all',
+          org_agenda_overriding_header = 'All todos',
+          match = '-recurring-idea-work-youtube-article/TODO'
+        },
+        {
+          type = 'tags_todo',
+          org_agenda_todo_ignore_scheduled = 'all',
+          org_agenda_overriding_header = 'All ideas',
+          match = '+TODO="IDEA"'
+        }
+      }
+    },
   }
 })
 
@@ -31,8 +50,6 @@ vim.api.nvim_create_autocmd('FileType', {
   callback = function()
     vim.keymap.set('n', '<leader>tp', require('telescope').extensions.orgmode.refile_heading)
     vim.keymap.set('n', '<leader>ts', require('telescope').extensions.orgmode.search_headings)
-    vim.keymap.set('n', '<leader>oft', function() org.agenda:tags({ todo_only = true, search = '-recurring-idea-work-youtube-article/TODO' }) end)
-    vim.keymap.set('n', '<leader>ofi', function() org.agenda:tags({ todo_only = true, search = 'idea' }) end)
     vim.keymap.set('n', '<leader>os',
         function()
           local parseDate = function(date)

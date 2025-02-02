@@ -156,6 +156,7 @@ in {
       vim-tmux-clipboard
       twilight-nvim
       SchemaStore-nvim
+      vim-repeat
       {
         plugin = nvim-treesitter;
         config = lib.readFile ./neovim/treesitter.lua;
