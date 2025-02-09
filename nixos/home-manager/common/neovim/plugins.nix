@@ -5,10 +5,10 @@
     pname = "telescope-orgmode";
     version = "main";
     src = fetchFromGitHub {
-      owner = "lyz-code";
+      owner = "nvim-orgmode";
       repo = "telescope-orgmode.nvim";
-      rev = "02d6876ac80e7e039926fdb69e88300c04145541";
-      sha256 = "0hraic67rap7idm1gqk9f5nn21vzky43g4ppx3izv1njc25pcwdf";
+      rev = "2cd2ea778726c6e44429fef82f23b63197dbce1b";
+      sha256 = "16qj9adc9ggzrbsf9c25g3wnhk7sm3j35glz5bcq99x2av5rvqf9";
     };
   };
 

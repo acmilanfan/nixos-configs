@@ -39,6 +39,8 @@
     pandoc
     alsa-scarlett-gui
     btop
+    qmk
+    qmk-udev-rules
   ];
 
 }
