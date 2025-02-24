@@ -3,6 +3,7 @@
   imports = [
     ./../common
     ./configs
+    ./../configs/music.nix
   ];
 
   nix = {

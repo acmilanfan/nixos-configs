@@ -1,5 +1,5 @@
 {
-  description = "fhs shell";
+  description = "python shell";
 
   inputs.flake-utils.url = "github:numtide/flake-utils";
 
@@ -8,7 +8,7 @@
       (system:
         let pkgs = nixpkgs.legacyPackages.${system}; in
         {
-          devShells.default = import ./fhs.nix { inherit pkgs; };
+          devShells.default = import ./python.nix { inherit pkgs; };
         }
       );
 }

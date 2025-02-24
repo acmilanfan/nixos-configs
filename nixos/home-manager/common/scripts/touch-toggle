@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+
+TOUCH_DEVICE="INGENIC Gadget Serial and keyboard Touchscreen"
+
+# Set coordinate transformation matrices
+set_touch_top() {
+    xinput set-prop "INGENIC Gadget Serial and keyboard Touchscreen" "Coordinate Transformation Matrix" 1 0 0 0 0.5 0 0 0 1
+}
+
+set_touch_bottom() {
+    xinput set-prop "INGENIC Gadget Serial and keyboard Touchscreen" "Coordinate Transformation Matrix" 1 0 0 0 0.5 0.5 0 0 1
+}
+
+# Launch Rofi with touch-friendly interface
+launch_rofi_menu() {
+    choice=$(echo -e "👆 Top Screen Touch\n👇 Bottom Screen Touch" | \
+    rofi -dmenu -p "🖐 Select Touchscreen Mode" -hover-select \
+    -me-select-entry '' \
+    -me-accept-entry MousePrimary \
+    -theme-str 'listview { lines: 2; }' \
+    -theme-str 'window { width: 30%; }' \
+    -theme-str 'element { padding: 10px 20px; }' \
+    -theme-str 'element selected { background-color: #285577; }' \
+    -theme-str 'inputbar { font: "monospace 18"; }' \
+    -theme-str 'listview { font: "monospace 18"; }' \
+    -theme-str 'element { font: "monospace 18"; }')
+
+    case "$choice" in
+        "👆 Top Screen Touch") set_touch_top ;;
+        "👇 Bottom Screen Touch") set_touch_bottom ;;
+    esac
+}
+
+# Main execution
+launch_rofi_menu

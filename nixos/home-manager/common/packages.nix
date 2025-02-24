@@ -2,6 +2,7 @@
 
   home.packages = with pkgs; [
     (writeShellScriptBin "screen-toggle" (lib.readFile ./scripts/screen-toggle))
+    (writeShellScriptBin "touch-toggle" (lib.readFile ./scripts/touch-toggle))
     git
     arandr
     httpie
@@ -41,6 +42,8 @@
     btop
     qmk
     qmk-udev-rules
+    protonvpn-gui
+    (python3.withPackages (ps: with ps; [ evdev ]))
   ];
 
 }

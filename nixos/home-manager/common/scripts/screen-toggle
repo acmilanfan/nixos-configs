@@ -3,7 +3,7 @@
 # Screen identifiers
 TOP_SCREEN="eDP-1"
 BOTTOM_SCREEN="eDP-2"
-TOUCH_DEVICE="INGENIC Gadget Serial and keyboard"
+TOUCH_DEVICE="INGENIC Gadget Serial and keyboard Touchscreen"
 
 # Function to reset virtual monitor configuration
 reset_monitor() {
@@ -105,8 +105,8 @@ rotate_top() {
 
 book_mode_both() {
     reset_monitor
-    xrandr --output "$TOP_SCREEN" --auto --primary --rotate left \
-           --output "$BOTTOM_SCREEN" --auto --rotate right --right-of "$TOP_SCREEN"
+    xrandr --output "$TOP_SCREEN" --auto --rotate left \
+           --output "$BOTTOM_SCREEN" --auto --primary --rotate right --right-of "$TOP_SCREEN"
     calibrate_touch "left" "true"
 }
 

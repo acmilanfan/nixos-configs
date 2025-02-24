@@ -353,6 +353,20 @@ screen_toggle_button:connect_signal("button::press", function()
     awful.spawn.with_shell("screen-toggle")
 end)
 
+local touch_toggle_button = wibox.widget {
+    {
+        text = "✋",
+        widget = wibox.widget.textbox,
+        align = "center",
+        valign = "center",
+    },
+    margins = 4,
+    widget = wibox.container.margin,
+}
+
+touch_toggle_button:connect_signal("button::press", function()
+    awful.spawn.with_shell("touch-toggle")
+end)
 
 awful.screen.connect_for_each_screen(function(s)
   -- Wallpaper
@@ -424,6 +438,7 @@ awful.screen.connect_for_each_screen(function(s)
 
       wibox.widget.textbox(" | "),
 
+      touch_toggle_button,
       screen_toggle_button,
 
       wibox.widget.textbox(" |"),
@@ -879,6 +894,12 @@ globalkeys = gears.table.join(globalkeys,
     awful.spawn.with_shell("screen-toggle")
   end,
   { description = "Toggle screen mode", group = "screen" }
+  ),
+  awful.key({ "Control", "Shift" }, "t",
+  function()
+    awful.spawn.with_shell("touch-toggle")
+  end,
+  { description = "Touch screen mode", group = "screen" }
   )
 )
 

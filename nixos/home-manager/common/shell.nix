@@ -27,6 +27,7 @@
         "newsboat --url-file=~/org/rss --cache-file=~/Nextcloud/newsboat/cache.db";
       java-shell = "nix develop ~/configs/nixos-configs/shell/java";
       go-shell = "nix develop ~/configs/nixos-configs/shell/go-node";
+      python-shell = "nix develop ~/configs/nixos-configs/shell/python";
       fhs-shell = "nix develop ~/configs/nixos-configs/shell/fhs";
     };
     initExtra = ''
