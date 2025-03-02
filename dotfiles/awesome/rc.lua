@@ -895,7 +895,7 @@ globalkeys = gears.table.join(globalkeys,
   end,
   { description = "Toggle screen mode", group = "screen" }
   ),
-  awful.key({ "Control", "Shift" }, "t",
+  awful.key({ modkey, "Control" }, "t",
   function()
     awful.spawn.with_shell("touch-toggle")
   end,
