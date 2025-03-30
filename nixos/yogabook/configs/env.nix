@@ -8,7 +8,19 @@
       lib.mkForce "light -s sysfs/backlight/intel_backlight";
   };
 
-  services.xserver.dpi = lib.mkForce 168;
+  programs.auto-cpufreq.enable = true;
+  programs.auto-cpufreq.settings = {
+    charger = {
+      governor = "performance";
+      turbo = "auto";
+    };
+
+    battery = {
+      governor = "powersave";
+      turbo = "auto";
+    };
+  };
+  # services.xserver.dpi = lib.mkForce 168;
 
   services.hardware.bolt.enable = true;
 
@@ -117,12 +129,13 @@
   environment.systemPackages = with pkgs; [
     i2c-tools
     evsieve
+    acpica-tools
     (writeShellScriptBin "sync-brightness" (lib.readFile ./sync-brightness.sh))
   ];
 
   services.xserver.videoDrivers = [ "modesetting" ];
 
-  services.power-profiles-daemon.enable = true;
+  services.power-profiles-daemon.enable = false;
   powerManagement.enable = true;
   # powerManagement.cpuList = [ ]; # Disable CPU frequency scaling
   # powerManagement.batteryPercentageLow = 5; # Set low battery threshold
@@ -145,16 +158,18 @@
     lib.mkDefault config.hardware.enableRedistributableFirmware;
 
   services.udev.extraRules = ''
-    SUBSYSTEM=="backlight", ACTION=="change", KERNEL=="intel_backlight", RUN+="${
-      pkgs.writeShellScriptBin "sync-brightness"
-      (lib.readFile ./sync-brightness.sh)
-    }"
+    ACTION=="add", SUBSYSTEM=="platform", KERNEL=="VPC2004:00", RUN+="/bin/sh -c 'echo 1 > /sys/bus/platform/drivers/ideapad_acpi/VPC2004:00/conservation_mode'"
   '';
 
   # ACTION=="add|change", KERNEL=="event*", ATTRS{name}=="INGENIC Gadget Serial and keyboard Touchscreen", ENV{LIBINPUT_CALIBRATION_MATRIX}="1 0 0 0 0.5 0 0 0 1"
   #
   # KERNEL=="event*", ATTRS{name}=="INGENIC Gadget Serial and keyboard Touchscreen", SYMLINK+="input/touchscreen_top"
   # KERNEL=="event*", ATTRS{name}=="INGENIC Gadget Serial and keyboard Touchscreen", SYMLINK+="input/touchscreen_bottom"
+
+  # SUBSYSTEM=="backlight", ACTION=="change", KERNEL=="intel_backlight", RUN+="${
+  #   pkgs.writeShellScriptBin "sync-brightness"
+  #   (lib.readFile ./sync-brightness.sh)
+  # }"
 
   # services.udev.extraRules = ''
   #   SUBSYSTEM=="backlight", ACTION=="change", KERNEL=="intel_backlight", RUN+="${

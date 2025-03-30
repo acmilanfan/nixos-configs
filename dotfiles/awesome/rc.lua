@@ -337,35 +337,95 @@ dnd:buttons(awful.button({}, 1, function()
 end))
 
 -- Create the widget button
-local screen_toggle_button = wibox.widget {
-    {
-        text = "🖥️",
-        widget = wibox.widget.textbox,
-        align = "center",
-        valign = "center",
-    },
-    margins = 4,
-    widget = wibox.container.margin,
-}
+local screen_toggle_button = wibox.widget({
+  {
+    text = "🖥️",
+    widget = wibox.widget.textbox,
+    align = "center",
+    valign = "center",
+  },
+  margins = 4,
+  widget = wibox.container.margin,
+})
 
 -- Button click action
 screen_toggle_button:connect_signal("button::press", function()
-    awful.spawn.with_shell("screen-toggle")
+  awful.spawn.with_shell("screen-toggle")
 end)
 
-local touch_toggle_button = wibox.widget {
-    {
-        text = "✋",
-        widget = wibox.widget.textbox,
-        align = "center",
-        valign = "center",
-    },
-    margins = 4,
-    widget = wibox.container.margin,
-}
+local touch_toggle_button = wibox.widget({
+  {
+    text = "✋",
+    widget = wibox.widget.textbox,
+    align = "center",
+    valign = "center",
+  },
+  margins = 4,
+  widget = wibox.container.margin,
+})
 
 touch_toggle_button:connect_signal("button::press", function()
-    awful.spawn.with_shell("touch-toggle")
+  awful.spawn.with_shell("touch-toggle")
+end)
+
+local window_toggle_button = wibox.widget({
+  {
+    text = "🪟",
+    widget = wibox.widget.textbox,
+    align = "center",
+    valign = "center",
+  },
+  margins = 4,
+  widget = wibox.container.margin,
+})
+
+window_toggle_button:connect_signal("button::press", function()
+  for _, c in ipairs(client.get()) do
+    awful.titlebar.toggle(c)
+  end
+end)
+
+local locker_textbox = wibox.widget.textbox()
+local locker_widget = wibox.widget({
+  locker_textbox,
+  layout = wibox.container.margin,
+  margins = 4,
+})
+
+local function update_locker_widget()
+  local pause_file = os.getenv("HOME") .. "/.pause_lock"
+  local exists = io.open(pause_file, "r") ~= nil
+  if exists then
+    locker_textbox.text = "🔒"
+  else
+    locker_textbox.text = "🔑"
+  end
+end
+
+local function toggle_locker()
+  local pause_file = os.getenv("HOME") .. "/.pause_lock"
+
+  -- Toggle the pause state
+  if io.open(pause_file, "r") ~= nil then
+    os.execute("rm -f " .. pause_file)
+    naughty.notify({
+      text = "Screen locking resumed",
+      preset = naughty.config.presets.normal,
+    })
+  else
+    os.execute("touch " .. pause_file)
+    naughty.notify({
+      text = "Screen locking paused",
+      preset = naughty.config.presets.normal,
+    })
+  end
+
+  -- Update the widget
+  update_locker_widget()
+end
+
+locker_widget:connect_signal("button::press", function()
+  toggle_locker()
 end)
 
 awful.screen.connect_for_each_screen(function(s)
@@ -373,7 +433,7 @@ awful.screen.connect_for_each_screen(function(s)
   set_wallpaper(s)
 
   -- Each screen has its own tag table.
-  if screen:count() > 1 then
+  if screen:count() == 2 then
     local screen_index = s.index
     awful.tag(my_tags.tags[screen_index].names, s, my_tags.tags[screen_index].layout)
   else
@@ -438,8 +498,10 @@ awful.screen.connect_for_each_screen(function(s)
 
       wibox.widget.textbox(" | "),
 
+      window_toggle_button,
       touch_toggle_button,
       screen_toggle_button,
+      locker_widget,
 
       wibox.widget.textbox(" |"),
 
@@ -518,6 +580,12 @@ globalkeys = gears.table.join(
       client.focus:raise()
     end
   end, { description = "go back", group = "client" }),
+
+  awful.key({ modkey, "Control" }, "f", function()
+    for _, c in ipairs(client.get()) do
+      awful.titlebar.toggle(c)
+    end
+  end, { description = "toggle titlebars for all windows", group = "client" }),
 
   -- Standard program
   awful.key({ modkey }, "Return", function()
@@ -604,7 +672,7 @@ globalkeys = gears.table.join(
 
   awful.key({ modkey, "Shift" }, "o", function()
     awful.spawn(
-      [[env WINIT_X11_SCALE_FACTOR=1.3 alacritty -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --class orgindex -e zsh -c 'nvim --cmd "cd ~/org/life" -c "lua require(\"orgmode.api.agenda\").agenda({span = 1})" -c "autocmd VimEnter * ++once lua vim.defer_fn(function() for _, buf in ipairs(vim.api.nvim_list_bufs()) do if vim.api.nvim_buf_get_option(buf, \"filetype\") ~= \"orgagenda\" then vim.api.nvim_buf_delete(buf, {force = true}) end end end, 200)"']]
+      [[alacritty -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --class orgindex -e zsh -c 'nvim --cmd "cd ~/org/life" -c "lua require(\"orgmode.api.agenda\").agenda({span = 1})" -c "autocmd VimEnter * ++once lua vim.defer_fn(function() for _, buf in ipairs(vim.api.nvim_list_bufs()) do if vim.api.nvim_buf_get_option(buf, \"filetype\") ~= \"orgagenda\" then vim.api.nvim_buf_delete(buf, {force = true}) end end end, 200)"']]
     )
   end, { description = "open orgmode index file", group = "launcher" }),
 
@@ -830,34 +898,33 @@ globalkeys = gears.table.join(
 --     awful.util.spawn("pamixer --default-source -t")
 --   end, { description = "Mute mic", group = "audio" }),
 --
-globalkeys = gears.table.join(globalkeys,
-    -- Brightness
-    awful.key({ }, "XF86MonBrightnessDown", function ()
-        awful.util.spawn("light -U 5")
-        if extra_screen_brightness_cmd then
-            awful.util.spawn(extra_screen_brightness_cmd .. " -U 5")
-        end
-    end,
-	{ description = "Brightness down", group = "screen" }),
-    awful.key({ }, "XF86MonBrightnessUp", function ()
-        awful.util.spawn("light -A 5")
-        if extra_screen_brightness_cmd then
-            awful.util.spawn(extra_screen_brightness_cmd .. " -A 5")
-        end
-    end,
-	{ description = "Brightness up", group = "screen" }),
-    awful.key({ }, "XF86AudioRaiseVolume", function ()
-        awful.util.spawn("pamixer -i 5") end,
-	{ description = "Volume up", group = "audio" }),
-    awful.key({ }, "XF86AudioLowerVolume", function ()
-        awful.util.spawn("pamixer -d 5") end,
-	{ description = "Volume down", group = "audio" }),
-    awful.key({ }, "XF86AudioMute", function ()
-        awful.util.spawn("pamixer -t") end,
-	{ description = "Mute audio", group = "audio" }),
-    awful.key({ }, "XF86AudioMicMute", function ()
-        awful.util.spawn("pamixer --default-source -t") end,
-	{ description = "Mute mic", group = "audio" }),
+globalkeys = gears.table.join(
+  globalkeys,
+  -- Brightness
+  awful.key({}, "XF86MonBrightnessDown", function()
+    awful.util.spawn("light -U 5")
+    if extra_screen_brightness_cmd then
+      awful.util.spawn(extra_screen_brightness_cmd .. " -U 5")
+    end
+  end, { description = "Brightness down", group = "screen" }),
+  awful.key({}, "XF86MonBrightnessUp", function()
+    awful.util.spawn("light -A 5")
+    if extra_screen_brightness_cmd then
+      awful.util.spawn(extra_screen_brightness_cmd .. " -A 5")
+    end
+  end, { description = "Brightness up", group = "screen" }),
+  awful.key({}, "XF86AudioRaiseVolume", function()
+    awful.util.spawn("pamixer -i 5")
+  end, { description = "Volume up", group = "audio" }),
+  awful.key({}, "XF86AudioLowerVolume", function()
+    awful.util.spawn("pamixer -d 5")
+  end, { description = "Volume down", group = "audio" }),
+  awful.key({}, "XF86AudioMute", function()
+    awful.util.spawn("pamixer -t")
+  end, { description = "Mute audio", group = "audio" }),
+  awful.key({}, "XF86AudioMicMute", function()
+    awful.util.spawn("pamixer --default-source -t")
+  end, { description = "Mute mic", group = "audio" }),
 
   awful.key({}, "XF86AudioPlay", function()
     awful.util.spawn("playerctl play-pause")
@@ -889,18 +956,15 @@ globalkeys = gears.table.join(globalkeys,
   awful.key({ modkey, "Control", "Shift" }, "d", function()
     awful.util.spawn("autorandr --change")
   end, { description = "Restore correct full displays layout (run autorandr)", group = "screen" }),
-  awful.key({ "Control", "Shift" }, "s",
-  function()
+  awful.key({ "Control", "Shift" }, "s", function()
     awful.spawn.with_shell("screen-toggle")
-  end,
-  { description = "Toggle screen mode", group = "screen" }
-  ),
-  awful.key({ modkey, "Control" }, "t",
-  function()
+  end, { description = "Toggle screen mode", group = "screen" }),
+  awful.key({ modkey, "Control" }, "t", function()
     awful.spawn.with_shell("touch-toggle")
-  end,
-  { description = "Touch screen mode", group = "screen" }
-  )
+  end, { description = "Touch screen mode", group = "screen" }),
+  awful.key({ modkey, "Mod4" }, "l", function()
+    toggle_locker()
+  end, { description = "Toggle auto locker", group = "screen" })
 )
 
 -- Logic for laptop + external monitor setup
@@ -1169,3 +1233,5 @@ client.connect_signal("unfocus", function(c)
   c.border_color = beautiful.border_normal
 end)
 -- }}}
+
+update_locker_widget()

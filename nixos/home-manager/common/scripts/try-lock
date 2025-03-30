@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+
+# Check if video is playing
+VIDEO_PLAYERS=("mpv" "vlc" "mplayer")
+VIDEO_ACTIVE=false
+for player in "${VIDEO_PLAYERS[@]}"; do
+    if pgrep -f "$player" > /dev/null; then
+        VIDEO_ACTIVE=true
+        break
+    fi
+done
+
+# Check if locking is paused
+PAUSE_FILE="$HOME/.pause_lock"
+if [ -f "$PAUSE_FILE" ]; then
+    echo "Locking paused by user"
+    exit 1
+fi
+
+# If we reach here, it's okay to lock
+if ! $VIDEO_ACTIVE; then
+    exec i3lock -n -c 000000
+fi
+
+exit 1

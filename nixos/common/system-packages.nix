@@ -11,6 +11,8 @@
     killall
     xclip
     ffmpeg-full
+    xautolock
+    libnotify
   ];
 
 }

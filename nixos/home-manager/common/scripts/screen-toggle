@@ -3,15 +3,22 @@
 # Screen identifiers
 TOP_SCREEN="eDP-1"
 BOTTOM_SCREEN="eDP-2"
+EXTERNAL_SCREEN="DP-1"
+EXTERNAL_SCREEN_2="DP-2"
+EXTERNAL_SCREEN_3="DP-3"
+LAPTOP_SCREEN_DPI="168"
+EXTERNAL_SCREEN_DPI="96"
 TOUCH_DEVICE="INGENIC Gadget Serial and keyboard Touchscreen"
+# TOUCH_DEVICE="INGENIC Gadget Serial and keyboard"
 
 # Function to reset virtual monitor configuration
 reset_monitor() {
-    xrandr --output "$TOP_SCREEN" --off --output "$BOTTOM_SCREEN" --off
+    xrandr --output "$TOP_SCREEN" --off --output "$BOTTOM_SCREEN" --off --output "$EXTERNAL_SCREEN" --off --output "$EXTERNAL_SCREEN_2" --off --output "$EXTERNAL_SCREEN_3" --off
     # Remove any virtual monitors created during combine modes
     xrandr --delmonitor combined 2>/dev/null
     # Reset touch input calibration to default
     xinput set-prop "$TOUCH_DEVICE" --type=float "Coordinate Transformation Matrix" 1 0 0 0 1 0 0 0 1
+    export WINIT_X11_SCALE_FACTOR=1.9
 }
 
 # Function to calibrate touch input based on the current configuration
@@ -61,20 +68,20 @@ calibrate_touch() {
 
 default_mode() {
     reset_monitor
-    xrandr --output "$TOP_SCREEN" --auto --rotate inverted \
-           --output "$BOTTOM_SCREEN" --auto --primary --below "$TOP_SCREEN"
+    xrandr --output "$TOP_SCREEN" --auto --dpi $LAPTOP_SCREEN_DPI --rotate inverted \
+           --output "$BOTTOM_SCREEN" --auto --dpi $LAPTOP_SCREEN_DPI --primary --below "$TOP_SCREEN"
     calibrate_touch "inverted" "true"
 }
 
 single_top() {
     reset_monitor
-    xrandr --output "$TOP_SCREEN" --auto --primary --rotate inverted --output "$BOTTOM_SCREEN" --off
+    xrandr --output "$TOP_SCREEN" --auto --dpi $LAPTOP_SCREEN_DPI --primary --rotate inverted --output "$BOTTOM_SCREEN" --off
     calibrate_touch "inverted" "false"
 }
 
 single_bottom() {
     reset_monitor
-    xrandr --output "$TOP_SCREEN" --off --output "$BOTTOM_SCREEN" --auto --primary
+    xrandr --output "$TOP_SCREEN" --off --output "$BOTTOM_SCREEN" --auto --dpi $LAPTOP_SCREEN_DPI --primary
 }
 
 rotate_top() {
@@ -94,8 +101,8 @@ rotate_top() {
     # Apply the new rotation
     # xrandr --output "$TOP_SCREEN" --auto --rotate "$new_rotation"
 
-    xrandr --output "$TOP_SCREEN" --auto --rotate "$new_rotation" \
-           --output "$BOTTOM_SCREEN" --auto --primary --rotate normal --below "$TOP_SCREEN"
+    xrandr --output "$TOP_SCREEN" --auto --dpi $LAPTOP_SCREEN_DPI --rotate "$new_rotation" \
+           --output "$BOTTOM_SCREEN" --auto --dpi $LAPTOP_SCREEN_DPI --primary --rotate normal --below "$TOP_SCREEN"
 
     # Calibrate touch input
     both_screens_on=$(xrandr | grep "$BOTTOM_SCREEN connected" | grep -q "primary" && echo "true" || echo "false")
@@ -105,40 +112,45 @@ rotate_top() {
 
 book_mode_both() {
     reset_monitor
-    xrandr --output "$TOP_SCREEN" --auto --rotate left \
-           --output "$BOTTOM_SCREEN" --auto --primary --rotate right --right-of "$TOP_SCREEN"
+    xrandr --output "$TOP_SCREEN" --auto --dpi $LAPTOP_SCREEN_DPI --rotate left \
+           --output "$BOTTOM_SCREEN" --auto --dpi $LAPTOP_SCREEN_DPI --primary --rotate right --right-of "$TOP_SCREEN"
     calibrate_touch "left" "true"
 }
 
 book_mode_single() {
     reset_monitor
-    xrandr --output "$TOP_SCREEN" --auto --primary --rotate left --output "$BOTTOM_SCREEN" --off
+    xrandr --output "$TOP_SCREEN" --auto --dpi $LAPTOP_SCREEN_DPI --primary --rotate left --output "$BOTTOM_SCREEN" --off
     calibrate_touch "left" "false"
 }
 
 combine_vertical() {
     reset_monitor
-    xrandr --output "$TOP_SCREEN" --auto --primary --rotate inverted \
-           --output "$BOTTOM_SCREEN" --auto --rotate normal --below "$TOP_SCREEN"
+    xrandr --output "$TOP_SCREEN" --auto --dpi $LAPTOP_SCREEN_DPI --primary --rotate inverted \
+           --output "$BOTTOM_SCREEN" --auto --dpi $LAPTOP_SCREEN_DPI --rotate normal --below "$TOP_SCREEN"
     xrandr --setmonitor combined 2880/289x3600/372+0+0 "$TOP_SCREEN","$BOTTOM_SCREEN"
     calibrate_touch "normal" "true"
 }
 
 combine_horizontal() {
     reset_monitor
-    xrandr --output "$TOP_SCREEN" --auto --primary --rotate left \
-           --output "$BOTTOM_SCREEN" --auto --rotate right --right-of "$TOP_SCREEN"
+    xrandr --output "$TOP_SCREEN" --auto --dpi $LAPTOP_SCREEN_DPI --primary --rotate left \
+           --output "$BOTTOM_SCREEN" --auto --dpi $LAPTOP_SCREEN_DPI --rotate right --right-of "$TOP_SCREEN"
     xrandr --setmonitor combined 3600/372x2880/289+0+0 "$TOP_SCREEN","$BOTTOM_SCREEN"
     calibrate_touch "left" "true"
 }
 
+external_only() {
+    reset_monitor
+    xrandr --output "$EXTERNAL_SCREEN" --auto --primary --dpi $EXTERNAL_SCREEN_DPI --output "$TOP_SCREEN" --off --output "$BOTTOM_SCREEN" --off
+}
+
 # Launch Rofi with icons and larger text
 launch_rofi_menu() {
-    choice=$(echo -e "  Default Mode\n  Single Top\n  Single Bottom\n  Rotate Current\n  Book Mode Both\n  Book Mode Single\n  Combine Vertical\n  Combine Horizontal" | \
+    choice=$(echo -e "  Default Mode\n  Single Top\n  Single Bottom\n  Rotate Current\n  Book Mode Both\n  Book Mode Single\n  Combine Vertical\n  Combine Horizontal\n  External Only" | \
     rofi -dmenu -p "📺 Screen Mode" -hover-select \
     -me-select-entry '' \
     -me-accept-entry MousePrimary \
-    -theme-str 'listview { lines: 8; }' \
+    -theme-str 'listview { lines: 9; }' \
     -theme-str 'window { width: 30%; }' \
     -theme-str 'element { padding: 10px 20px; }' \
     -theme-str 'element selected { background-color: #285577; }' \
@@ -155,6 +167,7 @@ launch_rofi_menu() {
         "  Book Mode Single") book_mode_single ;;
         "  Combine Vertical") combine_vertical ;;
         "  Combine Horizontal") combine_horizontal ;;
+        "  External Only") external_only;;
     esac
 }
 
