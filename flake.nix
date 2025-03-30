@@ -14,10 +14,14 @@
       url = "github:niksingh710/minimal-tmux-status";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    auto-cpufreq = {
+      url = "github:AdnanHodzic/auto-cpufreq";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = inputs@{ self, nixpkgs, unstable-nixpkgs, musnix, nur, home-manager
-    , nixos-hardware, nix-doom-emacs, ... }:
+    , nixos-hardware, nix-doom-emacs, auto-cpufreq, ... }:
     let
       system = "x86_64-linux";
 
@@ -132,6 +136,7 @@
             nixos-hardware.nixosModules.common-hidpi
             nixos-hardware.nixosModules.common-cpu-intel
             nixos-hardware.nixosModules.common-gpu-intel
+            auto-cpufreq.nixosModules.default
             ({ config, pkgs, ... }: {
               nixpkgs.overlays = [ overlay-davinci-resolve ];
             })
