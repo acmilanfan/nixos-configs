@@ -17,6 +17,7 @@
             enable = true;
             mode = "2560x1440";
             position = "0x0";
+            dpi = 96;
           };
           eDP = {
             enable = true;
