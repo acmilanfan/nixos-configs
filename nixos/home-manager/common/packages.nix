@@ -47,6 +47,7 @@
     thinkfan
     (python3.withPackages (ps: with ps; [ evdev ]))
     zenity
+    onboard
   ];
 
 }

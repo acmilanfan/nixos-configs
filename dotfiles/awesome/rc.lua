@@ -104,6 +104,7 @@ awful.layout.layouts = {
 
 -- Autostart commands
 awful.spawn("nm-applet")
+awful.spawn("killall ..onboard-wrapped-wrapped & onboard -e")
 awful.spawn("autorandr --change")
 
 -- {{{ Menu
@@ -1136,7 +1137,10 @@ awful.rules.rules = {
       placement = awful.placement.restore,
     },
   },
-
+  {
+    rule_any = { class = { "Onboard" } },
+    properties = { floating = true, ontop = true, focusable = false },
+  },
   -- Set Firefox to always map on the tag named "2" on screen 1.
   -- { rule = { class = "Firefox" },
   --   properties = { screen = 1, tag = "2" } },

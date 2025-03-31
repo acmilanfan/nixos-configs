@@ -2,7 +2,7 @@
 
   services.xserver.windowManager.awesome = {
     enable = true;
-    noArgb = true;
+    noArgb = false;
     luaModules = [ pkgs.luaPackages.lgi ];
   };
 
