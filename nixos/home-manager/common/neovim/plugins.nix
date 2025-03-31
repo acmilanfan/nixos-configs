@@ -16,10 +16,10 @@
     pname = "org-bullets";
     version = "main";
     src = fetchFromGitHub {
-      owner = "akinsho";
+      owner = "nvim-orgmode";
       repo = "org-bullets.nvim";
-      rev = "3623e86e0fa6d07f45042f7207fc333c014bf167";
-      sha256 = "0il7x6bp21vxnijl96gjq2kry33jin8dqxs9yvp3r60lv3aix0b8";
+      rev = "21437cfa99c70f2c18977bffd423f912a7b832ea";
+      sha256 = "0zfic6isqvbycn4zq1jsrr6g4yksmvgxzavknzlswg2jymz0hpzy";
     };
   };
 
