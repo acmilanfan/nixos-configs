@@ -92,6 +92,7 @@
     evsieve
     acpica-tools
     alsa-utils
+    intel-gpu-tools
     (writeShellScriptBin "sync-brightness" (lib.readFile ./sync-brightness.sh))
   ];
 
