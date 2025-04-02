@@ -289,6 +289,10 @@ in {
         plugin = nvim-pqf;
         config = lib.readFile ./neovim/pqf.lua;
       }
+      {
+        plugin = snacks-nvim;
+        config = lib.readFile ./neovim/snacks.lua;
+      }
     ];
     extraLuaConfig = lib.readFile ./neovim/config.lua;
   };

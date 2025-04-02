@@ -219,6 +219,20 @@ local lsplinks = require("lsplinks")
 lsplinks.setup()
 vim.keymap.set("n", "gx", lsplinks.gx)
 
+-- vim.keymap.set("n", "c-/", function() require("snacks").terminal() end, { desc = "Toggle Terminal" })
+vim.keymap.set({ "n", "v" }, "<leader>gB", function()
+  require("snacks").gitbrowse()
+end, { desc = "Git Browse" })
+vim.keymap.set("n", "<leader>bd", function()
+  require("snacks").bufdelete()
+end, { desc = "Delete Buffer" })
+vim.keymap.set("n", "<leader>.", function()
+  require("snacks").scratch()
+end, { desc = "Toggle Scratch Buffer" })
+vim.keymap.set("n", "<leader>S", function()
+  require("snacks").scratch.select()
+end, { desc = "Select Scratch Buffer" })
+
 -- [[ Configure LSP ]]
 -- vim.lsp.set_log_level("debug")
 vim.api.nvim_create_autocmd("LspAttach", {
