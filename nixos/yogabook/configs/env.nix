@@ -51,13 +51,9 @@
 
   environment.etc."systemd/sleep.conf".text = ''
     [Sleep]
-    HibernateMode=platform
+    HibernateMode=reboot
     HibernateState=disk
     AllowSuspend=false
-  '';
-
-  systemd.services.systemd-hibernate.serviceConfig.ExecStopPost = lib.mkForce ''
-    ${pkgs.systemd}/bin/systemctl reboot --force
   '';
 
   systemd.targets.shutdown.wants = [ "reboot.target" ];
@@ -111,7 +107,7 @@
   hardware.graphics = {
     enable = true;
     extraPackages = with pkgs; [
-      vaapiIntel
+      # vaapiIntel
       vaapiVdpau
       libvdpau-va-gl
       intel-media-driver
