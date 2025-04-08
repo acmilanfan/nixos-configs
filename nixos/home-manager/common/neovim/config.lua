@@ -233,6 +233,11 @@ vim.keymap.set("n", "<leader>S", function()
   require("snacks").scratch.select()
 end, { desc = "Select Scratch Buffer" })
 
+vim.keymap.set("v", "<", "<gv", { desc = "Indent out and keeps the selection" })
+vim.keymap.set("v", ">", ">gv", { desc = "Indent in and keeps the selection" })
+vim.keymap.set("n", "k", "v:count == 0 ? 'gk' : 'k'", { expr = true, silent = true })
+vim.keymap.set("n", "j", "v:count == 0 ? 'gj' : 'j'", { expr = true, silent = true })
+
 -- [[ Configure LSP ]]
 -- vim.lsp.set_log_level("debug")
 vim.api.nvim_create_autocmd("LspAttach", {
