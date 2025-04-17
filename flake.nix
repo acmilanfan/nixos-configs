@@ -142,6 +142,35 @@
             })
           ];
         };
+        yogabook-gen10 = lib.nixosSystem {
+          inherit system;
+          specialArgs = { inherit inputs; };
+          modules = [
+            ./nixos/yogabook-gen10/configuration.nix
+            home-manager.nixosModules.home-manager
+            {
+              home-manager.useGlobalPkgs = true;
+              home-manager.useUserPackages = true;
+              home-manager.users.gentooway = import ./nixos/yogabook-gen10/home.nix;
+              home-manager.extraSpecialArgs = {
+                inherit pkgs;
+                inherit unstable;
+                inherit system;
+                inherit inputs;
+              };
+            }
+            musnix.nixosModules.musnix
+            nixos-hardware.nixosModules.common-pc-laptop
+            nixos-hardware.nixosModules.common-pc-laptop-ssd
+            nixos-hardware.nixosModules.common-hidpi
+            nixos-hardware.nixosModules.common-cpu-intel
+            nixos-hardware.nixosModules.common-gpu-intel
+            auto-cpufreq.nixosModules.default
+            ({ config, pkgs, ... }: {
+              nixpkgs.overlays = [ overlay-davinci-resolve ];
+            })
+          ];
+        };
       };
     };
 

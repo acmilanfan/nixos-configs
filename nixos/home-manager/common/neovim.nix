@@ -258,7 +258,7 @@ in {
         config = lib.readFile ./neovim/rest-nvim.lua;
       }
       {
-        plugin = codeium-nvim;
+        plugin = windsurf-nvim;
         config = lib.readFile ./neovim/codeium.lua;
       }
       {
