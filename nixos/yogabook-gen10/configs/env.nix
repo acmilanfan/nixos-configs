@@ -13,11 +13,16 @@
     charger = {
       governor = "performance";
       turbo = "auto";
+      energy_performance_preference = "performance";
+      platform_profile = "performance";
     };
 
     battery = {
       governor = "powersave";
       turbo = "auto";
+      ideapad_laptop_conservation_mode = true;
+      energy_performance_preference = "power";
+      platform_profile = "low-power";
     };
   };
   services.xserver.dpi = lib.mkForce 168;
@@ -51,19 +56,18 @@
 
   environment.etc."systemd/sleep.conf".text = ''
     [Sleep]
-    HibernateMode=reboot
+    HibernateMode=platform
     HibernateState=disk
     AllowSuspend=false
   '';
 
-  systemd.targets.shutdown.wants = [ "reboot.target" ];
   systemd.targets.suspend.wants = [ "hibernate.target" ];
 
   boot.kernelParams = [
     "mem_sleep_default=deep"
+    "reboot=pci"
     "acpi=noirq"
     "apm=power_off"
-    "reboot=pci"
     "i915.force_probe=a7a1"
   ];
 
