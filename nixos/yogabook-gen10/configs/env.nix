@@ -28,9 +28,24 @@
   services.xserver.dpi = lib.mkForce 168;
 
   # boot.kernelPatches = [{
-  #   name = "yoga-book-9i-sound-fix";
-  #   patch = ./yoga-book-9i-audio-fix.patch;
+  #   name = "yoga-book-9i-14IAH10-backlight";
+  #   patch = ./NB140B9M-dpcd-backlight-fix.patch;
   # }];
+
+  # boot.kernelPackages = pkgs.linuxPackagesFor (pkgs.linux_6_14.override {
+  #   argsOverride = rec {
+  #     # disable unwanted drivers
+  #     configfile = pkgs.writeText "kernel-config" ''
+  #       ${builtins.readFile "${pkgs.linux_6_14}/lib/modules/*/build/.config"}
+  #       # disable AMD/Nouveau GPU support
+  #       CONFIG_DRM_AMDGPU=n
+  #       CONFIG_DRM_RADEON=n
+  #       CONFIG_DRM_NOUVEAU=n
+  #     '';
+  #   };
+  # });
+
+  boot.kernelPackages = pkgs.linuxPackages_latest;
 
   services.hardware.bolt.enable = true;
 
@@ -63,20 +78,34 @@
 
   systemd.targets.suspend.wants = [ "hibernate.target" ];
 
+  boot.kernel.sysctl."kernel.debug" = 1;
   boot.kernelParams = [
     "mem_sleep_default=deep"
     "reboot=pci"
     "acpi=noirq"
     "apm=power_off"
-    "i915.force_probe=a7a1"
+    "i915.force_probe=7d51"
   ];
+  # "acpi_backlight=video"
+  # "acpi_backlight=vendor"
+  # "i915.enable_dpcd_backlight=1"
+  # "i915.enable_psr=0"
+  # "i915.disable_panel_lc_pwm=1"
+  # "i915.enable_dpcd_backlight_deferred=1"
+  # "drm.debug=0x1e"
 
   boot.blacklistedKernelModules = [ "hid-multitouch" ];
+  # boot.loader.systemd-boot.memtest86.enable = true;
 
   boot.initrd.kernelModules = [ "ideapad_laptop" ];
   boot.extraModprobeConfig = ''
     options ideapad_laptop allow_v4_dytc=1
   '';
+
+  fileSystems."/sys/kernel/debug" = {
+    device = "debugfs";
+    fsType = "debugfs";
+  };
 
   hardware.bluetooth.enable = true;
   hardware.bluetooth.powerOnBoot = true;
@@ -90,6 +119,8 @@
   # '';
 
   hardware.sensor.iio.enable = true;
+
+  services.colord.enable = true;
 
   environment.systemPackages = with pkgs; [
     i2c-tools

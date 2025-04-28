@@ -8,8 +8,6 @@
     home-manager.url = "github:nix-community/home-manager/release-24.11";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
     nixos-hardware.url = "github:NixOS/nixos-hardware/master";
-    nix-doom-emacs.url = "github:nix-community/nix-doom-emacs";
-    nix-doom-emacs.inputs.nixpkgs.follows = "nixpkgs";
     minimal-tmux = {
       url = "github:niksingh710/minimal-tmux-status";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -21,7 +19,7 @@
   };
 
   outputs = inputs@{ self, nixpkgs, unstable-nixpkgs, musnix, nur, home-manager
-    , nixos-hardware, nix-doom-emacs, auto-cpufreq, ... }:
+    , nixos-hardware, auto-cpufreq, ... }:
     let
       system = "x86_64-linux";
 

@@ -22,7 +22,7 @@
       # onedark-theme
       prefix-highlight
       urlview
-      { plugin = inputs.minimal-tmux.packages.${pkgs.system}.default; }
+      # { plugin = inputs.minimal-tmux.packages.${pkgs.system}.default; }
     ];
   };
 
