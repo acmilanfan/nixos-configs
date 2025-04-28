@@ -45,8 +45,6 @@
   #   };
   # });
 
-  boot.kernelPackages = pkgs.linuxPackages_latest;
-
   services.hardware.bolt.enable = true;
 
   hardware.enableRedistributableFirmware = true;
