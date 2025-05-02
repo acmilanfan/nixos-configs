@@ -51,7 +51,10 @@ in {
     vscode-extensions.vue.volar
   ];
 
-  home.sessionVariables = { EDITOR = "nvim"; };
+  home.sessionVariables = {
+    EDITOR = "nvim";
+    VISUAL = "nvim";
+  };
 
   xdg.configFile."nvim/parser".source = "${
       pkgs.symlinkJoin {
@@ -157,6 +160,7 @@ in {
       twilight-nvim
       SchemaStore-nvim
       vim-repeat
+      lf-vim
       {
         plugin = nvim-treesitter;
         config = lib.readFile ./neovim/treesitter.lua;

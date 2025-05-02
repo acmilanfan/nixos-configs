@@ -90,9 +90,10 @@ vim.keymap.set("n", "<leader>cw", function()
   return ":IncRename " .. vim.fn.expand("<cword>")
 end, { expr = true })
 
-vim.keymap.set("n", "<Leader>sf", ":NvimTreeToggle<cr>", { silent = true, noremap = true })
+vim.keymap.set("n", "<Leader>sf", ":LfWorkingDirectory<cr>", { silent = true, noremap = true })
 -- vim.keymap.set("n", "<Leader>si", ":NvimTreeFindFile<cr>", { silent = true, noremap = true })
-vim.keymap.set("n", "<Leader>si", ":Oil<cr>", { silent = true, noremap = true })
+vim.keymap.set("n", "<Leader>si", ":Lf<cr>", { silent = true, noremap = true })
+vim.keymap.set("n", "<Leader>oi", ":Oil<cr>", { silent = true, noremap = true })
 
 vim.keymap.set("n", "<Leader>kk", function()
   require("notify").dismiss()
