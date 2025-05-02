@@ -91,7 +91,8 @@ vim.keymap.set("n", "<leader>cw", function()
 end, { expr = true })
 
 vim.keymap.set("n", "<Leader>sf", ":NvimTreeToggle<cr>", { silent = true, noremap = true })
-vim.keymap.set("n", "<Leader>si", ":NvimTreeFindFile<cr>", { silent = true, noremap = true })
+-- vim.keymap.set("n", "<Leader>si", ":NvimTreeFindFile<cr>", { silent = true, noremap = true })
+vim.keymap.set("n", "<Leader>si", ":Oil<cr>", { silent = true, noremap = true })
 
 vim.keymap.set("n", "<Leader>kk", function()
   require("notify").dismiss()

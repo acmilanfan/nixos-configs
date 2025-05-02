@@ -38,7 +38,7 @@ in {
     golines
     goimports-reviser
     lemminx
-    codeium
+    # codeium
     checkstyle
     nodePackages.typescript
     nodePackages.typescript-language-server
@@ -257,10 +257,10 @@ in {
         plugin = rest-nvim;
         config = lib.readFile ./neovim/rest-nvim.lua;
       }
-      {
-        plugin = windsurf-nvim;
-        config = lib.readFile ./neovim/codeium.lua;
-      }
+      # {
+      #   plugin = windsurf-nvim;
+      #   config = lib.readFile ./neovim/codeium.lua;
+      # }
       {
         plugin = barbecue-nvim;
         config = lib.readFile ./neovim/barbecue.lua;
@@ -292,6 +292,10 @@ in {
       {
         plugin = snacks-nvim;
         config = lib.readFile ./neovim/snacks.lua;
+      }
+      {
+        plugin = oil-nvim;
+        config = lib.readFile ./neovim/oil-nvim.lua;
       }
     ];
     extraLuaConfig = lib.readFile ./neovim/config.lua;
