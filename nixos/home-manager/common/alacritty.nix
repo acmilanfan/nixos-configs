@@ -11,10 +11,10 @@
           dim_foreground = "#aeafb0";
           bright_foreground = "#d6d6d7";
         };
-        cursor = {
-          text = "#cdcecf";
-          cursor = "#aeafb0";
-        };
+        # cursor = {
+        #   text = "#cdcecf";
+        #   cursor = "#aeafb0";
+        # };
         vi_mode_cursor = {
           text = "#cdcecf";
           cursor = "#63cdcf";

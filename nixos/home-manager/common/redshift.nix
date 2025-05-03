@@ -10,9 +10,11 @@
       day = 6000;
       night = 2400;
     };
-    brightness = {
-      day = "0.8";
-      night = "0.4";
+    settings = {
+      redshit = {
+        brightness-day = "0.8";
+        brightness-night = "0.4";
+      };
     };
   };
 

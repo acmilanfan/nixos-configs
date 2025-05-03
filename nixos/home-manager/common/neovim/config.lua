@@ -25,6 +25,7 @@ vim.o.wrap = false
 vim.wo.number = true
 vim.wo.relativenumber = true
 vim.wo.cursorline = true
+vim.g.lf_map_keys = 0
 
 -- [[ Highlight on yank ]]
 -- See `:help vim.highlight.on_yank()`
