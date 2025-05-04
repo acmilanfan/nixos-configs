@@ -4,7 +4,7 @@
     enable = true;
     extraConfig = ''
       # Newsboat Nightfox theme (approximate with 256-color codes)
-      color background          color234  default
+      # color background          color81   default
       color listnormal          color243  default
       color listnormal_unread   color68   default
       color listfocus           color234  color68
