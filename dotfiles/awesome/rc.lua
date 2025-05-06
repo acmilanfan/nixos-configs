@@ -592,7 +592,26 @@ globalkeys = gears.table.join(
   awful.key({ modkey }, "Return", function()
     awful.spawn(terminal)
   end, { description = "open a terminal", group = "launcher" }),
-  awful.key({ modkey, "Control" }, "r", awesome.restart, { description = "reload awesome", group = "awesome" }),
+  awful.key({ modkey, "Control" }, "r", function()
+    -- Save tag selection before restart
+    local selected_tags = {}
+    for s in screen do
+      local tag = s.selected_tag
+      if tag then
+        selected_tags[s.index] = tag.index
+      end
+    end
+
+    -- Write to file
+    local path = os.getenv("HOME") .. "/.cache/awesome/tag_state.lua"
+    local f = io.open(path, "w")
+    if f then
+      f:write(serialize_table(selected_tags))
+      f:close()
+    end
+
+    awesome.restart()
+  end, { description = "reload awesome", group = "awesome" }),
   awful.key({ modkey, "Shift" }, "e", awesome.quit, { description = "quit awesome", group = "awesome" }),
   awful.key({ modkey }, "l", function()
     awful.tag.incmwfact(0.05)
@@ -905,6 +924,16 @@ globalkeys = gears.table.join(
 --     awful.util.spawn("pamixer --default-source -t")
 --   end, { description = "Mute mic", group = "audio" }),
 --
+
+function serialize_table(tbl)
+  local result = "{\n"
+  for k, v in pairs(tbl) do
+    result = result .. "  [" .. tostring(k) .. "] = " .. tostring(v) .. ",\n"
+  end
+  result = result .. "}"
+  return "return " .. result
+end
+
 globalkeys = gears.table.join(
   globalkeys,
   -- Brightness
@@ -1033,6 +1062,41 @@ screen.connect_signal("added", awesome.restart)
 --        end
 --    end
 --end)
+
+-- Load tag state from file
+local selected_tags = {}
+do
+  local path = os.getenv("HOME") .. "/.cache/awesome/tag_state.lua"
+  local f = io.open(path)
+  if f then
+    local chunk = load(f:read("*a"))
+    f:close()
+    if chunk then
+      selected_tags = chunk()
+    end
+  end
+end
+
+-- Apply restored tag selections
+for s in screen do
+  naughty.notify({
+    title = "Loaded tag state",
+    text = gears.debug.dump_return(selected_tags),
+  })
+  local tag_index = selected_tags[s.index]
+  if tag_index and s.tags[tag_index] then
+    s.tags[tag_index]:view_only()
+    naughty.notify({
+      title = "Restoring Tag",
+      text = "Screen " .. s.index .. " → Tag " .. tag_index,
+    })
+  else
+    naughty.notify({
+      title = "No tag to restore",
+      text = "Screen " .. s.index .. " had no saved tag or invalid index",
+    })
+  end
+end
 
 clientbuttons = gears.table.join(
   awful.button({}, 1, function(c)
