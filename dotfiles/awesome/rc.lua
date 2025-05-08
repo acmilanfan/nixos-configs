@@ -1079,22 +1079,9 @@ end
 
 -- Apply restored tag selections
 for s in screen do
-  naughty.notify({
-    title = "Loaded tag state",
-    text = gears.debug.dump_return(selected_tags),
-  })
   local tag_index = selected_tags[s.index]
   if tag_index and s.tags[tag_index] then
     s.tags[tag_index]:view_only()
-    naughty.notify({
-      title = "Restoring Tag",
-      text = "Screen " .. s.index .. " → Tag " .. tag_index,
-    })
-  else
-    naughty.notify({
-      title = "No tag to restore",
-      text = "Screen " .. s.index .. " had no saved tag or invalid index",
-    })
   end
 end
 
