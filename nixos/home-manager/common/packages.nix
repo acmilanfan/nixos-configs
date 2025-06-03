@@ -48,6 +48,7 @@
     zenity
     onboard
     bat
+    davinci-resolve-studio
   ];
 
   # TODO move

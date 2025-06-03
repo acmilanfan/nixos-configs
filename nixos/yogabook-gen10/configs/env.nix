@@ -4,6 +4,7 @@
     NIX_SYSTEM = "yogabook-gen10";
     LAPTOP_MONITOR = "eDP-2";
     WINIT_X11_SCALE_FACTOR = lib.mkForce "1.9";
+    QT_SCALE_FACTOR = lib.mkForce "1.9";
     EXTRA_SCREEN_BRIGHTNESS_CMD =
       lib.mkForce "light -s sysfs/backlight/intel_backlight";
   };
@@ -13,8 +14,8 @@
     charger = {
       governor = "performance";
       turbo = "auto";
-      energy_performance_preference = "performance";
-      platform_profile = "performance";
+      energy_performance_preference = "balance_performance";
+      platform_profile = "balanced";
     };
 
     battery = {
@@ -22,7 +23,7 @@
       turbo = "auto";
       ideapad_laptop_conservation_mode = true;
       energy_performance_preference = "power";
-      platform_profile = "low-power";
+      platform_profile = "balanced";
     };
   };
   services.xserver.dpi = lib.mkForce 168;

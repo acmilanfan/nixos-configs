@@ -6,7 +6,7 @@
     # pkgs.jetbrains.idea-ultimate
     #genymotionPkgs.genymotion
     unstable.jdk
-    unstable.davinci-resolve-studio
+    # unstable.davinci-resolve-studio
   ];
 
 }

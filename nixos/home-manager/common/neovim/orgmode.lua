@@ -62,8 +62,8 @@ vim.api.nvim_create_autocmd("FileType", {
   pattern = "org",
   group = vim.api.nvim_create_augroup("orgmode_telescope_nvim", { clear = true }),
   callback = function()
-    vim.keymap.set("n", "<leader>tp", require("telescope").extensions.orgmode.refile_heading)
-    vim.keymap.set("n", "<leader>ts", require("telescope").extensions.orgmode.search_headings)
+    -- vim.keymap.set("n", "<leader>tp", require("telescope").extensions.orgmode.refile_heading)
+    -- vim.keymap.set("n", "<leader>ts", require("telescope").extensions.orgmode.search_headings)
     vim.keymap.set("n", "<leader>os", function()
       local parseDate = function(date)
         local Y, M, D, h, m, s = date:match("(%d+)-(%d+)-(%d+)T(%d+):(%d+):(%d+)")

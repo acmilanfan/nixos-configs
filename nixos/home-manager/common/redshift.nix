@@ -12,8 +12,8 @@
     };
     settings = {
       redshit = {
-        brightness-day = "0.8";
-        brightness-night = "0.4";
+        brightness-day = "0.7";
+        brightness-night = "0.1";
       };
     };
   };

@@ -118,7 +118,7 @@ in {
       ];
     plugins = with unstable.vimPlugins; [
       vim-nix
-      customPlugins.telescope-orgmode
+      # customPlugins.telescope-orgmode
       customPlugins.org-bullets
       # customPlugins.headlines-nvim
       customPlugins.nvim-macroni
