@@ -18,10 +18,10 @@
     mpv
     audacious
     htop
-    partition-manager
+    kdePackages.partitionmanager
     pcmanfm
-    konsole
-    dolphin
+    kdePackages.konsole
+    kdePackages.dolphin
     libreoffice
     yt-dlp
     google-chrome

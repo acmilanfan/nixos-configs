@@ -45,7 +45,7 @@
   #   shutdown_after_timeout
   # '';
 
-  hardware.pulseaudio.support32Bit = true;
+  services.pulseaudio.support32Bit = true;
   # hardware.enableAllFirmware = true;
   hardware.firmware = with pkgs; [ sof-firmware ];
 

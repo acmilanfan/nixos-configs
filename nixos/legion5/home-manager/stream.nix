@@ -16,7 +16,6 @@ in {
     xdotool
     v4l-utils
     ffmpeg-full
-    kdenlive
     gimp
     discord
     drawio

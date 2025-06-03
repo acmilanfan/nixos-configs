@@ -99,7 +99,6 @@ in {
             dockerfile
             diff
             css
-            org
           ])).dependencies;
       }
     }/parser";
@@ -115,6 +114,7 @@ in {
         mimetypes
         xml2lua
         nvim-nio
+        tree-sitter-orgmode
       ];
     plugins = with unstable.vimPlugins; [
       vim-nix
