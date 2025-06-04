@@ -55,6 +55,7 @@
             {
               home-manager.useGlobalPkgs = true;
               home-manager.useUserPackages = true;
+              home-manager.backupFileExtension = "backup";
               home-manager.users.gentooway = import ./nixos/z16/home.nix;
               home-manager.extraSpecialArgs = {
                 inherit pkgs;
@@ -79,6 +80,7 @@
             {
               home-manager.useGlobalPkgs = true;
               home-manager.useUserPackages = true;
+              home-manager.backupFileExtension = "backup";
               home-manager.users.ashumailov = import ./nixos/t480-work/home.nix;
               home-manager.extraSpecialArgs = {
                 inherit pkgs;
@@ -100,6 +102,7 @@
             {
               home-manager.useGlobalPkgs = true;
               home-manager.useUserPackages = true;
+              home-manager.backupFileExtension = "backup";
               home-manager.users.gentooway = import ./nixos/t480-home/home.nix;
               home-manager.extraSpecialArgs = {
                 inherit pkgs;
@@ -120,6 +123,7 @@
             {
               home-manager.useGlobalPkgs = true;
               home-manager.useUserPackages = true;
+              home-manager.backupFileExtension = "backup";
               home-manager.users.gentooway = import ./nixos/yogabook/home.nix;
               home-manager.extraSpecialArgs = {
                 inherit pkgs;
@@ -149,6 +153,7 @@
             {
               home-manager.useGlobalPkgs = true;
               home-manager.useUserPackages = true;
+              home-manager.backupFileExtension = "backup";
               home-manager.users.gentooway = import ./nixos/yogabook-gen10/home.nix;
               home-manager.extraSpecialArgs = {
                 inherit pkgs;
