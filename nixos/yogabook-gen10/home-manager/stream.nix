@@ -19,6 +19,7 @@ in {
     gimp
     discord
     drawio
+    davinci-resolve-studio
   ];
 
   systemd.user.sessionVariables = {
