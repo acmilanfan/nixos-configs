@@ -3,6 +3,7 @@
         "vim",
         "tag",
         "screen",
-        "awesome"
+        "awesome",
+        "serialize_table"
     ]
 }

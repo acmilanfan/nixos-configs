@@ -7,14 +7,17 @@
   };
 
   services.picom.enable = true;
-  services.picom.settings = {
-    use-damage = true;
-    vsync = true;
+  # services.picom.settings = {
+    # use-damage = false;
+    # vsync = true;
     # shadow = true;
     # backend = "glx";
-    detect-rounded-corners = true;
-    respect-client-shape = true;
-  };
+    # corner-radius = 10;
+    # round-borders = 1;
+    # detect-rounded-corners = true;
+    # respect-client-shape= false;
+    # rounded-corners-exclude = [ "fullscreen = true" "maximized = true" ];
+  # };
   security.pam.services.i3lock.enable = true;
 
 }

@@ -1297,11 +1297,39 @@ end)
 
 update_locker_widget()
 
-client.connect_signal("manage", function(c)
-    c.shape = function(cr, w, h)
-        gears.shape.rounded_rect(cr, w, h, 10)
-    end
-end)
+-- local static_shape = function(cr, w, h)
+--     gears.shape.rounded_rect(cr, w, h, 10)
+-- end
+--
+-- local function update_window_shape(c)
+--     if c.fullscreen or c.maximized then
+--         c.shape = gears.shape.rectangle
+--     else
+--         c.shape = static_shape
+--     end
+-- end
+--
+-- client.connect_signal("manage", update_window_shape)
+-- client.connect_signal("property::geometry", update_window_shape)
+-- client.connect_signal("request::fullscreen", function(c, fullscreen)
+--     if fullscreen then
+--         c.shape = gears.shape.rectangle
+--     else
+--         c.shape = static_shape
+--     end
+-- end)
+-- client.connect_signal("property::fullscreen", function(c)
+--     if c.fullscreen then
+--         c.shape = gears.shape.rectangle
+--     else
+--         gears.timer.start_new(0.05, function()
+--             if not c.fullscreen then
+--                 c.shape = static_shape
+--             end
+--         end)
+--     end
+-- end)
+-- client.connect_signal("property::maximized", update_window_shape)
 
 beautiful.notification_shape = function(cr, w, h)
     gears.shape.rounded_rect(cr, w, h, 10)

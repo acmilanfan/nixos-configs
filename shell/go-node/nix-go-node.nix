@@ -14,6 +14,7 @@ let
         jq
         python3
         supabase-cli
+        go-mockery
       ]);
     runScript = "zsh";
   };
