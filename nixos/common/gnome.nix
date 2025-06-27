@@ -1,7 +1,10 @@
 { pkgs, ... }: {
 
   services.xserver.desktopManager.gnome.enable = true;
-  services.xserver.displayManager.gdm.enable = true;
+  services.xserver.displayManager.gdm ={
+    enable = true;
+    wayland = false;
+  };
 
   environment.systemPackages = with pkgs; [
     adwaita-icon-theme

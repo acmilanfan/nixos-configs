@@ -4,10 +4,15 @@ require('nightfox').setup({
   options = {
     styles = {
       comments = "italic",
-      keywords = "bold",
-      types = "italic,bold",
-    }
-  }
+      keywords = "italic, bold",
+      types = "bold",
+    },
+  },
+  palettes = {
+    nightfox = {
+      bg1 = "#1a1b26",
+    },
+  },
 })
 
 require("dracula").setup({
@@ -39,12 +44,11 @@ require('onedark').setup {
       functions = 'bold',
     },
 }
-require('onedark').load()
-
+-- require('onedark').load()
 -- vim.cmd("colorscheme dracula")
--- vim.cmd("colorscheme nightfox")
 -- vim.cmd("colorscheme onedark")
 -- vim.cmd("colorscheme kanagawa")
-vim.cmd("colorscheme tokyonight-night")
+-- vim.cmd("colorscheme tokyonight-night")
+vim.cmd("colorscheme nightfox")
 
 EOF

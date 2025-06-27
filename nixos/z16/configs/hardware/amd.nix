@@ -15,10 +15,10 @@
   hardware.graphics.extraPackages = with pkgs; [
     # rocmPackages.clr.icd
     # rocmPackages.rocm-runtime
-    rocmPackages_5.rocm-runtime
-    rocmPackages_5.rocminfo
+    rocmPackages.rocm-runtime
+    rocmPackages.rocminfo
     amdvlk
-    rocmPackages_5.clr.icd
+    rocmPackages.clr.icd
     vaapiVdpau
     libvdpau-va-gl
     mesa
@@ -29,5 +29,5 @@
   environment.variables.AMD_VULKAN_ICD = lib.mkDefault "RADV";
 
   systemd.tmpfiles.rules =
-    [ "L+    /opt/rocm/hip   -    -    -     -    ${pkgs.rocmPackages_5.clr}" ];
+    [ "L+    /opt/rocm/hip   -    -    -     -    ${pkgs.rocmPackages.clr}" ];
 }

@@ -1,4 +1,4 @@
-(setq doom-font (font-spec :family "monospace" :size 22))
+(setq doom-font (font-spec :family "monospace" :size 27))
 
 (after! doom-themes
   (setq doom-themes-enable-bold t
@@ -67,15 +67,25 @@
       ))))
 
 (setq org-agenda-custom-commands
-	'(("h" . "youtube + tag searches")
-		("hl" tags-todo "+youtube+Focus=0+Importance=5"
-		  ((org-agenda-cmp-user-defined (cmp-date-property "Published"))
-      (org-agenda-sorting-strategy '(user-defined-up))))
-		("hh" tags-todo "+youtube+Focus=1+Importance=5"
-		  ((org-agenda-cmp-user-defined (cmp-date-property "Published"))
-      (org-agenda-sorting-strategy '(user-defined-up))))
-		))
+      '(("h" . "youtube + tag searches")
+        ("hl" tags-todo "+youtube+Focus=0+Importance=5"
+         ((org-agenda-cmp-user-defined (cmp-date-property "Published"))
+          (org-agenda-sorting-strategy '(user-defined-up))))
+        ("ha" tags-todo "+youtube"
+         ((org-agenda-cmp-user-defined (cmp-date-property "Published"))
+          (org-agenda-sorting-strategy '(user-defined-up))))
+        ("hs" tags-todo "+youtube+Duration<600"
+         ((org-agenda-cmp-user-defined (cmp-date-property "Published"))
+          (org-agenda-sorting-strategy '(user-defined-up))))
+        ("hl" tags-todo "+youtube+Duration>3000"
+         ((org-agenda-cmp-user-defined (cmp-date-property "Published"))
+          (org-agenda-sorting-strategy '(user-defined-up))))
+        ("hh" tags-todo "+youtube+Focus=1+Importance=5"
+         ((org-agenda-cmp-user-defined (cmp-date-property "Published"))
+          (org-agenda-sorting-strategy '(user-defined-up))))
+        ))
 
 ;; (global-org-modern-mode)
 
-(setq doom-theme 'doom-nord)
+;; (setq doom-theme 'doom-nord)
+(setq doom-theme 'doom-tokyo-night)

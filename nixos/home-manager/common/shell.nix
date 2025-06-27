@@ -30,7 +30,7 @@
       python-shell = "nix develop ~/configs/nixos-configs/shell/python";
       fhs-shell = "nix develop ~/configs/nixos-configs/shell/fhs";
     };
-    initExtra = ''
+    initContent = ''
       autoload -U colors && colors
       PS1="%B%{$fg[cyan]%}$IN_NIX_SHELL%{$fg[red]%}[%{$fg[yellow]%}%n%{$fg[green]%}@%{$fg[blue]%}%M %{$fg[magenta]%}%~%{$fg[red]%}]%{$reset_color%}$%b "
 
@@ -44,23 +44,23 @@
         --info=inline-right \
         --ansi \
         --layout=reverse \
-        --border=none
-        --color=bg+:#283457 \
-        --color=bg:#16161e \
-        --color=border:#27a1b9 \
-        --color=fg:#c0caf5 \
-        --color=gutter:#16161e \
-        --color=header:#ff9e64 \
-        --color=hl+:#2ac3de \
-        --color=hl:#2ac3de \
-        --color=info:#545c7e \
-        --color=marker:#ff007c \
-        --color=pointer:#ff007c \
-        --color=prompt:#2ac3de \
-        --color=query:#c0caf5:regular \
-        --color=scrollbar:#27a1b9 \
-        --color=separator:#ff9e64 \
-        --color=spinner:#ff007c \
+        --border=none \
+        --color=bg+:#29394f \
+        --color=bg:#1a1b26 \
+        --color=border:#719cd6 \
+        --color=fg:#cdcecf \
+        --color=gutter:#192330 \
+        --color=header:#f4a261 \
+        --color=hl+:#63cdcf \
+        --color=hl:#63cdcf \
+        --color=info:#aeafb0 \
+        --color=marker:#c94f6d \
+        --color=pointer:#81b29a \
+        --color=prompt:#719cd6 \
+        --color=query:#cdcecf:regular \
+        --color=scrollbar:#719cd6 \
+        --color=separator:#f4a261 \
+        --color=spinner:#719cd6 \
       "
       export TERM='xterm-256color'
 

@@ -18,11 +18,10 @@
     mpv
     audacious
     htop
-    partition-manager
+    kdePackages.partitionmanager
     pcmanfm
-    konsole
-    dolphin
-    lf
+    kdePackages.konsole
+    kdePackages.dolphin
     libreoffice
     yt-dlp
     google-chrome
@@ -48,6 +47,31 @@
     (python3.withPackages (ps: with ps; [ evdev ]))
     zenity
     onboard
+    bat
   ];
+
+  # TODO move
+  programs.lf = {
+    enable = true;
+    previewer.source = pkgs.writeShellScript "bat-preview" ''
+      #!/bin/sh
+      file="$1"
+      [ -d "$file" ] && exit 1
+      bat --theme=nightfox --style=plain --color=always "$file"
+    '';
+    settings = { preview = true; };
+  };
+
+  home.file = {
+    ".config/bat/themes/nightfox.tmTheme".source = pkgs.fetchurl {
+      url =
+        "https://raw.githubusercontent.com/EdenEast/nightfox.nvim/main/extra/nightfox/nightfox.tmTheme";
+      sha256 = "sha256-J/0baDEYrV7on7qeHa4dIvLHPY4CH0lVLj4IR2G0pNs= ";
+    };
+
+    ".config/bat/config".text = ''
+      --theme=nightfox
+    '';
+  };
 
 }

@@ -25,6 +25,7 @@ vim.o.wrap = false
 vim.wo.number = true
 vim.wo.relativenumber = true
 vim.wo.cursorline = true
+vim.g.lf_map_keys = 0
 
 -- [[ Highlight on yank ]]
 -- See `:help vim.highlight.on_yank()`
@@ -90,8 +91,10 @@ vim.keymap.set("n", "<leader>cw", function()
   return ":IncRename " .. vim.fn.expand("<cword>")
 end, { expr = true })
 
-vim.keymap.set("n", "<Leader>sf", ":NvimTreeToggle<cr>", { silent = true, noremap = true })
-vim.keymap.set("n", "<Leader>si", ":NvimTreeFindFile<cr>", { silent = true, noremap = true })
+vim.keymap.set("n", "<Leader>sf", ":LfWorkingDirectory<cr>", { silent = true, noremap = true })
+-- vim.keymap.set("n", "<Leader>si", ":NvimTreeFindFile<cr>", { silent = true, noremap = true })
+vim.keymap.set("n", "<Leader>si", ":Lf<cr>", { silent = true, noremap = true })
+vim.keymap.set("n", "<Leader>oi", ":Oil<cr>", { silent = true, noremap = true })
 
 vim.keymap.set("n", "<Leader>kk", function()
   require("notify").dismiss()
@@ -244,6 +247,8 @@ vim.api.nvim_create_autocmd("LspAttach", {
   group = vim.api.nvim_create_augroup("UserLspConfig", {}),
   callback = function(ev)
     vim.bo[ev.buf].omnifunc = "v:lua.vim.lsp.omnifunc"
+    local client = vim.lsp.get_client_by_id(ev.data.client_id)
+    client.server_capabilities.semanticTokensProvider = nil
 
     -- Buffer local mappings.
     -- See `:help vim.lsp.*` for documentation on any of the below functions

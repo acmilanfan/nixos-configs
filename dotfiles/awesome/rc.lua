@@ -592,7 +592,26 @@ globalkeys = gears.table.join(
   awful.key({ modkey }, "Return", function()
     awful.spawn(terminal)
   end, { description = "open a terminal", group = "launcher" }),
-  awful.key({ modkey, "Control" }, "r", awesome.restart, { description = "reload awesome", group = "awesome" }),
+  awful.key({ modkey, "Control" }, "r", function()
+    -- Save tag selection before restart
+    local selected_tags = {}
+    for s in screen do
+      local tag = s.selected_tag
+      if tag then
+        selected_tags[s.index] = tag.index
+      end
+    end
+
+    -- Write to file
+    local path = os.getenv("HOME") .. "/.cache/awesome/tag_state.lua"
+    local f = io.open(path, "w")
+    if f then
+      f:write(serialize_table(selected_tags))
+      f:close()
+    end
+
+    awesome.restart()
+  end, { description = "reload awesome", group = "awesome" }),
   awful.key({ modkey, "Shift" }, "e", awesome.quit, { description = "quit awesome", group = "awesome" }),
   awful.key({ modkey }, "l", function()
     awful.tag.incmwfact(0.05)
@@ -705,6 +724,12 @@ globalkeys = gears.table.join(
     myscreen = awful.screen.focused()
     myscreen.mywibox.visible = not myscreen.mywibox.visible
   end, { description = "toggle statusbar" }),
+
+  awful.key({ modkey, "Shift" }, "x", function()
+    for s in screen do
+      s.mywibox.visible = not s.mywibox.visible
+    end
+  end, { description = "toggle all statusbars" }),
 
   awful.key({ modkey, "mod4" }, "y", function()
     naughty.toggle()
@@ -899,6 +924,16 @@ globalkeys = gears.table.join(
 --     awful.util.spawn("pamixer --default-source -t")
 --   end, { description = "Mute mic", group = "audio" }),
 --
+
+function serialize_table(tbl)
+  local result = "{\n"
+  for k, v in pairs(tbl) do
+    result = result .. "  [" .. tostring(k) .. "] = " .. tostring(v) .. ",\n"
+  end
+  result = result .. "}"
+  return "return " .. result
+end
+
 globalkeys = gears.table.join(
   globalkeys,
   -- Brightness
@@ -1027,6 +1062,28 @@ screen.connect_signal("added", awesome.restart)
 --        end
 --    end
 --end)
+
+-- Load tag state from file
+local selected_tags = {}
+do
+  local path = os.getenv("HOME") .. "/.cache/awesome/tag_state.lua"
+  local f = io.open(path)
+  if f then
+    local chunk = load(f:read("*a"))
+    f:close()
+    if chunk then
+      selected_tags = chunk()
+    end
+  end
+end
+
+-- Apply restored tag selections
+for s in screen do
+  local tag_index = selected_tags[s.index]
+  if tag_index and s.tags[tag_index] then
+    s.tags[tag_index]:view_only()
+  end
+end
 
 clientbuttons = gears.table.join(
   awful.button({}, 1, function(c)
@@ -1239,3 +1296,41 @@ end)
 -- }}}
 
 update_locker_widget()
+
+-- local static_shape = function(cr, w, h)
+--     gears.shape.rounded_rect(cr, w, h, 10)
+-- end
+--
+-- local function update_window_shape(c)
+--     if c.fullscreen or c.maximized then
+--         c.shape = gears.shape.rectangle
+--     else
+--         c.shape = static_shape
+--     end
+-- end
+--
+-- client.connect_signal("manage", update_window_shape)
+-- client.connect_signal("property::geometry", update_window_shape)
+-- client.connect_signal("request::fullscreen", function(c, fullscreen)
+--     if fullscreen then
+--         c.shape = gears.shape.rectangle
+--     else
+--         c.shape = static_shape
+--     end
+-- end)
+-- client.connect_signal("property::fullscreen", function(c)
+--     if c.fullscreen then
+--         c.shape = gears.shape.rectangle
+--     else
+--         gears.timer.start_new(0.05, function()
+--             if not c.fullscreen then
+--                 c.shape = static_shape
+--             end
+--         end)
+--     end
+-- end)
+-- client.connect_signal("property::maximized", update_window_shape)
+
+beautiful.notification_shape = function(cr, w, h)
+    gears.shape.rounded_rect(cr, w, h, 10)
+end

@@ -1,6 +1,6 @@
 { pkgs, ... }: {
 
-  hardware.pulseaudio = {
+  services.pulseaudio = {
     enable = false;
     extraModules = [ pkgs.pulseaudio-modules-bt ];
   };

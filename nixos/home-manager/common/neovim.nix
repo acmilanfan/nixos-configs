@@ -38,7 +38,7 @@ in {
     golines
     goimports-reviser
     lemminx
-    codeium
+    # codeium
     checkstyle
     nodePackages.typescript
     nodePackages.typescript-language-server
@@ -51,7 +51,10 @@ in {
     vscode-extensions.vue.volar
   ];
 
-  home.sessionVariables = { EDITOR = "nvim"; };
+  home.sessionVariables = {
+    EDITOR = "nvim";
+    VISUAL = "nvim";
+  };
 
   xdg.configFile."nvim/parser".source = "${
       pkgs.symlinkJoin {
@@ -96,7 +99,6 @@ in {
             dockerfile
             diff
             css
-            org
           ])).dependencies;
       }
     }/parser";
@@ -112,10 +114,11 @@ in {
         mimetypes
         xml2lua
         nvim-nio
+        tree-sitter-orgmode
       ];
     plugins = with unstable.vimPlugins; [
       vim-nix
-      customPlugins.telescope-orgmode
+      # customPlugins.telescope-orgmode
       customPlugins.org-bullets
       # customPlugins.headlines-nvim
       customPlugins.nvim-macroni
@@ -157,6 +160,7 @@ in {
       twilight-nvim
       SchemaStore-nvim
       vim-repeat
+      lf-vim
       {
         plugin = nvim-treesitter;
         config = lib.readFile ./neovim/treesitter.lua;
@@ -257,10 +261,10 @@ in {
         plugin = rest-nvim;
         config = lib.readFile ./neovim/rest-nvim.lua;
       }
-      {
-        plugin = codeium-nvim;
-        config = lib.readFile ./neovim/codeium.lua;
-      }
+      # {
+      #   plugin = windsurf-nvim;
+      #   config = lib.readFile ./neovim/codeium.lua;
+      # }
       {
         plugin = barbecue-nvim;
         config = lib.readFile ./neovim/barbecue.lua;
@@ -292,6 +296,10 @@ in {
       {
         plugin = snacks-nvim;
         config = lib.readFile ./neovim/snacks.lua;
+      }
+      {
+        plugin = oil-nvim;
+        config = lib.readFile ./neovim/oil-nvim.lua;
       }
     ];
     extraLuaConfig = lib.readFile ./neovim/config.lua;

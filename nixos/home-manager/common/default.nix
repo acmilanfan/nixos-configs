@@ -4,7 +4,8 @@
     ./alacritty.nix
     ./awesome.nix
     ./dconf.nix
-#    ./doom.nix
+    ./default-apps.nix
+    # ./doom.nix
     ./firefox.nix
     ./git-common.nix
     ./gpg.nix
@@ -30,4 +31,5 @@
     ./greenclip.nix
   ];
 
+  #backupFileExtension = "backup";
 }

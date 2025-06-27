@@ -1,15 +1,13 @@
 {
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
     unstable-nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     musnix.url = "github:musnix/musnix/master";
     musnix.inputs.nixpkgs.follows = "nixpkgs";
     nur.url = "github:nix-community/NUR";
-    home-manager.url = "github:nix-community/home-manager/release-24.11";
+    home-manager.url = "github:nix-community/home-manager/release-25.05";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
     nixos-hardware.url = "github:NixOS/nixos-hardware/master";
-    nix-doom-emacs.url = "github:nix-community/nix-doom-emacs";
-    nix-doom-emacs.inputs.nixpkgs.follows = "nixpkgs";
     minimal-tmux = {
       url = "github:niksingh710/minimal-tmux-status";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -21,7 +19,7 @@
   };
 
   outputs = inputs@{ self, nixpkgs, unstable-nixpkgs, musnix, nur, home-manager
-    , nixos-hardware, nix-doom-emacs, auto-cpufreq, ... }:
+    , nixos-hardware, auto-cpufreq, ... }:
     let
       system = "x86_64-linux";
 
@@ -57,6 +55,7 @@
             {
               home-manager.useGlobalPkgs = true;
               home-manager.useUserPackages = true;
+              home-manager.backupFileExtension = "backup";
               home-manager.users.gentooway = import ./nixos/z16/home.nix;
               home-manager.extraSpecialArgs = {
                 inherit pkgs;
@@ -81,6 +80,7 @@
             {
               home-manager.useGlobalPkgs = true;
               home-manager.useUserPackages = true;
+              home-manager.backupFileExtension = "backup";
               home-manager.users.ashumailov = import ./nixos/t480-work/home.nix;
               home-manager.extraSpecialArgs = {
                 inherit pkgs;
@@ -102,6 +102,7 @@
             {
               home-manager.useGlobalPkgs = true;
               home-manager.useUserPackages = true;
+              home-manager.backupFileExtension = "backup";
               home-manager.users.gentooway = import ./nixos/t480-home/home.nix;
               home-manager.extraSpecialArgs = {
                 inherit pkgs;
@@ -122,7 +123,38 @@
             {
               home-manager.useGlobalPkgs = true;
               home-manager.useUserPackages = true;
+              home-manager.backupFileExtension = "backup";
               home-manager.users.gentooway = import ./nixos/yogabook/home.nix;
+              home-manager.extraSpecialArgs = {
+                inherit pkgs;
+                inherit unstable;
+                inherit system;
+                inherit inputs;
+              };
+            }
+            musnix.nixosModules.musnix
+            nixos-hardware.nixosModules.common-pc-laptop
+            nixos-hardware.nixosModules.common-pc-laptop-ssd
+            nixos-hardware.nixosModules.common-hidpi
+            nixos-hardware.nixosModules.common-cpu-intel
+            nixos-hardware.nixosModules.common-gpu-intel
+            auto-cpufreq.nixosModules.default
+            ({ config, pkgs, ... }: {
+              nixpkgs.overlays = [ overlay-davinci-resolve ];
+            })
+          ];
+        };
+        yogabook-gen10 = lib.nixosSystem {
+          inherit system;
+          specialArgs = { inherit inputs; };
+          modules = [
+            ./nixos/yogabook-gen10/configuration.nix
+            home-manager.nixosModules.home-manager
+            {
+              home-manager.useGlobalPkgs = true;
+              home-manager.useUserPackages = true;
+              home-manager.backupFileExtension = "backup";
+              home-manager.users.gentooway = import ./nixos/yogabook-gen10/home.nix;
               home-manager.extraSpecialArgs = {
                 inherit pkgs;
                 inherit unstable;
