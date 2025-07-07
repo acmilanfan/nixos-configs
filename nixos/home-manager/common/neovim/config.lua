@@ -63,6 +63,7 @@ vim.keymap.set("n", "<leader>fd", builtin.diagnostics, { desc = "[S]earch [D]iag
 vim.keymap.set("n", "<leader>fr", builtin.resume, { desc = "[S]earch [R]esume" })
 vim.keymap.set("n", "<leader>?", builtin.oldfiles, { desc = "[?] Find recently opened files" })
 vim.keymap.set("n", "<leader>gf", builtin.git_files, { desc = "Search [G]it [F]iles" })
+vim.keymap.set("n", "<leader>gs", builtin.git_status, { desc = "Search [G]it [5]tatus" })
 vim.keymap.set("n", "<leader>/", function()
   -- You can pass additional configuration to telescope to change theme, layout, etc.
   builtin.current_buffer_fuzzy_find(require("telescope.themes").get_dropdown({
@@ -144,6 +145,12 @@ vim.keymap.set("n", "N", "Nzzzv")
 vim.keymap.set("x", "<leader>p", [["_dP]])
 vim.keymap.set({ "n", "v" }, "<leader>d", '"_d')
 vim.keymap.set({ "n", "v" }, "<leader>y", [["+y]])
+vim.keymap.set(
+  "n",
+  "<leader>ys",
+  'gv"+y',
+  { noremap = true, silent = true, desc = "Copy last yank to system clipboard" }
+)
 vim.keymap.set("n", "<leader>Y", [["+Y]])
 vim.keymap.set({ "n", "v" }, "<leader>i", [["+p]])
 
@@ -460,3 +467,9 @@ vim.g.firenvim_config = {
     },
   },
 }
+
+if vim.g.started_by_firenvim == true then
+  vim.o.laststatus = 0
+  vim.o.showtabline = 0
+  vim.o.cmdheight = 1
+end
