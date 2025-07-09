@@ -166,8 +166,8 @@ vim.api.nvim_create_autocmd("FileType", {
   callback = function()
     print("Orgmode FileType")
     print(require("orgmode.agenda.sorting_strategy").category_down)
-    vim.keymap.set("n", "<leader>tp", require("telescope").extensions.orgmode.refile_heading)
-    vim.keymap.set("n", "<leader>ts", require("telescope").extensions.orgmode.search_headings)
+    -- vim.keymap.set("n", "<leader>tp", require("telescope").extensions.orgmode.refile_heading)
+    -- vim.keymap.set("n", "<leader>ts", require("telescope").extensions.orgmode.search_headings)
     -- vim.keymap.set("n", "<leader>oyt", open_custom_agenda_view, { desc = "Open YouTube Agenda (custom sorted)" })
     -- vim.keymap.set("n", "<leader>oyt", function()
     --   OrgAgenda.tags_todo({
