@@ -21,15 +21,16 @@
   outputs = inputs@{ self, nixpkgs, unstable-nixpkgs, musnix, nur, home-manager
     , nixos-hardware, auto-cpufreq, ... }:
     let
-      system = "x86_64-linux";
+      linuxSystem = "x86_64-linux";
+      macSystem = "aarch64-darwin";
 
       pkgs = import nixpkgs {
-        inherit system;
+        inherit linuxSystem;
         config = { allowUnfree = true; };
       };
 
       unstable = import unstable-nixpkgs {
-        inherit system;
+        inherit linuxSystem;
         config = { allowUnfree = true; };
       };
 
@@ -44,10 +45,31 @@
             }));
         });
       };
+
+      pkgsMac = import nixpkgs {
+        system = macSystem;
+        config = { allowUnfree = true; };
+      };
+      unstableMac = import unstable-nixpkgs {
+        system = macSystem;
+        config = { allowUnfree = true; };
+      };
     in {
+      homeConfigurations = {
+        "andreishumailov@work" = home-manager.lib.homeManagerConfiguration {
+          pkgs = pkgsMac;
+          unstable = unstableMac;
+          extraSpecialArgs = {
+            inherit pkgsMac unstableMac macSystem inputs;
+          };
+          modules = [
+            ./nixos/mac-work/home.nix
+          ];
+        };
+      };
       nixosConfigurations = {
         z16 = lib.nixosSystem {
-          inherit system;
+          system = linuxSystem;
           specialArgs = { inherit inputs; };
           modules = [
             ./nixos/z16/configuration.nix
@@ -60,7 +82,7 @@
               home-manager.extraSpecialArgs = {
                 inherit pkgs;
                 inherit unstable;
-                inherit system;
+                inherit linuxSystem;
                 inherit inputs;
               };
             }
@@ -71,30 +93,8 @@
             })
           ];
         };
-        t480-work = lib.nixosSystem {
-          inherit system;
-          specialArgs = { inherit inputs; };
-          modules = [
-            ./nixos/t480-work/configuration.nix
-            home-manager.nixosModules.home-manager
-            {
-              home-manager.useGlobalPkgs = true;
-              home-manager.useUserPackages = true;
-              home-manager.backupFileExtension = "backup";
-              home-manager.users.ashumailov = import ./nixos/t480-work/home.nix;
-              home-manager.extraSpecialArgs = {
-                inherit pkgs;
-                inherit unstable;
-                inherit system;
-                inherit inputs;
-              };
-            }
-            nixos-hardware.nixosModules.common-pc-laptop
-            nixos-hardware.nixosModules.common-pc-laptop-ssd
-          ];
-        };
         t480-home = lib.nixosSystem {
-          inherit system;
+          system = linuxSystem;
           specialArgs = { inherit inputs; };
           modules = [
             ./nixos/t480-home/configuration.nix
@@ -107,45 +107,15 @@
               home-manager.extraSpecialArgs = {
                 inherit pkgs;
                 inherit unstable;
-                inherit system;
+                inherit linuxSystem;
                 inherit inputs;
               };
             }
             nixos-hardware.nixosModules.lenovo-thinkpad-t480
           ];
         };
-        yogabook = lib.nixosSystem {
-          inherit system;
-          specialArgs = { inherit inputs; };
-          modules = [
-            ./nixos/yogabook/configuration.nix
-            home-manager.nixosModules.home-manager
-            {
-              home-manager.useGlobalPkgs = true;
-              home-manager.useUserPackages = true;
-              home-manager.backupFileExtension = "backup";
-              home-manager.users.gentooway = import ./nixos/yogabook/home.nix;
-              home-manager.extraSpecialArgs = {
-                inherit pkgs;
-                inherit unstable;
-                inherit system;
-                inherit inputs;
-              };
-            }
-            musnix.nixosModules.musnix
-            nixos-hardware.nixosModules.common-pc-laptop
-            nixos-hardware.nixosModules.common-pc-laptop-ssd
-            nixos-hardware.nixosModules.common-hidpi
-            nixos-hardware.nixosModules.common-cpu-intel
-            nixos-hardware.nixosModules.common-gpu-intel
-            auto-cpufreq.nixosModules.default
-            ({ config, pkgs, ... }: {
-              nixpkgs.overlays = [ overlay-davinci-resolve ];
-            })
-          ];
-        };
         yogabook-gen10 = lib.nixosSystem {
-          inherit system;
+          system = linuxSystem;
           specialArgs = { inherit inputs; };
           modules = [
             ./nixos/yogabook-gen10/configuration.nix
@@ -158,7 +128,7 @@
               home-manager.extraSpecialArgs = {
                 inherit pkgs;
                 inherit unstable;
-                inherit system;
+                inherit linuxSystem;
                 inherit inputs;
               };
             }

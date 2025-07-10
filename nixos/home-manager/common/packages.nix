@@ -1,54 +1,59 @@
 { pkgs, ... }: {
 
-  home.packages = with pkgs; [
-    (writeShellScriptBin "screen-toggle" (lib.readFile ./scripts/screen-toggle))
-    (writeShellScriptBin "touch-toggle" (lib.readFile ./scripts/touch-toggle))
-    (writeShellScriptBin "try-lock" (lib.readFile ./scripts/try-lock))
-    git
-    arandr
-    httpie
-    pavucontrol
-    playerctl
-    kitty
-    imv
-    grim
-    slurp
-    networkmanagerapplet
-    nixfmt-classic
-    mpv
-    audacious
-    htop
-    kdePackages.partitionmanager
-    pcmanfm
-    kdePackages.konsole
-    kdePackages.dolphin
-    libreoffice
-    yt-dlp
-    google-chrome
-    vial
-    calibre
-    clinfo
-    lutris
-    jq
-    wineWowPackages.full
-    winetricks
-    thinkfan
-    lm_sensors
-    vlc
-    scrcpy
-    android-tools
-    pandoc
-    alsa-scarlett-gui
-    btop
-    qmk
-    qmk-udev-rules
-    protonvpn-gui
-    thinkfan
-    (python3.withPackages (ps: with ps; [ evdev ]))
-    zenity
-    onboard
-    bat
-  ];
+  home.packages = with pkgs;
+    [
+      git
+      httpie
+      kitty
+      nixfmt-classic
+      mpv
+      audacious
+      htop
+      pcmanfm
+      libreoffice
+      yt-dlp
+      google-chrome
+      vial
+      calibre
+      clinfo
+      lutris
+      jq
+      vlc
+      scrcpy
+      android-tools
+      pandoc
+      alsa-scarlett-gui
+      btop
+      qmk
+      qmk-udev-rules
+      (python3.withPackages (ps: with ps; [ evdev ]))
+      bat
+    ] ++ lib.optionals pkgs.stdenv.isLinux [
+      (writeShellScriptBin "screen-toggle"
+        (lib.readFile ./scripts/screen-toggle))
+      (writeShellScriptBin "touch-toggle" (lib.readFile ./scripts/touch-toggle))
+      (writeShellScriptBin "try-lock" (lib.readFile ./scripts/try-lock))
+      arandr
+      kdePackages.partitionmanager
+      kdePackages.konsole
+      kdePackages.dolphin
+      networkmanagerapplet
+      imv
+      grim
+      slurp
+      playerctl
+      pavucontrol
+      wineWowPackages.full
+      winetricks
+      thinkfan
+      lm_sensors
+      thinkfan
+      protonvpn-gui
+      zenity
+      onboard
+      # TODO move Linux specific stuff
+      # ...
+    ];
 
   # TODO move
   programs.lf = {
