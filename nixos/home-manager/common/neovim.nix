@@ -1,4 +1,4 @@
-{ pkgs, lib, unstable, ... }:
+{ pkgs, lib, unstable, fetchzip, ... }:
 
 let
   customPlugins = pkgs.callPackage ./neovim/plugins.nix {
@@ -40,6 +40,8 @@ in {
     lemminx
     # codeium
     checkstyle
+    # goose-cli
+    unzip
     nodePackages.typescript
     nodePackages.typescript-language-server
     nodePackages.vscode-json-languageserver
@@ -47,7 +49,7 @@ in {
     nodePackages.eslint
     nodePackages.graphql-language-service-cli
     nodePackages.fixjson
-    vscode-extensions.vscjava.vscode-java-test
+    # vscode-extensions.vscjava.vscode-java-test
     vscode-extensions.vue.volar
   ];
 
@@ -300,6 +302,14 @@ in {
       {
         plugin = oil-nvim;
         config = lib.readFile ./neovim/oil-nvim.lua;
+      }
+      {
+        plugin = avante-nvim;
+        config = lib.readFile ./neovim/avante.lua;
+      }
+      {
+        plugin = minuet-ai-nvim;
+        config = lib.readFile ./neovim/minuet-ai.lua;
       }
     ];
     extraLuaConfig = lib.readFile ./neovim/config.lua;

@@ -25,7 +25,8 @@
         "sudo nixos-rebuild switch --flake $HOME/configs/nixos-configs/#$NIX_SYSTEM --impure";
       nb =
         "newsboat --url-file=~/org/rss --cache-file=~/Nextcloud/newsboat/cache.db";
-      java-shell = "nix develop ~/configs/nixos-configs/shell/java";
+      docker-shell = "nix develop ~/configs/nixos-configs/shell/java";
+      java-shell = "nix develop ~/configs/nixos-configs/shell/java/pure";
       go-shell = "nix develop ~/configs/nixos-configs/shell/go-node";
       python-shell = "nix develop ~/configs/nixos-configs/shell/python";
       fhs-shell = "nix develop ~/configs/nixos-configs/shell/fhs";

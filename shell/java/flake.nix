@@ -8,7 +8,7 @@
       (system:
         let pkgs = nixpkgs.legacyPackages.${system}; in
         {
-          devShells.default = import ./nix-java.nix { inherit pkgs; };
+          devShells.default = import ./nix-java-docker.nix { inherit pkgs; };
         }
       );
 }

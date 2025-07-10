@@ -76,9 +76,10 @@ cmp.setup({
             -- behavior = cmp.ConfirmBehavior.Replace,
             select = true,
         }),
+        ['<A-Space>'] = require('minuet').make_cmp_map(),
     }),
     sources = {
-        { name = "codeium", max_item_count = 3 },
+        { name = "minuet" },
         { name = "nvim_lsp" },
         { name = "luasnip" },
         { name = "nvim_lua" },
@@ -87,7 +88,10 @@ cmp.setup({
         { name = "emoji" },
         { name = "orgmode" },
     },
-    formatting = { source_names = { codeium = "(Codeium)" } },
+    performance = {
+        fetching_timeout = 2000,
+    },
+    -- formatting = { source_names = { codeium = "(Codeium)" } },
 })
 
 cmp.setup.cmdline(":", {

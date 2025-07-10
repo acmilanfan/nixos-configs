@@ -7,8 +7,8 @@
     src = fetchFromGitHub {
       owner = "nvim-orgmode";
       repo = "telescope-orgmode.nvim";
-      rev = "2cd2ea778726c6e44429fef82f23b63197dbce1b";
-      sha256 = "16qj9adc9ggzrbsf9c25g3wnhk7sm3j35glz5bcq99x2av5rvqf9";
+      rev = "a73d9b7d841364bc2a2e90e97f1d056c02b1a2f9";
+      sha256 = "0wg59i6rkv7bh9icqbzwpwcxzb5bg46all2n7z92yw9apys6fxmv";
     };
   };
 
@@ -46,13 +46,90 @@
   };
 
   lsplinks-nvim = buildVimPluginFrom2Nix {
-    pname = "macroni";
+    pname = "lsplinks";
     version = "master";
     src = fetchFromGitHub {
       owner = "icholy";
       repo = "lsplinks.nvim";
       rev = "088c91e7aa0eaa24508db77ccf827440ca72760f";
       sha256 = "0inkgzbhgsd8rbca2smhm3znrqwlj0lvrh4k4kqb77v91p9zffjc";
+    };
+  };
+
+  nvim-java = buildVimPluginFrom2Nix {
+    pname = "nvim-java";
+    version = "main";
+    src = fetchFromGitHub {
+      owner = "nvim-java";
+      repo = "nvim-java";
+      rev = "d25bc1c55b4cea53f6174b2e2171ed8519113bc5";
+      sha256 = "1gcla9qqk973r3z1qif7w9yyb0l4r0r8y9gs7f9jcjzwadx7v7zc";
+    };
+  };
+
+  spring-boot-nvim = buildVimPluginFrom2Nix {
+    pname = "spring-boot-nvim";
+    version = "main";
+    src = fetchFromGitHub {
+      owner = "JavaHello";
+      repo = "spring-boot.nvim";
+      rev = "329c715fee597d40030586297d06d69ed072cc32";
+      sha256 = "18fd8c7awjafbx26fj7gaz1vs81xiaisrdlrnx4v39bknr7q043w";
+    };
+  };
+
+  lua-async-await = buildVimPluginFrom2Nix {
+    pname = "lua-async-await";
+    version = "main";
+    src = fetchFromGitHub {
+      owner = "nvim-java";
+      repo = "lua-async";
+      rev = "652d94df34e97abe2d4a689edbc4270e7ead1a98";
+      sha256 = "0jpw9008xghqmzjnikwq417p497lj7v9hkjbrach5p652yca07s8";
+    };
+  };
+
+  nvim-java-refactor = buildVimPluginFrom2Nix {
+    pname = "nvim-java-refactor";
+    version = "main";
+    src = fetchFromGitHub {
+      owner = "nvim-java";
+      repo = "nvim-java-refactor";
+      rev = "b51a57d862338999059e1d1717df3bc80a3a15c0";
+      sha256 = "14akgf8z74c4crkmggmrlckn4av0a701kr0whvn5pq6phc718dns";
+    };
+  };
+
+  nvim-java-core = buildVimPluginFrom2Nix {
+    pname = "nvim-java-core";
+    version = "main";
+    src = fetchFromGitHub {
+      owner = "nvim-java";
+      repo = "nvim-java-core";
+      rev = "401bf7683012a25929a359deec418f36beb876e2";
+      sha256 = "0s6wqz9z8r0hvvgf5dnl8drgzb49vrk798rc7gk2cbm85blzk7p8";
+    };
+  };
+
+  nvim-java-test = buildVimPluginFrom2Nix {
+    pname = "nvim-java-test";
+    version = "main";
+    src = fetchFromGitHub {
+      owner = "nvim-java";
+      repo = "nvim-java-test";
+      rev = "7f0f40e9c5b7eab5096d8bec6ac04251c6e81468";
+      sha256 = "18jvkiy568i18r0cq0pyxjsispsvbbv40niyj98dlc04dzx618ba";
+    };
+  };
+
+  nvim-java-dap = buildVimPluginFrom2Nix {
+    pname = "nvim-java-dap";
+    version = "main";
+    src = fetchFromGitHub {
+      owner = "nvim-java";
+      repo = "nvim-java-dap";
+      rev = "55f239532f7a3789d21ea68d1e795abc77484974";
+      sha256 = "01fscbw226djimzscpa7n20gfzyhw952ar4dymyw18svp5vg5g2y";
     };
   };
 
