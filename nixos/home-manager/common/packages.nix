@@ -6,33 +6,33 @@
       httpie
       kitty
       nixfmt-classic
-      mpv
-      audacious
       htop
-      pcmanfm
-      libreoffice
       yt-dlp
-      google-chrome
-      vial
-      calibre
       clinfo
-      lutris
       jq
-      vlc
       scrcpy
-      android-tools
       pandoc
-      alsa-scarlett-gui
       btop
       qmk
-      qmk-udev-rules
-      (python3.withPackages (ps: with ps; [ evdev ]))
       bat
     ] ++ lib.optionals pkgs.stdenv.isLinux [
       (writeShellScriptBin "screen-toggle"
         (lib.readFile ./scripts/screen-toggle))
       (writeShellScriptBin "touch-toggle" (lib.readFile ./scripts/touch-toggle))
       (writeShellScriptBin "try-lock" (lib.readFile ./scripts/try-lock))
+      vial
+      (python3.withPackages (ps: with ps; [ evdev ]))
+      qmk-udev-rules
+      vlc
+      lutris
+      google-chrome
+      alsa-scarlett-gui
+      android-tools
+      mpv
+      audacious
+      calibre
+      libreoffice
+      pcmanfm
       arandr
       kdePackages.partitionmanager
       kdePackages.konsole
@@ -53,6 +53,8 @@
       onboard
       # TODO move Linux specific stuff
       # ...
+    ] ++ lib.optionals pkgs.stdenv.isDarwin [
+
     ];
 
   # TODO move

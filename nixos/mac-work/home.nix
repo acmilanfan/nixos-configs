@@ -18,4 +18,5 @@
 
   # Example: only enable some modules on macOS
   # (You can use pkgs.stdenv.isDarwin inside modules for finer control)
+  home.stateVersion = "25.05";
 }
