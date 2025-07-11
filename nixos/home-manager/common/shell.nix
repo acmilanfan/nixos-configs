@@ -13,6 +13,7 @@
       src = pkgs.zsh-nix-shell;
     }];
     shellAliases = {
+      # Common aliases for all platforms
       ll = "ls -l";
       gs = "git status";
       gp = "git pull";
@@ -21,15 +22,17 @@
       os = "(cd ~/org && git pull)";
       op = ''(cd ~/org && git add . && git commit -m "Sync" && git push)'';
       up = "cd $HOME/configs/nixos-configs && nix flake update";
-      sup =
-        "sudo nixos-rebuild switch --flake $HOME/configs/nixos-configs/#$NIX_SYSTEM --impure";
-      nb =
-        "newsboat --url-file=~/org/rss --cache-file=~/Nextcloud/newsboat/cache.db";
+      nb = "newsboat --url-file=~/org/rss --cache-file=~/Nextcloud/newsboat/cache.db";
+      
+      # Development shells
       docker-shell = "nix develop ~/configs/nixos-configs/shell/java";
       java-shell = "nix develop ~/configs/nixos-configs/shell/java/pure";
       go-shell = "nix develop ~/configs/nixos-configs/shell/go-node";
       python-shell = "nix develop ~/configs/nixos-configs/shell/python";
       fhs-shell = "nix develop ~/configs/nixos-configs/shell/fhs";
+    } // pkgs.lib.optionalAttrs pkgs.stdenv.isLinux {
+      # Linux-specific aliases
+      sup = "sudo nixos-rebuild switch --flake $HOME/configs/nixos-configs/#$NIX_SYSTEM --impure";
     };
     initContent = ''
       autoload -U colors && colors

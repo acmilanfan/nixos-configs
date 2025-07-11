@@ -20,10 +20,19 @@
       url = "github:AdnanHodzic/auto-cpufreq";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    nix-darwin = {
+      url = "github:LnL7/nix-darwin/nix-darwin-25.05";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    nix-homebrew = { url = "github:zhaofengli/nix-homebrew"; };
+    mac-app-util.url = "github:hraban/mac-app-util";
   };
 
   outputs = inputs@{ self, nixpkgs, unstable-nixpkgs, musnix, nur, home-manager
-    , nixos-hardware, auto-cpufreq, ... }:
+    , nixos-hardware, auto-cpufreq, nix-darwin, nix-homebrew, mac-app-util, ...
+    }:
     let
       linuxSystem = "x86_64-linux";
       macSystem = "aarch64-darwin";
@@ -137,6 +146,41 @@
             ({ config, pkgs, ... }: {
               nixpkgs.overlays = [ overlay-davinci-resolve ];
             })
+          ];
+        };
+      };
+
+      darwinConfigurations = {
+        "mac-work" = nix-darwin.lib.darwinSystem {
+          system = macSystem;
+          specialArgs = { inherit inputs; };
+          modules = [
+            ./darwin/configuration.nix
+            mac-app-util.darwinModules.default
+            nix-homebrew.darwinModules.nix-homebrew
+            {
+              nix-homebrew = {
+                enable = true;
+                enableRosetta = true;
+                user = "andreishumailov";
+                autoMigrate = true;
+              };
+            }
+            home-manager.darwinModules.home-manager
+            {
+              home-manager.useGlobalPkgs = true;
+              home-manager.useUserPackages = true;
+              home-manager.backupFileExtension = "backup";
+              home-manager.sharedModules =
+                [ mac-app-util.homeManagerModules.default ];
+              home-manager.users.andreishumailov =
+                import ./nixos/mac-work/home.nix;
+              home-manager.extraSpecialArgs = {
+                pkgs = pkgsFor macSystem;
+                unstable = unstableFor macSystem;
+                inherit inputs;
+              };
+            }
           ];
         };
       };
