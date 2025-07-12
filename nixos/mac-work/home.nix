@@ -1,8 +1,8 @@
-{ pkgs, ... }:
+{ pkgs, lib, ... }:
 
 {
   home.username = "andreishumailov";
-  home.homeDirectory = "/Users/andreishumailov";
+  home.homeDirectory = lib.mkForce "/Users/andreishumailov";
 
   imports = [
     # Import common configurations with macOS guards

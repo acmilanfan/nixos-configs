@@ -60,17 +60,6 @@
       };
 
     in {
-      homeConfigurations = {
-        "andreishumailov@work" = home-manager.lib.homeManagerConfiguration {
-          pkgs = pkgsFor macSystem;
-          extraSpecialArgs = {
-            inherit inputs;
-            unstable = unstableFor macSystem;
-            hmLib = home-manager.lib;
-          };
-          modules = [ ./nixos/mac-work/home.nix ];
-        };
-      };
       nixosConfigurations = {
         z16 = inputs.nixpkgs.lib.nixosSystem {
           system = linuxSystem;
