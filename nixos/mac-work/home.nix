@@ -39,6 +39,32 @@
       # Docker/Colima shortcuts
       docker-start = "colima start";
       docker-stop = "colima stop";
+
+      # AeroSpace shortcuts
+      aerospace-reload = "aerospace reload-config";
+      aerospace-list = "aerospace list-windows --all";
+      aerospace-debug = "aerospace debug-windows";
+      aerospace-focus-mouse = "~/.config/aerospace/focus-follows-mouse.sh &";
+      aerospace-highlight = "~/.config/aerospace/window-highlight.sh start";
+      aerospace-highlight-stop = "~/.config/aerospace/window-highlight.sh stop";
+      aerospace-highlight-toggle = "~/.config/aerospace/window-highlight.sh toggle";
+      aerospace-highlight-status = "~/.config/aerospace/window-highlight.sh status";
+
+      # SketchyBar shortcuts
+      sketchybar-reload = "sketchybar --reload";
+      sketchybar-restart = "brew services restart sketchybar";
+      sketchybar-stop = "brew services stop sketchybar";
+      sketchybar-start = "brew services start sketchybar";
+
+      # JankyBorders shortcuts
+      borders-start = "borders";
+      borders-stop = "killall borders";
+      borders-restart = "killall borders; borders";
+      borders-config = "borders active_color=0xff007acc inactive_color=0x00000000 width=3.0";
+
+      # Clipboard shortcuts
+      clipboard-history = "open -a Maccy";
+      clipboard-clear = "defaults delete org.p0deje.Maccy";
     }
   ];
 
@@ -54,6 +80,44 @@
   home.file = {
     # macOS-specific dotfiles can go here
     ".hushlogin".text = ""; # Suppress login message
+
+    # AeroSpace configuration
+    ".config/aerospace/aerospace.toml".source = ../../dotfiles/aerospace/aerospace.toml;
+    ".config/aerospace/focus-follows-mouse.sh".source = ../../dotfiles/aerospace/focus-follows-mouse.sh;
+    ".config/aerospace/window-highlight.sh".source = ../../dotfiles/aerospace/window-highlight.sh;
+
+    # JankyBorders configuration
+    ".config/borders/bordersrc".source = ../../dotfiles/jankyborders/bordersrc;
+
+    # SketchyBar configuration
+    ".config/sketchybar/sketchybarrc".source = ../../dotfiles/sketchybar/sketchybarrc;
+    ".config/sketchybar/colors.sh".source = ../../dotfiles/sketchybar/colors.sh;
+    ".config/sketchybar/icons.sh".source = ../../dotfiles/sketchybar/icons.sh;
+    ".config/sketchybar/items/spaces.sh".source = ../../dotfiles/sketchybar/items/spaces.sh;
+    ".config/sketchybar/items/front_app.sh".source = ../../dotfiles/sketchybar/items/front_app.sh;
+    ".config/sketchybar/items/calendar.sh".source = ../../dotfiles/sketchybar/items/calendar.sh;
+    ".config/sketchybar/items/volume.sh".source = ../../dotfiles/sketchybar/items/volume.sh;
+    ".config/sketchybar/items/battery.sh".source = ../../dotfiles/sketchybar/items/battery.sh;
+    ".config/sketchybar/items/cpu.sh".source = ../../dotfiles/sketchybar/items/cpu.sh;
+    ".config/sketchybar/items/memory.sh".source = ../../dotfiles/sketchybar/items/memory.sh;
+    ".config/sketchybar/items/network.sh".source = ../../dotfiles/sketchybar/items/network.sh;
+    ".config/sketchybar/items/aerospace.sh".source = ../../dotfiles/sketchybar/items/aerospace.sh;
+    ".config/sketchybar/items/media.sh".source = ../../dotfiles/sketchybar/items/media.sh;
+    ".config/sketchybar/plugins/space.sh".source = ../../dotfiles/sketchybar/plugins/space.sh;
+    ".config/sketchybar/plugins/space_windows.sh".source = ../../dotfiles/sketchybar/plugins/space_windows.sh;
+    ".config/sketchybar/plugins/front_app.sh".source = ../../dotfiles/sketchybar/plugins/front_app.sh;
+    ".config/sketchybar/plugins/calendar.sh".source = ../../dotfiles/sketchybar/plugins/calendar.sh;
+    ".config/sketchybar/plugins/volume.sh".source = ../../dotfiles/sketchybar/plugins/volume.sh;
+    ".config/sketchybar/plugins/battery.sh".source = ../../dotfiles/sketchybar/plugins/battery.sh;
+    ".config/sketchybar/plugins/cpu.sh".source = ../../dotfiles/sketchybar/plugins/cpu.sh;
+    ".config/sketchybar/plugins/memory.sh".source = ../../dotfiles/sketchybar/plugins/memory.sh;
+    ".config/sketchybar/plugins/network.sh".source = ../../dotfiles/sketchybar/plugins/network.sh;
+    ".config/sketchybar/plugins/aerospace.sh".source = ../../dotfiles/sketchybar/plugins/aerospace.sh;
+    ".config/sketchybar/plugins/media.sh".source = ../../dotfiles/sketchybar/plugins/media.sh;
+    ".config/sketchybar/plugins/icon_map.sh".source = ../../dotfiles/sketchybar/plugins/icon_map.sh;
+
+    # Maccy configuration
+    ".config/maccy/maccy-config.sh".source = ../../dotfiles/maccy/maccy-config.sh;
   };
 
   # macOS-specific environment variables

@@ -1,0 +1,88 @@
+#!/bin/bash
+
+# SketchyBar configuration matching AwesomeWM status bar
+# Based on the AwesomeWM rc.lua wibar configuration
+
+source "$CONFIG_DIR/colors.sh" # Loads all defined colors
+source "$CONFIG_DIR/icons.sh" # Loads all defined icons
+
+ITEM_DIR="$CONFIG_DIR/items" # Directory where the items are configured
+PLUGIN_DIR="$CONFIG_DIR/plugins" # Directory where all the plugin scripts are stored
+
+# Setting up and starting the helper process
+HELPER=git.felix.helper
+killall helper
+cd $CONFIG_DIR/helper && make
+$CONFIG_DIR/helper/helper $HELPER > /dev/null 2>&1 &
+
+# Unload the macOS on screen indicator overlay for volume and brightness
+launchctl unload -w /System/Library/LaunchAgents/com.apple.OSDUIHelper.plist > /dev/null 2>&1 &
+
+# Setting up the general bar appearance of the bar
+bar=(
+  height=45
+  color=$BAR_COLOR
+  border_width=2
+  border_color=$BAR_BORDER_COLOR
+  shadow=off
+  position=top
+  sticky=on
+  padding_right=10
+  padding_left=10
+  y_offset=-5
+  margin=10
+  topmost=window
+)
+
+sketchybar --bar "${bar[@]}"
+
+# Setting up default values
+defaults=(
+  updates=when_shown
+  icon.font="$FONT:Bold:14.0"
+  icon.color=$ICON_COLOR
+  icon.padding_left=4
+  icon.padding_right=4
+  label.font="$FONT:Semibold:13.0"
+  label.color=$LABEL_COLOR
+  label.padding_left=4
+  label.padding_right=4
+  padding_right=5
+  padding_left=5
+  background.height=30
+  background.corner_radius=9
+  background.border_width=2
+  popup.background.border_width=2
+  popup.background.corner_radius=9
+  popup.background.border_color=$POPUP_BORDER_COLOR
+  popup.background.color=$POPUP_BACKGROUND_COLOR
+  popup.blur_radius=20
+  popup.background.shadow.drawing=on
+)
+
+sketchybar --default "${defaults[@]}"
+
+# Left side of the bar - Workspaces (matching AwesomeWM tags)
+source "$ITEM_DIR/spaces.sh"
+
+# Center - Current application (matching AwesomeWM tasklist)
+source "$ITEM_DIR/front_app.sh"
+
+# Right side items (matching AwesomeWM wibar right widgets)
+source "$ITEM_DIR/calendar.sh"
+source "$ITEM_DIR/volume.sh"
+source "$ITEM_DIR/battery.sh"
+source "$ITEM_DIR/cpu.sh"
+source "$ITEM_DIR/memory.sh"
+source "$ITEM_DIR/network.sh"
+
+# Custom widgets matching AwesomeWM
+source "$ITEM_DIR/aerospace.sh"
+source "$ITEM_DIR/media.sh"
+
+# Forcing all scripts to be executable
+find "$ITEM_DIR" -name "*.sh" -exec chmod +x {} \;
+find "$PLUGIN_DIR" -name "*.sh" -exec chmod +x {} \;
+
+echo "sketchybar configuration loaded.."
+

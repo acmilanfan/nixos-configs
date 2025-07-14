@@ -1,9 +1,56 @@
-{ ... }: {
+{ pkgs, ... }: {
   programs.alacritty = {
     enable = true;
     settings = {
-      font = { size = 12; };
+      font = {
+        size = 16;
+        normal = {
+          family = "RobotoMono Nerd Font";
+          style = "Medium";
+        };
+        bold = {
+          family = "RobotoMono Nerd Font";
+          style = "Bold";
+        };
+        italic = {
+          family = "RobotoMono Nerd Font";
+          style = "Medium Italic";
+        };
+      };
       selection = { save_to_clipboard = true; };
+
+      # Key bindings to handle Control/Command swap for terminal applications (Darwin/macOS only)
+      keyboard = pkgs.lib.optionalAttrs pkgs.stdenv.isDarwin {
+        bindings = [
+          # Map Command+[A-Z] to send Control+[A-Z] for terminal applications
+          { key = "A"; mods = "Command"; chars = "\\u0001"; } # Ctrl+A
+          { key = "B"; mods = "Command"; chars = "\\u0002"; } # Ctrl+B
+          # { key = "C"; mods = "Command"; chars = "\\u0003"; } # Ctrl+C
+          { key = "D"; mods = "Command"; chars = "\\u0004"; } # Ctrl+D
+          { key = "E"; mods = "Command"; chars = "\\u0005"; } # Ctrl+E
+          { key = "F"; mods = "Command"; chars = "\\u0006"; } # Ctrl+F
+          { key = "G"; mods = "Command"; chars = "\\u0007"; } # Ctrl+G
+          { key = "H"; mods = "Command"; chars = "\\u0008"; } # Ctrl+H
+          { key = "I"; mods = "Command"; chars = "\\u0009"; } # Ctrl+I
+          { key = "J"; mods = "Command"; chars = "\\u000A"; } # Ctrl+J
+          { key = "K"; mods = "Command"; chars = "\\u000B"; } # Ctrl+K
+          { key = "L"; mods = "Command"; chars = "\\u000C"; } # Ctrl+L
+          { key = "M"; mods = "Command"; chars = "\\u000D"; } # Ctrl+M
+          { key = "N"; mods = "Command"; chars = "\\u000E"; } # Ctrl+N
+          { key = "O"; mods = "Command"; chars = "\\u000F"; } # Ctrl+O
+          { key = "P"; mods = "Command"; chars = "\\u0010"; } # Ctrl+P
+          { key = "Q"; mods = "Command"; chars = "\\u0011"; } # Ctrl+Q
+          { key = "R"; mods = "Command"; chars = "\\u0012"; } # Ctrl+R
+          { key = "S"; mods = "Command"; chars = "\\u0013"; } # Ctrl+S
+          { key = "T"; mods = "Command"; chars = "\\u0014"; } # Ctrl+T
+          { key = "U"; mods = "Command"; chars = "\\u0015"; } # Ctrl+U
+          # { key = "V"; mods = "Command"; chars = "\\u0016"; } # Ctrl+V
+          { key = "W"; mods = "Command"; chars = "\\u0017"; } # Ctrl+W
+          { key = "X"; mods = "Command"; chars = "\\u0018"; } # Ctrl+X
+          { key = "Y"; mods = "Command"; chars = "\\u0019"; } # Ctrl+Y
+          { key = "Z"; mods = "Command"; chars = "\\u001A"; } # Ctrl+Z
+        ];
+      };
       colors = {
         primary = {
           background = "#1a1b26";

@@ -1,0 +1,265 @@
+# AeroSpace configuration matching AwesomeWM setup
+# Based on the AwesomeWM rc.lua configuration
+
+# Start AeroSpace at login
+start-at-login = true
+
+# Normalizations. See: https://nikitabobko.github.io/AeroSpace/guide#normalization
+enable-normalization-flatten-containers = true
+enable-normalization-opposite-orientation-for-nested-containers = true
+
+# See: https://nikitabobko.github.io/AeroSpace/guide#layouts
+# The 'accordion-padding' specifies the size of accordion padding
+# You can set 0 to disable the padding feature
+accordion-padding = 0
+
+# Possible values: tiles|accordion
+default-root-container-layout = 'tiles'
+
+# Possible values: horizontal|vertical|auto
+# 'auto' means: wide monitor (anything wider than high) gets horizontal orientation,
+#               tall monitor (anything higher than wide) gets vertical orientation
+default-root-container-orientation = 'auto'
+
+# Mouse follows focus when focused monitor changes
+# Drop it from your config, if you don't like this behavior
+# See https://nikitabobko.github.io/AeroSpace/guide#on-focus-changed-callbacks
+# You can also specify commands to run when focus changes
+on-focused-monitor-changed = ['move-mouse monitor-lazy-center']
+
+# Workspace configuration - matching AwesomeWM's 20 workspaces (1-10, 11-20)
+# AeroSpace automatically creates workspaces as needed, but we can define them explicitly
+[workspace-to-monitor-force-assignment]
+1 = 'main'    # First 10 workspaces on main monitor
+2 = 'main'
+3 = 'main'
+4 = 'main'
+5 = 'main'
+6 = 'main'
+7 = 'main'
+8 = 'main'
+9 = 'main'
+10 = 'main'
+11 = 'secondary'  # Second 10 workspaces on secondary monitor (if available)
+12 = 'secondary'
+13 = 'secondary'
+14 = 'secondary'
+15 = 'secondary'
+16 = 'secondary'
+17 = 'secondary'
+18 = 'secondary'
+19 = 'secondary'
+20 = 'secondary'
+
+# Gaps between windows (inner-*) and between monitor edges (outer-*)
+[gaps]
+inner.horizontal = 2
+inner.vertical =   2
+outer.left =       2
+outer.bottom =     2
+outer.top =        2
+outer.right =      2
+
+# 'main' binding mode declaration
+# See: https://nikitabobko.github.io/AeroSpace/guide#binding-modes
+# 'main' binding mode must be always declared
+[mode.main.binding]
+
+# All possible keys:
+# - Letters.        a, b, c, ..., z
+# - Numbers.        0, 1, 2, ..., 9
+# - Keypad numbers. keypad0, keypad1, keypad2, ..., keypad9
+# - F-keys.         f1, f2, ..., f20
+# - Special keys.   minus, equal, period, comma, slash, backslash, quote, semicolon, backtick,
+#                   leftSquareBracket, rightSquareBracket, space, enter, esc, backspace, tab
+# - Keypad special. keypadClear, keypadDecimalMark, keypadDivide, keypadEnter, keypadEqual,
+#                   keypadMinus, keypadMultiply, keypadPlus
+# - Arrows.         left, down, up, right
+
+# All possible modifiers: cmd, alt, ctrl, shift
+
+# All possible commands: https://nikitabobko.github.io/AeroSpace/commands
+
+# You can uncomment this line to open up terminal with alt + enter shortcut
+# See: https://nikitabobko.github.io/AeroSpace/commands#exec-and-forget
+# alt-enter = 'exec-and-forget open -n /System/Applications/Utilities/Terminal.app'
+
+# See: https://nikitabobko.github.io/AeroSpace/commands#layout
+alt-slash = 'layout tiles horizontal vertical'
+alt-comma = 'layout accordion horizontal vertical'
+
+# AwesomeWM equivalent keybindings
+# Focus navigation (Alt+j/k in AwesomeWM)
+alt-j = 'focus down'
+alt-k = 'focus up'
+alt-h = 'focus left'
+alt-l = 'focus right'
+
+# Window movement (Alt+Shift+j/k in AwesomeWM)
+alt-shift-j = 'move down'
+alt-shift-k = 'move up'
+alt-shift-h = 'move left'
+alt-shift-l = 'move right'
+
+# Resize windows (similar to Alt+h/l master width in AwesomeWM)
+alt-ctrl-h = 'resize smart -50'
+alt-ctrl-l = 'resize smart +50'
+
+# Terminal (Alt+Return in AwesomeWM)
+alt-enter = 'exec-and-forget open -n /Applications/Alacritty.app'
+
+# Browser (Alt+b in AwesomeWM)
+alt-b = 'exec-and-forget open -n /Applications/Firefox.app'
+
+# Close window (Alt+Shift+q in AwesomeWM)
+alt-shift-q = 'close'
+
+# Fullscreen toggle (Alt+f in AwesomeWM)
+alt-f = 'fullscreen'
+
+# Float/unfloat window (Alt+Control+space in AwesomeWM)
+alt-ctrl-space = 'layout floating tiling'
+
+# Move window to next monitor (Alt+o in AwesomeWM)
+alt-o = 'move-node-to-monitor --wrap-around next'
+
+# Focus next monitor
+alt-ctrl-j = 'focus-monitor --wrap-around next'
+alt-ctrl-k = 'focus-monitor --wrap-around prev'
+
+# Layout switching (Super+Space in AwesomeWM)
+cmd-space = 'layout tiles accordion'
+
+alt-esc = 'workspace-back-and-forth'
+
+# Workspace switching (Alt+1-9,0 in AwesomeWM)
+alt-1 = 'workspace 1'
+alt-2 = 'workspace 2'
+alt-3 = 'workspace 3'
+alt-4 = 'workspace 4'
+alt-5 = 'workspace 5'
+alt-6 = 'workspace 6'
+alt-7 = 'workspace 7'
+alt-8 = 'workspace 8'
+alt-9 = 'workspace 9'
+alt-0 = 'workspace 10'
+
+# Second set of workspaces (Alt+Control+1-9,0 for 11-20 in AwesomeWM)
+alt-ctrl-1 = 'workspace 11'
+alt-ctrl-2 = 'workspace 12'
+alt-ctrl-3 = 'workspace 13'
+alt-ctrl-4 = 'workspace 14'
+alt-ctrl-5 = 'workspace 15'
+alt-ctrl-6 = 'workspace 16'
+alt-ctrl-7 = 'workspace 17'
+alt-ctrl-8 = 'workspace 18'
+alt-ctrl-9 = 'workspace 19'
+alt-ctrl-0 = 'workspace 20'
+
+# Move window to workspace (Alt+Shift+1-9,0 in AwesomeWM)
+alt-shift-1 = 'move-node-to-workspace 1'
+alt-shift-2 = 'move-node-to-workspace 2'
+alt-shift-3 = 'move-node-to-workspace 3'
+alt-shift-4 = 'move-node-to-workspace 4'
+alt-shift-5 = 'move-node-to-workspace 5'
+alt-shift-6 = 'move-node-to-workspace 6'
+alt-shift-7 = 'move-node-to-workspace 7'
+alt-shift-8 = 'move-node-to-workspace 8'
+alt-shift-9 = 'move-node-to-workspace 9'
+alt-shift-0 = 'move-node-to-workspace 10'
+
+# Move window to second set of workspaces (Control+Alt+Shift+1-9,0 for 11-20 in AwesomeWM)
+ctrl-alt-shift-1 = 'move-node-to-workspace 11'
+ctrl-alt-shift-2 = 'move-node-to-workspace 12'
+ctrl-alt-shift-3 = 'move-node-to-workspace 13'
+ctrl-alt-shift-4 = 'move-node-to-workspace 14'
+ctrl-alt-shift-5 = 'move-node-to-workspace 15'
+ctrl-alt-shift-6 = 'move-node-to-workspace 16'
+ctrl-alt-shift-7 = 'move-node-to-workspace 17'
+ctrl-alt-shift-8 = 'move-node-to-workspace 18'
+ctrl-alt-shift-9 = 'move-node-to-workspace 19'
+ctrl-alt-shift-0 = 'move-node-to-workspace 20'
+
+# Launcher (Alt+d for rofi in AwesomeWM) - handled by system keybind
+# System-level Spotlight keybind is configured in nix-darwin configuration
+
+# Alternative launcher using Raycast if installed
+# alt-d = 'exec-and-forget open -a "Raycast"'
+
+# Clipboard history (Alt+Shift+v matching AwesomeWM greenclip + rofi)
+alt-shift-v = 'exec-and-forget open -a "Maccy"'
+
+# Service management commands
+alt-shift-ctrl-r = 'reload-config'
+
+# See: https://nikitabobko.github.io/AeroSpace/commands#mode
+alt-shift-semicolon = 'mode service'
+
+# 'service' binding mode declaration.
+# See: https://nikitabobko.github.io/AeroSpace/guide#binding-modes
+[mode.service.binding]
+esc = ['reload-config', 'mode main']
+r = ['flatten-workspace-tree', 'mode main'] # reset layout
+f = ['layout floating tiling', 'mode main'] # Toggle between floating and tiling layout
+backspace = ['close-all-windows-but-current', 'mode main']
+
+# sticky is not yet supported https://github.com/nikitabobko/AeroSpace/issues/2
+#s = ['layout sticky tiling', 'mode main']
+
+alt-shift-h = ['join-with left', 'mode main']
+alt-shift-j = ['join-with down', 'mode main']
+alt-shift-k = ['join-with up', 'mode main']
+alt-shift-l = ['join-with right', 'mode main']
+
+# Window rules - similar to AwesomeWM floating rules
+[[on-window-detected]]
+if.app-id = 'org.jetbrains.toolbox.renderer'
+run = 'layout floating'
+
+[[on-window-detected]]
+if.app-id = 'com.apple.systempreferences'
+run = 'layout floating'
+
+[[on-window-detected]]
+if.app-id = 'com.apple.ActivityMonitor'
+run = 'layout floating'
+
+[[on-window-detected]]
+if.app-id = 'com.apple.finder'
+if.window-title-regex-substring = 'Info$'
+run = 'layout floating'
+
+[[on-window-detected]]
+if.app-id = 'com.apple.calculator'
+run = 'layout floating'
+
+[[on-window-detected]]
+if.app-id = 'com.apple.archiveutility'
+run = 'layout floating'
+
+# JetBrains IDEs floating windows (similar to AwesomeWM jetbrains rules)
+[[on-window-detected]]
+if.app-id = 'com.jetbrains.intellij'
+if.window-title-regex-substring = '^win\d+$'
+run = 'layout floating'
+
+[[on-window-detected]]
+if.app-id = 'com.jetbrains.pycharm'
+if.window-title-regex-substring = '^win\d+$'
+run = 'layout floating'
+
+[[on-window-detected]]
+if.app-id = 'com.jetbrains.webstorm'
+if.window-title-regex-substring = '^win\d+$'
+run = 'layout floating'
+
+# Workspace assignments (similar to AwesomeWM tag assignments)
+# You can uncomment and modify these as needed
+# [[on-window-detected]]
+# if.app-id = 'com.mozilla.firefox'
+# run = 'move-node-to-workspace 2'
+
+# [[on-window-detected]]
+# if.app-id = 'com.apple.mail'
+# run = 'move-node-to-workspace 3'
+

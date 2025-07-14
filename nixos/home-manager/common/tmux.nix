@@ -1,9 +1,10 @@
-{ pkgs, lib, inputs, ... }: {
+{ pkgs, lib, ... }: {
 
   programs.tmux = {
     enable = true;
     mouse = true;
-    shell = "${pkgs.zsh}/bin/zsh";
+    # Use system zsh on macOS (in /etc/shells) and nix zsh on Linux
+    shell = if pkgs.stdenv.isDarwin then "/bin/zsh" else "${pkgs.zsh}/bin/zsh";
     terminal = "xterm-256color";
     clock24 = true;
     baseIndex = 1;
