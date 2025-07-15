@@ -5,6 +5,9 @@ require("avante").setup({
   provider = "claude", --chat
   -- auto_suggestions_provider = "mistral",
   hints = { enabled = false },
+  behaviour = {
+    enable_token_counting = false,
+  },
   providers = {
     claude = {
       endpoint = "AI_PROXY_CLAUDE",
