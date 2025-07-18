@@ -1,25 +1,14 @@
-{ config, pkgs, inputs, ... }:
+{ pkgs, inputs, unstable, ... }:
 
 {
-  # List packages installed in system profile. To search by name, run:
-  # $ nix-env -qaP | grep wget
-
   ## TODO things to fix
-  # - proper full screen
-  # - focus follow mouse
-  # - highlight current winodow if tiled more than two
-  # - fix sketchybar to show only workspaces with windows opened
-  # - all apps losing focus after maccy call
+  # - fix sketchybar
   # - remove window decoration on some (most) apps
-  # - some windows do not tile properly
   # - keyboard BT control
-  # - touchpad tap functionality
   # - setup middle click three fingers tap
   # - faster animations of window tiling
   # - lock keybind
   # - maccy clipboard control with vim ctrl+keys
-  # - syncthing for orgmode folder
-  # - aerospace keybind to sycle through windows instead of
   # - fixed accordion mode on one specific screen
   # -
 
@@ -49,7 +38,22 @@
     # Window management
     aerospace
     sketchybar
+    # unstable.scroll-reverser
   ];
+
+  # launchd.user.agents.scroll-reverser = {
+  #   enable = true;
+  #   program =
+  #     "/Applications/Scroll Reverser.app/Contents/MacOS/Scroll Reverser";
+  #   runAtLoad = true;
+  # };
+
+  # system.activationScripts.scrollPrefs.text = ''
+  #   defaults write com.pilotmoon.scroll-reverser reverseTrackpad -bool true
+  #   defaults write com.pilotmoon.scroll-reverser reverseMouse -bool false
+  #   killall "Scroll Reverser" || true
+  #   open -a "Scroll Reverser"
+  # '';
 
   # Homebrew packages that don't work well with nix-darwin
   homebrew = {
@@ -59,11 +63,11 @@
     casks = [
       # Browsers
       "google-chrome"
-      # "firefox"
+      "firefox"
 
       # Development
       # "visual-studio-code"
-      # "docker"
+      "docker-desktop"
       # "postman"
 
       # Communication
@@ -84,12 +88,15 @@
       # "rectangle"
       # "the-unarchiver"
       # "appcleaner"
-      # "raycast"
-      "maccy" # Clipboard history manager
+      "raycast"
+      # "maccy" # Clipboard history manager
+      "syncthing-app"
 
       # Terminal
       "kitty"
       "alacritty"
+      "dimentium/autoraise/autoraiseapp"
+
     ];
 
     # Homebrew formulae (CLI tools)
@@ -101,9 +108,7 @@
     ];
 
     # Homebrew taps
-    taps = [
-      "FelixKratz/formulae"
-    ];
+    taps = [ "FelixKratz/formulae" "dimentium/autoraise" ];
 
     # Mac App Store apps
     masApps = {
@@ -195,18 +200,18 @@
           "61" = { enabled = false; };
           # Disable 'Cmd + Space' for Spotlight Search
           "64" = {
-            enabled = true;
-            value = {
-              parameters = [
-                100
-                2
-                524288
-              ]; # 'd' key (100), virtual key (2), Alt modifier (524288)
-              type = "standard";
-            };
+            enabled = false;
+            # value = {
+            #   parameters = [
+            #     100
+            #     2
+            #     524288
+            #   ]; # 'd' key (100), virtual key (2), Alt modifier (524288)
+            #   type = "standard";
+            # };
           };
           # Disable 'Cmd + Alt + Space' for Finder search window
-          "65" = { enabled = false; };
+          "65" = { enabled = true; };
         };
       };
     };
@@ -216,11 +221,14 @@
       autohide = true;
       autohide-delay = 0.0;
       autohide-time-modifier = 0.2;
-      orientation = "bottom";
+      orientation = "left";
       show-recents = false;
       static-only = true;
       tilesize = 48;
+      expose-group-apps = true;
     };
+
+    spaces = { spans-displays = true; };
     #
     #    # Finder settings
     #    finder = {
@@ -253,6 +261,7 @@
 
     # NSGlobalDomain settings (system-wide preferences)
     NSGlobalDomain = {
+      "com.apple.swipescrolldirection" = false; # true = natural scrolling
       #      # Appearance
       AppleInterfaceStyle = "Dark";
       AppleInterfaceStyleSwitchesAutomatically = false;
@@ -263,9 +272,13 @@
       # Window appearance settings to minimize decorations
       # AppleReduceDesktopTinting = true;
 
+      # Allow windows drag by any part
+      NSWindowShouldDragOnGesture = true;
+      NSAutomaticWindowAnimationsEnabled = false;
+
       # Minimize window decorations
       AppleShowScrollBars = "WhenScrolling";
-      NSWindowResizeTime = 0.001;
+      NSWindowResizeTime = 1.0e-3;
 
       # Reduce visual effects that add to window decorations
       NSUseAnimatedFocusRing = false;
@@ -293,12 +306,15 @@
       #      PMPrintingExpandedStateForPrint2 = true;
     };
 
+    # defaults write com.pilotmoon.scroll-reverser reverseTrackpad -bool true
+    # defaults write com.pilotmoon.scroll-reverser reverseMouse -bool false
     # Trackpad settings
-    #    trackpad = {
-    #      Clicking = true;
-    #      TrackpadRightClick = true;
-    #      TrackpadThreeFingerDrag = true;
-    #    };
+    trackpad = {
+      Clicking = true;
+      Dragging = true;
+      TrackpadRightClick = true;
+      TrackpadThreeFingerDrag = true;
+    };
 
     # Universal Access
     #    universalaccess = {
@@ -312,14 +328,14 @@
     remapCapsLockToEscape = true;
     userKeyMapping = [
       # Left Control ↔ Left Command
-      {
-        HIDKeyboardModifierMappingSrc = 30064771296; # Left Control
-        HIDKeyboardModifierMappingDst = 30064771299; # Left Command
-      }
-      {
-        HIDKeyboardModifierMappingSrc = 30064771299; # Left Command
-        HIDKeyboardModifierMappingDst = 30064771296; # Left Control
-      }
+      # {
+      #   HIDKeyboardModifierMappingSrc = 30064771296; # Left Control
+      #   HIDKeyboardModifierMappingDst = 30064771299; # Left Command
+      # }
+      # {
+      #   HIDKeyboardModifierMappingSrc = 30064771299; # Left Command
+      #   HIDKeyboardModifierMappingDst = 30064771296; # Left Control
+      # }
 
       # # Right Control ↔ Right Command
       # {

@@ -4,6 +4,14 @@
 # Start AeroSpace at login
 start-at-login = true
 
+# Commands to run after AeroSpace startup
+after-startup-command = [
+    # Start AutoRaise for focus follows mouse
+    'exec-and-forget open /Applications/AutoRaise.app',
+    # Start window highlighting daemon
+    'exec-and-forget window-highlight-daemon',
+]
+
 # Normalizations. See: https://nikitabobko.github.io/AeroSpace/guide#normalization
 enable-normalization-flatten-containers = true
 enable-normalization-opposite-orientation-for-nested-containers = true
@@ -26,6 +34,7 @@ default-root-container-orientation = 'auto'
 # See https://nikitabobko.github.io/AeroSpace/guide#on-focus-changed-callbacks
 # You can also specify commands to run when focus changes
 on-focused-monitor-changed = ['move-mouse monitor-lazy-center']
+
 
 # Workspace configuration - matching AwesomeWM's 20 workspaces (1-10, 11-20)
 # AeroSpace automatically creates workspaces as needed, but we can define them explicitly
@@ -90,10 +99,10 @@ alt-comma = 'layout accordion horizontal vertical'
 
 # AwesomeWM equivalent keybindings
 # Focus navigation (Alt+j/k in AwesomeWM)
-alt-j = 'focus down'
-alt-k = 'focus up'
-alt-h = 'focus left'
-alt-l = 'focus right'
+alt-j = 'focus down --boundaries-action wrap-around-the-workspace'
+alt-k = 'focus up --boundaries-action wrap-around-the-workspace'
+alt-h = 'focus left --boundaries-action wrap-around-the-workspace'
+alt-l = 'focus right --boundaries-action wrap-around-the-workspace'
 
 # Window movement (Alt+Shift+j/k in AwesomeWM)
 alt-shift-j = 'move down'
@@ -145,6 +154,7 @@ alt-9 = 'workspace 9'
 alt-0 = 'workspace 10'
 
 # Second set of workspaces (Alt+Control+1-9,0 for 11-20 in AwesomeWM)
+# TODO does not work
 alt-ctrl-1 = 'workspace 11'
 alt-ctrl-2 = 'workspace 12'
 alt-ctrl-3 = 'workspace 13'
@@ -169,6 +179,7 @@ alt-shift-9 = 'move-node-to-workspace 9'
 alt-shift-0 = 'move-node-to-workspace 10'
 
 # Move window to second set of workspaces (Control+Alt+Shift+1-9,0 for 11-20 in AwesomeWM)
+# TODO does not work
 ctrl-alt-shift-1 = 'move-node-to-workspace 11'
 ctrl-alt-shift-2 = 'move-node-to-workspace 12'
 ctrl-alt-shift-3 = 'move-node-to-workspace 13'
@@ -184,13 +195,32 @@ ctrl-alt-shift-0 = 'move-node-to-workspace 20'
 # System-level Spotlight keybind is configured in nix-darwin configuration
 
 # Alternative launcher using Raycast if installed
-# alt-d = 'exec-and-forget open -a "Raycast"'
+alt-d = 'exec-and-forget open -a "Raycast"'
 
-# Clipboard history (Alt+Shift+v matching AwesomeWM greenclip + rofi)
-alt-shift-v = 'exec-and-forget open -a "Maccy"'
+# Clipboard history (Alt+Shift+v matching AwesomeWM greenclip + rofi) - using Raycast
+alt-shift-v = 'exec-and-forget open "raycast://extensions/raycast/clipboard-history/clipboard-history"'
+
+# Org-mode file shortcuts (matching AwesomeWM setup)
+# Open orgmode agenda in floating terminal
+alt-shift-o = 'exec-and-forget /Applications/Alacritty.app/Contents/MacOS/alacritty -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-AGENDA" -e zsh -c "nvim --cmd \"cd ~/org/life\" -c \"lua require(\\\"orgmode.api.agenda\\\").agenda({span = 1})\" -c \"autocmd VimEnter * ++once lua vim.defer_fn(function() for _, buf in ipairs(vim.api.nvim_list_bufs()) do if vim.api.nvim_buf_get_option(buf, \\\"filetype\\\") ~= \\\"orgagenda\\\" then vim.api.nvim_buf_delete(buf, {force = true}) end end end, 200)\""'
+
+# Open work.org in floating terminal
+alt-shift-w = 'exec-and-forget /Applications/Alacritty.app/Contents/MacOS/alacritty -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-WORK" -e zsh -c "cd ~/org/life && vim ~/org/life/work/work.org"'
+
+# Open dump.org in floating terminal
+alt-shift-d = 'exec-and-forget /Applications/Alacritty.app/Contents/MacOS/alacritty -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-DUMP" -e zsh -c "cd ~/org/life && vim ~/org/life/dump.org"'
+
+# Open youtube1.org in floating terminal
+alt-shift-y = 'exec-and-forget /Applications/Alacritty.app/Contents/MacOS/alacritty -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-YOUTUBE" -e zsh -c "cd ~/org/consume && vim ~/org/consume/youtube/youtube1.org"'
 
 # Service management commands
 alt-shift-ctrl-r = 'reload-config'
+
+cmd-h = [] # Disable "hide application"
+cmd-alt-h = [] # Disable "hide others"
+
+alt-shift-s = 'exec-and-forget screencapture -i -c'
+
 
 # See: https://nikitabobko.github.io/AeroSpace/commands#mode
 alt-shift-semicolon = 'mode service'
@@ -212,6 +242,12 @@ alt-shift-k = ['join-with up', 'mode main']
 alt-shift-l = ['join-with right', 'mode main']
 
 # Window rules - similar to AwesomeWM floating rules
+
+# Maccy clipboard manager - should float and not interfere with focus
+[[on-window-detected]]
+if.app-id = 'org.p0deje.Maccy'
+run = 'layout floating'
+
 [[on-window-detected]]
 if.app-id = 'org.jetbrains.toolbox.renderer'
 run = 'layout floating'
@@ -251,6 +287,12 @@ run = 'layout floating'
 [[on-window-detected]]
 if.app-id = 'com.jetbrains.webstorm'
 if.window-title-regex-substring = '^win\d+$'
+run = 'layout floating'
+
+# Org-mode terminal windows (matching AwesomeWM orgindex class)
+[[on-window-detected]]
+if.app-id = 'org.alacritty'
+if.window-title-regex-substring = 'ORGINDEX-'
 run = 'layout floating'
 
 # Workspace assignments (similar to AwesomeWM tag assignments)

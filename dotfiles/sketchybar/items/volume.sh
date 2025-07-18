@@ -1,10 +1,16 @@
 #!/bin/bash
 
-# Volume widget matching AwesomeWM's volume widget
+# Volume widget (based on FelixKratz defaults)
+
+volume=(
+  script="$PLUGIN_DIR/volume.sh"
+  padding_left=3
+  padding_right=3
+  icon.font="$FONT:Regular:14.0"
+  label.drawing=on
+)
 
 sketchybar --add item volume right \
-           --set volume script="$PLUGIN_DIR/volume.sh" \
-                        icon.color=$VOLUME_COLOR \
-                        label.color=$LABEL_COLOR \
+           --set volume "${volume[@]}" \
            --subscribe volume volume_change
 

@@ -90,5 +90,5 @@ export CALENDAR=􀉉
 export CLOCK=􀐫
 
 # Font
-export FONT="SF Pro"
+export FONT="RobotoMono Nerd Font"
 

@@ -23,10 +23,11 @@
       op = ''(cd ~/org && git add . && git commit -m "Sync" && git push)'';
       up = "cd $HOME/configs/nixos-configs && nix flake update";
       nb = "newsboat --url-file=~/org/rss --cache-file=~/Nextcloud/newsboat/cache.db";
-      
+
       # Development shells
       docker-shell = "nix develop ~/configs/nixos-configs/shell/java";
       java-shell = "nix develop ~/configs/nixos-configs/shell/java/pure";
+      darwin-java-shell = "nix develop ~/configs/nixos-configs/shell/java/darwin";
       go-shell = "nix develop ~/configs/nixos-configs/shell/go-node";
       python-shell = "nix develop ~/configs/nixos-configs/shell/python";
       fhs-shell = "nix develop ~/configs/nixos-configs/shell/fhs";

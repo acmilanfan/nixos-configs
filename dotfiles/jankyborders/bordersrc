@@ -1,22 +1,9 @@
-# JankyBorders configuration file
-# This file configures the appearance and behavior of window borders
+#!/bin/bash
 
-# Border appearance
-active_color=0xff007acc
-inactive_color=0x00000000
-background_color=0x00000000
-
-# Border dimensions
-width=3.0
-radius=9.0
-
-# Display settings
-hidpi=on
-style=round
-
-# Animation
-animation_duration=0.15
-
-# Blacklist applications that shouldn't have borders
-blacklist="Finder,System Preferences,Activity Monitor,Calculator,Archive Utility,Maccy"
+borders \
+  active_color=0xff007acc \
+  inactive_color=0xff555555 \
+  width=3.0 \
+  hidpi=on \
+  style=round
 

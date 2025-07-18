@@ -142,7 +142,10 @@
       darwinConfigurations = {
         "mac-work" = nix-darwin.lib.darwinSystem {
           system = macSystem;
-          specialArgs = { inherit inputs; };
+          specialArgs = {
+            inherit inputs;
+            unstable = unstableFor macSystem;
+          };
           modules = [
             ./darwin/configuration.nix
             mac-app-util.darwinModules.default

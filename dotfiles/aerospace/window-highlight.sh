@@ -8,10 +8,52 @@ ACTIVE_COLOR="0xff007acc"      # Blue for focused window
 INACTIVE_COLOR="0x00000000"    # Transparent for unfocused windows
 BORDER_WIDTH=3.0
 
+# Function to check if highlighting should be enabled
+should_highlight() {
+    # Check if aerospace is available
+    if ! command -v aerospace >/dev/null 2>&1; then
+        echo "AeroSpace not found, enabling highlighting by default"
+        return 0
+    fi
+    
+    # Get current focused workspace
+    local focused_workspace
+    focused_workspace=$(aerospace list-workspaces --focused 2>/dev/null)
+    
+    if [[ -z "$focused_workspace" ]]; then
+        echo "Could not determine focused workspace, enabling highlighting by default"
+        return 0
+    fi
+    
+    # Count windows in the focused workspace
+    local window_count
+    window_count=$(aerospace list-windows --workspace "$focused_workspace" --format '%{window-id}' 2>/dev/null | wc -l | xargs)
+    
+    if [[ -z "$window_count" ]] || [[ "$window_count" -eq 0 ]]; then
+        echo "No windows found or error counting windows, enabling highlighting by default"
+        return 0
+    fi
+    
+    # Only highlight if there are 2 or more windows
+    if [[ "$window_count" -gt 1 ]]; then
+        echo "Found $window_count windows, enabling highlighting"
+        return 0
+    else
+        echo "Found only $window_count window, disabling highlighting"
+        return 1
+    fi
+}
+
 # Function to start JankyBorders with proper configuration
 start_jankyborders() {
     # Kill existing borders process
     killall borders 2>/dev/null
+    
+    # Check if highlighting should be enabled
+    if ! should_highlight; then
+        echo "JankyBorders disabled - only one window in current workspace"
+        return 0
+    fi
     
     # Start JankyBorders with configuration
     if command -v borders >/dev/null 2>&1; then

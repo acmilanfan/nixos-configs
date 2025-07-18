@@ -58,7 +58,6 @@ in pkgs.stdenv.mkDerivation {
 
     export JAVA_HOME=${selectedJDK}
     export PATH=$JAVA_HOME/bin:$PATH
-    export TMPDIR="$(mktemp -d)"
 
     exec java-maven-env
   '';

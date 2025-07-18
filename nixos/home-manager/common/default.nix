@@ -1,6 +1,7 @@
 { pkgs, ... }: {
 
   imports = [
+    ./aerospace.nix
     ./alacritty.nix
     # ./doom.nix
     ./firefox.nix

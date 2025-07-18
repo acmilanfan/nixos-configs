@@ -1,22 +1,26 @@
 #!/bin/bash
 
-# Workspace configuration matching AwesomeWM's 20 tags
-# Creates 20 workspaces (1-10 and 11-20) similar to AwesomeWM setup
-# Only shows workspaces with windows opened
+# Mission Control Space Indicators (based on FelixKratz defaults)
+# Creates spaces similar to the official SketchyBar configuration
 
-SPACE_SIDS=(1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20)
+SPACE_ICONS=("1" "2" "3" "4" "5" "6" "7" "8" "9" "10")
 
-for sid in "${SPACE_SIDS[@]}"
+for i in "${!SPACE_ICONS[@]}"
 do
-  sketchybar --add space space.$sid left                                 \
-             --set space.$sid space=$sid                                  \
-                              icon=$sid                                   \
-                              label.font="sketchybar-app-font:Regular:16.0" \
-                              label.padding_right=20                     \
-                              label.y_offset=-1                          \
-                              script="$PLUGIN_DIR/space.sh"              \
-                              click_script="aerospace workspace $sid"    \
-                              drawing=off
+  sid="$(($i+1))"
+  space=(
+    space="$sid"
+    icon="${SPACE_ICONS[i]}"
+    icon.padding_left=7
+    icon.padding_right=7
+    background.color=$SPACE_ACTIVE
+    background.corner_radius=5
+    background.height=25
+    label.drawing=off
+    script="$PLUGIN_DIR/space.sh"
+    click_script="aerospace workspace $sid"
+  )
+  sketchybar --add space space."$sid" left --set space."$sid" "${space[@]}"
 done
 
 # Add workspace monitor that shows/hides spaces based on window presence
@@ -27,10 +31,8 @@ sketchybar --add item space_monitor left                               \
                                      front_app_switched                \
                                      space_change
 
-sketchybar --add item space_separator left                             \
-           --set space_separator icon="􀆊"                               \
-                                 icon.color=$ACCENT_COLOR              \
-                                 icon.padding_left=4                   \
-                                 label.drawing=off                     \
-                                 background.drawing=off
+# Add chevron separator (like in official config)
+sketchybar --add item chevron left \
+           --set chevron icon= \
+                         label.drawing=off
 

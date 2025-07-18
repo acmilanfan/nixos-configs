@@ -18,7 +18,8 @@
     #          })
     #      );
     #package = pkgs.firefox-wayland;
-    package = pkgs.firefox;
+
+    package = if pkgs.stdenv.isDarwin then null else pkgs.firefox;
     # package = pkgs.firefox-bin;
     profiles = {
       default = {

@@ -1,2 +1,46 @@
-#!/bin/bash\n\n# Space windows plugin - shows/hides spaces based on window presence\n# Only displays workspaces that have windows opened\n\nsource \"$CONFIG_DIR/colors.sh\"\n\n# Get all workspaces with windows\nWORKSPACES_WITH_WINDOWS=$(aerospace list-workspaces --monitor all | while read -r workspace; do\n    window_count=$(aerospace list-windows --workspace \"$workspace\" --format '%{window-id}' | wc -l | xargs)\n    if [[ \"$window_count\" -gt 0 ]]; then\n        echo \"$workspace\"\n    fi\ndone)\n\n# Get current focused workspace\nFOCUSED_WORKSPACE=$(aerospace list-workspaces --focused)\n\n# Always show focused workspace even if empty\nif [[ -n \"$FOCUSED_WORKSPACE\" ]]; then\n    WORKSPACES_WITH_WINDOWS=$(echo -e \"$WORKSPACES_WITH_WINDOWS\\n$FOCUSED_WORKSPACE\" | sort -n | uniq)\nfi\n\n# Hide all spaces first\nfor sid in {1..20}; do\n    sketchybar --set space.$sid drawing=off\ndone\n\n# Show only spaces with windows or focused space\nfor workspace in $WORKSPACES_WITH_WINDOWS; do\n    if [[ \"$workspace\" =~ ^[0-9]+$ ]] && [[ \"$workspace\" -ge 1 ]] && [[ \"$workspace\" -le 20 ]]; then\n        sketchybar --set space.$workspace drawing=on\n        \n        # Update space appearance based on focus and window count\n        window_count=$(aerospace list-windows --workspace \"$workspace\" --format '%{window-id}' | wc -l | xargs)\n        \n        if [[ \"$workspace\" == \"$FOCUSED_WORKSPACE\" ]]; then\n            # Focused workspace\n            sketchybar --set space.$workspace background.drawing=on \\\n                                            background.color=$SPACE_ACTIVE \\\n                                            label.color=$BAR_COLOR \\\n                                            icon.color=$BAR_COLOR \\\n                                            label=\"$window_count\"\n        else\n            # Non-focused workspace with windows\n            sketchybar --set space.$workspace background.drawing=off \\\n                                            label.color=$SPACE_INACTIVE \\\n                                            icon.color=$SPACE_INACTIVE \\\n                                            label=\"$window_count\"\n        fi\n    fi\ndone
+#!/bin/bash
+
+# Space windows plugin - shows/hides spaces based on window presence
+# Only displays workspaces that have windows opened
+
+source "$CONFIG_DIR/colors.sh"
+
+# Get all workspaces with windows
+WORKSPACES_WITH_WINDOWS=$(aerospace list-workspaces --monitor all | while read -r workspace; do
+    window_count=$(aerospace list-windows --workspace "$workspace" --format '%{window-id}' | wc -l | xargs)
+    if [[ "$window_count" -gt 0 ]]; then
+        echo "$workspace"
+    fi
+done)
+
+# Get current focused workspace
+FOCUSED_WORKSPACE=$(aerospace list-workspaces --focused)
+
+# Always show focused workspace even if empty
+if [[ -n "$FOCUSED_WORKSPACE" ]]; then
+    WORKSPACES_WITH_WINDOWS=$(echo -e "$WORKSPACES_WITH_WINDOWS\n$FOCUSED_WORKSPACE" | sort -n | uniq)
+fi
+
+# Hide all spaces first (only show first 10 spaces like official config)
+for sid in {1..10}; do
+    sketchybar --set space.$sid drawing=off
+done
+
+# Show only spaces with windows or focused space
+for workspace in $WORKSPACES_WITH_WINDOWS; do
+    if [[ "$workspace" =~ ^[0-9]+$ ]] && [[ "$workspace" -ge 1 ]] && [[ "$workspace" -le 10 ]]; then
+        sketchybar --set space.$workspace drawing=on
+        
+        if [[ "$workspace" == "$FOCUSED_WORKSPACE" ]]; then
+            # Focused workspace
+            sketchybar --set space.$workspace background.drawing=on \
+                                            background.color=$WHITE \
+                                            icon.color=$BLACK
+        else
+            # Non-focused workspace with windows
+            sketchybar --set space.$workspace background.drawing=off \
+                                            icon.color=$WHITE
+        fi
+    fi
+done
 
