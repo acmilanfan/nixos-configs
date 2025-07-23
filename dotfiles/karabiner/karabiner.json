@@ -1,0 +1,234 @@
+{
+  "profiles": [
+    {
+      "devices": [
+        {
+          "manipulate_caps_lock_led": true,
+          "simple_modifications": [],
+          "fn_function_keys": [
+            {"from": {"key_code": "f1"}, "to": [{"key_code": "f1"}]},
+            {"from": {"key_code": "f2"}, "to": [{"key_code": "f2"}]},
+            {"from": {"key_code": "f3"}, "to": [{"key_code": "f3"}]},
+            {"from": {"key_code": "f4"}, "to": [{"key_code": "f4"}]},
+            {"from": {"key_code": "f5"}, "to": [{"key_code": "f5"}]},
+            {"from": {"key_code": "f6"}, "to": [{"key_code": "f6"}]},
+            {"from": {"key_code": "f7"}, "to": [{"key_code": "f7"}]},
+            {"from": {"key_code": "f8"}, "to": [{"key_code": "f8"}]},
+            {"from": {"key_code": "f9"}, "to": [{"key_code": "f9"}]},
+            {"from": {"key_code": "f10"}, "to": [{"key_code": "f10"}]},
+            {"from": {"key_code": "f11"}, "to": [{"key_code": "f11"}]},
+            {"from": {"key_code": "f12"}, "to": [{"key_code": "f12"}]}
+          ],
+          "treat_as_built_in_keyboard": false,
+          "disable_built_in_keyboard_if_exists": false,
+          "identifiers": {
+            "vendor_id": 43256,
+            "is_keyboard": true,
+            "is_pointing_device": false,
+            "product_id": 6194
+          },
+          "ignore": false
+        },
+        {
+          "manipulate_caps_lock_led": false,
+          "simple_modifications": [],
+          "fn_function_keys": [
+            {"from": {"key_code": "f1"}, "to": [{"consumer_key_code": "display_brightness_decrement"}]},
+            {"from": {"key_code": "f2"}, "to": [{"consumer_key_code": "display_brightness_increment"}]},
+            {"from": {"key_code": "f3"}, "to": [{"apple_vendor_keyboard_key_code": "mission_control"}]},
+            {"from": {"key_code": "f4"}, "to": [{"apple_vendor_keyboard_key_code": "spotlight"}]},
+            {"from": {"key_code": "f5"}, "to": [{"consumer_key_code": "dictation"}]},
+            {"from": {"key_code": "f6"}, "to": [{"key_code": "f6"}]},
+            {"from": {"key_code": "f7"}, "to": [{"consumer_key_code": "rewind"}]},
+            {"from": {"key_code": "f8"}, "to": [{"consumer_key_code": "play_or_pause"}]},
+            {"from": {"key_code": "f9"}, "to": [{"consumer_key_code": "fast_forward"}]},
+            {"from": {"key_code": "f10"}, "to": [{"consumer_key_code": "mute"}]},
+            {"from": {"key_code": "f11"}, "to": [{"consumer_key_code": "volume_decrement"}]},
+            {"from": {"key_code": "f12"}, "to": [{"consumer_key_code": "volume_increment"}]}
+          ],
+          "treat_as_built_in_keyboard": true,
+          "disable_built_in_keyboard_if_exists": false,
+          "identifiers": {
+            "vendor_id": 0,
+            "is_keyboard": true,
+            "is_pointing_device": false,
+            "product_id": 0
+          },
+          "ignore": false
+        }
+      ],
+      "simple_modifications": [
+        {
+          "from": {"key_code": "caps_lock"},
+          "to": [{"key_code": "escape"}]
+        }
+      ],
+      "complex_modifications": {
+        "rules": [
+          {
+            "description": "Firefox specific Ctrl+Key shortcuts to Cmd+Key",
+            "manipulators": [
+              {
+                "type": "basic",
+                "description": "Ctrl+C to Cmd+C (Copy) in Firefox",
+                "from": {
+                  "key_code": "c",
+                  "modifiers": {"mandatory": ["left_control"]}
+                },
+                "to": [{"key_code": "c", "modifiers": ["left_command"]}],
+                "conditions": [{"type": "frontmost_application_if", "bundle_identifiers": ["org.mozilla.firefox"]}]
+              },
+              {
+                "type": "basic",
+                "description": "Ctrl+V to Cmd+V (Paste) in Firefox",
+                "from": {
+                  "key_code": "v",
+                  "modifiers": {"mandatory": ["left_control"]}
+                },
+                "to": [{"key_code": "v", "modifiers": ["left_command"]}],
+                "conditions": [{"type": "frontmost_application_if", "bundle_identifiers": ["org.mozilla.firefox"]}]
+              },
+              {
+                "type": "basic",
+                "description": "Ctrl+X to Cmd+X (Cut) in Firefox",
+                "from": {
+                  "key_code": "x",
+                  "modifiers": {"mandatory": ["left_control"]}
+                },
+                "to": [{"key_code": "x", "modifiers": ["left_command"]}],
+                "conditions": [{"type": "frontmost_application_if", "bundle_identifiers": ["org.mozilla.firefox"]}]
+              },
+              {
+                "type": "basic",
+                "description": "Ctrl+A to Cmd+A (Select All) in Firefox",
+                "from": {
+                  "key_code": "a",
+                  "modifiers": {"mandatory": ["left_control"]}
+                },
+                "to": [{"key_code": "a", "modifiers": ["left_command"]}],
+                "conditions": [{"type": "frontmost_application_if", "bundle_identifiers": ["org.mozilla.firefox"]}]
+              },
+              {
+                "type": "basic",
+                "description": "Ctrl+Z to Cmd+Z (Undo) in Firefox",
+                "from": {
+                  "key_code": "z",
+                  "modifiers": {"mandatory": ["left_control"]}
+                },
+                "to": [{"key_code": "z", "modifiers": ["left_command"]}],
+                "conditions": [{"type": "frontmost_application_if", "bundle_identifiers": ["org.mozilla.firefox"]}]
+              },
+              {
+                "type": "basic",
+                "description": "Ctrl+Y to Cmd+Y (Redo) in Firefox",
+                "from": {
+                  "key_code": "y",
+                  "modifiers": {"mandatory": ["left_control"]}
+                },
+                "to": [{"key_code": "y", "modifiers": ["left_command"]}],
+                "conditions": [{"type": "frontmost_application_if", "bundle_identifiers": ["org.mozilla.firefox"]}]
+              },
+              {
+                "type": "basic",
+                "description": "Ctrl+T to Cmd+T (New Tab) in Firefox",
+                "from": {
+                  "key_code": "t",
+                  "modifiers": {"mandatory": ["left_control"]}
+                },
+                "to": [{"key_code": "t", "modifiers": ["left_command"]}],
+                "conditions": [{"type": "frontmost_application_if", "bundle_identifiers": ["org.mozilla.firefox"]}]
+              },
+              {
+                "type": "basic",
+                "description": "Ctrl+W to Cmd+W (Close Tab) in Firefox",
+                "from": {
+                  "key_code": "w",
+                  "modifiers": {"mandatory": ["left_control"]}
+                },
+                "to": [{"key_code": "w", "modifiers": ["left_command"]}],
+                "conditions": [{"type": "frontmost_application_if", "bundle_identifiers": ["org.mozilla.firefox"]}]
+              },
+              {
+                "type": "basic",
+                "description": "Ctrl+R to Cmd+R (Reload) in Firefox",
+                "from": {
+                  "key_code": "r",
+                  "modifiers": {"mandatory": ["left_control"]}
+                },
+                "to": [{"key_code": "r", "modifiers": ["left_command"]}],
+                "conditions": [{"type": "frontmost_application_if", "bundle_identifiers": ["org.mozilla.firefox"]}]
+              },
+              {
+                "type": "basic",
+                "description": "Ctrl+F to Cmd+F (Find) in Firefox",
+                "from": {
+                  "key_code": "f",
+                  "modifiers": {"mandatory": ["left_control"]}
+                },
+                "to": [{"key_code": "f", "modifiers": ["left_command"]}],
+                "conditions": [{"type": "frontmost_application_if", "bundle_identifiers": ["org.mozilla.firefox"]}]
+              },
+              {
+                "type": "basic",
+                "description": "Ctrl+L to Cmd+L (Address Bar) in Firefox",
+                "from": {
+                  "key_code": "l",
+                  "modifiers": {"mandatory": ["left_control"]}
+                },
+                "to": [{"key_code": "l", "modifiers": ["left_command"]}],
+                "conditions": [{"type": "frontmost_application_if", "bundle_identifiers": ["org.mozilla.firefox"]}]
+              },
+              {
+                "type": "basic",
+                "description": "Ctrl+N to Cmd+N (New Window) in Firefox",
+                "from": {
+                  "key_code": "n",
+                  "modifiers": {"mandatory": ["left_control"]}
+                },
+                "to": [{"key_code": "n", "modifiers": ["left_command"]}],
+                "conditions": [{"type": "frontmost_application_if", "bundle_identifiers": ["org.mozilla.firefox"]}]
+              }
+            ]
+          }
+        ],
+        "parameters": {
+          "basic.to_if_held_down_threshold_milliseconds": 500,
+          "mouse_motion_to_scroll.speed": 100,
+          "basic.simultaneous_threshold_milliseconds": 50,
+          "basic.to_delayed_action_delay_milliseconds": 500,
+          "basic.to_if_alone_timeout_milliseconds": 1000
+        }
+      },
+      "selected": true,
+      "name": "Default profile",
+      "virtual_hid_keyboard": {
+        "indicate_sticky_modifier_keys_state": true,
+        "country_code": 0,
+        "mouse_key_xy_scale": 100,
+        "keyboard_type_v2": "ansi"
+      },
+      "fn_function_keys": [
+        {"from": {"key_code": "f1"}, "to": [{"consumer_key_code": "display_brightness_decrement"}]},
+        {"from": {"key_code": "f2"}, "to": [{"consumer_key_code": "display_brightness_increment"}]},
+        {"from": {"key_code": "f3"}, "to": [{"apple_vendor_keyboard_key_code": "mission_control"}]},
+        {"from": {"key_code": "f4"}, "to": [{"apple_vendor_keyboard_key_code": "spotlight"}]},
+        {"from": {"key_code": "f5"}, "to": [{"consumer_key_code": "dictation"}]},
+        {"from": {"key_code": "f6"}, "to": [{"key_code": "f6"}]},
+        {"from": {"key_code": "f7"}, "to": [{"consumer_key_code": "rewind"}]},
+        {"from": {"key_code": "f8"}, "to": [{"consumer_key_code": "play_or_pause"}]},
+        {"from": {"key_code": "f9"}, "to": [{"consumer_key_code": "fast_forward"}]},
+        {"from": {"key_code": "f10"}, "to": [{"consumer_key_code": "mute"}]},
+        {"from": {"key_code": "f11"}, "to": [{"consumer_key_code": "volume_decrement"}]},
+        {"from": {"key_code": "f12"}, "to": [{"consumer_key_code": "volume_increment"}]}
+      ],
+      "parameters": {"delay_milliseconds_before_open_device": 1000}
+    }
+  ],
+  "global": {
+    "check_for_updates_on_startup": false,
+    "show_in_menu_bar": true,
+    "show_profile_name_in_menu_bar": false,
+    "unsafe_ui": false,
+    "ask_for_confirmation_before_quitting": false
+  }
+}

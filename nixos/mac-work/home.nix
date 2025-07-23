@@ -65,6 +65,7 @@
     # Clipboard shortcuts
     clipboard-history = "open -a Maccy";
     clipboard-clear = "defaults delete org.p0deje.Maccy";
+
   }];
 
   # macOS-specific programs configuration
@@ -143,6 +144,11 @@
     # Maccy configuration
     ".config/maccy/maccy-config.sh".source =
       ../../dotfiles/maccy/maccy-config.sh;
+
+    # Karabiner-Elements configuration
+    ".config/karabiner/karabiner.json".source =
+      ../../dotfiles/karabiner/karabiner.json;
+
   };
 
   # macOS-specific environment variables

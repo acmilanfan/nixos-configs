@@ -68,6 +68,7 @@
       # Development
       # "visual-studio-code"
       "docker-desktop"
+      # "docker"
       # "postman"
 
       # Communication
@@ -91,12 +92,12 @@
       "raycast"
       # "maccy" # Clipboard history manager
       "syncthing-app"
+      "karabiner-elements" # Keyboard remapping for macOS
 
       # Terminal
       "kitty"
       "alacritty"
       "dimentium/autoraise/autoraiseapp"
-
     ];
 
     # Homebrew formulae (CLI tools)
