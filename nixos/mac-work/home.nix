@@ -66,6 +66,18 @@
     clipboard-history = "open -a Maccy";
     clipboard-clear = "defaults delete org.p0deje.Maccy";
 
+      # Kanata configuration management
+      reload-kanata = "~/.config/kanata/reload-kanata.sh";
+      reload-kanata-logs = "~/.config/kanata/reload-kanata.sh --show-logs";
+
+    # Hybrid keyboard management (Kanata + Karabiner)
+    # kanata-start = "~/.config/kanata/kanata-launcher.sh start";
+    # kanata-stop = "~/.config/kanata/kanata-launcher.sh stop";
+    # kanata-restart = "~/.config/kanata/kanata-launcher.sh restart";
+    # kanata-status = "~/.config/kanata/kanata-launcher.sh status";
+    # kanata-log = "~/.config/kanata/kanata-launcher.sh log";
+    # kanata-test = "~/.config/kanata/kanata-launcher.sh test";
+
   }];
 
   # macOS-specific programs configuration
@@ -149,6 +161,9 @@
     ".config/karabiner/karabiner.json".source =
       ../../dotfiles/karabiner/karabiner.json;
 
+    # Kanata configuration (home row mods only)
+    ".config/kanata/kanata.kbd".source = ../../dotfiles/kanata/kanata.kbd;
+    ".config/kanata/reload-kanata.sh".source = ../../dotfiles/kanata/reload-kanata.sh;
   };
 
   # macOS-specific environment variables

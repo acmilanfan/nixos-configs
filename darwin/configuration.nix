@@ -2,15 +2,14 @@
 
 {
   ## TODO things to fix
-  # - fix sketchybar
-  # - remove window decoration on some (most) apps
-  # - keyboard BT control
   # - setup middle click three fingers tap
-  # - faster animations of window tiling
   # - lock keybind
-  # - maccy clipboard control with vim ctrl+keys
   # - fixed accordion mode on one specific screen
-  # -
+  # - keyboard BT control
+  # - warpd for system layer mouse replacement
+  # - fix sketchybar
+  # - faster animations of window tiling
+  # - remove window decoration on some (most) apps
 
   system.primaryUser = "andreishumailov";
   environment.systemPackages = with pkgs; [
@@ -38,22 +37,59 @@
     # Window management
     aerospace
     sketchybar
+
+    # Keyboard management - Kanata moved to Homebrew for better macOS permissions
     # unstable.scroll-reverser
   ];
+  launchd.agents.kanata = {
+    command =
+      "/opt/homebrew/bin/kanata --cfg /Users/andreishumailov/.config/kanata/kanata.kbd --port 5829";
 
-  # launchd.user.agents.scroll-reverser = {
-  #   enable = true;
-  #   program =
-  #     "/Applications/Scroll Reverser.app/Contents/MacOS/Scroll Reverser";
-  #   runAtLoad = true;
+    serviceConfig = {
+      KeepAlive = {
+        Crashed = true;
+        SuccessfulExit = false;
+      };
+      RunAtLoad = true;
+      StandardOutPath = "/Users/andreishumailov/.config/kanata/kanata.log";
+      StandardErrorPath =
+        "/Users/andreishumailov/.config/kanata/kanata.error.log";
+    };
+  };
+
+  launchd.agents.kanata-vk-agent = {
+    command =
+      "/opt/homebrew/bin/kanata-vk-agent -p 5829 -b com.apple.Safari,org.mozilla.firefox -i com.apple.keylayout.ABC";
+    serviceConfig = {
+      Label = "local.kanata-vk-agent";
+      KeepAlive = {
+        Crashed = true;
+        SuccessfulExit = false;
+      };
+      RunAtLoad = true;
+      StandardOutPath = "/tmp/kanata_vk_agent_stdout.log";
+      StandardErrorPath = "/tmp/kanata_vk_agent_stderr.log";
+    };
+  };
+
+  # launchd.agents.scroll-reverser = {
+  #   command =
+  #     "open -a /Applications/Scroll Reverser.app/Contents/MacOS/Scroll Reverser";
+  #   serviceConfig = {
+  #     KeepAlive = {
+  #       Crashed = true;
+  #       SuccessfulExit = false;
+  #     };
+  #     RunAtLoad = true;
+  #   };
   # };
 
-  # system.activationScripts.scrollPrefs.text = ''
-  #   defaults write com.pilotmoon.scroll-reverser reverseTrackpad -bool true
-  #   defaults write com.pilotmoon.scroll-reverser reverseMouse -bool false
-  #   killall "Scroll Reverser" || true
-  #   open -a "Scroll Reverser"
-  # '';
+  system.activationScripts.scrollPrefs.text = ''
+    defaults write com.pilotmoon.scroll-reverser reverseTrackpad -bool true
+    defaults write com.pilotmoon.scroll-reverser reverseMouse -bool false
+    killall "Scroll Reverser" || true
+    open -a "Scroll Reverser"
+  '';
 
   # Homebrew packages that don't work well with nix-darwin
   homebrew = {
@@ -97,7 +133,10 @@
       # Terminal
       "kitty"
       "alacritty"
+
+      # Usability improvements
       "dimentium/autoraise/autoraiseapp"
+      "scroll-reverser"
     ];
 
     # Homebrew formulae (CLI tools)
@@ -106,10 +145,12 @@
       "mas" # Mac App Store CLI
       "scrcpy" # Android screen mirroring
       "borders" # JankyBorders for window highlighting (from FelixKratz tap)
+      "kanata"
+      "devsunb/tap/kanata-vk-agent"
     ];
 
     # Homebrew taps
-    taps = [ "FelixKratz/formulae" "dimentium/autoraise" ];
+    taps = [ "FelixKratz/formulae" "dimentium/autoraise" "devsunb/tap" ];
 
     # Mac App Store apps
     masApps = {

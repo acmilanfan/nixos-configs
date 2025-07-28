@@ -1,0 +1,191 @@
+;; Configuration for built-in Mac Keyboard
+(defcfg
+  process-unmapped-keys yes
+  concurrent-tap-hold yes
+  ;; Apply to all keyboards - device-specific filtering done per-key
+)
+
+;; TODO: make device specific mappigns
+;; Apple Internal Keyboard / Trackpad
+;; Charybdis Nano (3x5) Splinky
+
+(defsrc
+  esc    f1    f2    f3    f4    f5    f6    f7    f8    f9    f10   f11   f12
+  grv    1     2     3     4     5     6     7     8     9     0     -     =     bspc
+  tab    q     w     e     r     t     y     u     i     o     p     [     ]
+  caps   a     s     d     f     g     h     j     k     l     ;     '     \     ret
+  lsft < z     x     c     v     b     n     m     ,     .     /     rsft
+  fn     lctl  lalt  lmet              spc               rmet  ralt  ◀    ▲ ▼    ▶
+)
+
+(deflayer base
+  _     🔅    🔆    mctl  sls   dtn   dnd   ◀◀    ▶⏸    ▶▶    🔇    🔉    🔊
+  _     _     _     _     _     _     _     _     _     _     _     _     _     _
+  _     _     _     _     _     _     _     _     _     _     _     _     _
+  _     @a    @s    @d    @f    _     _     @j    @k    @l    @;    _     _     _
+  _   _ _     _     _     _     _     _     _     _     _     _     _
+  @fn   _     _     _                 _                 _     _     _    _ _    _
+)
+
+(deflayer fn
+  _     f1    f2    f3    f4    f5    f6    f7    f8    f9    f10   f11   f12
+  _     _     _     _     _     _     _     _     _     _     _     _     _     del
+  _     _     _     _     lrld  _     _     _     _     _     _     _     _
+  _     _     _     _     _     _     _     _     _     _     _     _     _     _
+  _   _ _     _     _     _     _     _     _     _     _     _     _
+  _     _     _     _                 _                 _     _     ⤒    ⇞ ⇟    ⤓
+)
+(defvar
+  ;; Note: consider using different time values for your different fingers.
+  ;; For example, your pinkies might be slower to release keys and index
+  ;; fingers faster.
+  tap-time 200
+  hold-time 200
+)
+
+(defalias
+  a (tap-hold-release $tap-time $hold-time a lmet)
+  s (tap-hold-release $tap-time $hold-time s lalt)
+  d (tap-hold-release $tap-time $hold-time d lsft)
+  f (tap-hold-release $tap-time $hold-time f
+      (switch
+        ((input virtual org.mozilla.firefox)) lmet break
+        ((input virtual com.apple.Safari)) lmet break
+        () lctl break))
+
+  j (tap-hold-release $tap-time $hold-time j
+      (switch
+        ((input virtual org.mozilla.firefox)) rmet break
+        ((input virtual com.apple.Safari)) rmet break
+        () rctl break))
+  k (tap-hold-release $tap-time $hold-time k rsft)
+  l (tap-hold-release $tap-time $hold-time l ralt)
+  ; (tap-hold-release $tap-time $hold-time ; rmet)
+
+  fn (tap-hold 250 250 fn (layer-toggle fn))
+)
+
+;; Home row mods layer
+;; (deflayer homerow
+;;   @a @c @f @l @n @r @t @v @w @x @y @z
+;;   @lctl
+;; )
+
+;; Browser-specific Ctrl layer
+;; (deflayer browser-ctrl
+;;   @ctrl-a @ctrl-c @ctrl-f @ctrl-l @ctrl-n @ctrl-r @ctrl-t @ctrl-v @ctrl-w @ctrl-x @ctrl-y @ctrl-z
+;;   _
+;; )
+
+;; Virtual keys for application-specific behavior
+(defvirtualkeys
+  com.apple.Safari nop0
+  org.mozilla.firefox nop0
+)
+
+;; Aliases for browser-specific shortcuts
+;; (defalias
+;;   ;; Left Control - activates browser-specific layer when held, but passes through for non-letter keys
+;;   lctl (tap-hold-release 200 200 lctl (layer-while-held browser-ctrl))
+;;
+;;   ;; Regular keys that pass through normally in base layer
+;;   a a
+;;   c c
+;;   f f
+;;   l l
+;;   n n
+;;   r r
+;;   t t
+;;   v v
+;;   w w
+;;   x x
+;;   y y
+;;   z z
+;;
+;;   ;; Browser-specific Ctrl+Key shortcuts (only active in browser-ctrl layer)
+;;   ;; These only trigger when in the browser-ctrl layer (i.e., when Ctrl is held)
+;;
+;;   ;; Copy - Ctrl+C becomes Cmd+C in browsers
+;;   ctrl-c (switch
+;;     ((input virtual org.mozilla.firefox)) (multi lmet c) break
+;;     ((input virtual com.apple.Safari)) (multi lmet c) break
+;;     () c break
+;;   )
+;;
+;;   ;; Paste - Ctrl+V becomes Cmd+V in browsers
+;;   ctrl-v (switch
+;;     ((input virtual org.mozilla.firefox)) (multi lmet v) break
+;;     ((input virtual com.apple.Safari)) (multi lmet v) break
+;;     () v break
+;;   )
+;;
+;;   ;; Cut - Ctrl+X becomes Cmd+X in browsers
+;;   ctrl-x (switch
+;;     ((input virtual org.mozilla.firefox)) (multi lmet x) break
+;;     ((input virtual com.apple.Safari)) (multi lmet x) break
+;;     () x break
+;;   )
+;;
+;;   ;; Undo - Ctrl+Z becomes Cmd+Z in browsers
+;;   ctrl-z (switch
+;;     ((input virtual org.mozilla.firefox)) (multi lmet z) break
+;;     ((input virtual com.apple.Safari)) (multi lmet z) break
+;;     () z break
+;;   )
+;;
+;;   ;; Redo - Ctrl+Y becomes Cmd+Y in browsers
+;;   ctrl-y (switch
+;;     ((input virtual org.mozilla.firefox)) (multi lmet y) break
+;;     ((input virtual com.apple.Safari)) (multi lmet y) break
+;;     () y break
+;;   )
+;;
+;;   ;; New Tab - Ctrl+T becomes Cmd+T in browsers
+;;   ctrl-t (switch
+;;     ((input virtual org.mozilla.firefox)) (multi lmet t) break
+;;     ((input virtual com.apple.Safari)) (multi lmet t) break
+;;     () t break
+;;   )
+;;
+;;   ;; Close Tab - Ctrl+W becomes Cmd+W in browsers
+;;   ctrl-w (switch
+;;     ((input virtual org.mozilla.firefox)) (multi lmet w) break
+;;     ((input virtual com.apple.Safari)) (multi lmet w) break
+;;     () w break
+;;   )
+;;
+;;   ;; Reload - Ctrl+R becomes Cmd+R in browsers
+;;   ctrl-r (switch
+;;     ((input virtual org.mozilla.firefox)) (multi lmet r) break
+;;     ((input virtual com.apple.Safari)) (multi lmet r) break
+;;     () r break
+;;   )
+;;
+;;   ;; Find - Ctrl+F becomes Cmd+F in browsers
+;;   ctrl-f (switch
+;;     ((input virtual org.mozilla.firefox)) (multi lmet f) break
+;;     ((input virtual com.apple.Safari)) (multi lmet f) break
+;;     () f break
+;;   )
+;;
+;;   ;; Select All - Ctrl+A becomes Cmd+A in browsers
+  ;; ctrl-a (switch
+  ;;   ((input virtual org.mozilla.firefox)) (multi lmet a) break
+  ;;   ((input virtual com.apple.Safari)) (multi lmet a) break
+  ;;   () a break
+  ;; )
+;;
+;;   ;; Address Bar - Ctrl+L becomes Cmd+L in browsers
+;;   ctrl-l (switch
+;;     ((input virtual org.mozilla.firefox)) (multi lmet l) break
+;;     ((input virtual com.apple.Safari)) (multi lmet l) break
+;;     () l break
+;;   )
+;;
+;;   ;; New Window - Ctrl+N becomes Cmd+N in browsers
+;;   ctrl-n (switch
+;;     ((input virtual org.mozilla.firefox)) (multi lmet n) break
+;;     ((input virtual com.apple.Safari)) (multi lmet n) break
+;;     () n break
+;;   )
+;; )
