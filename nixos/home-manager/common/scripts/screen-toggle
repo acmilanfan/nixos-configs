@@ -7,7 +7,7 @@ EXTERNAL_SCREEN="DP-1"
 EXTERNAL_SCREEN_2="DP-2"
 EXTERNAL_SCREEN_3="DP-3"
 LAPTOP_SCREEN_DPI="168"
-EXTERNAL_SCREEN_DPI="96"
+EXTERNAL_SCREEN_DPI="144"
 TOUCH_DEVICE="INGENIC Gadget Serial and keyboard Touchscreen"
 # TOUCH_DEVICE="INGENIC Gadget Serial and keyboard"
 
@@ -141,7 +141,7 @@ combine_horizontal() {
 
 external_only() {
     reset_monitor
-    xrandr --output "$EXTERNAL_SCREEN" --auto --primary --dpi $EXTERNAL_SCREEN_DPI --output "$TOP_SCREEN" --off --output "$BOTTOM_SCREEN" --off
+    xrandr --output "$EXTERNAL_SCREEN_3" --mode 3840x2160 --rate 120 --primary --dpi $EXTERNAL_SCREEN_DPI --output "$TOP_SCREEN" --off --output "$BOTTOM_SCREEN" --off
 }
 
 # Launch Rofi with icons and larger text

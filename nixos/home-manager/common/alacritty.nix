@@ -6,7 +6,7 @@
         # decorations = "none";
       };
       font = {
-        size = 16;
+        size = if pkgs.stdenv.isDarwin then 16 else 13;
         normal = {
           family = "RobotoMono Nerd Font";
           style = "Medium";
