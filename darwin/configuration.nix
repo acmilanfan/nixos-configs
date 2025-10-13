@@ -2,8 +2,6 @@
 
 {
   ## TODO things to fix
-  # - kanata config for number layers
-  # - kanata config for symbols layers
   # - kanata config for browser ctr/cmd
   # - setup middle click three fingers tap
   # - fix jankyborders errors and appearance (cover window border a bit)
@@ -116,6 +114,7 @@
   # Homebrew packages that don't work well with nix-darwin
   homebrew = {
     enable = true;
+    global.autoUpdate = false;
 
     # Homebrew casks (GUI applications)
     casks = [
