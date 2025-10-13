@@ -9,7 +9,12 @@ after-startup-command = [
     # Start AutoRaise for focus follows mouse
     'exec-and-forget open /Applications/AutoRaise.app',
     # Start window highlighting daemon
-    'exec-and-forget window-highlight-daemon',
+    # TODO move to a daemon/agent
+    'exec-and-forget aerospace-highlight-daemon',
+]
+
+exec-on-workspace-change = [
+  "/bin/zsh", "-c", "pip-pop"
 ]
 
 # Normalizations. See: https://nikitabobko.github.io/AeroSpace/guide#normalization
@@ -99,20 +104,26 @@ alt-comma = 'layout accordion horizontal vertical'
 
 # AwesomeWM equivalent keybindings
 # Focus navigation (Alt+j/k in AwesomeWM)
-alt-j = 'focus down --boundaries-action wrap-around-the-workspace'
-alt-k = 'focus up --boundaries-action wrap-around-the-workspace'
-alt-h = 'focus left --boundaries-action wrap-around-the-workspace'
-alt-l = 'focus right --boundaries-action wrap-around-the-workspace'
+# alt-j = 'focus down --boundaries-action wrap-around-the-workspace'
+# alt-k = 'focus up --boundaries-action wrap-around-the-workspace'
+# alt-h = 'focus left --boundaries-action wrap-around-the-workspace'
+# alt-l = 'focus right --boundaries-action wrap-around-the-workspace'
+alt-j = 'focus dfs-next --boundaries-action wrap-around-the-workspace'
+alt-k = 'focus dfs-prev --boundaries-action wrap-around-the-workspace'
 
 # Window movement (Alt+Shift+j/k in AwesomeWM)
-alt-shift-j = 'move down'
-alt-shift-k = 'move up'
+# alt-shift-j = 'move down'
+# alt-shift-k = 'move up'
+alt-shift-j = 'swap --wrap-around dfs-next'
+alt-shift-k = 'swap --wrap-around dfs-prev'
 alt-shift-h = 'move left'
 alt-shift-l = 'move right'
 
 # Resize windows (similar to Alt+h/l master width in AwesomeWM)
-alt-ctrl-h = 'resize smart -50'
-alt-ctrl-l = 'resize smart +50'
+# alt-ctrl-h = 'resize smart -50'
+# alt-ctrl-l = 'resize smart +50'
+alt-h = 'resize smart -50'
+alt-l = 'resize smart +50'
 
 # Terminal (Alt+Return in AwesomeWM)
 alt-enter = 'exec-and-forget open -n /Applications/Alacritty.app'
@@ -154,7 +165,6 @@ alt-9 = 'workspace 9'
 alt-0 = 'workspace 10'
 
 # Second set of workspaces (Alt+Control+1-9,0 for 11-20 in AwesomeWM)
-# TODO does not work
 alt-ctrl-1 = 'workspace 11'
 alt-ctrl-2 = 'workspace 12'
 alt-ctrl-3 = 'workspace 13'
@@ -179,7 +189,6 @@ alt-shift-9 = 'move-node-to-workspace 9'
 alt-shift-0 = 'move-node-to-workspace 10'
 
 # Move window to second set of workspaces (Control+Alt+Shift+1-9,0 for 11-20 in AwesomeWM)
-# TODO does not work
 ctrl-alt-shift-1 = 'move-node-to-workspace 11'
 ctrl-alt-shift-2 = 'move-node-to-workspace 12'
 ctrl-alt-shift-3 = 'move-node-to-workspace 13'

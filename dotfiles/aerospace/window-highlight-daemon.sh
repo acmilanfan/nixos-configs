@@ -54,21 +54,21 @@ stop_daemon() {
 update_highlighting_state() {
     local should_be_highlighted
     local is_currently_running
-    
+
     # Check if highlighting should be enabled based on window count
     if should_highlight; then
         should_be_highlighted=true
     else
         should_be_highlighted=false
     fi
-    
+
     # Check current JankyBorders status
     if is_running; then
         is_currently_running=true
     else
         is_currently_running=false
     fi
-    
+
     # Update highlighting state if needed
     if [[ "$should_be_highlighted" == true ]] && [[ "$is_currently_running" == false ]]; then
         log_message "Starting JankyBorders - multiple windows detected"
@@ -83,12 +83,12 @@ update_highlighting_state() {
 run_daemon() {
     # Create PID file
     echo $$ > "$PID_FILE"
-    
+
     log_message "Window highlighting daemon started (PID: $$)"
-    
+
     # Initial state update
     update_highlighting_state
-    
+
     # Main monitoring loop
     while true; do
         # Check if we should still be running
@@ -96,14 +96,14 @@ run_daemon() {
             log_message "Daemon PID file changed or removed, exiting"
             break
         fi
-        
+
         # Update highlighting state
         update_highlighting_state
-        
+
         # Wait before next check
         sleep "$CHECK_INTERVAL"
     done
-    
+
     # Cleanup on exit
     rm -f "$PID_FILE"
     log_message "Daemon exited"
@@ -114,14 +114,14 @@ show_status() {
     if is_daemon_running; then
         local pid=$(cat "$PID_FILE")
         echo "Window highlighting daemon is running (PID: $pid)"
-        
+
         # Show current highlighting state
         if is_running; then
             echo "JankyBorders is currently running"
         else
             echo "JankyBorders is currently stopped"
         fi
-        
+
         # Show window count
         if command -v aerospace >/dev/null 2>&1; then
             local focused_workspace=$(aerospace list-workspaces --focused 2>/dev/null)

@@ -2,14 +2,20 @@
 
 {
   ## TODO things to fix
+  # - kanata config for number layers
+  # - kanata config for symbols layers
+  # - kanata config for browser ctr/cmd
   # - setup middle click three fingers tap
+  # - fix jankyborders errors and appearance (cover window border a bit)
   # - lock keybind
+  # - firenvim does not work
   # - fixed accordion mode on one specific screen
-  # - keyboard BT control
   # - warpd for system layer mouse replacement
+  # - keyboard BT control
   # - fix sketchybar
   # - faster animations of window tiling
   # - remove window decoration on some (most) apps
+  # - fix windows hightlight when on full screen/accordeon mode
 
   system.primaryUser = "andreishumailov";
   environment.systemPackages = with pkgs; [
@@ -35,7 +41,7 @@
     httpie
 
     # Window management
-    aerospace
+    unstable.aerospace
     sketchybar
 
     # Keyboard management - Kanata moved to Homebrew for better macOS permissions
@@ -69,6 +75,22 @@
       RunAtLoad = true;
       StandardOutPath = "/tmp/kanata_vk_agent_stdout.log";
       StandardErrorPath = "/tmp/kanata_vk_agent_stderr.log";
+    };
+  };
+
+  launchd.agents.aerospace-window-highlight = {
+    command = "/bin/zsh -c 'source /Users/andreishumailov/.zshrc && aerospace-highlight-daemon'";
+    serviceConfig = {
+      Label = "local.aerospace-window-highlight";
+      KeepAlive = {
+        Crashed = true;
+        SuccessfulExit = false;
+      };
+      RunAtLoad = true;
+      StandardOutPath = "/tmp/aerospace_window_highlight_stdout.log";
+      StandardErrorPath = "/tmp/aerospace_window_highlight_stderr.log";
+      # Wait a bit after system startup to ensure Aerospace is running
+      StartInterval = 30;
     };
   };
 
@@ -121,14 +143,11 @@
       # "spotify"
 
       # Utilities
-      # "alfred"
-      # "rectangle"
-      # "the-unarchiver"
-      # "appcleaner"
       "raycast"
-      # "maccy" # Clipboard history manager
       "syncthing-app"
-      "karabiner-elements" # Keyboard remapping for macOS
+      "karabiner-elements"
+      "cleanupbuddy"
+      "nextcloud"
 
       # Terminal
       "kitty"
@@ -137,6 +156,7 @@
       # Usability improvements
       "dimentium/autoraise/autoraiseapp"
       "scroll-reverser"
+      # "hammerspoon"
     ];
 
     # Homebrew formulae (CLI tools)
@@ -304,7 +324,7 @@
     # NSGlobalDomain settings (system-wide preferences)
     NSGlobalDomain = {
       "com.apple.swipescrolldirection" = false; # true = natural scrolling
-      #      # Appearance
+      # Appearance
       AppleInterfaceStyle = "Dark";
       AppleInterfaceStyleSwitchesAutomatically = false;
 

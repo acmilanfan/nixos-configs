@@ -6,7 +6,20 @@
 # Colors (matching SketchyBar theme)
 ACTIVE_COLOR="0xff007acc"      # Blue for focused window
 INACTIVE_COLOR="0x00000000"    # Transparent for unfocused windows
-BORDER_WIDTH=3.0
+BORDER_WIDTH=2.0
+
+# Function to check if accordion mode is active
+is_accordion_mode() {
+    # Check if accordion mode state file exists and contains "true"
+    local accordion_state_file="/tmp/aerospace-accordion-mode"
+    if [[ -f "$accordion_state_file" ]]; then
+        local state=$(cat "$accordion_state_file" 2>/dev/null)
+        if [[ "$state" == "true" ]]; then
+            return 0
+        fi
+    fi
+    return 1
+}
 
 # Function to check if highlighting should be enabled
 should_highlight() {
@@ -15,25 +28,31 @@ should_highlight() {
         echo "AeroSpace not found, enabling highlighting by default"
         return 0
     fi
-    
+
+    # Check if accordion mode is active - if so, disable highlighting
+    if is_accordion_mode; then
+        echo "Accordion mode is active, disabling highlighting"
+        return 1
+    fi
+
     # Get current focused workspace
     local focused_workspace
     focused_workspace=$(aerospace list-workspaces --focused 2>/dev/null)
-    
+
     if [[ -z "$focused_workspace" ]]; then
         echo "Could not determine focused workspace, enabling highlighting by default"
         return 0
     fi
-    
+
     # Count windows in the focused workspace
     local window_count
     window_count=$(aerospace list-windows --workspace "$focused_workspace" --format '%{window-id}' 2>/dev/null | wc -l | xargs)
-    
+
     if [[ -z "$window_count" ]] || [[ "$window_count" -eq 0 ]]; then
         echo "No windows found or error counting windows, enabling highlighting by default"
         return 0
     fi
-    
+
     # Only highlight if there are 2 or more windows
     if [[ "$window_count" -gt 1 ]]; then
         echo "Found $window_count windows, enabling highlighting"
@@ -48,13 +67,13 @@ should_highlight() {
 start_jankyborders() {
     # Kill existing borders process
     killall borders 2>/dev/null
-    
+
     # Check if highlighting should be enabled
     if ! should_highlight; then
         echo "JankyBorders disabled - only one window in current workspace"
         return 0
     fi
-    
+
     # Start JankyBorders with configuration
     if command -v borders >/dev/null 2>&1; then
         borders \
@@ -63,10 +82,8 @@ start_jankyborders() {
             width="$BORDER_WIDTH" \
             hidpi=on \
             style=round \
-            radius=9.0 \
-            animation_duration=0.15 \
             blacklist="Finder,System Preferences,Activity Monitor,Calculator,Archive Utility,Maccy" &
-        
+
         echo "JankyBorders started with window highlighting"
     else
         echo "JankyBorders not found. Please install it with: brew install FelixKratz/formulae/borders"

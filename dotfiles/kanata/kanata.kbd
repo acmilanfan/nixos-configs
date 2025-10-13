@@ -1,87 +1,93 @@
 ;; Configuration for built-in Mac Keyboard
-(defcfg
-  process-unmapped-keys yes
-  concurrent-tap-hold yes
-  ;; Apply to all keyboards - device-specific filtering done per-key
+  (defcfg
+    process-unmapped-keys yes
+    concurrent-tap-hold yes
+    macos-dev-names-include (
+      "Apple Internal Keyboard / Trackpad"
+    )
+  )
+(platform (macos)
+  (defsrc
+    esc    f1    f2    f3    f4    f5    f6    f7    f8    f9    f10   f11   f12
+    grv    1     2     3     4     5     6     7     8     9     0     -     =     bspc
+    tab    q     w     e     r     t     y     u     i     o     p     [     ]
+    caps   a     s     d     f     g     h     j     k     l     ;     '     \     ret
+    lsft < z     x     c     v     b     n     m     ,     .     /     rsft
+    fn     lctl  lalt  lmet              spc               rmet  ralt  ◀    ▲ ▼    ▶
+  )
 )
 
-;; TODO: make device specific mappigns
-;; Apple Internal Keyboard / Trackpad
-;; Charybdis Nano (3x5) Splinky
-
-(defsrc
-  esc    f1    f2    f3    f4    f5    f6    f7    f8    f9    f10   f11   f12
-  grv    1     2     3     4     5     6     7     8     9     0     -     =     bspc
-  tab    q     w     e     r     t     y     u     i     o     p     [     ]
-  caps   a     s     d     f     g     h     j     k     l     ;     '     \     ret
-  lsft < z     x     c     v     b     n     m     ,     .     /     rsft
-  fn     lctl  lalt  lmet              spc               rmet  ralt  ◀    ▲ ▼    ▶
+(platform (macos)
+  (deflayer base
+    _     🔅    🔆    mctl  sls   dtn   dnd   ◀◀    ▶⏸    ▶▶    🔇    🔉    🔊
+    _     _     _     _     _     _     _     _     _     _     _     _     _     _
+    _     _     _     _     _     _     _     _     _     _     _     _     _
+    _     @a    @s    @d    @f    _     _     @j    @k    @l    @;    _     _     _
+    _   _ _     _     _     _     _     _     _     _     _     _     _
+    @fn   _     _     _                 _                 _     _     _    _ _    _
+  )
 )
 
-(deflayer base
-  _     🔅    🔆    mctl  sls   dtn   dnd   ◀◀    ▶⏸    ▶▶    🔇    🔉    🔊
-  _     _     _     _     _     _     _     _     _     _     _     _     _     _
-  _     _     _     _     _     _     _     _     _     _     _     _     _
-  _     @a    @s    @d    @f    _     _     @j    @k    @l    @;    _     _     _
-  _   _ _     _     _     _     _     _     _     _     _     _     _
-  @fn   _     _     _                 _                 _     _     _    _ _    _
+(platform (macos)
+  (deflayer fn
+    _     f1    f2    f3    f4    f5    f6    f7    f8    f9    f10   f11   f12
+    _     _     _     _     _     _     _     _     _     _     _     _     _     del
+    _     _     _     _     lrld  _     _     _     _     _     _     _     _
+    _     _     _     _     _     _     _     _     _     _     _     _     _     _
+    _   _ _     _     _     _     _     _     _     _     _     _     _
+    _     _     _     _                 _                 _     _     ⤒    ⇞ ⇟    ⤓
+  )
 )
 
-(deflayer fn
-  _     f1    f2    f3    f4    f5    f6    f7    f8    f9    f10   f11   f12
-  _     _     _     _     _     _     _     _     _     _     _     _     _     del
-  _     _     _     _     lrld  _     _     _     _     _     _     _     _
-  _     _     _     _     _     _     _     _     _     _     _     _     _     _
-  _   _ _     _     _     _     _     _     _     _     _     _     _
-  _     _     _     _                 _                 _     _     ⤒    ⇞ ⇟    ⤓
-)
 (defvar
-  ;; Note: consider using different time values for your different fingers.
-  ;; For example, your pinkies might be slower to release keys and index
-  ;; fingers faster.
   tap-time 200
   hold-time 200
 )
 
-(defalias
-  a (tap-hold-release $tap-time $hold-time a lmet)
-  s (tap-hold-release $tap-time $hold-time s lalt)
-  d (tap-hold-release $tap-time $hold-time d lsft)
-  f (tap-hold-release $tap-time $hold-time f
-      (switch
-        ((input virtual org.mozilla.firefox)) lmet break
-        ((input virtual com.apple.Safari)) lmet break
-        () lctl break))
-
-  j (tap-hold-release $tap-time $hold-time j
-      (switch
-        ((input virtual org.mozilla.firefox)) rmet break
-        ((input virtual com.apple.Safari)) rmet break
-        () rctl break))
-  k (tap-hold-release $tap-time $hold-time k rsft)
-  l (tap-hold-release $tap-time $hold-time l ralt)
-  ; (tap-hold-release $tap-time $hold-time ; rmet)
-
-  fn (tap-hold 250 250 fn (layer-toggle fn))
+(platform (macos)
+    (defvirtualkeys
+      com.apple.Safari nop0
+      org.mozilla.firefox nop0
+    )
 )
 
-;; Home row mods layer
-;; (deflayer homerow
-;;   @a @c @f @l @n @r @t @v @w @x @y @z
-;;   @lctl
-;; )
+(platform (macos)
+  (defalias
+    a (tap-hold-release $tap-time $hold-time a lmet)
+    s (tap-hold-release $tap-time $hold-time s lalt)
+    d (tap-hold-release $tap-time $hold-time d lsft)
+;;    f (tap-hold-release $tap-time $hold-time f lctl)
+    f (tap-hold-release $tap-time $hold-time f
+        (switch
+          ((input virtual org.mozilla.firefox)) lmet break
+          ((input virtual com.apple.Safari)) lmet break
+          () lctl break))
 
-;; Browser-specific Ctrl layer
-;; (deflayer browser-ctrl
-;;   @ctrl-a @ctrl-c @ctrl-f @ctrl-l @ctrl-n @ctrl-r @ctrl-t @ctrl-v @ctrl-w @ctrl-x @ctrl-y @ctrl-z
-;;   _
-;; )
+    j (tap-hold-release $tap-time $hold-time j
+        (switch
+          ((input virtual org.mozilla.firefox)) rmet break
+          ((input virtual com.apple.Safari)) rmet break
+          () rctl break))
+;;    j (tap-hold-release $tap-time $hold-time j rctl)
+    k (tap-hold-release $tap-time $hold-time k rsft)
+    l (tap-hold-release $tap-time $hold-time l ralt)
+    ; (tap-hold-release $tap-time $hold-time ; rmet)
 
-;; Virtual keys for application-specific behavior
-(defvirtualkeys
-  com.apple.Safari nop0
-  org.mozilla.firefox nop0
+    fn (tap-hold 250 250 fn (layer-toggle fn))
+  )
 )
+
+  ;; Home row mods layer
+  ;; (deflayer homerow
+  ;;   @a @c @f @l @n @r @t @v @w @x @y @z
+  ;;   @lctl
+  ;; )
+
+  ;; Browser-specific Ctrl layer
+  ;; (deflayer browser-ctrl
+  ;;   @ctrl-a @ctrl-c @ctrl-f @ctrl-l @ctrl-n @ctrl-r @ctrl-t @ctrl-v @ctrl-w @ctrl-x @ctrl-y @ctrl-z
+  ;;   _
+  ;; )
 
 ;; Aliases for browser-specific shortcuts
 ;; (defalias

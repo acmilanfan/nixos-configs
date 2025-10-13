@@ -27,9 +27,10 @@ in pkgs.mkShell {
     # Database clients
     mysql-client
     mariadb
+    redis
 
     # Docker for macOS (Docker Desktop should be installed separately)
-    # docker
+    docker
 
     # Shell
     zsh
