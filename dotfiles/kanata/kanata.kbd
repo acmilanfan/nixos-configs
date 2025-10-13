@@ -12,7 +12,7 @@
     grv    1     2     3     4     5     6     7     8     9     0     -     =     bspc
     tab    q     w     e     r     t     y     u     i     o     p     [     ]
     caps   a     s     d     f     g     h     j     k     l     ;     '     \     ret
-    lsft < z     x     c     v     b     n     m     ,     .     /     rsft
+    lsft   z     x     c     v     b     n     m     ,     .     /     rsft
     fn     lctl  lalt  lmet              spc               rmet  ralt  ◀    ▲ ▼    ▶
   )
 )
@@ -23,8 +23,8 @@
     _     _     _     _     _     _     _     _     _     _     _     _     _     _
     _     _     _     _     _     _     _     _     _     _     _     _     _
     _     @a    @s    @d    @f    _     _     @j    @k    @l    @;    _     _     _
-    _   _ _     _     _     _     _     _     _     _     _     _     _
-    @fn   _     _     _                 _                 _     _     _    _ _    _
+    _     _     _     _     @v    _     @n    @m    _     _     _     _
+    @fn   _     _     _                 _                 _     _     _     _     _     _
   )
 )
 
@@ -34,8 +34,41 @@
     _     _     _     _     _     _     _     _     _     _     _     _     _     del
     _     _     _     _     lrld  _     _     _     _     _     _     _     _
     _     _     _     _     _     _     _     _     _     _     _     _     _     _
-    _   _ _     _     _     _     _     _     _     _     _     _     _
+    _     _     _     _     _     _     _     _     _     _     _     _
     _     _     _     _                 _                 _     _     ⤒    ⇞ ⇟    ⤓
+  )
+)
+
+(platform (macos)
+  (deflayer numbers
+    _     _     _     _     _     _     _     _     _     _     _     _     _
+    _     _     _     _     _     _     _     _     _     _     _     _     _     _
+    _     _     7     8     9     _     _     _     _     _     _     _     _
+    _     _     4     5     6     _     _     _     _     _     _     _     _     _
+    _     _     1     2     3     _     _     _     _     _     _     _
+    _     _     _     _                 0                 _     _     _     _     _     _
+  )
+)
+
+(platform (macos)
+  (deflayer symbols
+    _     _     _     _     _     _     _     _     _     _     _     _     _
+    _     _     _     _     _     _     _     _     _     _     _     _     _     _
+    _     _     S-7   S-8   S-9   _     _     _     _     _     _     _     _
+    _     _     S-4   S-5   S-6   _     _     _     _     _     _     _     _     _
+    _     _     S-1   S-2   S-3   _     _     _     _     _     _     _
+    _     _     _     _                 S-0               _     _     _     _     _     _
+  )
+)
+
+(platform (macos)
+  (deflayer arrows
+    _     _     _     _     _     _     _     _     _     _     _     _     _
+    _     _     _     _     _     _     _     _     _     _     _     _     _     _
+    _     _     _     _     _     _     _     _     _     _     _     _     _
+    _     _     _     _     _     _     left  down  up    rght  bspc  _     _     _
+    _     _     _     _     _     _     _     _     _     _     _     _
+    _     _     _     _                 ret               _     _     _     _     _     _
   )
 )
 
@@ -74,6 +107,11 @@
     ; (tap-hold-release $tap-time $hold-time ; rmet)
 
     fn (tap-hold 250 250 fn (layer-toggle fn))
+
+    ;; Layer toggle keys
+    n (tap-hold-release $tap-time $hold-time n (layer-while-held numbers))
+    m (tap-hold-release $tap-time $hold-time m (layer-while-held symbols))
+    v (tap-hold-release $tap-time $hold-time v (layer-while-held arrows))
   )
 )
 
