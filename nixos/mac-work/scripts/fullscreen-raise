@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+
+# Get metadata for focused window
+json=$(aerospace list-windows --focused --json)
+
+# Extract correct app field
+app_name=$(echo "$json" | jq -r '.[0]["app-name"]')
+
+# Fallback if empty (rare)
+if [[ "$app_name" == "null" || -z "$app_name" ]]; then
+    app_name=$(osascript -e 'tell application "System Events" to get name of first process whose frontmost is true')
+fi
+
+# Toggle fullscreen via AeroSpace
+aerospace fullscreen
+
+# Small delay for WM state change
+sleep 0.12
+
+# Raise the application
+osascript -e "tell application \"$app_name\" to activate"
+
+
+# # Get the frontmost application name directly
+# app_name=$(osascript -e 'tell application "System Events" to get name of first process whose frontmost is true')
+#
+# # Toggle fullscreen via AeroSpace
+# aerospace fullscreen
+#
+# # Small delay for WM state change
+# sleep 0.1
+#
+# # Raise the application
+# osascript -e "tell application \"$app_name\" to activate"

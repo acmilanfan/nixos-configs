@@ -26,6 +26,7 @@
       sketchybar # Status bar
 
       (writeShellScriptBin "pip-pop" (lib.readFile ./scripts/pip-pop))
+      (writeShellScriptBin "fullscreen-raise" (lib.readFile ./scripts/fullscreen-raise))
     ] ++ lib.optionals pkgs.stdenv.isDarwin [
       # Darwin-specific packages
     ];
@@ -65,6 +66,8 @@
       "~/.config/aerospace/window-highlight-daemon.sh stop";
     aerospace-highlight-daemon-status =
       "~/.config/aerospace/window-highlight-daemon.sh status";
+    aero-border-manager =
+      "~/.config/aerospace/aero-border-manager.sh";
 
     # Clipboard shortcuts
     clipboard-history = "open -a Maccy";
@@ -95,6 +98,8 @@
       ../../dotfiles/aerospace/window-highlight.sh;
     ".config/aerospace/window-highlight-daemon.sh".source =
       ../../dotfiles/aerospace/window-highlight-daemon.sh;
+    ".config/aerospace/aero-border-manager.sh".source =
+      ../../dotfiles/aerospace/aero-border-manager.sh;
     # JankyBorders configuration
     ".config/borders/bordersrc".source = ../../dotfiles/jankyborders/bordersrc;
 

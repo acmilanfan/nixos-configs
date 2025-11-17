@@ -10,11 +10,11 @@ after-startup-command = [
     'exec-and-forget open /Applications/AutoRaise.app',
     # Start window highlighting daemon
     # TODO move to a daemon/agent
-    'exec-and-forget aerospace-highlight-daemon',
+    'exec-and-forget aero-border-manager start',
 ]
 
 exec-on-workspace-change = [
-  "/bin/zsh", "-c", "pip-pop"
+  "/bin/zsh", "-c", "pip-pop &"
 ]
 
 # Normalizations. See: https://nikitabobko.github.io/AeroSpace/guide#normalization
@@ -136,6 +136,8 @@ alt-shift-q = 'close'
 
 # Fullscreen toggle (Alt+f in AwesomeWM)
 alt-f = 'fullscreen'
+# alt-f = "exec-and-forget fullscreen-raise"
+# alt-f = "exec-and-forget ~/configs/nixos-configs/nixos/mac-work/scripts/fullscreen-raise"
 
 # Float/unfloat window (Alt+Control+space in AwesomeWM)
 alt-ctrl-space = 'layout floating tiling'

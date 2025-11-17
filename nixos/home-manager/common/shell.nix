@@ -28,12 +28,14 @@
       docker-shell = "nix develop ~/configs/nixos-configs/shell/java";
       java-shell = "nix develop ~/configs/nixos-configs/shell/java/pure";
       darwin-java-shell = "nix develop ~/configs/nixos-configs/shell/java/darwin";
+      go-darwin-shell = "nix develop ~/configs/nixos-configs/shell/go-node/darwin";
       go-shell = "nix develop ~/configs/nixos-configs/shell/go-node";
       python-shell = "nix develop ~/configs/nixos-configs/shell/python";
       fhs-shell = "nix develop ~/configs/nixos-configs/shell/fhs";
     } // pkgs.lib.optionalAttrs pkgs.stdenv.isLinux {
       # Linux-specific aliases
-      sup = "sudo nixos-rebuild switch --flake $HOME/configs/nixos-configs/#$NIX_SYSTEM --impure";
+      # sup = "sudo nixos-rebuild switch --flake $HOME/configs/nixos-configs/#$NIX_SYSTEM --impure";
+      sup = "sudo darwin-rebuild switch --flake $HOME/configs/nixos-configs/#$NIX_SYSTEM --impure";
     };
     initContent = ''
       autoload -U colors && colors

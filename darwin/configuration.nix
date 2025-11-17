@@ -2,10 +2,12 @@
 
 {
   ## TODO things to fix
-  # - kanata config for browser ctr/cmd
+  # - lock keybind
+  # - kanata config for browser ctr/cmd for external keyboard
+  # - add a keybind to switch kanata normal config and canata home row mode with numbers and modifiers disabled
   # - setup middle click three fingers tap
   # - fix jankyborders errors and appearance (cover window border a bit)
-  # - lock keybind
+  # - when full screen a window (not OS fullscreen), automatically raise the window on top
   # - firenvim does not work
   # - fixed accordion mode on one specific screen
   # - warpd for system layer mouse replacement
@@ -76,21 +78,21 @@
     };
   };
 
-  launchd.agents.aerospace-window-highlight = {
-    command = "/bin/zsh -c 'source /Users/andreishumailov/.zshrc && aerospace-highlight-daemon'";
-    serviceConfig = {
-      Label = "local.aerospace-window-highlight";
-      KeepAlive = {
-        Crashed = true;
-        SuccessfulExit = false;
-      };
-      RunAtLoad = true;
-      StandardOutPath = "/tmp/aerospace_window_highlight_stdout.log";
-      StandardErrorPath = "/tmp/aerospace_window_highlight_stderr.log";
-      # Wait a bit after system startup to ensure Aerospace is running
-      StartInterval = 30;
-    };
-  };
+  # launchd.agents.aerospace-window-highlight = {
+  #   command = "/bin/zsh -c 'source /Users/andreishumailov/.zshrc && aerospace-highlight-daemon'";
+  #   serviceConfig = {
+  #     Label = "local.aerospace-window-highlight";
+  #     KeepAlive = {
+  #       Crashed = true;
+  #       SuccessfulExit = false;
+  #     };
+  #     RunAtLoad = true;
+  #     StandardOutPath = "/tmp/aerospace_window_highlight_stdout.log";
+  #     StandardErrorPath = "/tmp/aerospace_window_highlight_stderr.log";
+  #     # Wait a bit after system startup to ensure Aerospace is running
+  #     StartInterval = 30;
+  #   };
+  # };
 
   # launchd.agents.scroll-reverser = {
   #   command =
@@ -412,5 +414,5 @@
   };
 
   # Security settings
-  # security.pam.enableSudoTouchId = true;
+  security.pam.services.sudo_local.touchIdAuth = true;
 }

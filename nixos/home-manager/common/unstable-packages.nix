@@ -1,7 +1,7 @@
 { config, unstable, pkgs, ... }: {
 
   home.packages = [
-    unstable.tdesktop
+    unstable.telegram-desktop
     # unstable.jetbrains.idea-community
     # pkgs.jetbrains.idea-ultimate
     #genymotionPkgs.genymotion
