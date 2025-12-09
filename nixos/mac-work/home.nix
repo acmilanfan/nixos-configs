@@ -54,21 +54,6 @@
     aerospace-list = "aerospace list-windows --all";
     aerospace-debug = "aerospace debug-windows";
 
-    aerospace-highlight = "~/.config/aerospace/window-highlight.sh start";
-    aerospace-highlight-stop = "~/.config/aerospace/window-highlight.sh stop";
-    aerospace-highlight-toggle =
-      "~/.config/aerospace/window-highlight.sh toggle";
-    aerospace-highlight-status =
-      "~/.config/aerospace/window-highlight.sh status";
-    aerospace-highlight-daemon =
-      "~/.config/aerospace/window-highlight-daemon.sh start";
-    aerospace-highlight-daemon-stop =
-      "~/.config/aerospace/window-highlight-daemon.sh stop";
-    aerospace-highlight-daemon-status =
-      "~/.config/aerospace/window-highlight-daemon.sh status";
-    aero-border-manager =
-      "~/.config/aerospace/aero-border-manager.sh";
-
     # Clipboard shortcuts
     clipboard-history = "open -a Maccy";
     clipboard-clear = "defaults delete org.p0deje.Maccy";
@@ -80,7 +65,7 @@
 
   # macOS-specific programs configuration
   programs.git = {
-    extraConfig = {
+    settings = {
       # macOS-specific git settings
       credential.helper = "osxkeychain";
     };
@@ -91,17 +76,8 @@
     # macOS-specific dotfiles can go here
     ".hushlogin".text = ""; # Suppress login message
 
-    # AeroSpace configuration
     ".config/aerospace/aerospace.toml".source =
       ../../dotfiles/aerospace/aerospace.toml;
-    ".config/aerospace/window-highlight.sh".source =
-      ../../dotfiles/aerospace/window-highlight.sh;
-    ".config/aerospace/window-highlight-daemon.sh".source =
-      ../../dotfiles/aerospace/window-highlight-daemon.sh;
-    ".config/aerospace/aero-border-manager.sh".source =
-      ../../dotfiles/aerospace/aero-border-manager.sh;
-    # JankyBorders configuration
-    ".config/borders/bordersrc".source = ../../dotfiles/jankyborders/bordersrc;
 
     # SketchyBar configuration
     ".config/sketchybar/sketchybarrc".source =
@@ -166,7 +142,7 @@
     ".config/kanata/reload-kanata.sh".source =
       ../../dotfiles/kanata/reload-kanata.sh;
 
-    ".hammerspoon/init.lua".source = ../../dotfiles/hammerspoon/init.lua;
+    # ".hammerspoon/init.lua".source = ../../dotfiles/hammerspoon/init.lua;
   };
 
   # macOS-specific environment variables
@@ -175,5 +151,5 @@
     BROWSER = "open";
   };
 
-  home.stateVersion = "25.05";
+  home.stateVersion = "25.11";
 }

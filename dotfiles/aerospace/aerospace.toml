@@ -8,9 +8,6 @@ start-at-login = true
 after-startup-command = [
     # Start AutoRaise for focus follows mouse
     'exec-and-forget open /Applications/AutoRaise.app',
-    # Start window highlighting daemon
-    # TODO move to a daemon/agent
-    'exec-and-forget aero-border-manager start',
 ]
 
 exec-on-workspace-change = [
@@ -253,16 +250,6 @@ alt-shift-k = ['join-with up', 'mode main']
 alt-shift-l = ['join-with right', 'mode main']
 
 # Window rules - similar to AwesomeWM floating rules
-
-# Maccy clipboard manager - should float and not interfere with focus
-[[on-window-detected]]
-if.app-id = 'org.p0deje.Maccy'
-run = 'layout floating'
-
-[[on-window-detected]]
-if.app-id = 'org.jetbrains.toolbox.renderer'
-run = 'layout floating'
-
 [[on-window-detected]]
 if.app-id = 'com.apple.systempreferences'
 run = 'layout floating'
@@ -282,22 +269,6 @@ run = 'layout floating'
 
 [[on-window-detected]]
 if.app-id = 'com.apple.archiveutility'
-run = 'layout floating'
-
-# JetBrains IDEs floating windows (similar to AwesomeWM jetbrains rules)
-[[on-window-detected]]
-if.app-id = 'com.jetbrains.intellij'
-if.window-title-regex-substring = '^win\d+$'
-run = 'layout floating'
-
-[[on-window-detected]]
-if.app-id = 'com.jetbrains.pycharm'
-if.window-title-regex-substring = '^win\d+$'
-run = 'layout floating'
-
-[[on-window-detected]]
-if.app-id = 'com.jetbrains.webstorm'
-if.window-title-regex-substring = '^win\d+$'
 run = 'layout floating'
 
 # Org-mode terminal windows (matching AwesomeWM orgindex class)

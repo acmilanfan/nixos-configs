@@ -6,7 +6,6 @@
   # - kanata config for browser ctr/cmd for external keyboard
   # - add a keybind to switch kanata normal config and canata home row mode with numbers and modifiers disabled
   # - setup middle click three fingers tap
-  # - fix jankyborders errors and appearance (cover window border a bit)
   # - when full screen a window (not OS fullscreen), automatically raise the window on top
   # - firenvim does not work
   # - fixed accordion mode on one specific screen
@@ -158,6 +157,7 @@
       "dimentium/autoraise/autoraiseapp"
       "scroll-reverser"
       # "hammerspoon"
+      "balenaetcher"
     ];
 
     # Homebrew formulae (CLI tools)
@@ -165,7 +165,6 @@
       # Tools that work better via homebrew
       "mas" # Mac App Store CLI
       "scrcpy" # Android screen mirroring
-      "borders" # JankyBorders for window highlighting (from FelixKratz tap)
       "kanata"
       "devsunb/tap/kanata-vk-agent"
     ];
@@ -194,7 +193,7 @@
     roboto-mono
     roboto-slab
     roboto-serif
-    ubuntu_font_family
+    ubuntu-classic
     nerd-fonts.roboto-mono
     jetbrains-mono
     font-awesome
@@ -277,6 +276,7 @@
           "65" = { enabled = true; };
         };
       };
+
     };
 
     # Dock settings

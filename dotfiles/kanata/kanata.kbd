@@ -11,7 +11,7 @@
   (w e)    esc      50 all-released ()
   (a ;)    esc      50 all-released ()
   (m ,)    -        50 all-released ()
-  (e r)    tab      50 all-released ()
+  (d v)    tab      50 all-released ()
   (d k)    caps     50 all-released ()
   (o p)    S-;      50 all-released ()
   (c v)    (multi lmet v)   50 all-released ()

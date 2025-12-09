@@ -6,7 +6,7 @@
       roboto-mono
       roboto-slab
       roboto-serif
-      ubuntu_font_family
+      ubuntu-classic
       nerd-fonts.roboto-mono
       corefonts
       jetbrains-mono

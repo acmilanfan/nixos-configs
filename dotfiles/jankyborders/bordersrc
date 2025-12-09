@@ -1,9 +1,0 @@
-#!/bin/bash
-
-borders \
-  active_color=0xff007acc \
-  inactive_color=0xff555555 \
-  width=3.0 \
-  hidpi=on \
-  style=round
-

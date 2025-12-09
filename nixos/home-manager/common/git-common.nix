@@ -1,7 +1,9 @@
 { ... }: {
 
   programs.git = {
-    userName = "Andrei Shumailov";
+    settings = {
+      user.name = "Andrei Shumailov";
+    };
   };
 
 }

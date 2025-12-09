@@ -1,12 +1,12 @@
 {
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
     unstable-nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     musnix.url = "github:musnix/musnix/master";
     musnix.inputs.nixpkgs.follows = "nixpkgs";
 
     nur.url = "github:nix-community/NUR";
-    home-manager.url = "github:nix-community/home-manager/release-25.05";
+    home-manager.url = "github:nix-community/home-manager/release-25.11";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
 
     nixos-hardware.url = "github:NixOS/nixos-hardware/master";
@@ -22,7 +22,7 @@
     };
 
     nix-darwin = {
-      url = "github:LnL7/nix-darwin/nix-darwin-25.05";
+      url = "github:nix-darwin/nix-darwin/nix-darwin-25.11";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
@@ -68,7 +68,7 @@
             ./nixos/z16/configuration.nix
             home-manager.nixosModules.home-manager
             {
-              home-manager.useGlobalPkgs = true;
+              # home-manager.useGlobalPkgs = true;
               home-manager.useUserPackages = true;
               home-manager.backupFileExtension = "backup";
               home-manager.users.gentooway = import ./nixos/z16/home.nix;
@@ -93,7 +93,7 @@
             ./nixos/t480-home/configuration.nix
             home-manager.nixosModules.home-manager
             {
-              home-manager.useGlobalPkgs = true;
+              # home-manager.useGlobalPkgs = true;
               home-manager.useUserPackages = true;
               home-manager.backupFileExtension = "backup";
               home-manager.users.gentooway = import ./nixos/t480-home/home.nix;
@@ -114,7 +114,7 @@
             ./nixos/yogabook-gen10/configuration.nix
             home-manager.nixosModules.home-manager
             {
-              home-manager.useGlobalPkgs = true;
+              # home-manager.useGlobalPkgs = true;
               home-manager.useUserPackages = true;
               home-manager.backupFileExtension = "backup";
               home-manager.users.gentooway =
@@ -148,7 +148,7 @@
           };
           modules = [
             ./darwin/configuration.nix
-            mac-app-util.darwinModules.default
+            # mac-app-util.darwinModules.default
             nix-homebrew.darwinModules.nix-homebrew
             {
               nix-homebrew = {
@@ -160,11 +160,11 @@
             }
             home-manager.darwinModules.home-manager
             {
-              home-manager.useGlobalPkgs = true;
+              # home-manager.useGlobalPkgs = true;
               home-manager.useUserPackages = true;
               home-manager.backupFileExtension = "backup";
-              home-manager.sharedModules =
-                [ mac-app-util.homeManagerModules.default ];
+              # home-manager.sharedModules =
+              #   [ mac-app-util.homeManagerModules.default ];
               home-manager.users.andreishumailov =
                 import ./nixos/mac-work/home.nix;
               home-manager.extraSpecialArgs = {
