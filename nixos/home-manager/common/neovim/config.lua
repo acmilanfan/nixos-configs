@@ -343,7 +343,7 @@ vim.api.nvim_create_autocmd("FileType", {
   end,
 })
 
-require("lspconfig").gopls.setup({
+vim.lsp.config('gopls', {
   capabilities = capabilities,
   settings = {
     gopls = {
@@ -355,7 +355,8 @@ require("lspconfig").gopls.setup({
     },
   },
 })
-require("lspconfig").lua_ls.setup({
+
+vim.lsp.config('lua_ls', {
   settings = {
     Lua = {
       diagnostics = {
@@ -366,10 +367,10 @@ require("lspconfig").lua_ls.setup({
     },
   },
 })
-require("lspconfig").nil_ls.setup({
+vim.lsp.config('nil_ls', {
   capabilities = capabilities,
 })
-require("lspconfig").volar.setup({
+vim.lsp.config('volar', {
   init_options = {
     typescript = {
       tsdk = "",
@@ -378,13 +379,13 @@ require("lspconfig").volar.setup({
   capabilities = capabilities,
   filetypes = { "typescript", "javascript", "javascriptreact", "typescriptreact", "vue", "json" },
 })
-require("lspconfig").ts_ls.setup({
+vim.lsp.config('ts_ls', {
   capabilities = capabilities,
 })
-require("lspconfig").sqls.setup({
+vim.lsp.config('sqls', {
   capabilities = capabilities,
 })
-require("lspconfig").jsonls.setup({
+vim.lsp.config('jsonls', {
   cmd = { "vscode-json-languageserver", "--stdio" },
   capabilities = capabilities,
   settings = {
@@ -395,23 +396,23 @@ require("lspconfig").jsonls.setup({
   },
 })
 
-require("lspconfig").graphql.setup({
+vim.lsp.config('graphql', {
   capabilities = capabilities,
 })
 
-require("lspconfig").eslint.setup({
+vim.lsp.config('eslint', {
   capabilities = capabilities,
 })
 
-require("lspconfig").kotlin_language_server.setup({
+vim.lsp.config('kotlin_language_server', {
   capabilities = capabilities,
 })
 
-require("lspconfig").terraformls.setup({
+vim.lsp.config('terraformls', {
   capabilities = capabilities,
 })
 
-require("lspconfig").yamlls.setup({
+vim.lsp.config('yamlls', {
   capabilities = capabilities,
   settings = {
     yaml = {
@@ -444,7 +445,7 @@ if lemminx_home then
     "org.eclipse.lemminx.XMLServerLauncher",
   }
 end
-require("lspconfig").lemminx.setup({
+vim.lsp.config('lemminx', {
   capabilities = capabilities,
   cmd = cmd,
 })
