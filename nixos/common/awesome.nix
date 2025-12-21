@@ -6,6 +6,8 @@
     luaModules = [ pkgs.luaPackages.lgi ];
   };
 
+  programs.hyprland.enable = true;
+
   services.picom.enable = true;
   # services.picom.settings = {
     # use-damage = false;

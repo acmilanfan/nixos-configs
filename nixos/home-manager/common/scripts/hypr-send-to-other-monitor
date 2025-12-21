@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -e
+
+# Focused window workspace
+CUR_WS=$(hyprctl activewindow -j | jq -r '.workspace.id')
+
+# Active workspace per monitor
+readarray -t MON_WSS < <(hyprctl monitors -j | jq -r '.[] | "\(.id) \(.activeWorkspace.id)"')
+
+# Need exactly 2 monitors
+[ "${#MON_WSS[@]}" -eq 2 ] || exit 0
+
+# Determine target workspace
+IFS=' ' read MON1 WS1 <<< "${MON_WSS[0]}"
+IFS=' ' read MON2 WS2 <<< "${MON_WSS[1]}"
+
+if [ "$CUR_WS" = "$WS1" ]; then
+  TARGET_WS="$WS2"
+else
+  TARGET_WS="$WS1"
+fi
+
+hyprctl dispatch movetoworkspace "$TARGET_WS"

@@ -1,6 +1,14 @@
 { ... }: {
 
-  services.flameshot.enable = true;
+  services.flameshot = {
+    enable = true;
+    settings = {
+      General = {
+        showStartupLaunchMessage = false;
+        useGrimAdapter = true;
+      };
+    };
+  };
   # services.safeeyes.enable = true;
   services.unclutter.enable = true;
 

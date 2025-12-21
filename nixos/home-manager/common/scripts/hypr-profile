@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+
+choice=$(printf "Vertical (stacked)
+Horizontal (wide)
+Single screen top
+Single screen top (tablet)
+Desk (external)" | rofi -dmenu -p "Display mode")
+
+
+case "$choice" in
+"Vertical (stacked)")
+hyprctl keyword monitor "eDP-1,2880x1800@120,0x0,1.6"
+hyprctl keyword monitor "eDP-2,2880x1800@120,0x1800,1.6"
+;;
+"Horizontal (wide)")
+hyprctl keyword monitor "eDP-1,2880x1800@120,0x0,1.6"
+hyprctl keyword monitor "eDP-2,2880x1800@120,2880x0,1.6"
+;;
+"Single screen top")
+hyprctl keyword monitor "eDP-1,2880x1800@120,0x0,1.6"
+hyprctl keyword monitor "eDP-2,disable"
+;;
+"Single screen top (tablet)")
+hyprctl keyword monitor "eDP-1,2880x1800@120,0x0,1.8"
+hyprctl keyword monitor "eDP-2,disable"
+;;
+"Desk (external)")
+hyprctl keyword monitor "DP-1,3840x2160@120,0x0,2"
+hyprctl keyword monitor "DP-2,3840x2160@120,0x0,2"
+hyprctl keyword monitor "DP-3,3840x2160@120,0x0,2"
+;;
+esac

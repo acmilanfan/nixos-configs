@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+CURRENT=$(hyprctl -j activeworkspace | jq -r '.layout')
+
+if [ "$CURRENT" = "dwindle" ]; then
+  hyprctl dispatch layoutmsg swapwithmaster
+  hyprctl keyword general:layout master
+else
+  hyprctl keyword general:layout dwindle
+fi
