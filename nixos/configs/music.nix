@@ -1,6 +1,13 @@
 { pkgs, musnix, ... }: {
 
-  environment.systemPackages = with pkgs; [ pavucontrol qjackctl carla libjack2 jack2 jack_capture ];
+  environment.systemPackages = with pkgs; [
+    pavucontrol
+    qjackctl
+    carla
+    libjack2
+    jack2
+    jack_capture
+  ];
 
   services.tlp.enable = false;
   security.sudo.extraConfig = ''
@@ -31,7 +38,6 @@
   #  ];
   #};
 
-
   services.pipewire = {
     enable = true;
     wireplumber.enable = true;
@@ -39,22 +45,7 @@
     alsa.support32Bit = true;
     pulse.enable = true;
     jack.enable = true;
-
-    extraConfig = {
-      pipewire = {
-        "context.properties" = {
-          "bluez5.autoswitch" = false;
-        };
-      };
-    };
-    wireplumber.extraConfig = {
-      "policy.bluez" = {
-        "bluez5.autoswitch-profile" = false;
-      };
-    };
   };
 
   users.users.gentooway.extraGroups = [ "jackaudio" "audio" ];
 }
-
-

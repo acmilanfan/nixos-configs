@@ -4,6 +4,7 @@
         "tag",
         "screen",
         "awesome",
-        "serialize_table"
+        "serialize_table",
+        "client"
     ]
 }

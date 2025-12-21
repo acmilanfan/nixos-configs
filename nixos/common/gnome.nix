@@ -3,7 +3,7 @@
   services.xserver.desktopManager.gnome.enable = true;
   services.xserver.displayManager.gdm ={
     enable = true;
-    wayland = false;
+    wayland = true;
   };
 
   environment.systemPackages = with pkgs; [

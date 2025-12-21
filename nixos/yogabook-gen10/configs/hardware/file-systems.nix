@@ -9,6 +9,8 @@
   #   };
   # };
 
+  boot.supportedFilesystems = [ "ntfs" "exfat" ];
+
   fileSystems."/" = {
     device = "/dev/disk/by-uuid/ffc979a6-2c85-482f-8a6e-d81b712d13a6";
     fsType = "ext4";

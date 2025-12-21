@@ -9,14 +9,20 @@
       lib.mkForce "light -s sysfs/backlight/intel_backlight";
   };
 
-  programs.auto-cpufreq.enable = true;
-  programs.auto-cpufreq.settings = {
+  services.auto-cpufreq.enable = true;
+  services.auto-cpufreq.settings = {
     charger = {
       governor = "performance";
       turbo = "auto";
-      energy_performance_preference = "balance_performance";
-      platform_profile = "balanced";
+      energy_performance_preference = "performance";
+      platform_profile = "performance";
     };
+    # charger = {
+    #   governor = "performance";
+    #   turbo = "auto";
+    #   energy_performance_preference = "balance_performance";
+    #   platform_profile = "balanced";
+    # };
 
     battery = {
       governor = "powersave";
@@ -28,34 +34,95 @@
   };
   services.xserver.dpi = lib.mkForce 168;
 
-  # boot.kernelPatches = [{
-  #   name = "yoga-book-9i-14IAH10-backlight";
-  #   patch = ./NB140B9M-dpcd-backlight-fix.patch;
-  # }];
+  services.xserver = {
+    enable = true;
+    libinput.enable = true;
 
-  # boot.kernelPackages = pkgs.linuxPackagesFor (pkgs.linux_6_14.override {
-  #   argsOverride = rec {
-  #     # disable unwanted drivers
-  #     configfile = pkgs.writeText "kernel-config" ''
-  #       ${builtins.readFile "${pkgs.linux_6_14}/lib/modules/*/build/.config"}
-  #       # disable AMD/Nouveau GPU support
-  #       CONFIG_DRM_AMDGPU=n
-  #       CONFIG_DRM_RADEON=n
-  #       CONFIG_DRM_NOUVEAU=n
-  #     '';
-  #   };
-  # });
+    # inputClassSections = [
+    #   ''
+    #     Section "InputClass"
+    #       Identifier "Top touchscreen"
+    #       MatchProduct "INGENIC Gadget Serial and keyboard Touchscreen Top"
+    #       Driver "libinput"
+    #       Option "TransformationMatrix" "1 0 0 0 0.5 0 0 0 1"
+    #       # Maps input to top half of the combined screen
+    #     EndSection
+    #   ''
+    #   ''
+    #     Section "InputClass"
+    #       Identifier "Bottom touchscreen"
+    #       MatchProduct "INGENIC Gadget Serial and keyboard Touchscreen Bottom"
+    #       Driver "libinput"
+    #       Option "TransformationMatrix" "1 0 0 0 0.5 0.5 0 0 1"
+    #       # Maps input to bottom half of the combined screen
+    #     EndSection
+    #   ''
+      # ''
+      #   Section "InputClass"
+      #     Identifier "Top touchscreen"
+      #     MatchProduct "INGENIC Gadget Serial and keyboard Touchscreen Top"
+      #     MatchIsTouchscreen "on"
+      #     Driver "libinput"
+      #     Option "CalibrationMatrix" "1 0 0 0 1 0 0 0 1"
+      #   EndSection
+      # ''
+      # ''
+      #   Section "InputClass"
+      #     Identifier "Top stylus"
+      #     MatchProduct "INGENIC Gadget Serial and keyboard Stylus Top"
+      #     MatchIsTablet "on"
+      #     Driver "libinput"
+      #   EndSection
+      # ''
+      # ''
+      #   Section "InputClass"
+      #     Identifier "Bottom touchscreen"
+      #     MatchProduct "INGENIC Gadget Serial and keyboard Touchscreen Bottom"
+      #     MatchIsTouchscreen "on"
+      #     Driver "libinput"
+      #     Option "CalibrationMatrix" "1 0 0 0 1 0 0 0 1"
+      #   EndSection
+      # ''
+  #     ''
+  #       Section "InputClass"
+  #         Identifier "Bottom stylus"
+  #         MatchProduct "INGENIC Gadget Serial and keyboard Stylus Bottom"
+  #         MatchIsTablet "on"
+  #         Driver "libinput"
+  #       EndSection
+  #     ''
+  #     ''
+  #       Section "InputClass"
+  #         Identifier "Ignore keyboard"
+  #         MatchProduct "INGENIC Gadget Serial and keyboard Keyboard"
+  #         Option "Ignore" "on"
+  #       EndSection
+  #     ''
+  #     ''
+  #       Section "InputClass"
+  #         Identifier "Ignore touchpad"
+  #         MatchProduct "INGENIC Gadget Serial and keyboard Emulated Touchpad"
+  #         Option "Ignore" "on"
+  #       EndSection
+  #     ''
+  #   ];
+  };
 
-  services.hardware.bolt.enable = true;
+  boot.kernelPatches = [
+    {
+      name = "yoga-book-9i-fix";
+      patch = ./yogabook9i-hid-6.17.5.patch;
+    }
+    # {
+    #   name = "yoga-book-9i-touch-fix";
+    #   patch = ./yb9i-gen10-touch-fix2.patch;
+    # }
+  ];
 
   hardware.enableRedistributableFirmware = true;
+  hardware.enableAllFirmware = true;
 
-  environment.etc."gdm/Init/Default".text = ''
-    #!/bin/bash
-    xrandr --output eDP-1 --rotate inverted
-  '';
-  environment.etc."gdm/Init/Default".mode = "0755";
-
+  services.hardware.bolt.enable = true;
   # TODO: requires manual refind install: nix-shell -p refind, sudo refind-install
   # TODO: this should go to /boot/EFI/refind/refind.conf
   # environment.etc."EFI/refind/refind.conf".text = ''
@@ -65,8 +132,14 @@
   # '';
 
   services.pulseaudio.support32Bit = true;
+
+  nixpkgs.config.allowUnfree = true;
   # hardware.enableAllFirmware = true;
-  hardware.firmware = with pkgs; [ sof-firmware ];
+  hardware.firmware = with pkgs;
+    [
+      linux-firmware
+      sof-firmware
+    ];
 
   environment.etc."systemd/sleep.conf".text = ''
     [Sleep]
@@ -78,25 +151,26 @@
   systemd.targets.suspend.wants = [ "hibernate.target" ];
 
   boot.kernel.sysctl."kernel.debug" = 1;
+
   boot.kernelParams = [
     "mem_sleep_default=deep"
     "reboot=pci"
-    "acpi=noirq"
     "apm=power_off"
-    "i915.force_probe=7d51"
+    "xe.enable_dpcd_backlight=2"
+    "xe.force_probe=7d51"
+    "i915.force_probe=!7d51"
+    "video=eDP-1:panel_orientation=upside_down"
   ];
-  # "acpi_backlight=video"
-  # "acpi_backlight=vendor"
-  # "i915.enable_dpcd_backlight=1"
-  # "i915.enable_psr=0"
-  # "i915.disable_panel_lc_pwm=1"
-  # "i915.enable_dpcd_backlight_deferred=1"
-  # "drm.debug=0x1e"
 
-  boot.blacklistedKernelModules = [ "hid-multitouch" ];
-  # boot.loader.systemd-boot.memtest86.enable = true;
-
-  boot.initrd.kernelModules = [ "ideapad_laptop" ];
+  # TODO: add psr support
+    # "pci=biosirq"
+    # "acpi=noirq"
+    # "i915.force_probe=7d51"
+    # "i915.enable_dpcd_backlight=2"
+  boot.blacklistedKernelModules = [ "simpledrm" ];
+  # boot.blacklistedKernelModules = [ "hid-multitouch simpledrm" ];
+  # boot.blacklistedKernelModules = [ "hid-multitouch simpledrm efifb" ];
+  boot.initrd.kernelModules = [ "xe ideapad_laptop i2c-dev" ];
   boot.extraModprobeConfig = ''
     options ideapad_laptop allow_v4_dytc=1
   '';
@@ -105,6 +179,20 @@
     device = "debugfs";
     fsType = "debugfs";
   };
+
+  # environment.etc."wireplumber/alsa-monitor.conf.d/51-dualmaster.conf".text = ''
+  #   rules = [
+  #     {
+  #       matches = [
+  #         { "node.name" = "~alsa_output.*" }
+  #       ]
+  #       apply-properties = {
+  #         "api.alsa.use-acp" = true
+  #         "api.alsa.mixer-name" = "DualMaster"
+  #       }
+  #     }
+  #   ]
+  # '';
 
   hardware.bluetooth.enable = true;
   hardware.bluetooth.powerOnBoot = true;
@@ -121,13 +209,18 @@
 
   services.colord.enable = true;
 
+  hardware.i2c.enable = true;
   environment.systemPackages = with pkgs; [
+    alsa-ucm-conf
     i2c-tools
     evsieve
     acpica-tools
     alsa-utils
     intel-gpu-tools
+    linux-firmware
+    libinput
     (writeShellScriptBin "sync-brightness" (lib.readFile ./sync-brightness.sh))
+    (writeShellScriptBin "set-sync-brightness" (lib.readFile ./set-sync-brightness.sh))
   ];
 
   services.xserver.videoDrivers = [ "modesetting" ];
@@ -137,13 +230,23 @@
 
   nixpkgs.config.packageOverrides = pkgs: {
     vaapiIntel = pkgs.vaapiIntel.override { enableHybridCodec = true; };
+
+    # Trims down the kernel by disabling drivers for hardware we don't have.
+    # This should result in faster kernel builds.
+    linux_latest = pkgs.linux_latest.overrideAttrs (old: {
+      extraConfig = (old.extraConfig or "") + ''
+        CONFIG_DRM_AMDGPU=n
+        CONFIG_DRM_RADEON=n
+        CONFIG_DRM_NOUVEAU=n
+      '';
+    });
   };
 
   hardware.graphics = {
     enable = true;
     extraPackages = with pkgs; [
       # vaapiIntel
-      vaapiVdpau
+      libva-vdpau-driver
       libvdpau-va-gl
       intel-media-driver
     ];
@@ -152,7 +255,19 @@
   hardware.cpu.intel.updateMicrocode =
     lib.mkDefault config.hardware.enableRedistributableFirmware;
 
+  # SUBSYSTEM=="input", ATTRS{bInterfaceNumber}=="03", ENV{ID_INPUT_TOUCHSCREEN}="1"
+  # ACTION=="add|change", KERNEL=="event*", ATTRS{name}=="INGENIC Gadget Serial and keyboard", ATTRS{phys}=="usb-0000:00:14.0-6/input3", ENV{ID_INPUT_TOUCHSCREEN}="1"
   services.udev.extraRules = ''
     ACTION=="add", SUBSYSTEM=="platform", KERNEL=="VPC2004:00", RUN+="/bin/sh -c 'echo 1 > /sys/bus/platform/drivers/ideapad_acpi/VPC2004:00/conservation_mode'"
   '';
+
+  # services.udev.extraRules = ''
+  #   ACTION=="add", SUBSYSTEM=="input", ATTRS{name}=="INGENIC Gadget Serial and keyboard Touchscreen Top", ENV{LIBINPUT_DEVICE_GROUP}="group_top"
+  #   ACTION=="add", SUBSYSTEM=="input", ATTRS{name}=="INGENIC Gadget Serial and keyboard Stylus Top", ENV{LIBINPUT_DEVICE_GROUP}="group_top"
+  #   ACTION=="add", SUBSYSTEM=="input", ATTRS{name}=="INGENIC Gadget Serial and keyboard Touchscreen Bottom", ENV{LIBINPUT_DEVICE_GROUP}="group_bottom"
+  #   ACTION=="add", SUBSYSTEM=="input", ATTRS{name}=="INGENIC Gadget Serial and keyboard Stylus Bottom", ENV{LIBINPUT_DEVICE_GROUP}="group_bottom"
+  #   ACTION=="add", SUBSYSTEM=="input", ATTRS{name}=="INGENIC Gadget Serial and keyboard Keyboard", ENV{LIBINPUT_IGNORE_DEVICE}="1"
+  #   ACTION=="add", SUBSYSTEM=="input", ATTRS{name}=="INGENIC Gadget Serial and keyboard Emulated Touchpad", ENV{LIBINPUT_IGNORE_DEVICE}="1"
+  # '';
+
 }

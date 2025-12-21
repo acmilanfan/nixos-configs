@@ -4,11 +4,11 @@ TOUCH_DEVICE="INGENIC Gadget Serial and keyboard Touchscreen"
 
 # Set coordinate transformation matrices
 set_touch_top() {
-    xinput set-prop "INGENIC Gadget Serial and keyboard Touchscreen" "Coordinate Transformation Matrix" 1 0 0 0 0.5 0 0 0 1
+    xinput set-prop "INGENIC Gadget Serial and keyboard Touchscreen Top" "Coordinate Transformation Matrix" 1 0 0 0 0.5 0 0 0 1
 }
 
 set_touch_bottom() {
-    xinput set-prop "INGENIC Gadget Serial and keyboard Touchscreen" "Coordinate Transformation Matrix" 1 0 0 0 0.5 0.5 0 0 1
+    xinput set-prop "INGENIC Gadget Serial and keyboard Touchscreen Bottom" "Coordinate Transformation Matrix" 1 0 0 0 0.5 0.5 0 0 1
 }
 
 # Launch Rofi with touch-friendly interface

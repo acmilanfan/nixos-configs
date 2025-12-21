@@ -17,6 +17,7 @@ in {
     tree-sitter
     ripgrep
     gopls
+    gotests
     lua-language-server
     nil
     sqls
@@ -129,10 +130,13 @@ in {
       sniprun
       diffview-nvim
       dracula-nvim
-      # dracula-vim
       kanagawa-nvim
       tokyonight-nvim
       onedark-nvim
+      rose-pine
+      # vim-colors-solarized
+      # solarized-nvim
+      # nvim-solarized-lua
       nvim-notify
       luasnip
       trouble-nvim

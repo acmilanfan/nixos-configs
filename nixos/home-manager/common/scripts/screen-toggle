@@ -8,7 +8,7 @@ EXTERNAL_SCREEN_2="DP-2"
 EXTERNAL_SCREEN_3="DP-3"
 LAPTOP_SCREEN_DPI="168"
 EXTERNAL_SCREEN_DPI="144"
-TOUCH_DEVICE="INGENIC Gadget Serial and keyboard Touchscreen"
+TOUCH_DEVICE="INGENIC Gadget Serial and keyboard Touchscreen Top"
 # TOUCH_DEVICE="INGENIC Gadget Serial and keyboard"
 
 # Function to reset virtual monitor configuration
@@ -34,6 +34,7 @@ calibrate_touch() {
                 # xinput set-prop "$TOUCH_DEVICE" --type=float "Coordinate Transformation Matrix" 1 0 0 0 0.5 0 0 0 1
                 ;;
             inverted)
+                # xinput set-prop "$TOUCH_DEVICE" --type=float "Coordinate Transformation Matrix" -1 0 1 0 -0.5 1 0 0 1
                 xinput set-prop "$TOUCH_DEVICE" --type=float "Coordinate Transformation Matrix" 1 0 0 0 0.5 0 0 0 1
                 ;;
             left)
@@ -70,12 +71,17 @@ default_mode() {
     reset_monitor
     xrandr --output "$TOP_SCREEN" --auto --dpi $LAPTOP_SCREEN_DPI --rotate inverted \
            --output "$BOTTOM_SCREEN" --auto --dpi $LAPTOP_SCREEN_DPI --primary --below "$TOP_SCREEN"
+    # xrandr --output "$TOP_SCREEN" --auto --dpi $LAPTOP_SCREEN_DPI \
+           # --output "$BOTTOM_SCREEN" --auto --dpi $LAPTOP_SCREEN_DPI --primary --above "$TOP_SCREEN"
+    calibrate_touch "normal" "true"
     calibrate_touch "inverted" "true"
 }
 
 single_top() {
     reset_monitor
     xrandr --output "$TOP_SCREEN" --auto --dpi $LAPTOP_SCREEN_DPI --primary --rotate inverted --output "$BOTTOM_SCREEN" --off
+    # xrandr --output "$TOP_SCREEN" --auto --dpi $LAPTOP_SCREEN_DPI --primary --output "$BOTTOM_SCREEN" --off
+    # calibrate_touch "normal" "false"
     calibrate_touch "inverted" "false"
 }
 
