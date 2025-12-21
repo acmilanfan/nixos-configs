@@ -1,8 +1,8 @@
 * {
     border: none;
     border-radius: 0;
-    font-family: Fira, Roboto, Helvetica, Arial, sans-serif;
-    font-size: 13px;
+    font-family: JetBrainsMono Nerd Font, sans-serif;
+    font-size: 12px;
     min-height: 0;
 }
 
@@ -45,6 +45,11 @@ window#waybar.chromium {
     background-color: transparent;
     color: #ffffff;
     border-bottom: 3px solid transparent;
+}
+
+#workspaces button.active {
+  background: #7b5cff;
+  color: white;
 }
 
 /* https://github.com/Alexays/Waybar/wiki/FAQ#the-workspace-buttons-have-a-strange-hover-effect */

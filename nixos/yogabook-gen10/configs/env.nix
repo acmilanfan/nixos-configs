@@ -33,10 +33,10 @@
     };
   };
   services.xserver.dpi = lib.mkForce 168;
+  services.libinput.enable = true;
 
   services.xserver = {
     enable = true;
-    libinput.enable = true;
 
     # inputClassSections = [
     #   ''

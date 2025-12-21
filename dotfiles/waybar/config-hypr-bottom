@@ -1,0 +1,134 @@
+{
+    //"layer": "top", // Waybar at top layer
+    "output": "eDP-2",
+    "bar_id": "bar-1",
+    "ipc": true,
+    "height": 20,
+    "modules-left": ["hyprland/workspaces", "hyprland/submap"],
+    "modules-center": ["hyprland/window"],
+    "modules-right": [
+        "keyboard-state",
+        "idle_inhibitor",
+        "pulseaudio",
+        "network",
+        "cpu",
+        "memory",
+        "temperature",
+        "battery",
+        "tray",
+        "clock"
+    ],
+    "hyprland/submap": {
+        "format": "<span style=\"italic\">{}</span>"
+    },
+    "idle_inhibitor": {
+        "format": "{icon}",
+        "format-icons": {
+            "activated": "",
+            "deactivated": ""
+        }
+    },
+    "hyprland/workspaces": {
+        "format": "{id}",
+        "persistent-workspaces": {
+            "*": 10
+        }
+    },
+    "tray": {
+        // "icon-size": 21,
+        "spacing": 5
+    },
+    "clock": {
+        "format": "{:%Y-%m-%d %H:%M}",
+        "tooltip": true
+    },
+    "cpu": {
+        "format": "{usage}% ",
+        "tooltip": false
+    },
+    "memory": {
+        "format": "{}% "
+    },
+    "temperature": {
+	// "thermal-zone": 5,
+        "hwmon-path": "/sys/class/hwmon/hwmon1/temp1_input",
+        "critical-threshold": 80,
+        // "format-critical": "{temperatureC}°C {icon}",
+        "format": "{temperatureC}°C {icon}",
+        "format-icons": ["", "", ""]
+    },
+    "backlight": {
+        "format": "{percent}% {icon}",
+        "format-icons": ["", ""]
+    },
+    "battery": {
+    	"bat": "BAT0",
+        "states": {
+            "good": 95,
+            "warning": 30,
+            "critical": 15
+        },
+        "format": "{capacity}% {icon}",
+        "format-charging": "{capacity}% ",
+        "format-plugged": "{capacity}% ",
+        "format-alt": "{time} {icon}",
+        "format-full": "",
+        "format-icons": ["", "", "", "", ""]
+    },
+    "network": {
+        "format-wifi": "{essid} ({signalStrength}%) ",
+        "format-ethernet": "{ifname}: {ipaddr}/{cidr} ",
+        "format-linked": "{ifname} (No IP) ",
+        "format-disconnected": "Disconnected ⚠",
+        "format-alt": "{ifname}: {ipaddr}/{cidr}"
+    },
+    "pulseaudio": {
+        "format": "{volume}% {icon} {format_source}",
+        "format-bluetooth": "{volume}% {icon} {format_source}",
+        "format-muted": " {format_source}",
+        "format-source": "{volume}% ",
+        "format-source-muted": "",
+        "format-icons": {
+            "headphones": "",
+            "handsfree": "",
+            "headset": "",
+            "phone": "",
+            "portable": "",
+            "car": "",
+            "default": ["", "", ""]
+        },
+        "on-click": "pavucontrol"
+    },
+    "keyboard-state": {
+      "numlock": true,
+      "capslock": true,
+      "format": "{layout}",
+      "format-icons": {
+        "locked": "",
+        "unlocked": ""
+      }
+    },
+    "custom/screen_toggle": {
+        "format": "🖥",
+        "on-click": "hypr-profile"
+    },
+
+    //"custom/media": {
+    //    "format": "{icon} {}",
+    //    "return-type": "json",
+    //    "max-length": 40,
+    //    "format-icons": {
+    //        "spotify": "",
+    //        "default": "🎜"
+    //    },
+    //   "on-click": "playerctl play",
+    //   "on-click-right": "playerctl pause",
+    //    "escape": true,
+    //    "exec": "$HOME/.config/waybar/mediaplayer.py 2> /dev/null" // Script in resources folder
+    //},
+    //"custom/lang": {
+    //	"exec": "swaymsg -t get_inputs | grep layout_name | grep -v En | awk 'END{if(NR == 0){print \"EN\"}else{print toupper(substr($2,2,2))}}'",
+    //	"interval": 1,
+    //	"format": "{}"
+    //}
+}

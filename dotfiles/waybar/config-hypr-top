@@ -1,12 +1,23 @@
 {
     //"layer": "top", // Waybar at top layer
-    //"output": "eDP-1",
+    "output": "eDP-1",
     "bar_id": "bar-0",
     "ipc": true,
-    "height": 15,
+    "height": 20,
     "modules-left": ["hyprland/workspaces", "hyprland/submap"],
     "modules-center": ["hyprland/window"],
-    "modules-right": ["keyboard-state", "idle_inhibitor", "pulseaudio", "network", "cpu", "memory", "temperature", "battery", "clock", "tray"],
+    "modules-right": [
+        "keyboard-state",
+        "idle_inhibitor",
+        "pulseaudio",
+        "network",
+        "cpu",
+        "memory",
+        "temperature",
+        "battery",
+        "tray",
+        "clock"
+    ],
     "hyprland/submap": {
         "format": "<span style=\"italic\">{}</span>"
     },
@@ -17,13 +28,19 @@
             "deactivated": ""
         }
     },
+    "hyprland/workspaces": {
+        "format": "{id}",
+        "persistent-workspaces": {
+            "*": 10
+        }
+    },
     "tray": {
         // "icon-size": 21,
-        "spacing": 10
+        "spacing": 5
     },
     "clock": {
-        "tooltip-format": "{:%Y-%m-%d | %H:%M}",
-        "format-alt": "{:%Y-%m-%d}"
+        "format": "{:%Y-%m-%d %H:%M}",
+        "tooltip": true
     },
     "cpu": {
         "format": "{usage}% ",
@@ -36,7 +53,7 @@
 	// "thermal-zone": 5,
         "hwmon-path": "/sys/class/hwmon/hwmon1/temp1_input",
         "critical-threshold": 80,
-        // "format-critical": "{temperatureC}°C {icon}",
+        "format-critical": "{temperatureC}°C {icon}",
         "format": "{temperatureC}°C {icon}",
         "format-icons": ["", "", ""]
     },
@@ -90,7 +107,12 @@
         "locked": "",
         "unlocked": ""
       }
-    }
+    },
+    "custom/screen_toggle": {
+        "format": "🖥",
+        "on-click": "hypr-profile"
+    },
+
     //"custom/media": {
     //    "format": "{icon} {}",
     //    "return-type": "json",

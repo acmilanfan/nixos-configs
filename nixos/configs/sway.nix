@@ -45,7 +45,7 @@
 
   systemd.packages = with pkgs; [ gdm gnome-session gnome-shell ];
 
-  services.xserver = {
+  services = {
     displayManager.gdm.wayland = true;
     displayManager.sessionPackages = [ pkgs.sway ];
     libinput.enable = true;
