@@ -18,14 +18,6 @@
     ] ++ lib.optionals pkgs.stdenv.isLinux [
       (writeShellScriptBin "screen-toggle"
         (lib.readFile ./scripts/screen-toggle))
-      (writeShellScriptBin "hypr-profile"
-        (lib.readFile ./scripts/hypr-profile))
-      (writeShellScriptBin "hypr-send-to-other-monitor"
-        (lib.readFile ./scripts/hypr-send-to-other-monitor))
-      (writeShellScriptBin "hypr-focus-other-monitor"
-        (lib.readFile ./scripts/hypr-focus-other-monitor))
-      (writeShellScriptBin "hypr-cycle-layout"
-        (lib.readFile ./scripts/hypr-cycle-layout))
       (writeShellScriptBin "touch-toggle" (lib.readFile ./scripts/touch-toggle))
       (writeShellScriptBin "try-lock" (lib.readFile ./scripts/try-lock))
       vial

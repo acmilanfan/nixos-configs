@@ -221,6 +221,7 @@
     libinput
     (writeShellScriptBin "sync-brightness" (lib.readFile ./sync-brightness.sh))
     (writeShellScriptBin "set-sync-brightness" (lib.readFile ./set-sync-brightness.sh))
+    (writeShellScriptBin "adjust-sync-brightness" (lib.readFile ./adjust-sync-brightness.sh))
   ];
 
   services.xserver.videoDrivers = [ "modesetting" ];

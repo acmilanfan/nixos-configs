@@ -1,32 +1,60 @@
 #!/usr/bin/env bash
 
-choice=$(printf "Vertical (stacked)
-Horizontal (wide)
-Single screen top
-Single screen top (tablet)
-Desk (external)" | rofi -dmenu -p "Display mode")
-
+choice=$(echo -e "  Vertical (stacked)\n  Horizontal (wide)\n  Single screen top\n  Single screen top (tablet)\n  Desk (external)\n  Power save: Single screen top\n  Power save: Single screen top (tablet)\n  Power save: Vertical (stacked)" | \
+    fuzzel --dmenu \
+    --prompt "Display mode: " \
+    --lines 8 \
+    --width 50 \
+    # --font "monospace:size=18" \
+    # --background-color "222222ff" \
+    # --text-color "ffffffff" \
+    # --selection-color "285577ff" \
+    # --selection-text-color "ffffffff" \
+    --dpi-aware=no \
+    --border-width 2 \
+    --border-radius 10 \
+    --anchor center)
 
 case "$choice" in
-"Vertical (stacked)")
-hyprctl keyword monitor "eDP-1,2880x1800@120,0x0,1.6"
-hyprctl keyword monitor "eDP-2,2880x1800@120,0x1800,1.6"
-;;
-"Horizontal (wide)")
-hyprctl keyword monitor "eDP-1,2880x1800@120,0x0,1.6"
-hyprctl keyword monitor "eDP-2,2880x1800@120,2880x0,1.6"
-;;
-"Single screen top")
-hyprctl keyword monitor "eDP-1,2880x1800@120,0x0,1.6"
-hyprctl keyword monitor "eDP-2,disable"
-;;
-"Single screen top (tablet)")
-hyprctl keyword monitor "eDP-1,2880x1800@120,0x0,1.8"
-hyprctl keyword monitor "eDP-2,disable"
-;;
-"Desk (external)")
-hyprctl keyword monitor "DP-1,3840x2160@120,0x0,2"
-hyprctl keyword monitor "DP-2,3840x2160@120,0x0,2"
-hyprctl keyword monitor "DP-3,3840x2160@120,0x0,2"
-;;
+"  Vertical (stacked)")
+    hyprctl keyword monitor "eDP-1,2880x1800@120,0x0,1.6"
+    hyprctl keyword monitor "eDP-2,2880x1800@120,0x1800,1.6"
+    hypr-powersave-mode off
+    ;;
+"  Horizontal (wide)")
+    hyprctl keyword monitor "eDP-1,2880x1800@120,0x0,1.6"
+    hyprctl keyword monitor "eDP-2,2880x1800@120,2880x0,1.6"
+    hypr-powersave-mode off
+    ;;
+"  Single screen top")
+    hyprctl keyword monitor "eDP-1,2880x1800@120,0x0,1.6"
+    hyprctl keyword monitor "eDP-2,disable"
+    hypr-powersave-mode off
+    ;;
+"  Single screen top (tablet)")
+    hyprctl keyword monitor "eDP-1,2880x1800@120,0x0,1.8"
+    hyprctl keyword monitor "eDP-2,disable"
+    hypr-powersave-mode off
+    ;;
+"  Desk (external)")
+    hyprctl keyword monitor "DP-1,3840x2160@120,0x0,2"
+    hyprctl keyword monitor "DP-2,3840x2160@120,0x0,2"
+    hyprctl keyword monitor "DP-3,3840x2160@120,0x0,2"
+    hypr-powersave-mode off
+    ;;
+"  Power save: Single screen top")
+    hyprctl keyword monitor "eDP-1,2880x1800@60,0x0,1.6"
+    hyprctl keyword monitor "eDP-2,disable"
+    hypr-powersave-mode on
+    ;;
+"  Power save: Single screen top (tablet)")
+    hyprctl keyword monitor "eDP-1,2880x1800@60,0x0,1.8"
+    hyprctl keyword monitor "eDP-2,disable"
+    hypr-powersave-mode on
+    ;;
+"  Power save: Vertical (stacked)")
+    hyprctl keyword monitor "eDP-1,2880x1800@60,0x0,1.6"
+    hyprctl keyword monitor "eDP-2,2880x1800@60,0x1800,1.6"
+    hypr-powersave-mode on
+    ;;
 esac

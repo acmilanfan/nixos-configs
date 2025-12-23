@@ -1,12 +1,13 @@
 {
     //"layer": "top", // Waybar at top layer
-    "output": "eDP-1",
+    //"output": "eDP-1",
     "bar_id": "bar-0",
     "ipc": true,
     "height": 20,
     "modules-left": ["hyprland/workspaces", "hyprland/submap"],
     "modules-center": ["hyprland/window"],
     "modules-right": [
+        "custom/screen_toggle",
         "keyboard-state",
         "idle_inhibitor",
         "pulseaudio",
@@ -30,9 +31,6 @@
     },
     "hyprland/workspaces": {
         "format": "{id}",
-        "persistent-workspaces": {
-            "*": 10
-        }
     },
     "tray": {
         // "icon-size": 21,
@@ -41,6 +39,8 @@
     "clock": {
         "format": "{:%Y-%m-%d %H:%M}",
         "tooltip": true
+        "tooltip-format": "{:%Y-%m-%d | %H:%M}",
+        "format-alt": "{:%Y-%m-%d}"
     },
     "cpu": {
         "format": "{usage}% ",

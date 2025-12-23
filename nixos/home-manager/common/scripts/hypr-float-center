@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+FLOATING=$(hyprctl -j activewindow | jq -r '.floating')
+
+if [ "$FLOATING" = "true" ]; then
+  hyprctl dispatch centerwindow
+fi

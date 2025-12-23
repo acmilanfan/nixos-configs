@@ -450,6 +450,20 @@ vim.lsp.config('lemminx', {
   cmd = cmd,
 })
 
+vim.lsp.enable('nil_ls')
+vim.lsp.enable('lemmnix')
+vim.lsp.enable('lua_ls')
+vim.lsp.enable('volar')
+vim.lsp.enable('ts_ls')
+vim.lsp.enable('sqls')
+vim.lsp.enable('jsonls')
+vim.lsp.enable('graphql')
+vim.lsp.enable('eslint')
+vim.lsp.enable('kotlin_language_server')
+vim.lsp.enable('terraformls')
+vim.lsp.enable('yamlls')
+vim.lsp.enable('gopls')
+
 vim.g.firenvim_config = {
   localSettings = {
     [ [[.*]] ] = {

@@ -8,6 +8,7 @@
     ./fonts.nix
     ./gc.nix
     ./gnome.nix
+    ./hyprland.nix
     ./hosts.nix
     ./networking.nix
     ./services.nix

@@ -1,4 +1,5 @@
-{ pkgs, ... }: {
+{ pkgs, ... }:
+{
 
   imports = [
     ./aerospace.nix
@@ -17,20 +18,23 @@
     ./rss.nix
     ./tmux.nix
     ./lazygit.nix
-#  ] ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
-#    ./awesome.nix
-#    ./dconf.nix
-#    ./default-apps.nix
-#    ./gtk.nix
-#    ./password-store.nix
-#    ./qt.nix
-#    ./redshift.nix
-#    ./screenlock.nix
-#    ./services.nix
-#    ./xsession.nix
-#    ./greenclip.nix
-#    ./gpg.nix
-#    ./rofi.nix
+  ]
+  ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
+    ./awesome.nix
+    ./dconf.nix
+    ./default-apps.nix
+    ./gtk.nix
+    ./password-store.nix
+    ./qt.nix
+    ./redshift.nix
+    ./screenlock.nix
+    ./services.nix
+    ./xsession.nix
+    ./greenclip.nix
+    ./gpg.nix
+    ./rofi.nix
+    ./greenclip.nix
+    ./hyprland.nix
   ];
 
   #backupFileExtension = "backup";

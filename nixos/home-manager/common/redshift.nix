@@ -1,7 +1,7 @@
 { ... }: {
 
   services.redshift = {
-    enable = true;
+    # enable = true;
     provider = "manual";
     latitude = 52.494865;
     longitude = 13.353801;
