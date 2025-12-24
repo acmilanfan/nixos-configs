@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+
+hyprctl setprop active noborder 0
+hyprctl dispatch togglefloating active

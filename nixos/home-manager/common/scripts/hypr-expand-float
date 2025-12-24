@@ -1,0 +1,25 @@
+#!/bin/bash
+
+coords=$(hyprctl monitors -j | jq -r '
+  map({
+    l: .x,
+    t: .y,
+    r: (.x + (.width / .scale)),
+    b: (.y + (.height / .scale))
+  }) |
+  {
+    min_x: (map(.l) | min),
+    min_y: (map(.t) | min),
+    max_x: (map(.r) | max),
+    max_y: (map(.b) | max)
+  } |
+  "\(.min_x) \(.min_y) \(.max_x - .min_x) \(.max_y - .min_y)"
+')
+
+read -r X Y W H <<< "$coords"
+
+hyprctl dispatch fullscreen 0
+hyprctl dispatch setfloating active
+hyprctl setprop active noborder 1
+hyprctl dispatch moveactive exact $X $Y
+hyprctl dispatch resizeactive exact $W $H

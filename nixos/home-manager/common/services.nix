@@ -1,7 +1,8 @@
 { ... }: {
 
   services.flameshot = {
-    enable = true;
+    # TODO: enable if not wayland session
+    # enable = true;
     settings = {
       General = {
         showStartupLaunchMessage = false;

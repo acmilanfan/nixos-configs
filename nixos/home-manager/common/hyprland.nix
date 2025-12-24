@@ -154,12 +154,12 @@
         {
           timeout = 270;
           on-timeout = ''notify-send -u critical -t 30000 "Locking screen in 30 seconds"'';
+          on-resume = "dunstctl close";
         }
         {
           timeout = 300;
           on-timeout = "set-sync-brightness 2";
-          # TODO: brightnessctl -r for both screens too
-          on-resume = "brightnessctl -r";
+          on-resume = "restore-sync-brightness";
         }
         {
           timeout = 300;
@@ -168,7 +168,7 @@
         {
           timeout = 330;
           on-timeout = "hyprctl dispatch dpms off";
-          on-resume = "hyprctl dispatch dpms on && brightnessctl -r";
+          on-resume = "hyprctl dispatch dpms on && restore-sync-brightness";
         }
         {
           timeout = 1800;
@@ -180,6 +180,28 @@
 
   services.cliphist = {
     enable = true;
+  };
+
+  programs.satty = {
+    enable = true;
+    settings = {
+      # general = {
+      #   fullscreen = true;
+      #   corner-roundness = 12;
+      #   initial-tool = "brush";
+      #   output-filename = "/tmp/test-%Y-%m-%d_%H:%M:%S.png";
+      # };
+      # color-palette = {
+      #   palette = [
+      #     "#00ffff"
+      #     "#a52a2a"
+      #     "#dc143c"
+      #     "#ff1493"
+      #     "#ffd700"
+      #     "#008000"
+      #   ];
+      # };
+    };
   };
 
   home.packages = with pkgs; [
@@ -196,9 +218,11 @@
     hypridle
     hyprlock
     libnotify
+    wlogout
     wofi
+    wlogout
+    nwg-drawer
     fuzzel
-    anyrun
     (writeShellScriptBin "hypr-profile" (lib.readFile ./scripts/hypr-profile))
     (writeShellScriptBin "hypr-send-to-other-monitor" (
       lib.readFile ./scripts/hypr-send-to-other-monitor
@@ -208,6 +232,9 @@
     (writeShellScriptBin "hypr-float-center" (lib.readFile ./scripts/hypr-float-center))
     (writeShellScriptBin "hypr-powersave-mode" (lib.readFile ./scripts/hypr-powersave-mode))
     (writeShellScriptBin "hypr-animations-toggle" (lib.readFile ./scripts/hypr-animations-toggle))
+    (writeShellScriptBin "hypr-expand-float" (lib.readFile ./scripts/hypr-expand-float))
+    (writeShellScriptBin "hypr-expand-float-recover" (lib.readFile ./scripts/hypr-expand-float-recover))
+    (writeShellScriptBin "hypr-reset-touch" (lib.readFile ./scripts/hypr-reset-touch))
   ];
 
 }

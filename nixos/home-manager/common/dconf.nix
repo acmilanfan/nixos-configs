@@ -13,7 +13,7 @@
       clock-show-date=true;
       clock-show-seconds=false;
       clock-show-weekday=false;
-      cursor-theme="DMZ-Black";
+      # cursor-theme="DMZ-Black";
       enable-animations=true;
       gtk-im-module="gtk-im-context-simple";
       gtk-theme="Adwaita-dark";
@@ -75,7 +75,7 @@
     };
     "system/locale" = {
       region="en_GB.UTF-8";
-    };  
+    };
   };
 
 }

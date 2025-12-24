@@ -27,6 +27,7 @@
     ./password-store.nix
     ./qt.nix
     ./redshift.nix
+    ./gammastep.nix
     ./screenlock.nix
     ./services.nix
     ./xsession.nix

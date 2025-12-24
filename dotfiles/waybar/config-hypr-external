@@ -1,7 +1,11 @@
 {
     //"layer": "top", // Waybar at top layer
-    "output": "eDP-2",
-    "bar_id": "bar-1",
+    "output": [
+        "DP-1",
+        "DP-2",
+        "DP-3"
+    ]
+    "bar_id": "bar-external",
     "ipc": true,
     "height": 20,
     "modules-left": [
@@ -36,7 +40,7 @@
     },
     "hyprland/workspaces": {
         "format": "{id}",
-        "all-outputs": false
+        "all-outputs": false,
     },
     "tray": {
         // "icon-size": 21,
@@ -44,7 +48,9 @@
     },
     "clock": {
         "format": "{:%Y-%m-%d %H:%M}",
-        "tooltip": true
+        "tooltip": true,
+        "tooltip-format": "{:%Y-%m-%d | %H:%M}",
+        "format-alt": "{:%Y-%m-%d}"
     },
     "cpu": {
         "format": "{usage}% ",
@@ -57,7 +63,7 @@
         // "thermal-zone": 5,
         "hwmon-path": "/sys/class/hwmon/hwmon1/temp1_input",
         "critical-threshold": 80,
-        // "format-critical": "{temperatureC}°C {icon}",
+        "format-critical": "{temperatureC}°C {icon}",
         "format": "{temperatureC}°C {icon}",
         "format-icons": [
             "",

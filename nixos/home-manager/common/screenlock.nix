@@ -1,9 +1,10 @@
 { pkgs, ... }: {
 
   services.screen-locker = {
-    enable = true;
+    # TODO enable if not wayland seesion
+    # enable = true;
     inactiveInterval = 5;
-    xautolock.enable = true;
+    # xautolock.enable = true;
     xautolock.extraOptions = [
       "-locker try-lock"
       "-notify 30"

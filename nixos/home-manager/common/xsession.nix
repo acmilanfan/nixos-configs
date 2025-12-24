@@ -1,9 +1,11 @@
-{ pkgs, ... }: {
+{ pkgs, ... }:
+{
 
   home.pointerCursor = {
+    gtk.enable = true;
     x11.enable = true;
-    package = pkgs.kdePackages.breeze-gtk;
     name = "breeze_cursors";
+    package = pkgs.kdePackages.breeze;
     size = 16;
   };
 

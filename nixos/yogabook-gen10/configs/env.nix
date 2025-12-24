@@ -1,12 +1,17 @@
-{ lib, config, pkgs, ... }: {
+{
+  lib,
+  config,
+  pkgs,
+  ...
+}:
+{
 
   environment.variables = {
     NIX_SYSTEM = "yogabook-gen10";
     LAPTOP_MONITOR = "eDP-2";
     WINIT_X11_SCALE_FACTOR = lib.mkForce "1.9";
     QT_SCALE_FACTOR = lib.mkForce "1.9";
-    EXTRA_SCREEN_BRIGHTNESS_CMD =
-      lib.mkForce "light -s sysfs/backlight/intel_backlight";
+    EXTRA_SCREEN_BRIGHTNESS_CMD = lib.mkForce "light -s sysfs/backlight/intel_backlight";
   };
 
   services.auto-cpufreq.enable = true;
@@ -57,55 +62,55 @@
     #       # Maps input to bottom half of the combined screen
     #     EndSection
     #   ''
-      # ''
-      #   Section "InputClass"
-      #     Identifier "Top touchscreen"
-      #     MatchProduct "INGENIC Gadget Serial and keyboard Touchscreen Top"
-      #     MatchIsTouchscreen "on"
-      #     Driver "libinput"
-      #     Option "CalibrationMatrix" "1 0 0 0 1 0 0 0 1"
-      #   EndSection
-      # ''
-      # ''
-      #   Section "InputClass"
-      #     Identifier "Top stylus"
-      #     MatchProduct "INGENIC Gadget Serial and keyboard Stylus Top"
-      #     MatchIsTablet "on"
-      #     Driver "libinput"
-      #   EndSection
-      # ''
-      # ''
-      #   Section "InputClass"
-      #     Identifier "Bottom touchscreen"
-      #     MatchProduct "INGENIC Gadget Serial and keyboard Touchscreen Bottom"
-      #     MatchIsTouchscreen "on"
-      #     Driver "libinput"
-      #     Option "CalibrationMatrix" "1 0 0 0 1 0 0 0 1"
-      #   EndSection
-      # ''
-  #     ''
-  #       Section "InputClass"
-  #         Identifier "Bottom stylus"
-  #         MatchProduct "INGENIC Gadget Serial and keyboard Stylus Bottom"
-  #         MatchIsTablet "on"
-  #         Driver "libinput"
-  #       EndSection
-  #     ''
-  #     ''
-  #       Section "InputClass"
-  #         Identifier "Ignore keyboard"
-  #         MatchProduct "INGENIC Gadget Serial and keyboard Keyboard"
-  #         Option "Ignore" "on"
-  #       EndSection
-  #     ''
-  #     ''
-  #       Section "InputClass"
-  #         Identifier "Ignore touchpad"
-  #         MatchProduct "INGENIC Gadget Serial and keyboard Emulated Touchpad"
-  #         Option "Ignore" "on"
-  #       EndSection
-  #     ''
-  #   ];
+    # ''
+    #   Section "InputClass"
+    #     Identifier "Top touchscreen"
+    #     MatchProduct "INGENIC Gadget Serial and keyboard Touchscreen Top"
+    #     MatchIsTouchscreen "on"
+    #     Driver "libinput"
+    #     Option "CalibrationMatrix" "1 0 0 0 1 0 0 0 1"
+    #   EndSection
+    # ''
+    # ''
+    #   Section "InputClass"
+    #     Identifier "Top stylus"
+    #     MatchProduct "INGENIC Gadget Serial and keyboard Stylus Top"
+    #     MatchIsTablet "on"
+    #     Driver "libinput"
+    #   EndSection
+    # ''
+    # ''
+    #   Section "InputClass"
+    #     Identifier "Bottom touchscreen"
+    #     MatchProduct "INGENIC Gadget Serial and keyboard Touchscreen Bottom"
+    #     MatchIsTouchscreen "on"
+    #     Driver "libinput"
+    #     Option "CalibrationMatrix" "1 0 0 0 1 0 0 0 1"
+    #   EndSection
+    # ''
+    #     ''
+    #       Section "InputClass"
+    #         Identifier "Bottom stylus"
+    #         MatchProduct "INGENIC Gadget Serial and keyboard Stylus Bottom"
+    #         MatchIsTablet "on"
+    #         Driver "libinput"
+    #       EndSection
+    #     ''
+    #     ''
+    #       Section "InputClass"
+    #         Identifier "Ignore keyboard"
+    #         MatchProduct "INGENIC Gadget Serial and keyboard Keyboard"
+    #         Option "Ignore" "on"
+    #       EndSection
+    #     ''
+    #     ''
+    #       Section "InputClass"
+    #         Identifier "Ignore touchpad"
+    #         MatchProduct "INGENIC Gadget Serial and keyboard Emulated Touchpad"
+    #         Option "Ignore" "on"
+    #       EndSection
+    #     ''
+    #   ];
   };
 
   boot.kernelPatches = [
@@ -135,11 +140,10 @@
 
   nixpkgs.config.allowUnfree = true;
   # hardware.enableAllFirmware = true;
-  hardware.firmware = with pkgs;
-    [
-      linux-firmware
-      sof-firmware
-    ];
+  hardware.firmware = with pkgs; [
+    linux-firmware
+    sof-firmware
+  ];
 
   environment.etc."systemd/sleep.conf".text = ''
     [Sleep]
@@ -163,10 +167,10 @@
   ];
 
   # TODO: add psr support
-    # "pci=biosirq"
-    # "acpi=noirq"
-    # "i915.force_probe=7d51"
-    # "i915.enable_dpcd_backlight=2"
+  # "pci=biosirq"
+  # "acpi=noirq"
+  # "i915.force_probe=7d51"
+  # "i915.enable_dpcd_backlight=2"
   boot.blacklistedKernelModules = [ "simpledrm" ];
   # boot.blacklistedKernelModules = [ "hid-multitouch simpledrm" ];
   # boot.blacklistedKernelModules = [ "hid-multitouch simpledrm efifb" ];
@@ -196,7 +200,11 @@
 
   hardware.bluetooth.enable = true;
   hardware.bluetooth.powerOnBoot = true;
-  hardware.bluetooth.settings = { General = { Experimental = true; }; };
+  hardware.bluetooth.settings = {
+    General = {
+      Experimental = true;
+    };
+  };
 
   # TODO: increase bootloader size and try again for BT on luks password screen
   # boot.initrd.preDeviceCommands = ''
@@ -221,6 +229,7 @@
     libinput
     (writeShellScriptBin "sync-brightness" (lib.readFile ./sync-brightness.sh))
     (writeShellScriptBin "set-sync-brightness" (lib.readFile ./set-sync-brightness.sh))
+    (writeShellScriptBin "restore-sync-brightness" (lib.readFile ./restore-sync-brightness.sh))
     (writeShellScriptBin "adjust-sync-brightness" (lib.readFile ./adjust-sync-brightness.sh))
   ];
 
@@ -253,13 +262,13 @@
     ];
   };
 
-  hardware.cpu.intel.updateMicrocode =
-    lib.mkDefault config.hardware.enableRedistributableFirmware;
+  hardware.cpu.intel.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
 
   # SUBSYSTEM=="input", ATTRS{bInterfaceNumber}=="03", ENV{ID_INPUT_TOUCHSCREEN}="1"
   # ACTION=="add|change", KERNEL=="event*", ATTRS{name}=="INGENIC Gadget Serial and keyboard", ATTRS{phys}=="usb-0000:00:14.0-6/input3", ENV{ID_INPUT_TOUCHSCREEN}="1"
   services.udev.extraRules = ''
     ACTION=="add", SUBSYSTEM=="platform", KERNEL=="VPC2004:00", RUN+="/bin/sh -c 'echo 1 > /sys/bus/platform/drivers/ideapad_acpi/VPC2004:00/conservation_mode'"
+    ACTION=="add", SUBSYSTEM=="hid", ATTR{idVendor}=="17ef", ATTR{idProduct}=="6161", RUN+="/bin/sh -c 'echo %k > /sys/bus/hid/drivers/hid-generic/unbind; echo %k > /sys/bus/hid/drivers/hid-multitouch/bind'"
   '';
 
   # services.udev.extraRules = ''

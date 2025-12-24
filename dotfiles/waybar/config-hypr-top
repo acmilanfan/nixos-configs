@@ -1,11 +1,16 @@
 {
     //"layer": "top", // Waybar at top layer
-    //"output": "eDP-1",
+    "output": "eDP-1",
     "bar_id": "bar-0",
     "ipc": true,
     "height": 20,
-    "modules-left": ["hyprland/workspaces", "hyprland/submap"],
-    "modules-center": ["hyprland/window"],
+    "modules-left": [
+        "hyprland/workspaces",
+        "hyprland/submap"
+    ],
+    "modules-center": [
+        "hyprland/window"
+    ],
     "modules-right": [
         "custom/screen_toggle",
         "keyboard-state",
@@ -31,6 +36,7 @@
     },
     "hyprland/workspaces": {
         "format": "{id}",
+        "all-outputs": false,
     },
     "tray": {
         // "icon-size": 21,
@@ -38,7 +44,7 @@
     },
     "clock": {
         "format": "{:%Y-%m-%d %H:%M}",
-        "tooltip": true
+        "tooltip": true,
         "tooltip-format": "{:%Y-%m-%d | %H:%M}",
         "format-alt": "{:%Y-%m-%d}"
     },
@@ -50,19 +56,26 @@
         "format": "{}% "
     },
     "temperature": {
-	// "thermal-zone": 5,
+        // "thermal-zone": 5,
         "hwmon-path": "/sys/class/hwmon/hwmon1/temp1_input",
         "critical-threshold": 80,
         "format-critical": "{temperatureC}°C {icon}",
         "format": "{temperatureC}°C {icon}",
-        "format-icons": ["", "", ""]
+        "format-icons": [
+            "",
+            "",
+            ""
+        ]
     },
     "backlight": {
         "format": "{percent}% {icon}",
-        "format-icons": ["", ""]
+        "format-icons": [
+            "",
+            ""
+        ]
     },
     "battery": {
-    	"bat": "BAT0",
+        "bat": "BAT0",
         "states": {
             "good": 95,
             "warning": 30,
@@ -73,7 +86,13 @@
         "format-plugged": "{capacity}% ",
         "format-alt": "{time} {icon}",
         "format-full": "",
-        "format-icons": ["", "", "", "", ""]
+        "format-icons": [
+            "",
+            "",
+            "",
+            "",
+            ""
+        ]
     },
     "network": {
         "format-wifi": "{essid} ({signalStrength}%) ",
@@ -95,24 +114,27 @@
             "phone": "",
             "portable": "",
             "car": "",
-            "default": ["", "", ""]
+            "default": [
+                "",
+                "",
+                ""
+            ]
         },
         "on-click": "pavucontrol"
     },
     "keyboard-state": {
-      "numlock": true,
-      "capslock": true,
-      "format": "{layout}",
-      "format-icons": {
-        "locked": "",
-        "unlocked": ""
-      }
+        "numlock": true,
+        "capslock": true,
+        "format": "{layout}",
+        "format-icons": {
+            "locked": "",
+            "unlocked": ""
+        }
     },
     "custom/screen_toggle": {
         "format": "🖥",
         "on-click": "hypr-profile"
     },
-
     //"custom/media": {
     //    "format": "{icon} {}",
     //    "return-type": "json",

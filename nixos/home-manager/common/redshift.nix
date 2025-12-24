@@ -1,6 +1,7 @@
 { ... }: {
 
   services.redshift = {
+    # TODO: enable if not wayland session
     # enable = true;
     provider = "manual";
     latitude = 52.494865;
