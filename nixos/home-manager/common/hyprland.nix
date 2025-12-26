@@ -25,6 +25,7 @@
     ".config/waybar/config".source = ../../../dotfiles/waybar/config;
     ".config/waybar/config-hypr-top".source = ../../../dotfiles/waybar/config-hypr-top;
     ".config/waybar/config-hypr-bottom".source = ../../../dotfiles/waybar/config-hypr-bottom;
+    ".config/waybar/config-hypr-external".source = ../../../dotfiles/waybar/config-hypr-external;
     ".config/waybar/style.css".source = ../../../dotfiles/waybar/style.css;
     ".config/waybar/style-hypr.css".source = ../../../dotfiles/waybar/style-hypr.css;
   };

@@ -15,7 +15,7 @@ if [[ "$1" == "restore" && -f "$CACHE_FILE" ]]; then
     if [[ -z "$choice" ]]; then choice="  Vertical (stacked)"; fi
 else
     # Show Menu
-    choice=$(echo -e "  Vertical (stacked)\n  Book Mode (Both)\n  Book Mode (Single)\n  Single screen top\n  Single screen bottom\n  Rotate Active Screens (CW)\n  Single screen top (tablet)\n  Desk (external)\n  External Only (Strict)\n  Power save: Vertical (stacked)\n  Power save: Single screen top\n  Power save: Single screen top (tablet)" | \
+    choice=$(echo -e "  Vertical (stacked)\n  Book Mode (Both)\n  Book Mode (Single)\n  Single screen top\n  Single screen bottom\n  Rotate Active Screens (CW)\n  Single screen top (tablet)\n  External Only (Strict)\n  Power save: Vertical (stacked)\n  Power save: Single screen top\n  Power save: Single screen top (tablet)" | \
         fuzzel --dmenu \
         --prompt "Display mode: " \
         --lines 13 \
@@ -143,12 +143,6 @@ case "$choice" in
     apply_input_transform "$TOUCH_TOP" 2
     apply_input_transform "$STYLUS_TOP" 2
 
-    hypr-powersave-mode off
-    ;;
-"  Desk (external)")
-    hyprctl keyword monitor "DP-1,3840x2160@120,0x0,2"
-    hyprctl keyword monitor "DP-2,3840x2160@120,0x0,2"
-    hyprctl keyword monitor "DP-3,3840x2160@120,0x0,2"
     hypr-powersave-mode off
     ;;
 "  External Only (Strict)")

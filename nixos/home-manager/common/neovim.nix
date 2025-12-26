@@ -1,4 +1,10 @@
-{ pkgs, lib, unstable, fetchzip, ... }:
+{
+  pkgs,
+  lib,
+  unstable,
+  fetchzip,
+  ...
+}:
 
 let
   customPlugins = pkgs.callPackage ./neovim/plugins.nix {
@@ -9,10 +15,10 @@ let
       -data $HOME/.cache/jdtls/$PWD \
       --jvm-arg=-javaagent:${unstable.lombok}/share/java/lombok.jar
   '';
-in {
+in
+{
   home.packages = with pkgs; [
-    (writeShellScriptBin "tmux-sessionizer"
-      (lib.readFile ./scripts/tmux-sessionizer))
+    (writeShellScriptBin "tmux-sessionizer" (lib.readFile ./scripts/tmux-sessionizer))
     jdtlsWrapped
     tree-sitter
     ripgrep
@@ -43,6 +49,7 @@ in {
     checkstyle
     # goose-cli
     unzip
+    vue-language-server
     nodePackages.typescript
     nodePackages.typescript-language-server
     nodePackages.vscode-json-languageserver
@@ -51,7 +58,6 @@ in {
     nodePackages.graphql-language-service-cli
     nodePackages.fixjson
     # vscode-extensions.vscjava.vscode-java-test
-    vscode-extensions.vue.volar
   ];
 
   home.sessionVariables = {
@@ -60,10 +66,11 @@ in {
   };
 
   xdg.configFile."nvim/parser".source = "${
-      pkgs.symlinkJoin {
-        name = "treesitter-parsers";
-        paths = (pkgs.vimPlugins.nvim-treesitter.withPlugins (plugins:
-          with plugins; [
+    pkgs.symlinkJoin {
+      name = "treesitter-parsers";
+      paths =
+        (pkgs.vimPlugins.nvim-treesitter.withPlugins (
+          plugins: with plugins; [
             bash
             go
             hcl
@@ -102,17 +109,18 @@ in {
             dockerfile
             diff
             css
-          ])).dependencies;
-      }
-    }/parser";
+          ]
+        )).dependencies;
+    }
+  }/parser";
 
   programs.neovim = {
     enable = true;
     vimAlias = true;
     withNodeJs = true;
     package = unstable.neovim-unwrapped;
-    extraLuaPackages = luaPkgs:
-      with luaPkgs; [
+    extraLuaPackages =
+      luaPkgs: with luaPkgs; [
         lua-curl
         mimetypes
         xml2lua

@@ -4,7 +4,7 @@
         "DP-1",
         "DP-2",
         "DP-3"
-    ]
+    ],
     "bar_id": "bar-external",
     "ipc": true,
     "height": 20,
