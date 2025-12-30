@@ -26,24 +26,45 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    nix-homebrew = { url = "github:zhaofengli/nix-homebrew"; };
+    nix-homebrew = {
+      url = "github:zhaofengli/nix-homebrew";
+    };
     mac-app-util.url = "github:hraban/mac-app-util";
+
+    vicinae-extensions = {
+      url = "github:vicinaehq/extensions";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = inputs@{ self, nixpkgs, unstable-nixpkgs, musnix, nur, home-manager
-    , nixos-hardware, auto-cpufreq, nix-darwin, nix-homebrew, mac-app-util, ...
+  outputs =
+    inputs@{
+      self,
+      nixpkgs,
+      unstable-nixpkgs,
+      musnix,
+      nur,
+      home-manager,
+      nixos-hardware,
+      auto-cpufreq,
+      nix-darwin,
+      nix-homebrew,
+      mac-app-util,
+      ...
     }:
     let
       linuxSystem = "x86_64-linux";
       macSystem = "aarch64-darwin";
 
-      pkgsFor = system:
+      pkgsFor =
+        system:
         import inputs.nixpkgs {
           inherit system;
           config.allowUnfree = true;
         };
 
-      unstableFor = system:
+      unstableFor =
+        system:
         import inputs.unstable-nixpkgs {
           inherit system;
           config.allowUnfree = true;
@@ -51,15 +72,19 @@
 
       overlay-davinci-resolve = _: prev: {
         davinci-resolve = prev.davinci-resolve-studio.override (old: {
-          buildFHSEnv = a:
-            old.buildFHSEnv (a // {
-              extraBwrapArgs = a.extraBwrapArgs
-                ++ [ "--bind /run/opengl-driver/etc/OpenCL /etc/OpenCL" ];
-            });
+          buildFHSEnv =
+            a:
+            old.buildFHSEnv (
+              a
+              // {
+                extraBwrapArgs = a.extraBwrapArgs ++ [ "--bind /run/opengl-driver/etc/OpenCL /etc/OpenCL" ];
+              }
+            );
         });
       };
 
-    in {
+    in
+    {
       nixosConfigurations = {
         z16 = inputs.nixpkgs.lib.nixosSystem {
           system = linuxSystem;
@@ -80,9 +105,12 @@
             }
             musnix.nixosModules.musnix
             nixos-hardware.nixosModules.lenovo-thinkpad-z
-            ({ config, pkgs, ... }: {
-              nixpkgs.overlays = [ overlay-davinci-resolve ];
-            })
+            (
+              { config, pkgs, ... }:
+              {
+                nixpkgs.overlays = [ overlay-davinci-resolve ];
+              }
+            )
           ];
         };
 
@@ -117,8 +145,7 @@
               # home-manager.useGlobalPkgs = true;
               home-manager.useUserPackages = true;
               home-manager.backupFileExtension = "backup";
-              home-manager.users.gentooway =
-                import ./nixos/yogabook-gen10/home.nix;
+              home-manager.users.gentooway = import ./nixos/yogabook-gen10/home.nix;
               home-manager.extraSpecialArgs = {
                 pkgs = pkgsFor linuxSystem;
                 unstable = unstableFor linuxSystem;
@@ -132,9 +159,12 @@
             nixos-hardware.nixosModules.common-cpu-intel
             nixos-hardware.nixosModules.common-gpu-intel
             auto-cpufreq.nixosModules.default
-            ({ config, pkgs, ... }: {
-              nixpkgs.overlays = [ overlay-davinci-resolve ];
-            })
+            (
+              { config, pkgs, ... }:
+              {
+                nixpkgs.overlays = [ overlay-davinci-resolve ];
+              }
+            )
           ];
         };
       };
@@ -165,8 +195,7 @@
               home-manager.backupFileExtension = "backup";
               # home-manager.sharedModules =
               #   [ mac-app-util.homeManagerModules.default ];
-              home-manager.users.andreishumailov =
-                import ./nixos/mac-work/home.nix;
+              home-manager.users.andreishumailov = import ./nixos/mac-work/home.nix;
               home-manager.extraSpecialArgs = {
                 pkgs = pkgsFor macSystem;
                 unstable = unstableFor macSystem;

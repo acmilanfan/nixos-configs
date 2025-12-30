@@ -1,0 +1,43 @@
+#!/bin/bash
+
+# Target the Lenovo Yoga Book 9i Touchscreen ID (17EF:6161)
+HID_PATH="/sys/bus/hid/devices"
+MATCH="*:17EF:6161.*"
+
+# Find all HID interfaces for this device
+DEVICES=$(ls -d $HID_PATH/$MATCH 2>/dev/null)
+
+if [ -z "$DEVICES" ]; then
+    echo "❌ No Yoga Book touch devices (17EF:6161) found."
+    exit 1
+fi
+
+echo "Found Yoga Book interfaces. Resetting..."
+
+for dev_path in $DEVICES; do
+    dev_id=$(basename "$dev_path")
+    driver_link="$dev_path/driver"
+
+    if [ -d "$driver_link" ]; then
+        # Resolve absolute path to driver before unbinding
+        real_driver_path=$(readlink -f "$driver_link")
+        driver_name=$(basename "$real_driver_path")
+
+        echo "🔄 Resetting $dev_id ($driver_name)..."
+
+        # 1. Unbind
+        echo "$dev_id" | sudo tee "$real_driver_path/unbind" > /dev/null
+
+        # 2. Pause
+        sleep 0.5
+
+        # 3. Rebind
+        echo "$dev_id" | sudo tee "$real_driver_path/bind" > /dev/null
+
+        echo "   -> Done."
+    else
+        echo "⚠️  $dev_id has no driver loaded."
+    fi
+done
+
+echo "✅ Reset complete."

@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+
+CMD="wvkbd-mobintl -L 350 -H 350 --landscape-layers full --non-exclusive --alpha 240"
+
+TARGET="eDP-2"
+
+# Check if eDP-2 is listed in active monitors
+if hyprctl monitors | grep -q "$TARGET"; then
+    hyprctl dispatch focusmonitor "$TARGET"
+fi
+
+# Start keyboard in background
+$CMD &
+PID=$!
+
+# Start lockscreen
+hyprlock
+
+# Cleanup
+kill $PID

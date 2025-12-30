@@ -2,7 +2,8 @@
 
   services.fprintd.enable = true;
   services.autorandr.enable = true;
-  services.greenclip.enable = true;
+  # TODO: make conditional on non wayland session
+  # services.greenclip.enable = true;
   services.fwupd.enable = true;
   services.thermald.enable = lib.mkDefault true;
   programs.light.enable = true;

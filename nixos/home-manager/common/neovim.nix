@@ -50,6 +50,7 @@ in
     # goose-cli
     unzip
     vue-language-server
+    bash-language-server
     nodePackages.typescript
     nodePackages.typescript-language-server
     nodePackages.vscode-json-languageserver

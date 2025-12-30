@@ -6,7 +6,8 @@
     luaModules = [ pkgs.luaPackages.lgi ];
   };
 
-  services.picom.enable = true;
+  # TODO: make it conditionale on non wayland session
+  # services.picom.enable = true;
   # services.picom.settings = {
     # use-damage = false;
     # vsync = true;

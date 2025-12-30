@@ -370,7 +370,7 @@ vim.lsp.config('lua_ls', {
 vim.lsp.config('nil_ls', {
   capabilities = capabilities,
 })
-vim.lsp.config('volar', {
+vim.lsp.config('vue_ls', {
   init_options = {
     typescript = {
       tsdk = "",
@@ -453,7 +453,7 @@ vim.lsp.config('lemminx', {
 vim.lsp.enable('nil_ls')
 vim.lsp.enable('lemmnix')
 vim.lsp.enable('lua_ls')
-vim.lsp.enable('volar')
+vim.lsp.enable('vue_ls')
 vim.lsp.enable('ts_ls')
 vim.lsp.enable('sqls')
 vim.lsp.enable('jsonls')
@@ -463,6 +463,7 @@ vim.lsp.enable('kotlin_language_server')
 vim.lsp.enable('terraformls')
 vim.lsp.enable('yamlls')
 vim.lsp.enable('gopls')
+vim.lsp.enable('bashls')
 
 vim.g.firenvim_config = {
   localSettings = {

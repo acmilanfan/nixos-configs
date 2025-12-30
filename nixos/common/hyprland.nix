@@ -26,4 +26,6 @@
   # };
   security.pam.services.hyprlock.enable = true;
 
+  programs.iio-hyprland.enable = true;
+
 }

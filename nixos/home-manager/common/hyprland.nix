@@ -1,4 +1,9 @@
-{ pkgs, lib, ... }:
+{
+  pkgs,
+  lib,
+  inputs,
+  ...
+}:
 {
 
   home.sessionVariables = {
@@ -146,8 +151,8 @@
     enable = true;
     settings = {
       general = {
-        lock_cmd = "pidof hyprlock || hyprlock";
-        before_sleep_cmd = "hyprlock";
+        lock_cmd = "pidof hyprlock || hypr-lock";
+        before_sleep_cmd = "hypr-lock";
         after_sleep_cmd = "hyprctl dispatch dpms on";
       };
 
@@ -164,7 +169,7 @@
         }
         {
           timeout = 300;
-          on-timeout = "hyprlock";
+          on-timeout = "hypr-lock";
         }
         {
           timeout = 330;
@@ -205,6 +210,55 @@
     };
   };
 
+  programs.vicinae = {
+    enable = true;
+    systemd = {
+      enable = true;
+      autoStart = true; # default: false
+      # environment = {
+      #   USE_LAYER_SHELL = 1;
+      # };
+    };
+    settings = {
+      close_on_focus_loss = true;
+      consider_preedit = true;
+      pop_to_root_on_close = true;
+      favicon_service = "twenty";
+      search_files_in_root = true;
+      font = {
+        normal = {
+          size = 13;
+          normal = "Roboto Medium";
+        };
+      };
+      theme = {
+        light = {
+          name = "vicinae-light";
+          icon_theme = "default";
+        };
+        dark = {
+          # name = "vicinae-dark";
+          name = "rose-pine";
+          # name = "ayo-dark";
+          icon_theme = "default";
+        };
+      };
+      launcher_window = {
+        opacity = 0.98;
+      };
+    };
+    extensions = with inputs.vicinae-extensions.packages.${pkgs.stdenv.hostPlatform.system}; [
+      bluetooth
+      nix
+      hypr-keybinds
+      # Extension names can be found in the link below, it's just the folder names
+    ];
+  };
+
+  # programs.fuzzel = {
+  #   enable = true;
+  # };
+
   home.packages = with pkgs; [
     hyprland
     waybar
@@ -220,11 +274,17 @@
     hyprlock
     libnotify
     wlogout
-    wofi
-    wlogout
+    wdisplays
+    wlr-randr
     nwg-drawer
     fuzzel
+    zathura
+    socat
+    wvkbd
+    iio-hyprland
     (writeShellScriptBin "hypr-profile" (lib.readFile ./scripts/hypr-profile))
+    (writeShellScriptBin "hypr-profile-tablet" (lib.readFile ./scripts/hypr-profile-tablet))
+    (writeShellScriptBin "hypr-lock" (lib.readFile ./scripts/hypr-lock))
     (writeShellScriptBin "hypr-send-to-other-monitor" (
       lib.readFile ./scripts/hypr-send-to-other-monitor
     ))
@@ -236,6 +296,32 @@
     (writeShellScriptBin "hypr-expand-float" (lib.readFile ./scripts/hypr-expand-float))
     (writeShellScriptBin "hypr-expand-float-recover" (lib.readFile ./scripts/hypr-expand-float-recover))
     (writeShellScriptBin "hypr-reset-touch" (lib.readFile ./scripts/hypr-reset-touch))
+    (writeShellScriptBin "hypr-iio-toggle" (lib.readFile ./scripts/hypr-iio-toggle))
   ];
+
+  systemd.user.services.iio-hyprland = {
+    Unit = {
+      Description = "Auto-rotation for Hyprland (Dual Monitor)";
+      After = [ "graphical-session.target" ];
+    };
+    Service = {
+      ExecStart = pkgs.writeShellScript "iio-dual-runner" ''
+        TRANSFORM_MAP="0,1,2,3"
+
+        pkill iio-hyprland || true
+
+        # Start for Top Screen
+        ${pkgs.iio-hyprland}/bin/iio-hyprland eDP-1 --transform $TRANSFORM_MAP &
+        # Start for Bottom Screen
+        ${pkgs.iio-hyprland}/bin/iio-hyprland eDP-2 --transform $TRANSFORM_MAP &
+
+        wait
+      '';
+      Restart = "on-failure";
+    };
+    Install = {
+      WantedBy = [ "graphical-session.target" ];
+    };
+  };
 
 }
