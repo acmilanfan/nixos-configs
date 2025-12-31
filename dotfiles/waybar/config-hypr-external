@@ -101,7 +101,7 @@
   },
   "custom/lock": {
     "tooltip": false,
-    "on-click": "sh -c '(sleep 0.5s; hypr-lock)' & disown",
+    "on-click": "sh -c hypr-lock & disown",
     "format": "🔐"
   },
   "later": {
