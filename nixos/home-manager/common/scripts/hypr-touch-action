@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+CHOICE=$(echo -e "Close\nFullscreen\nFloat" | vicinae dmenu --placeholder "Select option" --no-section --no-quick-look --no-metadata)
+case "$CHOICE" in
+    "Close") hyprctl dispatch closewindow active ;;
+    "Fullscreen") hyprctl dispatch fullscreen 1 ;;
+    "Float") hyprctl dispatch togglefloating active ;;
+esac

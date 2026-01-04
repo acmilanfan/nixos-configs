@@ -1,29 +1,21 @@
 #!/usr/bin/env bash
 
-# Apply transform to input devices
-# Usage: apply_input_transform "device-name" transform_int
-apply_input_transform() {
-    local dev="$1"
-    local trans="$2"
+# Device names
+TOUCH_TOP="ingenic-gadget-serial-and-keyboard-touchscreen-top"
+STYLUS_TOP="ingenic-gadget-serial-and-keyboard-stylus-top"
 
-    # Safety Check: If device name is empty, skip to avoid "device::transform" error
-    if [[ -z "$dev" ]]; then
-        return
-    fi
+hyprctl keyword "device[$TOUCH_TOP]:output" "eDP-1"
+hyprctl keyword "device[$STYLUS_TOP]:output" "eDP-1"
 
-    # Apply transform
-    hyprctl keyword device:"$dev":transform "$trans" > /dev/null
-    hyprctl keyword device:$1:transform $2
-}
+# Monitor is rotated 180 degrees (transform 2)
+hyprctl keyword monitor "eDP-1,2880x1800@120,0x0,1.8,transform,2"
 
-# hyprctl keyword monitor "eDP-1,2880x1800@120,0x0,1.8,transform,2"
-hyprctl keyword monitor "eDP-1,2880x1800@120,0x0,1.8"
+hyprctl keyword "device[$TOUCH_TOP]:transform" 2
+hyprctl keyword "device[$STYLUS_TOP]:transform" 2
+
 hyprctl keyword monitor "eDP-2,disable"
 hyprctl keyword monitor "DP-1,disable"
 hyprctl keyword monitor "DP-2,disable"
 hyprctl keyword monitor "DP-3,disable"
-
-# apply_input_transform "$TOUCH_TOP" 2
-# apply_input_transform "$STYLUS_TOP" 2
 
 hypr-powersave-mode off

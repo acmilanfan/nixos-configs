@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+# Name of the keyboard process
+KB_BIN="wvkbd-mobintl"
+
+# Check if running
+PID=$(pidof $KB_BIN)
+
+if [ -n "$PID" ]; then
+    # Kill the old one so we can spawn a new one on the CURRENT focused monitor.
+    kill $PID
+else
+    # Start it. It will spawn on the currently focused monitor.
+    $KB_BIN -L 250 -H 350 &
+fi

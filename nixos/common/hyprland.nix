@@ -1,4 +1,5 @@
-{ pkgs, ... }: {
+{ pkgs, ... }:
+{
 
   programs.hyprland.enable = true;
 
@@ -27,5 +28,9 @@
   security.pam.services.hyprlock.enable = true;
 
   programs.iio-hyprland.enable = true;
+
+  services.gnome.gnome-keyring.enable = true;
+
+  security.pam.services.hyprland.enableGnomeKeyring = true;
 
 }

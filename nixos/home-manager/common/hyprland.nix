@@ -37,6 +37,7 @@
 
   programs.hyprlock = {
     enable = true;
+    # TODO: source from a dotfiles file
     extraConfig = ''
       # sample hyprlock.conf
       # for more configuration options, refer https://wiki.hyprland.org/Hypr-Ecosystem/hyprlock
@@ -144,6 +145,23 @@
           halign = center
           valign = center
       }
+      # KEYBOARD TOGGLE BUTTON
+      label {
+          monitor =
+          text = ⌨️
+          color = rgba(200, 200, 200, 1.0)
+          font_size = 28
+          font_family = $font
+
+          # Positioned to the left of the input field (symmetric to layout label)
+          position = -250, -20
+          halign = center
+          valign = center
+
+          # Toggle keyboard visibility
+          # onclick = kill -34 $(pidof wvkbd-mobintl)
+          onclick = hypr-toggle-kb
+      }
     '';
   };
 
@@ -151,8 +169,8 @@
     enable = true;
     settings = {
       general = {
-        lock_cmd = "pidof hyprlock || hypr-lock";
-        before_sleep_cmd = "hypr-lock";
+        lock_cmd = "pidof hyprlock || hyprlock";
+        before_sleep_cmd = "hyprlock";
         after_sleep_cmd = "hyprctl dispatch dpms on";
       };
 
@@ -169,7 +187,7 @@
         }
         {
           timeout = 300;
-          on-timeout = "hypr-lock";
+          on-timeout = "hyprlock";
         }
         {
           timeout = 330;
@@ -282,9 +300,10 @@
     socat
     wvkbd
     iio-hyprland
+    hyprpolkitagent
     (writeShellScriptBin "hypr-profile" (lib.readFile ./scripts/hypr-profile))
     (writeShellScriptBin "hypr-profile-tablet" (lib.readFile ./scripts/hypr-profile-tablet))
-    (writeShellScriptBin "hypr-lock" (lib.readFile ./scripts/hypr-lock))
+    (writeShellScriptBin "hypr-toggle-kb" (lib.readFile ./scripts/hypr-toggle-kb))
     (writeShellScriptBin "hypr-send-to-other-monitor" (
       lib.readFile ./scripts/hypr-send-to-other-monitor
     ))
@@ -297,6 +316,8 @@
     (writeShellScriptBin "hypr-expand-float-recover" (lib.readFile ./scripts/hypr-expand-float-recover))
     (writeShellScriptBin "hypr-reset-touch" (lib.readFile ./scripts/hypr-reset-touch))
     (writeShellScriptBin "hypr-iio-toggle" (lib.readFile ./scripts/hypr-iio-toggle))
+    (writeShellScriptBin "hypr-touch-action" (lib.readFile ./scripts/hypr-touch-action))
+    (writeShellScriptBin "hypr-waybar-toggle" (lib.readFile ./scripts/hypr-waybar-toggle))
   ];
 
   systemd.user.services.iio-hyprland = {

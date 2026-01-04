@@ -54,6 +54,7 @@
 #memory,
 #custom-lock,
 #custom-screen_toggle,
+#custom-rotation,
 #idle_inhibitor,
 #custom-power {
   background-color: #101010;
@@ -115,6 +116,11 @@
 }
 
 #idle_inhibitor {
+  border-radius: 0px 0px 0px 0px;
+  color: #babbf1;
+}
+
+#custom-rotation {
   border-radius: 0px 5px 5px 0px;
   color: #babbf1;
 }

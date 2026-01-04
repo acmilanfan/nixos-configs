@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+if pgrep -x ".waybar-wrapped" > /dev/null; then
+    killall .waybar-wrapped
+else
+    waybar -c ~/.config/waybar/config-hypr-top -s ~/.config/waybar/style-hypr.css &
+    waybar -c ~/.config/waybar/config-hypr-bottom -s ~/.config/waybar/style-hypr.css &
+    waybar -c ~/.config/waybar/config-hypr-external -s ~/.config/waybar/style-hypr.css &
+fi

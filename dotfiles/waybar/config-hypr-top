@@ -9,6 +9,7 @@
     "hyprland/workspaces",
     "custom/screen_toggle",
     "idle_inhibitor",
+    "custom/rotation",
   ],
   "modules-center": [
     "clock"
@@ -97,15 +98,21 @@
   },
   "custom/lock": {
     "tooltip": false,
-    "on-click": "sh -c hypr-lock & disown",
+    "on-click": "sh -c hyprlock & disown",
     "format": "🔐"
   },
   "later": {
     "format": "<span class='icon'>{icon}</span> <span class='text'>{text}</span>"
   },
   "custom/screen_toggle": {
+    "tooltip": false,
     "format": "💻",
     "on-click": "hypr-profile"
+  },
+  "custom/rotation": {
+    "tooltip": false,
+    "on-click": "hypr-iio-toggle",
+    "format": "🔄"
   },
   "battery": {
     "bat": "BAT0",
