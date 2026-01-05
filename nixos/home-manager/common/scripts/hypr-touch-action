@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-CHOICE=$(echo -e "Close\nFullscreen\nFloat" | vicinae dmenu --placeholder "Select option" --no-section --no-quick-look --no-metadata)
+CHOICE=$(echo -e "Close\nFullscreen\nFloat" | fuzzel --dmenu)
 case "$CHOICE" in
     "Close") hyprctl dispatch closewindow active ;;
     "Fullscreen") hyprctl dispatch fullscreen 1 ;;

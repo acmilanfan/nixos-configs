@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 
 CACHE_FILE="$HOME/.cache/hypr-layout"
+ROT_CACHE_DIR="$HOME/.cache/hypr-rot"
+mkdir -p "$ROT_CACHE_DIR"
 
 # Device Names
 TOUCH_TOP="ingenic-gadget-serial-and-keyboard-touchscreen-top"
@@ -8,18 +10,47 @@ STYLUS_TOP="ingenic-gadget-serial-and-keyboard-stylus-top"
 TOUCH_BOTTOM="ingenic-gadget-serial-and-keyboard-touchscreen-bottom"
 STYLUS_BOTTOM="ingenic-gadget-serial-and-keyboard-stylus-bottom"
 
+# --- DETECT MODE ---
+IS_RESTORE=false
+if [[ "$1" == "restore" ]]; then
+    IS_RESTORE=true
+fi
+
 # --- MENU ---
 if [[ "$1" == "restore" && -f "$CACHE_FILE" ]]; then
     choice=$(cat "$CACHE_FILE")
     if [[ -z "$choice" ]]; then choice="  Vertical (stacked)"; fi
 else
-    choice=$(echo -e "  Vertical (stacked)\n  Book Mode (Both)\n  Book Mode (Single)\n  Single screen top\n  Single screen bottom\n  Rotate Active Screens (CW)\n  Single screen top (tablet)\n  External Only (Strict)\n  Power save: Vertical (stacked)\n  Power save: Single screen top\n  Power save: Single screen top (tablet)" | \
-        vicinae dmenu --placeholder "Select option" --no-section --no-quick-look --no-metadata)
+    choice=$(echo -e "Vertical (stacked)\nBook Mode (Both)\nBook Mode (Single)\nSingle screen top\nSingle screen bottom\nRotate Active Screens (CW)\nSingle screen top (tablet)\nExternal Only (Strict)\nPower save: Vertical (stacked)\nPower save: Single screen top\nPower save: Single screen top (tablet)" | \
+        # vicinae dmenu --placeholder "Select option" --no-section --no-quick-look --no-metadata)
+        fuzzel --dmenu --prompt "Display mode: ")
 fi
 
-if [[ -n "$choice" ]]; then echo "$choice" > "$CACHE_FILE"; else exit 0; fi
+# Prevent "Rotate" action from overwriting the layout cache
+if [[ -n "$choice" ]]; then
+    if [[ "$choice" != "  Rotate Active Screens (CW)" ]]; then
+        echo "$choice" > "$CACHE_FILE"
+    fi
+else
+    exit 0
+fi
 
 # --- HELPER FUNCTIONS ---
+
+# Decide whether to use saved rotation (restore) or reset to default (new layout)
+resolve_transform() {
+    local mon="$1"
+    local default="$2"
+    local cache="$ROT_CACHE_DIR/$mon"
+
+    if [[ "$IS_RESTORE" == "true" && -f "$cache" ]]; then
+        cat "$cache"
+    else
+        echo "$default" > "$cache"
+        echo "$default"
+    fi
+}
+
 apply_transform() {
     local dev="$1"
     local trans="$2"
@@ -30,14 +61,26 @@ apply_transform() {
 
 rotate_monitor() {
     local mon=$1
-    local current=$(hyprctl monitors -j | grep -A 20 "\"name\": \"$mon\"" | grep "\"transform\": " | head -n1 | awk '{print $2}' | sed 's/,//')
-    if [[ -z "$current" ]]; then current=0; fi
-    local new_trans=$(( (current + 1) % 4 ))
+    # Use jq to reliably parse current state
+    local mon_info=$(hyprctl monitors -j | jq -r ".[] | select(.name == \"$mon\")")
 
-    # Rotate Monitor
-    hyprctl keyword monitor "$mon,2880x1800@120,0x0,1.6,transform,$new_trans"
+    if [[ -z "$mon_info" ]]; then return; fi
 
-    # Manually sync input devices to the new transform
+    local current_trans=$(echo "$mon_info" | jq -r '.transform')
+    local current_x=$(echo "$mon_info" | jq -r '.x')
+    local current_y=$(echo "$mon_info" | jq -r '.y')
+    local current_scale=$(echo "$mon_info" | jq -r '.scale')
+
+    if [[ "$current_trans" == "null" || -z "$current_trans" ]]; then current_trans=0; fi
+    local new_trans=$(( (current_trans + 1) % 4 ))
+
+    # SAVE the new rotation state
+    echo "$new_trans" > "$ROT_CACHE_DIR/$mon"
+
+    # Rotate Monitor (Preserve geometry)
+    hyprctl keyword monitor "$mon,2880x1800@120,${current_x}x${current_y},${current_scale},transform,$new_trans"
+
+    # Sync input devices
     if [[ "$mon" == "eDP-1" ]]; then
         apply_transform "$TOUCH_TOP" "$new_trans"
         apply_transform "$STYLUS_TOP" "$new_trans"
@@ -74,72 +117,94 @@ refresh() {
 
 case "$choice" in
 "  Vertical (stacked)")
-    # Reset layout (Gap 1130 for safety)
-    hyprctl keyword monitor "eDP-1,2880x1800@120,0x0,1.6,transform,0"
-    hyprctl keyword monitor "eDP-2,2880x1800@120,0x1130,1.6,transform,0"
+    # Defaults: eDP-1=0, eDP-2=0
+    t_top=$(resolve_transform "eDP-1" 0)
+    t_bot=$(resolve_transform "eDP-2" 0)
+
+    hyprctl keyword monitor "eDP-1,2880x1800@120,0x0,1.6,transform,$t_top"
+    hyprctl keyword monitor "eDP-2,2880x1800@120,0x1130,1.6,transform,$t_bot"
+
     hyprctl keyword monitor "DP-1,disable"
     hyprctl keyword monitor "DP-2,disable"
     hyprctl keyword monitor "DP-3,disable"
 
-    # Reset Input Transforms to 0 (Normal)
-    apply_transform "$TOUCH_TOP" 0
-    apply_transform "$STYLUS_TOP" 0
-    apply_transform "$TOUCH_BOTTOM" 0
-    apply_transform "$STYLUS_BOTTOM" 0
+    apply_transform "$TOUCH_TOP" "$t_top"
+    apply_transform "$STYLUS_TOP" "$t_top"
+    apply_transform "$TOUCH_BOTTOM" "$t_bot"
+    apply_transform "$STYLUS_BOTTOM" "$t_bot"
 
     hypr-powersave-mode off
     refresh
     ;;
+
 "  Book Mode (Both)")
-    # Monitors rotated 270 degrees (Portrait)
-    hyprctl keyword monitor "eDP-1,2880x1800@120,0x0,1.6,transform,3"
-    hyprctl keyword monitor "eDP-2,2880x1800@120,1125x0,1.6,transform,3"
+    # Defaults: eDP-1=3, eDP-2=3
+    t_top=$(resolve_transform "eDP-1" 3)
+    t_bot=$(resolve_transform "eDP-2" 3)
 
-    BOOK_TRANSFORM=3
+    hyprctl keyword monitor "eDP-1,2880x1800@120,0x0,1.6,transform,$t_top"
+    hyprctl keyword monitor "eDP-2,2880x1800@120,1125x0,1.6,transform,$t_bot"
 
-    apply_transform "$TOUCH_TOP" $BOOK_TRANSFORM
-    apply_transform "$STYLUS_TOP" $BOOK_TRANSFORM
-    apply_transform "$TOUCH_BOTTOM" $BOOK_TRANSFORM
-    apply_transform "$STYLUS_BOTTOM" $BOOK_TRANSFORM
+    apply_transform "$TOUCH_TOP" "$t_top"
+    apply_transform "$STYLUS_TOP" "$t_top"
+    apply_transform "$TOUCH_BOTTOM" "$t_bot"
+    apply_transform "$STYLUS_BOTTOM" "$t_bot"
 
     hypr-powersave-mode off
     refresh
     ;;
+
 "  Book Mode (Single)")
-    hyprctl keyword monitor "eDP-1,2880x1800@120,0x0,1.6,transform,3"
+    # Defaults: eDP-1=3
+    t_top=$(resolve_transform "eDP-1" 3)
+
+    hyprctl keyword monitor "eDP-1,2880x1800@120,0x0,1.6,transform,$t_top"
     hyprctl keyword monitor "eDP-2,disable"
 
-    apply_transform "$TOUCH_TOP" 3
-    apply_transform "$STYLUS_TOP" 3
+    apply_transform "$TOUCH_TOP" "$t_top"
+    apply_transform "$STYLUS_TOP" "$t_top"
 
     hypr-powersave-mode off
     rescue_pinned
     ;;
+
 "  Single screen top")
-    hyprctl keyword monitor "eDP-1,2880x1800@120,0x0,1.6,transform,0"
+    # Defaults: eDP-1=0
+    t_top=$(resolve_transform "eDP-1" 0)
+
+    hyprctl keyword monitor "eDP-1,2880x1800@120,0x0,1.6,transform,$t_top"
     hyprctl keyword monitor "eDP-2,disable"
-    apply_transform "$TOUCH_TOP" 0
-    apply_transform "$STYLUS_TOP" 0
+    apply_transform "$TOUCH_TOP" "$t_top"
+    apply_transform "$STYLUS_TOP" "$t_top"
     hypr-powersave-mode off
     rescue_pinned
     ;;
+
 "  Single screen bottom")
+    # Defaults: eDP-2=0
+    t_bot=$(resolve_transform "eDP-2" 0)
+
     hyprctl keyword monitor "eDP-1,disable"
-    hyprctl keyword monitor "eDP-2,2880x1800@120,0x0,1.6,transform,0"
-    apply_transform "$TOUCH_BOTTOM" 0
-    apply_transform "$STYLUS_BOTTOM" 0
+    hyprctl keyword monitor "eDP-2,2880x1800@120,0x0,1.6,transform,$t_bot"
+    apply_transform "$TOUCH_BOTTOM" "$t_bot"
+    apply_transform "$STYLUS_BOTTOM" "$t_bot"
     hypr-powersave-mode off
     rescue_pinned
     ;;
+
 "  Rotate Active Screens (CW)")
+    # This Action simply rotates the active screens and updates cache
     if hyprctl monitors | grep -q "eDP-1"; then rotate_monitor "eDP-1"; fi
     if hyprctl monitors | grep -q "eDP-2"; then rotate_monitor "eDP-2"; fi
     refresh
     ;;
+
 "  Single screen top (tablet)")
+    # Assuming external script handles its own rotation, or add logic here if needed
     hypr-profile-tablet
     rescue_pinned
     ;;
+
 "  External Only (Strict)")
     hyprctl keyword monitor "eDP-1,disable"
     hyprctl keyword monitor "eDP-2,disable"
@@ -148,24 +213,37 @@ case "$choice" in
     hyprctl keyword monitor "DP-3,3840x2160@120,0x0,2"
     hypr-powersave-mode off
     ;;
+
 "  Power save: Vertical (stacked)")
-    hyprctl keyword monitor "eDP-1,2880x1800@60,0x0,1.6,transform,0"
-    hyprctl keyword monitor "eDP-2,2880x1800@60,0x1125,1.6,transform,0"
-    apply_transform "$TOUCH_TOP" 0
-    apply_transform "$TOUCH_BOTTOM" 0
+    # Defaults: 0
+    t_top=$(resolve_transform "eDP-1" 0)
+    t_bot=$(resolve_transform "eDP-2" 0)
+
+    hyprctl keyword monitor "eDP-1,2880x1800@60,0x0,1.6,transform,$t_top"
+    hyprctl keyword monitor "eDP-2,2880x1800@60,0x1125,1.6,transform,$t_bot"
+    apply_transform "$TOUCH_TOP" "$t_top"
+    apply_transform "$TOUCH_BOTTOM" "$t_bot"
     hypr-powersave-mode on
     ;;
+
 "  Power save: Single screen top")
-    hyprctl keyword monitor "eDP-1,2880x1800@60,0x0,1.6,transform,0"
+    # Defaults: 0
+    t_top=$(resolve_transform "eDP-1" 0)
+
+    hyprctl keyword monitor "eDP-1,2880x1800@60,0x0,1.6,transform,$t_top"
     hyprctl keyword monitor "eDP-2,disable"
-    apply_transform "$TOUCH_TOP" 0
+    apply_transform "$TOUCH_TOP" "$t_top"
     hypr-powersave-mode on
     rescue_pinned
     ;;
+
 "  Power save: Single screen top (tablet)")
-    hyprctl keyword monitor "eDP-1,2880x1800@60,0x0,1.8,transform,2"
+    # Defaults: 2 (as originally in script)
+    t_top=$(resolve_transform "eDP-1" 2)
+
+    hyprctl keyword monitor "eDP-1,2880x1800@60,0x0,1.8,transform,$t_top"
     hyprctl keyword monitor "eDP-2,disable"
-    apply_transform "$TOUCH_TOP" 2
+    apply_transform "$TOUCH_TOP" "$t_top"
     hypr-powersave-mode on
     rescue_pinned
     ;;

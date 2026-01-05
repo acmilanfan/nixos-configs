@@ -101,7 +101,8 @@
   },
   "custom/lock": {
     "tooltip": false,
-    "on-click": "sh -c hypr-lock & disown",
+    //"on-click": "sh -c hypr-lock & disown",
+    "on-click": "wlogout",
     "format": "🔐"
   },
   "later": {

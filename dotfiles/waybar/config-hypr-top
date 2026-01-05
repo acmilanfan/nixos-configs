@@ -98,7 +98,8 @@
   },
   "custom/lock": {
     "tooltip": false,
-    "on-click": "sh -c hyprlock & disown",
+    // "on-click": "sh -c hyprlock & disown",
+    "on-click": "wlogout",
     "format": "🔐"
   },
   "later": {

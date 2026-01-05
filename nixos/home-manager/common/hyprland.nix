@@ -4,6 +4,15 @@
   inputs,
   ...
 }:
+let
+  fuzzel-main = pkgs.fuzzel.overrideAttrs (old: {
+    src = pkgs.fetchgit {
+      url = "https://codeberg.org/dnkl/fuzzel.git";
+      rev = "9fb7e6c9604d069b8b0c16871a8d8dc8d6e09973";
+      sha256 = "sha256-rlP2+Okq8TUSfvk63HvjMrDyMDjjbpDxH3buhGi3b3Y=";
+    };
+  });
+in
 {
 
   home.sessionVariables = {
@@ -273,9 +282,43 @@
     ];
   };
 
-  # programs.fuzzel = {
-  #   enable = true;
-  # };
+  programs.fuzzel = {
+    enable = true;
+    package = fuzzel-main;
+    settings = {
+      main = {
+        font = "Roboto Mono:size=13";
+        dpi-aware = "yes";
+
+        # lines = 8;
+        width = 36;
+
+        horizontal-pad = 20;
+        vertical-pad = 14;
+        inner-pad = 10;
+
+        layer = "overlay";
+        minimal-lines = true;
+      };
+
+      border = {
+        width = 2;
+        radius = 10;
+      };
+
+      colors = {
+        background = "192330ff";
+        text = "cdcecff0";
+        match = "82aaffff";
+
+        selection = "26334dff";
+        selection-text = "cdcecff0";
+        selection-match = "82aaffff";
+
+        border = "719cd6ff";
+      };
+    };
+  };
 
   home.packages = with pkgs; [
     hyprland
@@ -295,12 +338,15 @@
     wdisplays
     wlr-randr
     nwg-drawer
-    fuzzel
     zathura
     socat
     wvkbd
     iio-hyprland
     hyprpolkitagent
+    iwmenu
+    pwmenu
+    bzmenu
+    bemoji
     (writeShellScriptBin "hypr-profile" (lib.readFile ./scripts/hypr-profile))
     (writeShellScriptBin "hypr-profile-tablet" (lib.readFile ./scripts/hypr-profile-tablet))
     (writeShellScriptBin "hypr-toggle-kb" (lib.readFile ./scripts/hypr-toggle-kb))

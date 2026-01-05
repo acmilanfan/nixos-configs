@@ -9,6 +9,7 @@
     "hyprland/workspaces",
     "custom/screen_toggle",
     "idle_inhibitor",
+    "custom/rotation",
   ],
   "modules-center": [
     "clock"
@@ -97,7 +98,8 @@
   },
   "custom/lock": {
     "tooltip": false,
-    "on-click": "sh -c hyprlock & disown",
+    //"on-click": "sh -c hyprlock & disown",
+    "on-click": "wlogout",
     "format": "🔐"
   },
   "later": {
