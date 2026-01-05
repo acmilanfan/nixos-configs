@@ -51,6 +51,7 @@ in
     unzip
     vue-language-server
     bash-language-server
+    reftools
     nodePackages.typescript
     nodePackages.typescript-language-server
     nodePackages.vscode-json-languageserver
@@ -241,7 +242,10 @@ in
         config = lib.readFile ./neovim/gitsigns.lua;
       }
       {
-        plugin = go-nvim;
+        # plugin = go-nvim;
+        plugin = go-nvim.overrideAttrs (old: {
+          doCheck = false;
+        });
         config = lib.readFile ./neovim/go.lua;
       }
       {
