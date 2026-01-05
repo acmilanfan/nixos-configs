@@ -116,7 +116,7 @@ refresh() {
 # --- EXECUTION ---
 
 case "$choice" in
-"  Vertical (stacked)")
+"Vertical (stacked)")
     # Defaults: eDP-1=0, eDP-2=0
     t_top=$(resolve_transform "eDP-1" 0)
     t_bot=$(resolve_transform "eDP-2" 0)
@@ -137,7 +137,7 @@ case "$choice" in
     refresh
     ;;
 
-"  Book Mode (Both)")
+"Book Mode (Both)")
     # Defaults: eDP-1=3, eDP-2=3
     t_top=$(resolve_transform "eDP-1" 3)
     t_bot=$(resolve_transform "eDP-2" 3)
@@ -154,7 +154,7 @@ case "$choice" in
     refresh
     ;;
 
-"  Book Mode (Single)")
+"Book Mode (Single)")
     # Defaults: eDP-1=3
     t_top=$(resolve_transform "eDP-1" 3)
 
@@ -168,7 +168,7 @@ case "$choice" in
     rescue_pinned
     ;;
 
-"  Single screen top")
+"Single screen top")
     # Defaults: eDP-1=0
     t_top=$(resolve_transform "eDP-1" 0)
 
@@ -180,7 +180,7 @@ case "$choice" in
     rescue_pinned
     ;;
 
-"  Single screen bottom")
+"Single screen bottom")
     # Defaults: eDP-2=0
     t_bot=$(resolve_transform "eDP-2" 0)
 
@@ -192,20 +192,20 @@ case "$choice" in
     rescue_pinned
     ;;
 
-"  Rotate Active Screens (CW)")
+"Rotate Active Screens (CW)")
     # This Action simply rotates the active screens and updates cache
     if hyprctl monitors | grep -q "eDP-1"; then rotate_monitor "eDP-1"; fi
     if hyprctl monitors | grep -q "eDP-2"; then rotate_monitor "eDP-2"; fi
     refresh
     ;;
 
-"  Single screen top (tablet)")
+"Single screen top (tablet)")
     # Assuming external script handles its own rotation, or add logic here if needed
     hypr-profile-tablet
     rescue_pinned
     ;;
 
-"  External Only (Strict)")
+"External Only (Strict)")
     hyprctl keyword monitor "eDP-1,disable"
     hyprctl keyword monitor "eDP-2,disable"
     hyprctl keyword monitor "DP-1,3840x2160@120,0x0,2"
@@ -214,7 +214,7 @@ case "$choice" in
     hypr-powersave-mode off
     ;;
 
-"  Power save: Vertical (stacked)")
+"Power save: Vertical (stacked)")
     # Defaults: 0
     t_top=$(resolve_transform "eDP-1" 0)
     t_bot=$(resolve_transform "eDP-2" 0)
@@ -226,7 +226,7 @@ case "$choice" in
     hypr-powersave-mode on
     ;;
 
-"  Power save: Single screen top")
+"Power save: Single screen top")
     # Defaults: 0
     t_top=$(resolve_transform "eDP-1" 0)
 
@@ -237,7 +237,7 @@ case "$choice" in
     rescue_pinned
     ;;
 
-"  Power save: Single screen top (tablet)")
+"Power save: Single screen top (tablet)")
     # Defaults: 2 (as originally in script)
     t_top=$(resolve_transform "eDP-1" 2)
 

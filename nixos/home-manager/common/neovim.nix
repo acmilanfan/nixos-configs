@@ -71,7 +71,7 @@ in
     pkgs.symlinkJoin {
       name = "treesitter-parsers";
       paths =
-        (pkgs.vimPlugins.nvim-treesitter.withPlugins (
+        (unstable.vimPlugins.nvim-treesitter.withPlugins (
           plugins: with plugins; [
             bash
             go
