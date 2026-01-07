@@ -297,7 +297,8 @@ in
         vertical-pad = 14;
         inner-pad = 10;
 
-        layer = "overlay";
+        # layer = "overlay";
+        keyboard-focus = "on-demand";
         minimal-lines = true;
       };
 
@@ -327,7 +328,6 @@ in
     brightnessctl
     swww
     wl-clipboard
-    cliphist
     grim
     slurp
     kanshi
@@ -389,6 +389,11 @@ in
     Install = {
       WantedBy = [ "graphical-session.target" ];
     };
+  };
+
+  xdg.portal = {
+    enable = true;
+    extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
   };
 
 }

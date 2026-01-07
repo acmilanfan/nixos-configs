@@ -43,6 +43,10 @@
   border-radius: 5px;
 }
 
+#workspaces button.urgent {
+    background-color: #eb4d4b;
+}
+
 #custom-music,
 #tray,
 #backlight,

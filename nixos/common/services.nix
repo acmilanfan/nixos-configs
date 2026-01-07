@@ -1,6 +1,6 @@
 { lib, ... }: {
 
-  services.fprintd.enable = true;
+  # services.fprintd.enable = true;
   services.autorandr.enable = true;
   # TODO: make conditional on non wayland session
   # services.greenclip.enable = true;

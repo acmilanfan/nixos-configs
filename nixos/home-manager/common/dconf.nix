@@ -1,5 +1,7 @@
 { lib, ... }: {
 
+  dconf.enable = true;
+
   dconf.settings = {
     "org/gnome/settings-daemon/plugins/xsettings" = {
       antialiasing="rgba";
