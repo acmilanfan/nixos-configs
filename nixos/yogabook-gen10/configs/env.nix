@@ -151,21 +151,21 @@
     "mem_sleep_default=deep"
     "reboot=pci"
     "apm=power_off"
-    "xe.enable_dpcd_backlight=2"
-    "xe.force_probe=7d51"
-    "i915.force_probe=!7d51"
+    "i915.enable_dpcd_backlight=2"
+    "i915.force_probe=7d51"
     "video=eDP-1:panel_orientation=upside_down"
   ];
 
   # TODO: add psr support
   # "pci=biosirq"
   # "acpi=noirq"
-  # "i915.force_probe=7d51"
   # "i915.enable_dpcd_backlight=2"
+  # "xe.enable_dpcd_backlight=2"
+  # "xe.force_probe=7d51"
   boot.blacklistedKernelModules = [ "simpledrm" ];
   # boot.blacklistedKernelModules = [ "hid-multitouch simpledrm" ];
   # boot.blacklistedKernelModules = [ "hid-multitouch simpledrm efifb" ];
-  boot.initrd.kernelModules = [ "xe ideapad_laptop i2c-dev" ];
+  boot.initrd.kernelModules = [ "i915 ideapad_laptop i2c-dev" ];
   boot.extraModprobeConfig = ''
     options ideapad_laptop allow_v4_dytc=1
   '';
