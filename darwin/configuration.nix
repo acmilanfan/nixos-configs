@@ -1,8 +1,15 @@
-{ pkgs, inputs, unstable, ... }:
+{
+  pkgs,
+  inputs,
+  unstable,
+  ...
+}:
 
 {
   ## TODO things to fix
   # - lock keybind
+  # - try OmniWM instead of Aerospace
+  # - top menu on mous keybinds (menu and search separately, see OmniWM)
   # - kanata config for browser ctr/cmd for external keyboard
   # - add a keybind to switch kanata normal config and canata home row mode with numbers and modifiers disabled
   # - setup middle click three fingers tap
@@ -18,7 +25,6 @@
 
   system.primaryUser = "andreishumailov";
   environment.systemPackages = with pkgs; [
-    # Core system utilities
     vim
     git
     curl
@@ -26,29 +32,16 @@
     htop
     tree
     jq
-
-    # Development tools
     nixfmt-classic
-
-    # Terminal and shell
     zsh
-
-    # File management
     bat
-
-    # Network tools
     httpie
-
-    # Window management
     unstable.aerospace
     sketchybar
-
-    # Keyboard management - Kanata moved to Homebrew for better macOS permissions
-    # unstable.scroll-reverser
   ];
-  launchd.agents.kanata = {
-    command =
-      "/opt/homebrew/bin/kanata --cfg /Users/andreishumailov/.config/kanata/kanata.kbd --port 5829";
+
+  launchd.daemons.kanata = {
+    command = "/opt/homebrew/bin/kanata --cfg /Users/andreishumailov/.config/kanata/kanata.kbd --port 5829";
 
     serviceConfig = {
       KeepAlive = {
@@ -57,14 +50,13 @@
       };
       RunAtLoad = true;
       StandardOutPath = "/Users/andreishumailov/.config/kanata/kanata.log";
-      StandardErrorPath =
-        "/Users/andreishumailov/.config/kanata/kanata.error.log";
+      StandardErrorPath = "/Users/andreishumailov/.config/kanata/kanata.error.log";
+      UserName = "root";
     };
   };
 
   launchd.agents.kanata-vk-agent = {
-    command =
-      "/opt/homebrew/bin/kanata-vk-agent -p 5829 -b com.apple.Safari,org.mozilla.firefox -i com.apple.keylayout.ABC";
+    command = "/opt/homebrew/bin/kanata-vk-agent -p 5829 -b com.apple.Safari,org.mozilla.firefox -i com.apple.keylayout.ABC";
     serviceConfig = {
       Label = "local.kanata-vk-agent";
       KeepAlive = {
@@ -115,7 +107,12 @@
   # Homebrew packages that don't work well with nix-darwin
   homebrew = {
     enable = true;
-    global.autoUpdate = false;
+    global.autoUpdate = true;
+    onActivation = {
+      cleanup = "zap";
+      autoUpdate = true;
+      upgrade = true;
+    };
 
     # Homebrew casks (GUI applications)
     casks = [
@@ -158,6 +155,7 @@
       "scroll-reverser"
       # "hammerspoon"
       "balenaetcher"
+      "omniwm"
     ];
 
     # Homebrew formulae (CLI tools)
@@ -170,19 +168,17 @@
     ];
 
     # Homebrew taps
-    taps = [ "FelixKratz/formulae" "dimentium/autoraise" "devsunb/tap" ];
+    taps = [
+      "FelixKratz/formulae"
+      "dimentium/autoraise"
+      "devsunb/tap"
+      "BarutSRB/tap"
+    ];
 
     # Mac App Store apps
     masApps = {
       # "Xcode" = 497799835;
       # "TestFlight" = 899247664;
-    };
-
-    # Cleanup options
-    onActivation = {
-      cleanup = "zap";
-      autoUpdate = true;
-      upgrade = true;
     };
   };
 
@@ -201,6 +197,7 @@
     inter
     fira-code
     fira-code-symbols
+    nerd-fonts.jetbrains-mono
   ];
 
   # Nix package manager settings
@@ -210,10 +207,16 @@
     optimise.automatic = true;
     settings = {
       # Enable flakes and new command-line interface
-      experimental-features = [ "nix-command" "flakes" ];
+      experimental-features = [
+        "nix-command"
+        "flakes"
+      ];
 
       # Trusted users for multi-user nix
-      trusted-users = [ "root" "andreishumailov" ];
+      trusted-users = [
+        "root"
+        "andreishumailov"
+      ];
     };
 
     # Garbage collection
@@ -237,8 +240,7 @@
   programs.zsh.enable = true;
 
   # Set Git commit hash for darwin-version.
-  system.configurationRevision =
-    inputs.self.rev or inputs.self.dirtyRev or null;
+  system.configurationRevision = inputs.self.rev or inputs.self.dirtyRev or null;
 
   # Used for backwards compatibility, please read the changelog before changing.
   # $ darwin-rebuild changelog
@@ -257,9 +259,13 @@
       "com.apple.symbolichotkeys" = {
         AppleSymbolicHotKeys = {
           # Disable '^ + Space' for selecting the previous input source
-          "60" = { enabled = false; };
+          "60" = {
+            enabled = false;
+          };
           # Disable '^ + Option + Space' for selecting the next input source
-          "61" = { enabled = false; };
+          "61" = {
+            enabled = false;
+          };
           # Disable 'Cmd + Space' for Spotlight Search
           "64" = {
             enabled = false;
@@ -273,7 +279,9 @@
             # };
           };
           # Disable 'Cmd + Alt + Space' for Finder search window
-          "65" = { enabled = true; };
+          "65" = {
+            enabled = true;
+          };
         };
       };
 
@@ -291,7 +299,9 @@
       expose-group-apps = true;
     };
 
-    spaces = { spans-displays = true; };
+    spaces = {
+      spans-displays = true;
+    };
     #
     #    # Finder settings
     #    finder = {
@@ -415,4 +425,5 @@
 
   # Security settings
   security.pam.services.sudo_local.touchIdAuth = true;
+  security.pam.services.sudo_local.reattach = true;
 }

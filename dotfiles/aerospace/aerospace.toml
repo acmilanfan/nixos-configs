@@ -8,10 +8,12 @@ start-at-login = true
 after-startup-command = [
     # Start AutoRaise for focus follows mouse
     'exec-and-forget open /Applications/AutoRaise.app',
+    'exec-and-forget sketchybar'
 ]
 
 exec-on-workspace-change = [
-  "/bin/zsh", "-c", "pip-pop &"
+  '/bin/zsh -c pip-pop',
+  '/bin/bash -c "sketchybar --trigger aerospace_workspace_change FOCUSED_WORKSPACE=$AEROSPACE_FOCUSED_WORKSPACE"'
 ]
 
 # Normalizations. See: https://nikitabobko.github.io/AeroSpace/guide#normalization
@@ -35,8 +37,11 @@ default-root-container-orientation = 'auto'
 # Drop it from your config, if you don't like this behavior
 # See https://nikitabobko.github.io/AeroSpace/guide#on-focus-changed-callbacks
 # You can also specify commands to run when focus changes
-on-focused-monitor-changed = ['move-mouse monitor-lazy-center']
-
+on-focused-monitor-changed = [
+  'move-mouse monitor-lazy-center',
+  'exec-and-forget /bin/bash -c "sketchybar --trigger aerospace_workspace_change FOCUSED_WORKSPACE=$AEROSPACE_FOCUSED_WORKSPACE"'
+]
+on-focus-changed = "move-mouse window-lazy-center"
 
 # Workspace configuration - matching AwesomeWM's 20 workspaces (1-10, 11-20)
 # AeroSpace automatically creates workspaces as needed, but we can define them explicitly
@@ -68,7 +73,7 @@ inner.horizontal = 2
 inner.vertical =   2
 outer.left =       2
 outer.bottom =     2
-outer.top =        2
+outer.top =        4
 outer.right =      2
 
 # 'main' binding mode declaration
@@ -276,6 +281,11 @@ run = 'layout floating'
 if.app-id = 'org.alacritty'
 if.window-title-regex-substring = 'ORGINDEX-'
 run = 'layout floating'
+
+[[on-window-detected]]
+if.workspace = '.*'
+check-further-callbacks = true
+run = ['layout tiling', 'move left']
 
 # Workspace assignments (similar to AwesomeWM tag assignments)
 # You can uncomment and modify these as needed
