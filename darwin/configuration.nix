@@ -107,11 +107,11 @@
   # Homebrew packages that don't work well with nix-darwin
   homebrew = {
     enable = true;
-    global.autoUpdate = true;
+    global.autoUpdate = false;
     onActivation = {
       cleanup = "zap";
-      autoUpdate = true;
-      upgrade = true;
+      autoUpdate = false;
+      upgrade = false;
     };
 
     # Homebrew casks (GUI applications)
