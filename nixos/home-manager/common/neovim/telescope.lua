@@ -28,7 +28,7 @@ telescope.setup({
 })
 
 -- TODO fix extension build
--- require('telescope').load_extension('orgmode')
+require('telescope').load_extension('orgmode')
 require('telescope').load_extension('harpoon')
 require("telescope").load_extension("ui-select")
 require("telescope").load_extension("refactoring")

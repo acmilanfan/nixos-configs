@@ -58,131 +58,130 @@ local params = {
   },
 }
 
--- local OrgAgenda = require("orgmode.api.agenda")
-vim.api.nvim_create_autocmd("FileType", {
-  pattern = "org",
-  group = vim.api.nvim_create_augroup("orgmode_telescope_nvim", { clear = true }),
-  callback = function()
-    -- vim.keymap.set("n", "<leader>tp", require("telescope").extensions.orgmode.refile_heading)
-    -- vim.keymap.set("n", "<leader>ts", require("telescope").extensions.orgmode.search_headings)
-    vim.keymap.set("n", "<leader>os", function()
-      local parseDate = function(date)
-        local Y, M, D, h, m, s = date:match("(%d+)-(%d+)-(%d+)T(%d+):(%d+):(%d+)")
-        if Y == nil then
-          error("Wrong ISO date format: " .. date)
-          return os.time()
-        end
-        return os.time({ year = Y, month = M, day = D, hour = h, min = m, sec = s })
-      end
-
-      local sort_todos = function(todos)
-        if todos == nil then
-          return {}
-        end
-        table.sort(todos, function(a, b)
-        end)
-        return todos
-      end
-      local utils = require("orgmode.utils")
-      local AgendaTodosView = require("orgmode.agenda.views.todos")
-      AgendaTodosView.generate_view = function(items, content, filters, win_width)
-        items = sort_todos(items)
-
-        local offset = #content
-        local longest_category = utils.reduce(items, function(acc, todo)
-          return math.max(acc, vim.api.nvim_strwidth(todo:get_category()))
-        end, 0) or 0
-
-        for i, headline in ipairs(items) do
-          if filters:matches(headline) then
-            table.insert(
-              content,
-              AgendaTodosView.generate_todo_item(headline, longest_category, i + offset, win_width)
-            )
-          end
-        end
-
-        return { items = items, content = content }
-      end
-
-      org.agenda.filters:parse("+youtube", true)
-      org.agenda:open_agenda_view(AgendaTodosView, "todos", {})
-    end)
-  end,
-})
-
--- Define the custom sort function
-local function parseDate(date)
-  local Y, M, D, h, m, s = date:match("(%d+)-(%d+)-(%d+)T(%d+):(%d+):(%d+)")
-  if not Y then
-    return os.time()
-  end
-  return os.time({ year = Y, month = M, day = D, hour = h, min = m, sec = s })
-end
-
-local function custom_sort(a, b)
-  print("Custom sort triggered")
-  local a_published = a:get_property("Published")
-  local a_created = a:get_property("Created")
-  local b_published = b:get_property("Published")
-  local b_created = b:get_property("Created")
-
-  if a_published and b_published then
-    return parseDate(a_published) < parseDate(b_published)
-  elseif a_created and b_created then
-    return parseDate(a_created) < parseDate(b_created)
-  elseif a:get_priority_sort_value() ~= b:get_priority_sort_value() then
-    return a:get_priority_sort_value() > b:get_priority_sort_value()
-  else
-    return a.category < b.category
-  end
-end
-
 orgmode.setup(params)
 
--- vim.schedule(function()
---   local sorting_strategy = require("orgmode.agenda.sorting_strategy")
---   sorting_strategy.category_down = custom_sort
--- end)
+local function open_youtube_query(opts)
+  local query_string = opts.args or ""
+  local org_api = require('orgmode.api')
 
--- vim.defer_fn(function()
---   local status, sorting = pcall(require, 'orgmode.agenda.sorting_strategy')
---
---   if status then
---     -- Override the function
---     print("default")
---     print(sorting.category_down)
---     sorting.category_down= custom_sort
---     print("updated")
---     print(sorting.category_down)
---   else
---     print("Error: orgmode plugin not loaded!")
---   end
--- end, 10000)
+  -- 1. Helper: Query Matcher
+  local function matches_query(headline, query)
+    if query == "" then return true end
+    local conditions = vim.split(query, "+", { plain = true })
+    for _, cond in ipairs(conditions) do
+      local key, op, val = cond:match("^([%w_-]+)([<>=]+)(.+)$")
+      if key then
+        local prop_val = headline:get_property(key)
+        if not prop_val then return false end
+        local n_prop, n_val = tonumber(prop_val), tonumber(val)
+        if n_prop and n_val then
+          if op == "<" and not (n_prop < n_val) then return false end
+          if op == ">" and not (n_prop > n_val) then return false end
+          if op == "=" and not (n_prop == n_val) then return false end
+          if op == "<=" and not (n_prop <= n_val) then return false end
+          if op == ">=" and not (n_prop >= n_val) then return false end
+        elseif op == "=" and prop_val ~= val then return false end
+      end
+    end
+    return true
+  end
+
+  -- 2. Helper: Inherited Tags
+  local function has_youtube_tag(headline)
+    local current = headline
+    while current do
+      for _, tag in ipairs(current.tags or {}) do
+        if tag == 'youtube' then return true end
+      end
+      current = current.parent
+    end
+    return false
+  end
+
+  -- 3. Helper: Parse Date
+  local function parse_date(date_str)
+    if not date_str then return 0 end
+    local Y, M, D, h, m, s = date_str:match("(%d+)-(%d+)-(%d+)T(%d+):(%d+):(%d+)")
+    if not Y then return 0 end
+    return os.time({year=Y, month=M, day=D, hour=h, min=m, sec=s})
+  end
+
+  -- 4. Load and Collect (Store Path Explicitly)
+  local files = org_api.load()
+  local items = {}
+
+  for _, file in ipairs(files) do
+    -- Capture the filename string from the file object directly
+    local file_path = file.filename
+
+    for _, h in ipairs(file.headlines) do
+      if h.todo_type == 'TODO' and has_youtube_tag(h) then
+        if matches_query(h, query_string) then
+          -- Store both the headline AND the path in a wrapper object
+          table.insert(items, { headline = h, path = file_path })
+        end
+      end
+    end
+  end
+
+  -- 5. Sort (Unwrap to access properties)
+  table.sort(items, function(a, b)
+    local t_a = parse_date(a.headline:get_property("Published"))
+    local t_b = parse_date(b.headline:get_property("Published"))
+    return t_a < t_b
+  end)
+
+  -- 6. Build Quickfix List
+  local qf = {}
+  for _, item in ipairs(items) do
+    local h = item.headline
+
+    -- Use the explicit path we captured (Expand ~ just in case)
+    local abs_path = vim.fn.fnamemodify(vim.fn.expand(item.path), ":p")
+
+    local title = h.title or "No Title"
+    local pub = h:get_property("Published") or ""
+
+    local debug_info = ""
+    if query_string ~= "" then
+       if query_string:match("Duration") then
+         local dur = h:get_property("Duration")
+         if dur then debug_info = debug_info .. string.format(" [Dur: %s]", dur) end
+       end
+       if query_string:match("Importance") then
+         local imp = h:get_property("Importance")
+         if imp then debug_info = debug_info .. string.format(" [Imp: %s]", imp) end
+       end
+    end
+
+    table.insert(qf, {
+      filename = abs_path,
+      lnum = h.position.start_line,
+      text = string.format("[%s] %s (%s)%s", h.todo_value, title, pub, debug_info)
+    })
+  end
+
+  if #qf == 0 then
+    print("No videos found matching: " .. (query_string == "" and "All" or query_string))
+  else
+    vim.fn.setqflist(qf, 'r')
+    vim.cmd('copen')
+    print(string.format("Found %d videos.", #qf))
+  end
+end
+
+vim.api.nvim_create_user_command("OrgYoutube", open_youtube_query, { nargs = "?" })
 
 vim.api.nvim_create_autocmd("FileType", {
   pattern = "org",
   group = vim.api.nvim_create_augroup("orgmode_telescope_nvim", { clear = true }),
   callback = function()
-    print("Orgmode FileType")
-    print(require("orgmode.agenda.sorting_strategy").category_down)
-    -- vim.keymap.set("n", "<leader>tp", require("telescope").extensions.orgmode.refile_heading)
-    -- vim.keymap.set("n", "<leader>ts", require("telescope").extensions.orgmode.search_headings)
-    -- vim.keymap.set("n", "<leader>oyt", open_custom_agenda_view, { desc = "Open YouTube Agenda (custom sorted)" })
-    -- vim.keymap.set("n", "<leader>oyt", function()
-    --   OrgAgenda.tags_todo({
-    --     match_query = "+youtube+Duration<100",
-    --     org_agenda_todo_ignore_scheduled = "all",
-    --     header = "All videos",
-    --     org_agenda_sorting_strategy = { "category-down" },
-    --   })
-    -- end, { noremap = true, silent = true })
+    vim.keymap.set("n", "<leader>op", require("telescope").extensions.orgmode.refile_heading)
+    vim.keymap.set("n", "<leader>os", require("telescope").extensions.orgmode.search_headings)
+    vim.keymap.set("n", "<leader>oyt", ":OrgYoutube<CR>", { desc = "YouTube All" })
+    vim.keymap.set("n", "<leader>oys", ":OrgYoutube Duration<600<CR>", { desc = "YouTube Short" })
+    vim.keymap.set("n", "<leader>oyi", ":OrgYoutube Importance=5<CR>", { desc = "YouTube Important" })
   end,
 })
-
--- local OrgAgenda = require("orgmode.api.agenda")
--- OrgAgenda.agenda({
---   org_agenda_sorting_strategy = { custom_sort },
--- })
 
 EOF

@@ -249,6 +249,12 @@ in
         config = lib.readFile ./neovim/go.lua;
       }
       {
+        plugin = customPlugins.telescope-orgmode.overrideAttrs (old: {
+          doCheck = false;
+        });
+        # config = lib.readFile ./neovim/go.lua;
+      }
+      {
         plugin = todo-comments-nvim;
         config = lib.readFile ./neovim/todo-comments.lua;
       }

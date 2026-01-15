@@ -7,8 +7,8 @@
     src = fetchFromGitHub {
       owner = "nvim-orgmode";
       repo = "telescope-orgmode.nvim";
-      rev = "a73d9b7d841364bc2a2e90e97f1d056c02b1a2f9";
-      sha256 = "0wg59i6rkv7bh9icqbzwpwcxzb5bg46all2n7z92yw9apys6fxmv";
+      rev = "bc9bf4f90d364ed5123fca1a3ee78242bcaa121d";
+      sha256 = "sha256-dTCsYNfxtm0hMgn/JcNMyL4YFP4+p0oBkAOywtXGbeI=";
     };
   };
 

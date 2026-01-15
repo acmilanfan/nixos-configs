@@ -9,19 +9,17 @@
   ## TODO things to fix
   # - lock keybind
   # - try OmniWM instead of Aerospace
-  # - top menu on mous keybinds (menu and search separately, see OmniWM)
+  # - top menu on mouse keybinds (menu and search separately, see OmniWM)
   # - kanata config for browser ctr/cmd for external keyboard
   # - add a keybind to switch kanata normal config and canata home row mode with numbers and modifiers disabled
   # - setup middle click three fingers tap
   # - when full screen a window (not OS fullscreen), automatically raise the window on top
   # - firenvim does not work
-  # - fixed accordion mode on one specific screen
   # - warpd for system layer mouse replacement
   # - keyboard BT control
   # - fix sketchybar
   # - faster animations of window tiling
   # - remove window decoration on some (most) apps
-  # - fix windows hightlight when on full screen/accordeon mode
 
   system.primaryUser = "andreishumailov";
   environment.systemPackages = with pkgs; [
