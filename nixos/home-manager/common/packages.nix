@@ -15,12 +15,12 @@
       btop
       qmk
       bat
-      nix-search-tv
     ] ++ lib.optionals pkgs.stdenv.isLinux [
       (writeShellScriptBin "screen-toggle"
         (lib.readFile ./scripts/screen-toggle))
       (writeShellScriptBin "touch-toggle" (lib.readFile ./scripts/touch-toggle))
       (writeShellScriptBin "try-lock" (lib.readFile ./scripts/try-lock))
+      (writeShellScriptBin "ns" (lib.readFile ./scripts/nixpkgs))
       vial
       (python3.withPackages (ps: with ps; [ evdev ]))
       qmk-udev-rules
@@ -68,6 +68,10 @@
       bat --theme=nightfox --style=plain --color=always "$file"
     '';
     settings = { preview = true; };
+  };
+
+  programs.nix-search-tv = {
+    enable = true;
   };
 
   home.file = {
