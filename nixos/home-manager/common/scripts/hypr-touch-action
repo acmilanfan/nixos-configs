@@ -1,8 +1,32 @@
 #!/usr/bin/env bash
 
-CHOICE=$(echo -e "Close\nFullscreen\nFloat" | fuzzel --dmenu)
+# --- Main Menu ---
+CHOICE=$(echo -e "Close\nFullscreen\nFloat\nMove\nThrow" | fuzzel --dmenu --icon-theme="$ICON_THEME" -p "Action > ")
+
 case "$CHOICE" in
-    "Close") hyprctl dispatch closewindow active ;;
-    "Fullscreen") hyprctl dispatch fullscreen 1 ;;
-    "Float") hyprctl dispatch togglefloating active ;;
+    "Close")
+        hyprctl dispatch closewindow active
+        ;;
+    "Fullscreen")
+        hyprctl dispatch fullscreen 1
+        ;;
+    "Float")
+        hyprctl dispatch togglefloating active
+        ;;
+    "Move")
+        # Generates numbers 1-20
+        WORKSP=$(seq 1 20 | fuzzel --dmenu -l 20 -w 10 -p "Move > ")
+
+        if [[ -n "$WORKSP" ]]; then
+            hyprctl dispatch movetoworkspace "$WORKSP"
+        fi
+        ;;
+    "Throw")
+        # Generates numbers 1-20
+        WORKSP=$(seq 1 20 | fuzzel --dmenu -l 20 -w 10 -p "Throw > ")
+
+        if [[ -n "$WORKSP" ]]; then
+            hyprctl dispatch movetoworkspacesilent "$WORKSP"
+        fi
+        ;;
 esac

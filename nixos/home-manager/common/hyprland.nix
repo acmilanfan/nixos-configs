@@ -287,8 +287,8 @@ in
     package = fuzzel-main;
     settings = {
       main = {
-        font = "Roboto Mono:size=13";
-        dpi-aware = "yes";
+        font = "Roboto Mono:size=20";
+        dpi-aware = false;
 
         # lines = 8;
         width = 36;
@@ -338,7 +338,7 @@ in
     wdisplays
     wlr-randr
     nwg-drawer
-    zathura
+    # zathura
     socat
     wvkbd
     iio-hyprland
@@ -347,6 +347,11 @@ in
     pwmenu
     bzmenu
     bemoji
+    ncdu
+    impala
+    bluetui
+    wiremix
+    yazi
     (writeShellScriptBin "hypr-profile" (lib.readFile ./scripts/hypr-profile))
     (writeShellScriptBin "hypr-profile-tablet" (lib.readFile ./scripts/hypr-profile-tablet))
     (writeShellScriptBin "hypr-toggle-kb" (lib.readFile ./scripts/hypr-toggle-kb))
