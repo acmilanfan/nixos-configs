@@ -15,6 +15,7 @@
       btop
       qmk
       bat
+      nix-search-tv
     ] ++ lib.optionals pkgs.stdenv.isLinux [
       (writeShellScriptBin "screen-toggle"
         (lib.readFile ./scripts/screen-toggle))

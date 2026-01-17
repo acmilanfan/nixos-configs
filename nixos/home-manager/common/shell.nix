@@ -23,6 +23,7 @@
       op = ''(cd ~/org && git add . && git commit -m "Sync" && git push)'';
       up = "cd $HOME/configs/nixos-configs && nix flake update";
       nb = "newsboat --url-file=~/org/rss --cache-file=~/Nextcloud/newsboat/cache.db";
+      ns = "nix-search-tv print | fzf --preview 'nix-search-tv preview {}' --scheme history";
 
       # Development shells
       docker-shell = "nix develop ~/configs/nixos-configs/shell/java";
