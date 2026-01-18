@@ -145,18 +145,18 @@
 
   systemd.targets.suspend.wants = [ "hibernate.target" ];
 
-  boot.kernel.sysctl."kernel.debug" = 1;
+  # boot.kernel.sysctl."kernel.debug" = 1;
 
   boot.kernelParams = [
     "mem_sleep_default=deep"
-    "reboot=pci"
-    "apm=power_off"
     "i915.enable_dpcd_backlight=2"
     "i915.force_probe=7d51"
     "video=eDP-1:panel_orientation=upside_down"
+    "btusb.enable_autosuspend=n"
   ];
 
-  # TODO: add psr support
+  # "reboot=pci"
+  # "apm=power_off"
   # "pci=biosirq"
   # "acpi=noirq"
   # "i915.enable_dpcd_backlight=2"
@@ -170,10 +170,10 @@
     options ideapad_laptop allow_v4_dytc=1
   '';
 
-  fileSystems."/sys/kernel/debug" = {
-    device = "debugfs";
-    fsType = "debugfs";
-  };
+  # fileSystems."/sys/kernel/debug" = {
+  #   device = "debugfs";
+  #   fsType = "debugfs";
+  # };
 
   # environment.etc."wireplumber/alsa-monitor.conf.d/51-dualmaster.conf".text = ''
   #   rules = [
@@ -191,7 +191,14 @@
 
   hardware.bluetooth.enable = true;
   hardware.bluetooth.powerOnBoot = true;
-  hardware.bluetooth.settings = { General = { Experimental = true; }; };
+  hardware.bluetooth.settings = {
+    General = {
+      Experimental = true;
+      FastConnectable = "true";
+      JustWorksRepairing = "always";
+      Cache = false;
+    };
+  };
 
   # TODO: increase bootloader size and try again for BT on luks password screen
   # boot.initrd.preDeviceCommands = ''
