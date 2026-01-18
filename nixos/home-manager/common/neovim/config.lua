@@ -248,6 +248,12 @@ vim.keymap.set("v", ">", ">gv", { desc = "Indent in and keeps the selection" })
 vim.keymap.set("n", "k", "v:count == 0 ? 'gk' : 'k'", { expr = true, silent = true })
 vim.keymap.set("n", "j", "v:count == 0 ? 'gj' : 'j'", { expr = true, silent = true })
 
+vim.api.nvim_create_autocmd("FileType", {
+  callback = function(args)
+    pcall(vim.treesitter.start, args.buf)
+  end,
+})
+
 -- [[ Configure LSP ]]
 -- vim.lsp.set_log_level("debug")
 vim.api.nvim_create_autocmd("LspAttach", {

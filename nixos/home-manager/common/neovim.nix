@@ -67,55 +67,6 @@ in
     VISUAL = "nvim";
   };
 
-  xdg.configFile."nvim/parser".source = "${
-    pkgs.symlinkJoin {
-      name = "treesitter-parsers";
-      paths =
-        (unstable.vimPlugins.nvim-treesitter.withPlugins (
-          plugins: with plugins; [
-            bash
-            go
-            hcl
-            html
-            http
-            java
-            javascript
-            typescript
-            vue
-            lua
-            luadoc
-            make
-            markdown
-            nix
-            python
-            sql
-            vim
-            vimdoc
-            comment
-            json
-            yaml
-            toml
-            xml
-            c
-            terraform
-            kotlin
-            jsdoc
-            jq
-            # groovy
-            graphql
-            gosum
-            gomod
-            gitignore
-            git_rebase
-            git_config
-            dockerfile
-            diff
-            css
-          ]
-        )).dependencies;
-    }
-  }/parser";
-
   programs.neovim = {
     enable = true;
     vimAlias = true;
@@ -131,7 +82,6 @@ in
       ];
     plugins = with unstable.vimPlugins; [
       vim-nix
-      # customPlugins.telescope-orgmode
       customPlugins.org-bullets
       # customPlugins.headlines-nvim
       customPlugins.nvim-macroni
@@ -177,8 +127,9 @@ in
       SchemaStore-nvim
       vim-repeat
       lf-vim
+      nvim-treesitter-textobjects
       {
-        plugin = nvim-treesitter;
+        plugin = nvim-treesitter.withAllGrammars;
         config = lib.readFile ./neovim/treesitter.lua;
       }
       {
