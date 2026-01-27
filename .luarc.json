@@ -5,6 +5,7 @@
         "screen",
         "awesome",
         "serialize_table",
-        "client"
+        "client",
+        "hs"
     ]
 }

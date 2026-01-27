@@ -1,4 +1,13 @@
 { pkgs, lib, ... }:
+
+let
+  spoon =
+    name: sha256:
+    pkgs.fetchzip {
+      url = "https://github.com/Hammerspoon/Spoons/raw/master/Spoons/${name}.spoon.zip";
+      inherit sha256;
+    };
+in
 {
 
   home.username = "andreishumailov";
@@ -91,7 +100,19 @@
     ".config/kanata/kanata.kbd".source = ../../dotfiles/kanata/kanata.kbd;
     ".config/kanata/reload-kanata.sh".source = ../../dotfiles/kanata/reload-kanata.sh;
 
-    # ".hammerspoon/init.lua".source = ../../dotfiles/hammerspoon/init.lua;
+    # Hammerspoon
+    ".hammerspoon/init.lua".source = ../../dotfiles/hammerspoon/init.lua;
+    ".hammerspoon/macos-vim-navigation/init.lua".source = ../../dotfiles/hammerspoon/macos-vim-navigation/init.lua;
+    ".hammerspoon/Spoons/AClock.spoon".source = spoon "AClock" "0swzy9wvgjc93l0qc89m0zk9j0xk14w71v38vqfy2b96f4qd59p4";
+    # TODO: install https://github.com/ujwalnk/GridTile
+    ".hammerspoon/Spoons/PaperWM.spoon".source = pkgs.fetchzip {
+      url = "https://github.com/mogenson/PaperWM.spoon/archive/main.zip";
+      sha256 = "0swzy9wvgjc93l0qc89m0zk9j0xk14w71v38vqfy2b96f4qd59p4";
+    };
+    ".hammerspoon/Spoons/VimMode.spoon".source = pkgs.fetchzip {
+      url = "https://github.com/dbalatero/VimMode.spoon/archive/master.zip";
+      sha256 = "0ihpg5ipl60gkvwcmlcvjca2b6y0v3lv50dhyz7nicnh3yb7d76f";
+    };
 
     # --- SketchyBar Config ---
     ".config/sketchybar/sketchybarrc" = {

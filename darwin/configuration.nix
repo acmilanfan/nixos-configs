@@ -105,10 +105,13 @@
   # Homebrew packages that don't work well with nix-darwin
   homebrew = {
     enable = true;
+    # global.autoUpdate = true;
     global.autoUpdate = false;
     onActivation = {
       cleanup = "zap";
+      # autoUpdate = true;
       autoUpdate = false;
+      # upgrade = true;
       upgrade = false;
     };
 
@@ -151,7 +154,7 @@
       # Usability improvements
       "dimentium/autoraise/autoraiseapp"
       "scroll-reverser"
-      # "hammerspoon"
+      "hammerspoon"
       "balenaetcher"
       "omniwm"
     ];
