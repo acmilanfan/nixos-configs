@@ -120,19 +120,32 @@ in
       text = ''
         #!/bin/bash
 
+        # ═══════════════════════════════════════════════════════════════════════════
+        # SKETCHYBAR CONFIG - Clean & Informative
+        # ═══════════════════════════════════════════════════════════════════════════
+
         # --- Theme & Colors ---
+        # BAR_COLOR=0xff1a1b26        # Tokyo Night background
+        # ITEM_BG_COLOR=0xff2e2e3e   # Dark Grey Pills
+        # ACCENT_COLOR=0xff7aa2f7     # Blue accent
         BAR_COLOR=0xff000000       # Pure Black (Matches Notch)
-        ITEM_BG_COLOR=0xff2e2e3e   # Dark Grey Pills
+        ITEM_BG_COLOR=0xff24283b    # Slightly lighter for pills
         ACCENT_COLOR=0xff7b5cff    # Purple Accent
-        WHITE=0xffdddddd
+        ACCENT_SECONDARY=0xff9ece6a # Green accent
+        WARNING_COLOR=0xffe0af68    # Yellow/Orange warning
+        CRITICAL_COLOR=0xfff7768e   # Red critical
+        INACTIVE_COLOR=0xff565f89   # Muted grey
+        WHITE=0xffc0caf5            # Soft white
+        DIM=0xff565f89              # Dimmed text
 
         # --- Fonts ---
         FONT_FACE="JetBrainsMono Nerd Font"
-        ICON_FONT="$FONT_FACE:Regular:16.0"
-        LABEL_FONT="$FONT_FACE:Bold:13.0"
+        ICON_FONT="$FONT_FACE:Regular:14.0"
+        LABEL_FONT="$FONT_FACE:Medium:11.0"
+        LABEL_FONT_BOLD="$FONT_FACE:Bold:11.0"
 
         # --- Setup Custom Events ---
-        sketchybar --add event aerospace_workspace_change
+        sketchybar --add event nanowm_update
 
         # --- Global Defaults ---
         sketchybar --default \
@@ -142,105 +155,196 @@ in
           label.font="$LABEL_FONT" \
           icon.color=$WHITE \
           label.color=$WHITE \
-          background.height=26 \
-          background.corner_radius=8 \
+          background.height=22 \
+          background.corner_radius=6 \
           label.padding_left=4 \
-          label.padding_right=10 \
-          icon.padding_left=10 \
+          label.padding_right=6 \
+          icon.padding_left=6 \
           icon.padding_right=4 \
-          background.padding_right=5 \
-          background.padding_left=5
+          background.padding_right=2 \
+          background.padding_left=2
 
         # --- Bar Settings ---
         sketchybar --bar \
-          height=36 \
+          height=32 \
           color=$BAR_COLOR \
           position=top \
           sticky=on \
           topmost=window \
-          padding_left=10 \
-          padding_right=10
+          padding_left=6 \
+          padding_right=6 \
+          shadow=on
 
-        # ==============================================================================
-        # LEFT SIDE
-        # ==============================================================================
+        # ═══════════════════════════════════════════════════════════════════════════
+        # LEFT SIDE - App & Workspaces
+        # ═══════════════════════════════════════════════════════════════════════════
 
-        # --- Front App Name (Far Left) ---
+        # --- Front App Icon + Name ---
         sketchybar --add item front_app left \
                    --set front_app \
                          background.color=$ITEM_BG_COLOR \
-                         icon.drawing=off \
-                         label.padding_left=10 \
-                         associated_display=active \
+                         background.drawing=on \
+                         icon.drawing=on \
+                         icon.font="sketchybar-app-font:Regular:14.0" \
+                         label.font="$LABEL_FONT_BOLD" \
+                         label.padding_left=4 \
+                         label.padding_right=8 \
+                         icon.padding_left=8 \
                          script="$CONFIG_DIR/plugins/front_app.sh" \
                    --subscribe front_app front_app_switched
 
-        # --- Dynamic Workspaces ---
-        for i in {1..9}; do
+        # --- Separator ---
+        sketchybar --add item sep_left left \
+                   --set sep_left \
+                         icon="│" \
+                         icon.color=$INACTIVE_COLOR \
+                         icon.font="$FONT_FACE:Regular:12.0" \
+                         icon.padding_left=6 \
+                         icon.padding_right=6 \
+                         background.drawing=off \
+                         label.drawing=off
+
+        # --- Workspace Items (1-10 + Special) ---
+        for i in 1 2 3 4 5 6 7 8 9 10 S; do
           sketchybar --add item space.$i left \
-                     --subscribe space.$i aerospace_workspace_change \
                      --set space.$i \
-                     background.color=$ITEM_BG_COLOR \
-                     background.drawing=off \
-                     icon=$i \
-                     icon.padding_left=8 \
-                     icon.padding_right=8 \
-                     label.drawing=off \
-                     click_script="aerospace workspace $i" \
-                     script="$CONFIG_DIR/plugins/aerospace.sh $i"
+                           icon="$i" \
+                           icon.font="$FONT_FACE:Bold:11.0" \
+                           icon.padding_left=8 \
+                           icon.padding_right=8 \
+                           background.color=$INACTIVE_COLOR \
+                           background.drawing=off \
+                           label.drawing=off \
+                           drawing=off \
+                           click_script="$CONFIG_DIR/plugins/space_click.sh" \
+                           script="$CONFIG_DIR/plugins/space.sh" \
+                     --subscribe space.$i nanowm_update mouse.clicked
         done
 
-        # ==============================================================================
-        # CENTER
-        # ==============================================================================
+        # --- NanoWM Timer (shows only when active) ---
+        sketchybar --add item nanowm_timer left \
+                   --set nanowm_timer \
+                         background.color=0xff3d5a80 \
+                         background.drawing=off \
+                         icon="󰔟" \
+                         icon.color=$WARNING_COLOR \
+                         icon.padding_left=8 \
+                         icon.padding_right=4 \
+                         label="" \
+                         label.padding_left=4 \
+                         label.padding_right=8 \
+                         drawing=off \
+                         script="$CONFIG_DIR/plugins/nanowm_timer.sh" \
+                   --subscribe nanowm_timer nanowm_update
 
-        # --- Clock ---
+        # ═══════════════════════════════════════════════════════════════════════════
+        # CENTER - Date & Time
+        # ═══════════════════════════════════════════════════════════════════════════
+
+        sketchybar --add item date center \
+                   --set date \
+                         update_freq=60 \
+                         icon="󰃭" \
+                         icon.color=$ACCENT_COLOR \
+                         background.drawing=off \
+                         script="$CONFIG_DIR/plugins/date.sh"
+
         sketchybar --add item clock center \
                    --set clock \
                          update_freq=10 \
-                         icon="" \
-                         background.color=$ITEM_BG_COLOR \
-                         background.drawing=on \
+                         icon="󰥔" \
+                         icon.color=$ACCENT_SECONDARY \
+                         background.drawing=off \
                          script="$CONFIG_DIR/plugins/clock.sh"
 
-        # ==============================================================================
-        # RIGHT SIDE
-        # ==============================================================================
+        # ═══════════════════════════════════════════════════════════════════════════
+        # RIGHT SIDE - System Info
+        # ═══════════════════════════════════════════════════════════════════════════
+
+        # --- Media (Now Playing) ---
+        sketchybar --add item media right \
+                   --set media \
+                         icon="󰎆" \
+                         icon.color=$ACCENT_COLOR \
+                         label.max_chars=30 \
+                         scroll_texts=on \
+                         background.color=$ITEM_BG_COLOR \
+                         background.drawing=on \
+                         script="$CONFIG_DIR/plugins/media.sh" \
+                         update_freq=5 \
+                   --subscribe media media_change
+
+        # --- Separator ---
+        sketchybar --add item sep_right1 right \
+                   --set sep_right1 \
+                         icon="│" \
+                         icon.color=$INACTIVE_COLOR \
+                         icon.font="$FONT_FACE:Regular:12.0" \
+                         icon.padding_left=4 \
+                         icon.padding_right=4 \
+                         background.drawing=off \
+                         label.drawing=off
+
+        # --- Network (WiFi/Ethernet) ---
+        sketchybar --add item network right \
+                   --set network \
+                         icon="󰤨" \
+                         icon.color=$ACCENT_SECONDARY \
+                         background.color=$ITEM_BG_COLOR \
+                         background.drawing=on \
+                         script="$CONFIG_DIR/plugins/network.sh" \
+                         update_freq=10 \
+                   --subscribe network wifi_change
+
+        # --- CPU Usage ---
+        sketchybar --add item cpu right \
+                   --set cpu \
+                         icon="󰻠" \
+                         icon.color=$ACCENT_COLOR \
+                         background.color=$ITEM_BG_COLOR \
+                         background.drawing=on \
+                         update_freq=3 \
+                         script="$CONFIG_DIR/plugins/cpu.sh"
+
+        # --- Memory Usage ---
+        sketchybar --add item memory right \
+                   --set memory \
+                         icon="󰍛" \
+                         icon.color=$WARNING_COLOR \
+                         background.color=$ITEM_BG_COLOR \
+                         background.drawing=on \
+                         update_freq=5 \
+                         script="$CONFIG_DIR/plugins/memory.sh"
+
+        # --- Separator ---
+        sketchybar --add item sep_right2 right \
+                   --set sep_right2 \
+                         icon="│" \
+                         icon.color=$INACTIVE_COLOR \
+                         icon.font="$FONT_FACE:Regular:12.0" \
+                         icon.padding_left=4 \
+                         icon.padding_right=4 \
+                         background.drawing=off \
+                         label.drawing=off
 
         # --- Volume ---
         sketchybar --add item volume right \
                    --set volume \
-                         script="$CONFIG_DIR/plugins/volume.sh" \
+                         icon="󰕾" \
                          background.color=$ITEM_BG_COLOR \
                          background.drawing=on \
-                         updates=on \
+                         script="$CONFIG_DIR/plugins/volume.sh" \
                    --subscribe volume volume_change
 
         # --- Battery ---
         sketchybar --add item battery right \
                    --set battery \
+                         icon="󰁹" \
+                         background.color=$ITEM_BG_COLOR \
+                         background.drawing=on \
+                         update_freq=60 \
                          script="$CONFIG_DIR/plugins/battery.sh" \
-                         background.color=$ITEM_BG_COLOR \
-                         background.drawing=on \
-                         update_freq=120 \
                    --subscribe battery system_woke power_source_change
-
-        # --- CPU ---
-        sketchybar --add item cpu right \
-                   --set cpu \
-                         update_freq=3 \
-                         icon="" \
-                         background.color=$ITEM_BG_COLOR \
-                         background.drawing=on \
-                         script="$CONFIG_DIR/plugins/cpu.sh"
-
-        # --- Network ---
-        sketchybar --add item network right \
-                   --set network \
-                         update_freq=5 \
-                         background.color=$ITEM_BG_COLOR \
-                         background.drawing=on \
-                         script="$CONFIG_DIR/plugins/network.sh"
 
         sketchybar --update
         echo "SketchyBar config loaded."
@@ -249,50 +353,113 @@ in
 
     # --- Plugins ---
 
-    # 1. Front App Plugin (Updates the name on the left)
+    # Space Click Plugin (handles clicking on workspaces)
+    ".config/sketchybar/plugins/space_click.sh" = {
+      executable = true;
+      text = ''
+        #!/bin/bash
+
+        # Extract space number from item name (space.1 -> 1, space.S -> S)
+        SPACE_ID=$(echo "$NAME" | cut -d. -f2)
+
+        # Use hs CLI to switch to the workspace
+        if [ "$SPACE_ID" = "S" ]; then
+          /opt/homebrew/bin/hs -c "NanoWM.toggleSpecial()"
+        else
+          /opt/homebrew/bin/hs -c "NanoWM.gotoTag($SPACE_ID)"
+        fi
+      '';
+    };
+
+    # Space/Workspace Plugin
+    ".config/sketchybar/plugins/space.sh" = {
+      executable = true;
+      text = ''
+        #!/bin/bash
+
+        # Extract space number from item name (space.1 -> 1, space.S -> S)
+        SPACE_ID=$(echo "$NAME" | cut -d. -f2)
+
+        if [ "$SENDER" = "nanowm_update" ]; then
+          IS_ACTIVE=false
+          HAS_WINDOWS=false
+          IS_URGENT=false
+
+          # Check if this space is the current tag
+          if [ "$TAG" = "$SPACE_ID" ]; then
+            IS_ACTIVE=true
+          fi
+
+          # Check if this space has windows (is in OCCUPIED list)
+          for occupied in $OCCUPIED; do
+            if [ "$occupied" = "$SPACE_ID" ]; then
+              HAS_WINDOWS=true
+              break
+            fi
+          done
+
+          # Check if this space is urgent
+          for urgent in $URGENT; do
+            if [ "$urgent" = "$SPACE_ID" ]; then
+              IS_URGENT=true
+              break
+            fi
+          done
+
+          if [ "$IS_ACTIVE" = true ]; then
+            # Current workspace - highlighted blue
+            sketchybar --set "$NAME" drawing=on background.drawing=on background.color=0xff7aa2f7 icon.color=0xff1a1b26
+          elif [ "$IS_URGENT" = true ]; then
+            # Urgent workspace - highlighted red/orange (attention needed!)
+            sketchybar --set "$NAME" drawing=on background.drawing=on background.color=0xfff7768e icon.color=0xff1a1b26
+          elif [ "$HAS_WINDOWS" = true ]; then
+            # Has windows but not active - visible but dimmed
+            sketchybar --set "$NAME" drawing=on background.drawing=on background.color=0xff3b4261 icon.color=0xffc0caf5
+          else
+            # Empty workspace - hidden
+            sketchybar --set "$NAME" drawing=off
+          fi
+        fi
+      '';
+    };
+
+    # Front App Plugin
     ".config/sketchybar/plugins/front_app.sh" = {
       executable = true;
       text = ''
         #!/bin/bash
         if [ "$SENDER" = "front_app_switched" ]; then
-          sketchybar --set $NAME label="$INFO"
+          sketchybar --set $NAME label="$INFO" icon.background.image="app.$INFO"
         fi
       '';
     };
 
-    # 2. AeroSpace Plugin (Handles visibility & highlighting)
-    ".config/sketchybar/plugins/aerospace.sh" = {
+    # NanoWM Timer Plugin
+    ".config/sketchybar/plugins/nanowm_timer.sh" = {
       executable = true;
       text = ''
         #!/bin/bash
 
-        # FIX: Add NixOS/nix-darwin system paths so we can find 'aerospace'
-        export PATH=$PATH:/run/current-system/sw/bin:/etc/profiles/per-user/$USER/bin:/opt/homebrew/bin:/usr/local/bin
-
-        # Fallback: If event didn't pass the variable, query it manually
-        if [ -z "$FOCUSED_WORKSPACE" ]; then
-            FOCUSED_WORKSPACE=$(aerospace list-workspaces --focused)
-        fi
-
-        # 1. Highlight Active Workspace
-        if [ "$1" = "$FOCUSED_WORKSPACE" ]; then
-            sketchybar --set $NAME background.drawing=on background.color=0xff7b5cff icon.color=0xffffffff
-        else
-            sketchybar --set $NAME background.drawing=off icon.color=0xffdddddd
-        fi
-
-        # 2. Auto-Hide Empty Workspaces
-        OCCUPIED_SPACES=$(aerospace list-windows --all --format '%{workspace}')
-
-        if [[ $OCCUPIED_SPACES == *"$1"* ]] || [ "$1" = "$FOCUSED_WORKSPACE" ]; then
-            sketchybar --set $NAME drawing=on
-        else
-            sketchybar --set $NAME drawing=off
+        if [ "$SENDER" = "nanowm_update" ]; then
+          if [ -n "$TIMER" ] && [ "$TIMER" != "" ]; then
+            sketchybar --set $NAME drawing=on background.drawing=on label="$TIMER"
+          else
+            sketchybar --set $NAME drawing=off background.drawing=off
+          fi
         fi
       '';
     };
 
-    # 3. Clock Plugin
+    # Date Plugin
+    ".config/sketchybar/plugins/date.sh" = {
+      executable = true;
+      text = ''
+        #!/bin/bash
+        sketchybar --set $NAME label="$(date '+%a %d %b')"
+      '';
+    };
+
+    # Clock Plugin
     ".config/sketchybar/plugins/clock.sh" = {
       executable = true;
       text = ''
@@ -301,7 +468,7 @@ in
       '';
     };
 
-    # 4. Volume Plugin
+    # Volume Plugin
     ".config/sketchybar/plugins/volume.sh" = {
       executable = true;
       text = ''
@@ -310,71 +477,201 @@ in
         MUTED=$(osascript -e "output muted of (get volume settings)")
 
         if [[ $MUTED != "false" ]]; then
-          ICON=""
+          ICON="󰝟"
+          COLOR="0xff565f89"
+        elif [[ $VOL -ge 66 ]]; then
+          ICON="󰕾"
+          COLOR="0xff7aa2f7"
+        elif [[ $VOL -ge 33 ]]; then
+          ICON="󰖀"
+          COLOR="0xff7aa2f7"
+        elif [[ $VOL -ge 1 ]]; then
+          ICON="󰕿"
+          COLOR="0xff7aa2f7"
         else
-          case $VOL in
-            [6-9][0-9]|100) ICON="";;
-            [3-5][0-9]) ICON="";;
-            *) ICON=""
-          esac
+          ICON="󰝟"
+          COLOR="0xff565f89"
         fi
-        sketchybar --set $NAME icon="$ICON" label="$VOL%"
+        sketchybar --set $NAME icon="$ICON" icon.color="$COLOR" label="$VOL%"
       '';
     };
 
-    # 5. CPU Plugin
+    # CPU Plugin
     ".config/sketchybar/plugins/cpu.sh" = {
       executable = true;
       text = ''
         #!/bin/bash
+        CPU_LOAD=$(top -l 2 -n 0 | grep -E "^CPU" | tail -1 | awk '{ print int($3 + $5) }')
 
-        # 1. Run top for 2 samples (-l 2) because sample 1 is usually invalid.
-        # 2. Grep for the CPU usage line.
-        # 3. Tail -1 to get the second (accurate) sample.
-        # 4. Awk columns 3 (User) and 5 (Sys) to get total load.
-        #    (Output format is usually: CPU usage: 12% user, 10% sys, 78% idle)
+        if [[ $CPU_LOAD -ge 80 ]]; then
+          COLOR="0xfff7768e"  # Critical red
+        elif [[ $CPU_LOAD -ge 50 ]]; then
+          COLOR="0xffe0af68"  # Warning yellow
+        else
+          COLOR="0xff7aa2f7"  # Normal blue
+        fi
 
-        CPU_LOAD=$(top -l 2 | grep -E "^CPU" | tail -1 | awk '{ print $3 + $5 }')
-
-        # Remove decimal points for a clean integer
-        CPU_INT=''${CPU_LOAD%.*}
-
-        sketchybar --set $NAME label="$CPU_INT%"
+        sketchybar --set $NAME label="$CPU_LOAD%" icon.color="$COLOR"
       '';
     };
 
-    # 6. Battery Plugin
+    # Memory Plugin
+    ".config/sketchybar/plugins/memory.sh" = {
+      executable = true;
+      text = ''
+        #!/bin/bash
+        # Get memory pressure (percentage of memory used)
+        MEMORY=$(memory_pressure 2>/dev/null | grep "System-wide memory free percentage" | awk '{print 100 - $5}' | tr -d '%')
+
+        # Fallback if memory_pressure doesn't work
+        if [ -z "$MEMORY" ]; then
+          # Use vm_stat as fallback
+          PAGES_FREE=$(vm_stat | grep "Pages free" | awk '{print $3}' | tr -d '.')
+          PAGES_ACTIVE=$(vm_stat | grep "Pages active" | awk '{print $3}' | tr -d '.')
+          PAGES_INACTIVE=$(vm_stat | grep "Pages inactive" | awk '{print $3}' | tr -d '.')
+          PAGES_WIRED=$(vm_stat | grep "Pages wired" | awk '{print $4}' | tr -d '.')
+          PAGES_COMPRESSED=$(vm_stat | grep "Pages occupied by compressor" | awk '{print $5}' | tr -d '.')
+
+          TOTAL=$((PAGES_FREE + PAGES_ACTIVE + PAGES_INACTIVE + PAGES_WIRED + PAGES_COMPRESSED))
+          USED=$((PAGES_ACTIVE + PAGES_WIRED + PAGES_COMPRESSED))
+
+          if [ $TOTAL -gt 0 ]; then
+            MEMORY=$((USED * 100 / TOTAL))
+          else
+            MEMORY=0
+          fi
+        fi
+
+        if [[ $MEMORY -ge 80 ]]; then
+          COLOR="0xfff7768e"  # Critical red
+        elif [[ $MEMORY -ge 60 ]]; then
+          COLOR="0xffe0af68"  # Warning yellow
+        else
+          COLOR="0xff9ece6a"  # Normal green
+        fi
+
+        sketchybar --set $NAME label="$MEMORY%" icon.color="$COLOR"
+      '';
+    };
+
+    # Battery Plugin
     ".config/sketchybar/plugins/battery.sh" = {
       executable = true;
       text = ''
         #!/bin/bash
         PERCENTAGE=$(pmset -g batt | grep -o "[0-9]\{1,3\}%" | tr -d "%")
         CHARGING=$(pmset -g batt | grep 'AC Power')
+
         if [ "$PERCENTAGE" = "" ]; then exit 0; fi
 
-        case ''${PERCENTAGE} in
-          9[0-9]|100) ICON="" ;;
-          [6-8][0-9]) ICON="" ;;
-          [3-5][0-9]) ICON="" ;;
-          [1-2][0-9]) ICON="" ;;
-          *) ICON=""
-        esac
-        if [[ $CHARGING != "" ]]; then ICON=""; fi
-        sketchybar --set $NAME icon="$ICON" label="''${PERCENTAGE}%"
+        if [[ $CHARGING != "" ]]; then
+          ICON="󰂄"
+          COLOR="0xff9ece6a"  # Green when charging
+        elif [[ $PERCENTAGE -ge 80 ]]; then
+          ICON="󰁹"
+          COLOR="0xff9ece6a"  # Green
+        elif [[ $PERCENTAGE -ge 60 ]]; then
+          ICON="󰂁"
+          COLOR="0xff7aa2f7"  # Blue
+        elif [[ $PERCENTAGE -ge 40 ]]; then
+          ICON="󰁿"
+          COLOR="0xff7aa2f7"  # Blue
+        elif [[ $PERCENTAGE -ge 20 ]]; then
+          ICON="󰁻"
+          COLOR="0xffe0af68"  # Yellow warning
+        else
+          ICON="󰂃"
+          COLOR="0xfff7768e"  # Red critical
+        fi
+
+        sketchybar --set $NAME icon="$ICON" icon.color="$COLOR" label="$PERCENTAGE%"
       '';
     };
 
-    # 7. Network Plugin
+    # Network Plugin
     ".config/sketchybar/plugins/network.sh" = {
       executable = true;
       text = ''
         #!/bin/bash
-        WIFI=$(ipconfig getsummary en0 | awk -F ' SSID : '  '/ SSID : / {print $2}')
-        if [ "$WIFI" = "" ]; then
-           sketchybar --set $NAME label="Disconnected" icon="󰤠"
+        WIFI=$(ipconfig getsummary en0 2>/dev/null | awk -F ' SSID : ' '/ SSID : / {print $2}')
+
+        if [ -n "$WIFI" ]; then
+          # Get signal strength
+          RSSI=$(/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport -I 2>/dev/null | awk '/agrCtlRSSI/ {print $2}')
+
+          if [ -n "$RSSI" ]; then
+            if [[ $RSSI -ge -50 ]]; then
+              ICON="󰤨"  # Excellent
+              COLOR="0xff9ece6a"
+            elif [[ $RSSI -ge -60 ]]; then
+              ICON="󰤥"  # Good
+              COLOR="0xff7aa2f7"
+            elif [[ $RSSI -ge -70 ]]; then
+              ICON="󰤢"  # Fair
+              COLOR="0xffe0af68"
+            else
+              ICON="󰤟"  # Weak
+              COLOR="0xfff7768e"
+            fi
+          else
+            ICON="󰤨"
+            COLOR="0xff9ece6a"
+          fi
+
+          # Truncate long SSID names
+          if [ ''${#WIFI} -gt 12 ]; then
+            WIFI="''${WIFI:0:10}.."
+          fi
+          sketchybar --set $NAME icon="$ICON" icon.color="$COLOR" label="$WIFI"
         else
-           sketchybar --set $NAME label="$WIFI" icon="󰤢"
+          # Check for ethernet
+          ETHERNET=$(ifconfig en1 2>/dev/null | grep "status: active")
+          if [ -n "$ETHERNET" ]; then
+            sketchybar --set $NAME icon="󰈀" icon.color="0xff9ece6a" label="Ethernet"
+          else
+            sketchybar --set $NAME icon="󰤭" icon.color="0xff565f89" label="Off"
+          fi
         fi
+      '';
+    };
+
+    # Media Plugin (Now Playing)
+    ".config/sketchybar/plugins/media.sh" = {
+      executable = true;
+      text = ''
+        #!/bin/bash
+
+        # Try to get now playing info from Music app or Spotify
+        PLAYER_STATE=$(osascript -e 'tell application "System Events" to (name of processes) contains "Spotify"' 2>/dev/null)
+
+        if [ "$PLAYER_STATE" = "true" ]; then
+          PLAYING=$(osascript -e 'tell application "Spotify" to player state as string' 2>/dev/null)
+          if [ "$PLAYING" = "playing" ]; then
+            TRACK=$(osascript -e 'tell application "Spotify" to name of current track as string' 2>/dev/null)
+            ARTIST=$(osascript -e 'tell application "Spotify" to artist of current track as string' 2>/dev/null)
+            if [ -n "$TRACK" ]; then
+              sketchybar --set $NAME drawing=on label="$ARTIST - $TRACK" icon="󰓇" icon.color="0xff1db954"
+              exit 0
+            fi
+          fi
+        fi
+
+        # Check Music app
+        MUSIC_STATE=$(osascript -e 'tell application "System Events" to (name of processes) contains "Music"' 2>/dev/null)
+        if [ "$MUSIC_STATE" = "true" ]; then
+          PLAYING=$(osascript -e 'tell application "Music" to player state as string' 2>/dev/null)
+          if [ "$PLAYING" = "playing" ]; then
+            TRACK=$(osascript -e 'tell application "Music" to name of current track as string' 2>/dev/null)
+            ARTIST=$(osascript -e 'tell application "Music" to artist of current track as string' 2>/dev/null)
+            if [ -n "$TRACK" ]; then
+              sketchybar --set $NAME drawing=on label="$ARTIST - $TRACK" icon="󰎆" icon.color="0xfffc3c44"
+              exit 0
+            fi
+          fi
+        fi
+
+        # Nothing playing
+        sketchybar --set $NAME drawing=off
       '';
     };
   };

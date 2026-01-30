@@ -6,6 +6,12 @@ local VimMode = hs.loadSpoon("VimMode")
 local vim = VimMode:new()
 vim:bindHotKeys({ enter = { { "alt" }, "e" } })
 -- vim:enterWithSequence("jk")
+--
+
+-- TODO: things to fix/improve
+-- sketchybar: add time and day of the week on the right
+-- sketchybar: wifi showing <redacted>
+-- sketchybar: add cpu monitoring graph
 
 -- =============================================================================
 -- BASE SETTINGS
@@ -14,7 +20,7 @@ hs.window.animationDuration = 0
 hs.ipc.cliInstall()
 
 -- =============================================================================
--- NANOWM v35: Aggressive Raising & Zero Gap
+-- NANOWM v37: Urgent Tags & Tag Switch Cooldown
 -- =============================================================================
 NanoWM = {}
 
@@ -36,6 +42,7 @@ function NanoWM.loadState()
     NanoWM.floatingCache = hs.settings.get("nanoWM_floatingCache") or {}
     NanoWM.sizeCache = hs.settings.get("nanoWM_sizeCache") or {}
     NanoWM.fullscreenCache = hs.settings.get("nanoWM_fullscreenCache") or {}
+    NanoWM.masterWidths = clean(hs.settings.get("nanoWM_masterWidths")) or {}
 end
 
 NanoWM.saveTimer = hs.timer.delayed.new(2.0, function()
@@ -54,6 +61,7 @@ NanoWM.saveTimer = hs.timer.delayed.new(2.0, function()
     hs.settings.set("nanoWM_floatingCache", NanoWM.floatingCache)
     hs.settings.set("nanoWM_sizeCache", NanoWM.sizeCache)
     hs.settings.set("nanoWM_fullscreenCache", NanoWM.fullscreenCache)
+    hs.settings.set("nanoWM_masterWidths", serialize(NanoWM.masterWidths))
 
     hs.settings.set("nanoWM_currentTag", NanoWM.currentTag)
     hs.settings.set("nanoWM_prevTag", NanoWM.prevTag)
@@ -77,8 +85,9 @@ NanoWM.loadState()
 
 NanoWM.currentTag = hs.settings.get("nanoWM_currentTag") or 1
 NanoWM.prevTag = hs.settings.get("nanoWM_prevTag") or 1
-NanoWM.masterWidth = 0.5
-NanoWM.gap = 0 -- UPDATED: Default 0
+NanoWM.masterWidths = {} -- Per-tag master widths
+NanoWM.defaultMasterWidth = 0.5
+NanoWM.gap = 0           -- UPDATED: Default 0
 NanoWM.layout = "tile"
 NanoWM.isFullscreen = false
 NanoWM.special = { active = false, tag = "special", border = nil, raiseTimer = nil }
@@ -88,6 +97,31 @@ NanoWM.actionsCache = {}
 NanoWM.focusTimer = nil
 NanoWM.launching = false
 NanoWM.tileTimer = nil
+
+-- Timer tracking
+NanoWM.activeTimer = nil
+NanoWM.timerEndTime = nil
+NanoWM.timerDuration = nil
+
+-- Urgent tags (Awesome WM style)
+NanoWM.urgentTags = {}           -- Table of urgent tags: { [tag] = true }
+NanoWM.lastManualTagSwitch = 0   -- Timestamp of last manual tag switch
+NanoWM.tagSwitchCooldown = 0.5   -- Cooldown in seconds after manual switch
+
+-- Apps that should trigger urgent (browsers, communication apps)
+NanoWM.urgentApps = {
+    ["Firefox"] = true,
+    ["Safari"] = true,
+    ["Google Chrome"] = true,
+    ["Arc"] = true,
+    ["Slack"] = true,
+    ["Discord"] = true,
+    ["Messages"] = true,
+    ["Telegram"] = true,
+    ["WhatsApp"] = true,
+    ["Microsoft Teams"] = true,
+    ["Zoom"] = true,
+}
 
 -- -----------------------------------------------------------------------------
 -- CONFIGURATION
@@ -122,6 +156,76 @@ NanoWM.floatingTitles = {
     "Info",
     "Task Switcher",
 }
+
+-- -----------------------------------------------------------------------------
+-- URGENT TAG FUNCTIONS
+-- -----------------------------------------------------------------------------
+function NanoWM.markTagUrgent(tag)
+    -- Don't mark current tag as urgent
+    if tag == NanoWM.currentTag then
+        return
+    end
+    if tag == NanoWM.special.tag and NanoWM.special.active then
+        return
+    end
+
+    if not NanoWM.urgentTags[tag] then
+        NanoWM.urgentTags[tag] = true
+        NanoWM.updateSketchybar()
+        -- Optional: play a subtle sound or show notification
+        -- hs.sound.getByName("Tink"):play()
+    end
+end
+
+function NanoWM.clearUrgent(tag)
+    if NanoWM.urgentTags[tag] then
+        NanoWM.urgentTags[tag] = nil
+        NanoWM.updateSketchybar()
+    end
+end
+
+function NanoWM.gotoUrgent()
+    -- Find first urgent tag and go to it
+    for tag, _ in pairs(NanoWM.urgentTags) do
+        if tag == "special" then
+            NanoWM.toggleSpecial()
+        else
+            NanoWM.gotoTag(tag)
+        end
+        return
+    end
+    hs.alert.show("No urgent tags")
+end
+
+function NanoWM.hasUrgentTags()
+    for _, _ in pairs(NanoWM.urgentTags) do
+        return true
+    end
+    return false
+end
+
+-- -----------------------------------------------------------------------------
+-- PER-TAG MASTER WIDTH HELPERS
+-- -----------------------------------------------------------------------------
+function NanoWM.getMasterWidth(tag)
+    tag = tag or NanoWM.currentTag
+    return NanoWM.masterWidths[tag] or NanoWM.defaultMasterWidth
+end
+
+function NanoWM.setMasterWidth(tag, width)
+    tag = tag or NanoWM.currentTag
+    NanoWM.masterWidths[tag] = width
+    NanoWM.triggerSave()
+end
+
+function NanoWM.resetMasterWidthIfNeeded(tag)
+    tag = tag or NanoWM.currentTag
+    local windows = NanoWM.getTiledWindows(tag)
+    if #windows <= 1 then
+        NanoWM.masterWidths[tag] = NanoWM.defaultMasterWidth
+        NanoWM.triggerSave()
+    end
+end
 
 -- -----------------------------------------------------------------------------
 -- CORE HELPERS
@@ -380,13 +484,13 @@ function NanoWM.performTile()
 
     -- PHASE 3: TILE BACKGROUND
     local backgroundWindows = NanoWM.getTiledWindows(NanoWM.currentTag)
-    NanoWM.applyLayout(backgroundWindows, frame, false)
+    NanoWM.applyLayout(backgroundWindows, frame, false, NanoWM.currentTag)
 
     if NanoWM.special.active then
         local specialWindows = NanoWM.getTiledWindows(NanoWM.special.tag)
         local pad = 100
         local specialFrame = { x = frame.x + pad, y = frame.y + pad, w = frame.w - (pad * 2), h = frame.h - (pad * 2) }
-        NanoWM.applyLayout(specialWindows, specialFrame, true)
+        NanoWM.applyLayout(specialWindows, specialFrame, true, NanoWM.special.tag)
 
         -- Immediately raise all special windows to ensure they're on top
         for _, win in ipairs(specialWindows) do
@@ -425,9 +529,12 @@ function NanoWM.performTile()
             end
         end)
     end
+
+    -- Update sketchybar with current state
+    NanoWM.updateSketchybar()
 end
 
-function NanoWM.applyLayout(windows, area, isSpecial)
+function NanoWM.applyLayout(windows, area, isSpecial, tag)
     local count = #windows
     if count == 0 then
         return
@@ -464,7 +571,8 @@ function NanoWM.applyLayout(windows, area, isSpecial)
     if count == 1 then
         setFrameSmart(masterWin, { x = area.x + gap, y = area.y + gap, w = area.w - (2 * gap), h = area.h - (2 * gap) })
     else
-        local mw = math.floor(area.w * NanoWM.masterWidth)
+        local masterWidth = NanoWM.getMasterWidth(tag)
+        local mw = math.floor(area.w * masterWidth)
         setFrameSmart(masterWin, { x = area.x + gap, y = area.y + gap, w = mw - (1.5 * gap), h = area.h - (2 * gap) })
         local sx = area.x + mw + (0.5 * gap)
         local sw = area.w - mw - (1.5 * gap)
@@ -527,7 +635,7 @@ function NanoWM.toggleFloat()
     end
     NanoWM.triggerSave()
     NanoWM.tile()
-    hs.alert.show(currentlyFloating and "Window Tiled" or "Window Floating")
+    -- hs.alert.show(currentlyFloating and "Window Tiled" or "Window Floating")
 end
 
 function NanoWM.toggleSticky()
@@ -538,11 +646,11 @@ function NanoWM.toggleSticky()
     local id = win:id()
     if NanoWM.sticky[id] then
         NanoWM.sticky[id] = nil
-        hs.alert.show("Window Un-Stuck")
+        -- hs.alert.show("Window Un-Stuck")
     else
         NanoWM.sticky[id] = true
         win:raise()
-        hs.alert.show("Window Sticky")
+        -- hs.alert.show("Window Sticky")
     end
     NanoWM.triggerSave()
     NanoWM.tile()
@@ -644,7 +752,7 @@ function NanoWM.swapWindow(dir)
         return
     end
     if NanoWM.isFloating(focused) then
-        hs.alert.show("Cannot swap floating window")
+        -- hs.alert.show("Cannot swap floating window")
         return
     end
 
@@ -852,7 +960,7 @@ function NanoWM.updateBorder()
                 action = "stroke",
                 strokeColor = { red = 0.2, green = 0.6, blue = 1.0, alpha = 0.8 },
                 strokeWidth = 8,
-                frame = { x = 4, y = 4, w = screen.w - 8, h = screen.h - 8 }
+                frame = { x = 4, y = 4, w = screen.w - 8, h = screen.h - 8 },
             }
         end
         NanoWM.special.border:show()
@@ -880,10 +988,10 @@ end
 
 function NanoWM.gotoTag(i)
     -- Prevent tag switching when special mode is active
-    if NanoWM.special.active then
-        hs.alert.show("Exit special mode first (Alt+S)")
-        return
-    end
+    -- if NanoWM.special.active then
+    --     hs.alert.show("Exit special mode first (Alt+S)")
+    --     return
+    -- end
     if i == NanoWM.currentTag and not NanoWM.special.active then
         return
     end
@@ -891,8 +999,14 @@ function NanoWM.gotoTag(i)
     NanoWM.prevTag = NanoWM.currentTag
     NanoWM.currentTag = i
     NanoWM.special.active = false
+
+    -- Record manual tag switch time and clear urgent for this tag
+    NanoWM.lastManualTagSwitch = hs.timer.secondsSinceEpoch()
+    NanoWM.clearUrgent(i)
+
     NanoWM.triggerSave()
     NanoWM.updateBorder()
+    NanoWM.updateSketchybarNow()  -- Immediate update for responsive feel
     NanoWM.tile()
     local wins = NanoWM.getTiledWindows(i)
     if #wins > 0 then
@@ -900,7 +1014,7 @@ function NanoWM.gotoTag(i)
             wins[1]:focus()
         end)
     end
-    hs.alert.show("Tag " .. i, 0.4)
+    -- hs.alert.show("Tag " .. i, 0.4)
 end
 
 function NanoWM.togglePrevTag()
@@ -909,6 +1023,15 @@ end
 
 function NanoWM.toggleSpecial()
     NanoWM.special.active = not NanoWM.special.active
+
+    -- Record manual tag switch time
+    NanoWM.lastManualTagSwitch = hs.timer.secondsSinceEpoch()
+
+    -- Clear urgent for special tag when entering it
+    if NanoWM.special.active then
+        NanoWM.clearUrgent(NanoWM.special.tag)
+    end
+
     NanoWM.updateBorder()
     NanoWM.tile()
 
@@ -956,6 +1079,11 @@ function NanoWM.moveWindowToTag(destTag)
         NanoWM.stacks[destTag] = {}
     end
     table.insert(NanoWM.stacks[destTag], 1, win:id())
+    -- Reset master width if only one window left on the source tag
+    if currentTag then
+        NanoWM.resetMasterWidthIfNeeded(currentTag)
+    end
+
     NanoWM.triggerSave()
     NanoWM.tile()
 end
@@ -1000,6 +1128,11 @@ filter:subscribe(hs.window.filter.windowDestroyed, function(win)
             NanoWM.sizeCache[idStr] = nil
         end
 
+        -- Reset master width if only one window left on the tag
+        if tag then
+            NanoWM.resetMasterWidthIfNeeded(tag)
+        end
+
         NanoWM.triggerSave()
     end
     if NanoWM.focusTimer then
@@ -1032,6 +1165,32 @@ filter:subscribe(hs.window.filter.windowFocused, function(win)
     if not tag or tag == NanoWM.currentTag or tag == "special" then
         return
     end
+
+    -- Check if we're within the cooldown period after a manual tag switch
+    local timeSinceManualSwitch = hs.timer.secondsSinceEpoch() - NanoWM.lastManualTagSwitch
+    if timeSinceManualSwitch < NanoWM.tagSwitchCooldown then
+        -- Within cooldown, don't auto-switch, just mark as urgent
+        local app = win:application()
+        if app and NanoWM.urgentApps[app:name()] then
+            NanoWM.markTagUrgent(tag)
+        end
+        return
+    end
+
+    -- Outside cooldown - mark tag as urgent instead of auto-switching
+    -- This gives user control over when to switch
+    local app = win:application()
+    if app and NanoWM.urgentApps[app:name()] then
+        NanoWM.markTagUrgent(tag)
+        -- Cancel any pending focus timer
+        if NanoWM.focusTimer then
+            NanoWM.focusTimer:stop()
+            NanoWM.focusTimer = nil
+        end
+        return
+    end
+
+    -- For non-urgent apps, use the original delayed switch behavior
     if NanoWM.focusTimer then
         NanoWM.focusTimer:stop()
     end
@@ -1127,13 +1286,55 @@ function NanoWM.startTimer(minutes)
         NanoWM.activeTimer:stop()
     end
 
+    NanoWM.timerDuration = minutes
+    NanoWM.timerEndTime = os.time() + (minutes * 60)
+
     hs.alert.show("Timer started: " .. minutes .. " min")
 
     NanoWM.activeTimer = hs.timer.doAfter(minutes * 60, function()
         hs.alert.show("⏰ Timer finished! (" .. minutes .. " min)", 5)
         hs.sound.getByName("Glass"):play()
         NanoWM.activeTimer = nil
+        NanoWM.timerEndTime = nil
+        NanoWM.timerDuration = nil
+
+
+        NanoWM.updateSketchybar()
     end)
+
+    NanoWM.updateSketchybar()
+end
+
+function NanoWM.showTimerRemaining()
+    if not NanoWM.timerEndTime then
+        hs.alert.show("No active timer")
+        return
+    end
+
+    local remaining = NanoWM.timerEndTime - os.time()
+    if remaining <= 0 then
+        hs.alert.show("Timer finished!")
+        return
+    end
+
+    local mins = math.floor(remaining / 60)
+    local secs = remaining % 60
+    hs.alert.show(string.format("⏱ Timer: %d:%02d remaining", mins, secs), 2)
+end
+
+function NanoWM.cancelTimer()
+    if NanoWM.activeTimer then
+        NanoWM.activeTimer:stop()
+        NanoWM.activeTimer = nil
+        NanoWM.timerEndTime = nil
+        NanoWM.timerDuration = nil
+
+
+        hs.alert.show("Timer cancelled")
+        NanoWM.updateSketchybar()
+    else
+        hs.alert.show("No active timer")
+    end
 end
 
 function NanoWM.startCustomTimer()
@@ -1151,69 +1352,100 @@ end
 -- Keybind menu
 function NanoWM.showKeybindMenu()
     local keybinds = {
-        { category = "Navigation", binds = {
-            { key = "Alt+J", desc = "Focus next window" },
-            { key = "Alt+K", desc = "Focus previous window" },
-            { key = "Alt+H", desc = "Decrease master width" },
-            { key = "Alt+L", desc = "Increase master width" },
-        }},
-        { category = "Window Management", binds = {
-            { key = "Alt+Shift+J", desc = "Swap window down" },
-            { key = "Alt+Shift+K", desc = "Swap window up" },
-            { key = "Alt+F", desc = "Toggle fullscreen" },
-            { key = "Alt+C", desc = "Center window" },
-            { key = "Alt+Shift+C", desc = "Resize floating to 60%" },
-            { key = "Alt+Shift+Space", desc = "Toggle float" },
-            { key = "Ctrl+Alt+Shift+S", desc = "Toggle sticky" },
-            { key = "Alt+Shift+Q", desc = "Close window" },
-        }},
-        { category = "Floating Window Resize", binds = {
-            { key = "Alt+Shift+H", desc = "Make narrower" },
-            { key = "Alt+Shift+L", desc = "Make wider" },
-            { key = "Alt+Shift+K", desc = "Make shorter" },
-            { key = "Alt+Shift+J", desc = "Make taller" },
-        }},
-        { category = "Floating Window Move", binds = {
-            { key = "Ctrl+Alt+H", desc = "Move left" },
-            { key = "Ctrl+Alt+L", desc = "Move right" },
-            { key = "Ctrl+Alt+K", desc = "Move up" },
-            { key = "Ctrl+Alt+J", desc = "Move down" },
-        }},
-        { category = "Tags", binds = {
-            { key = "Alt+1-9/0", desc = "Go to tag 1-10" },
-            { key = "Alt+Shift+1-9/0", desc = "Move window to tag" },
-            { key = "Alt+Escape", desc = "Toggle previous tag" },
-            { key = "Alt+S", desc = "Toggle special tag" },
-            { key = "Alt+Shift+S", desc = "Move to special tag" },
-        }},
-        { category = "Layout & Display", binds = {
-            { key = "Cmd+Space", desc = "Toggle layout (tile/monocle)" },
-            { key = "Alt+G", desc = "Toggle gaps" },
-        }},
-        { category = "Menus", binds = {
-            { key = "Alt+M", desc = "App menu palette" },
-            { key = "Alt+P", desc = "Commands menu" },
-            { key = "Alt+I", desc = "Windows menu" },
-            { key = "Alt+/", desc = "This keybind menu" },
-        }},
-        { category = "Applications", binds = {
-            { key = "Alt+Return", desc = "New Alacritty" },
-            { key = "Alt+Shift+Return", desc = "Focus Alacritty" },
-            { key = "Alt+B", desc = "New Firefox" },
-            { key = "Alt+Shift+B", desc = "Focus Firefox" },
-            { key = "Alt+D", desc = "Launch Raycast" },
-        }},
-        { category = "Timers", binds = {
-            { key = "Alt+T, then 1", desc = "5 min timer" },
-            { key = "Alt+T, then 2", desc = "10 min timer" },
-            { key = "Alt+T, then 3", desc = "60 min timer" },
-            { key = "Alt+T, then 4", desc = "120 min timer" },
-            { key = "Alt+T, then N", desc = "Custom timer" },
-        }},
-        { category = "System", binds = {
-            { key = "Cmd+Alt+T", desc = "Toggle AClock" },
-            { key = "Ctrl+Alt+Shift+R", desc = "Reload config" },
-        }},
+        {
+            category = "Navigation",
+            binds = {
+                { key = "Alt+J", desc = "Focus next window" },
+                { key = "Alt+K", desc = "Focus previous window" },
+                { key = "Alt+H", desc = "Decrease master width" },
+                { key = "Alt+L", desc = "Increase master width" },
+            },
+        },
+        {
+            category = "Window Management",
+            binds = {
+                { key = "Alt+Shift+J",      desc = "Swap window down" },
+                { key = "Alt+Shift+K",      desc = "Swap window up" },
+                { key = "Alt+F",            desc = "Toggle fullscreen" },
+                { key = "Alt+C",            desc = "Center window" },
+                { key = "Alt+Shift+C",      desc = "Resize floating to 60%" },
+                { key = "Alt+Shift+Space",  desc = "Toggle float" },
+                { key = "Ctrl+Alt+Shift+S", desc = "Toggle sticky" },
+                { key = "Alt+Shift+Q",      desc = "Close window" },
+            },
+        },
+        {
+            category = "Floating Window Resize",
+            binds = {
+                { key = "Alt+Shift+H", desc = "Make narrower" },
+                { key = "Alt+Shift+L", desc = "Make wider" },
+                { key = "Alt+Shift+K", desc = "Make shorter" },
+                { key = "Alt+Shift+J", desc = "Make taller" },
+            },
+        },
+        {
+            category = "Floating Window Move",
+            binds = {
+                { key = "Ctrl+Alt+H", desc = "Move left" },
+                { key = "Ctrl+Alt+L", desc = "Move right" },
+                { key = "Ctrl+Alt+K", desc = "Move up" },
+                { key = "Ctrl+Alt+J", desc = "Move down" },
+            },
+        },
+        {
+            category = "Tags",
+            binds = {
+                { key = "Alt+1-9/0",       desc = "Go to tag 1-10" },
+                { key = "Alt+Shift+1-9/0", desc = "Move window to tag" },
+                { key = "Alt+Escape",      desc = "Toggle previous tag" },
+                { key = "Alt+S",           desc = "Toggle special tag" },
+                { key = "Alt+Shift+S",     desc = "Move to special tag" },
+                { key = "Alt+U",           desc = "Go to urgent tag" },
+            },
+        },
+        {
+            category = "Layout & Display",
+            binds = {
+                { key = "Cmd+Space", desc = "Toggle layout (tile/monocle)" },
+                { key = "Alt+G",     desc = "Toggle gaps" },
+            },
+        },
+        {
+            category = "Menus",
+            binds = {
+                { key = "Alt+M", desc = "App menu palette" },
+                { key = "Alt+P", desc = "Commands menu" },
+                { key = "Alt+I", desc = "Windows menu" },
+                { key = "Alt+/", desc = "This keybind menu" },
+            },
+        },
+        {
+            category = "Applications",
+            binds = {
+                { key = "Alt+Return",       desc = "New Alacritty" },
+                { key = "Alt+Shift+Return", desc = "Focus Alacritty" },
+                { key = "Alt+B",            desc = "New Firefox" },
+                { key = "Alt+Shift+B",      desc = "Focus Firefox" },
+                { key = "Alt+D",            desc = "Launch Raycast" },
+            },
+        },
+        {
+            category = "Timers",
+            binds = {
+                { key = "Alt+T, then 1", desc = "5 min timer" },
+                { key = "Alt+T, then 2", desc = "10 min timer" },
+                { key = "Alt+T, then 3", desc = "60 min timer" },
+                { key = "Alt+T, then 4", desc = "120 min timer" },
+                { key = "Alt+T, then N", desc = "Custom timer" },
+            },
+        },
+        {
+            category = "System",
+            binds = {
+                { key = "Cmd+Alt+T",        desc = "Toggle AClock" },
+                { key = "Ctrl+Alt+Shift+R", desc = "Reload config" },
+            },
+        },
     }
 
     local choices = {}
@@ -1221,13 +1453,13 @@ function NanoWM.showKeybindMenu()
         table.insert(choices, {
             text = "━━━ " .. section.category .. " ━━━",
             subText = "",
-            uuid = "header_" .. section.category
+            uuid = "header_" .. section.category,
         })
         for _, bind in ipairs(section.binds) do
             table.insert(choices, {
                 text = bind.key,
                 subText = bind.desc,
-                uuid = "bind_" .. bind.key
+                uuid = "bind_" .. bind.key,
             })
         end
     end
@@ -1238,7 +1470,9 @@ function NanoWM.showKeybindMenu()
     chooser:fgColor({ hex = "#FFFFFF" })
     chooser:subTextColor({ hex = "#CCCCCC" })
     chooser:choices(choices)
-    chooser:placeholderText("Search keybinds...")
+    chooser:placeholderText("Search keybinds by key or description...")
+    -- Enable searching in both text and subText
+    chooser:searchSubText(true)
     chooser:show()
 end
 
@@ -1270,11 +1504,15 @@ hs.hotkey.bind(alt, "k", function()
     NanoWM.cycleFocus(-1)
 end)
 hs.hotkey.bind(alt, "h", function()
-    NanoWM.masterWidth = math.max(0.1, NanoWM.masterWidth - 0.05)
+    local tag = NanoWM.special.active and NanoWM.special.tag or NanoWM.currentTag
+    local currentWidth = NanoWM.getMasterWidth(tag)
+    NanoWM.setMasterWidth(tag, math.max(0.1, currentWidth - 0.05))
     NanoWM.tile()
 end)
 hs.hotkey.bind(alt, "l", function()
-    NanoWM.masterWidth = math.min(0.9, NanoWM.masterWidth + 0.05)
+    local tag = NanoWM.special.active and NanoWM.special.tag or NanoWM.currentTag
+    local currentWidth = NanoWM.getMasterWidth(tag)
+    NanoWM.setMasterWidth(tag, math.min(0.9, currentWidth + 0.05))
     NanoWM.tile()
 end)
 
@@ -1321,9 +1559,17 @@ end)
 hs.hotkey.bind(alt, "g", function()
     NanoWM.toggleGaps()
 end)
+-- Toggle sketchybar
+hs.hotkey.bind(altShift, "g", function()
+    NanoWM.toggleSketchybar()
+end)
 -- NEW: Show keybind menu
 hs.hotkey.bind(alt, "/", function()
     NanoWM.showKeybindMenu()
+end)
+-- NEW: Go to urgent tag
+hs.hotkey.bind(alt, "u", function()
+    NanoWM.gotoUrgent()
 end)
 -- NEW: Floating window resize keybinds (note: conflicts with swap, only work on floating windows)
 hs.hotkey.bind(altShift, "h", function()
@@ -1331,7 +1577,7 @@ hs.hotkey.bind(altShift, "h", function()
     if win and NanoWM.isFloating(win) then
         NanoWM.resizeFloatingWindow("narrower")
     else
-        NanoWM.swapWindow(-1)  -- Fall back to original behavior for tiled windows
+        NanoWM.swapWindow(-1) -- Fall back to original behavior for tiled windows
     end
 end)
 hs.hotkey.bind(altShift, "l", function()
@@ -1339,7 +1585,7 @@ hs.hotkey.bind(altShift, "l", function()
     if win and NanoWM.isFloating(win) then
         NanoWM.resizeFloatingWindow("wider")
     else
-        NanoWM.swapWindow(1)  -- Fall back to original behavior for tiled windows
+        NanoWM.swapWindow(1) -- Fall back to original behavior for tiled windows
     end
 end)
 hs.hotkey.bind(altShift, "k", function()
@@ -1347,7 +1593,7 @@ hs.hotkey.bind(altShift, "k", function()
     if win and NanoWM.isFloating(win) then
         NanoWM.resizeFloatingWindow("shorter")
     else
-        NanoWM.swapWindow(-1)  -- Original behavior
+        NanoWM.swapWindow(-1) -- Original behavior
     end
 end)
 hs.hotkey.bind(altShift, "j", function()
@@ -1355,7 +1601,7 @@ hs.hotkey.bind(altShift, "j", function()
     if win and NanoWM.isFloating(win) then
         NanoWM.resizeFloatingWindow("taller")
     else
-        NanoWM.swapWindow(1)  -- Original behavior
+        NanoWM.swapWindow(1) -- Original behavior
     end
 end)
 -- NEW: Floating window move keybinds
@@ -1404,29 +1650,72 @@ hs.hotkey.bind(altShift, "q", function()
     end
 end)
 
+
+-- Helper function to find and focus ORGINDEX window, or create new one
+function NanoWM.focusOrCreateOrgindex(titlePattern, launchCmd)
+    -- Search for existing window with matching title
+    -- Use hs.window.allWindows() to get ALL windows including hidden ones
+    local allWins = hs.window.allWindows()
+    print("[NanoWM] Looking for window with title pattern: " .. titlePattern)
+    print("[NanoWM] Total windows found: " .. #allWins)
+    for _, win in ipairs(allWins) do
+        local title = win:title() or ""
+        print("[NanoWM] Checking window: " .. title)
+        if string.find(title, titlePattern, 1, true) then
+            print("[NanoWM] FOUND matching window!")
+            -- Found existing window - move to current tag, raise and focus
+            local id = win:id()
+            local currentTag = NanoWM.tags[id]
+            local targetTag = NanoWM.special.active and NanoWM.special.tag or NanoWM.currentTag
+
+            -- Move to current tag if not already there
+            if currentTag ~= targetTag then
+                -- Remove from old tag stack
+                if currentTag and NanoWM.stacks[currentTag] then
+                    for i, vid in ipairs(NanoWM.stacks[currentTag]) do
+                        if vid == id then
+                            table.remove(NanoWM.stacks[currentTag], i)
+                            break
+                        end
+                    end
+                end
+                -- Add to new tag
+                NanoWM.tags[id] = targetTag
+                if not NanoWM.stacks[targetTag] then
+                    NanoWM.stacks[targetTag] = {}
+                end
+                table.insert(NanoWM.stacks[targetTag], 1, id)
+                NanoWM.triggerSave()
+            end
+
+            -- Raise and focus
+            win:raise()
+            win:focus()
+            NanoWM.tile()
+            return
+        end
+    end
+
+    -- No existing window found - create new one
+    print("[NanoWM] No existing window found, creating new one")
+    NanoWM.launchTask("/bin/zsh", { "-c", launchCmd })
+end
+
 hs.hotkey.bind(altShift, "o", function()
-    NanoWM.launchTask("/bin/zsh", {
-        "-c",
-        '/Applications/Alacritty.app/Contents/MacOS/alacritty -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-AGENDA" -e zsh -c "nvim --cmd \\"cd ~/org/life\\" -c \\"lua require(\\\\\\"orgmode.api.agenda\\\\\\").agenda({span = 1})\\""',
-    })
+    NanoWM.focusOrCreateOrgindex("ORGINDEX-AGENDA",
+        '/Applications/Alacritty.app/Contents/MacOS/alacritty -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-AGENDA" -e zsh -c "nvim --cmd \\"cd ~/org/life\\" -c \\"lua require(\\\\\\"orgmode.api.agenda\\\\\\").agenda({span = 1})\\""')
 end)
 hs.hotkey.bind(altShift, "w", function()
-    NanoWM.launchTask("/bin/zsh", {
-        "-c",
-        '/Applications/Alacritty.app/Contents/MacOS/alacritty -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-WORK" -e zsh -c "cd ~/org/life && vim ~/org/life/work/work.org"',
-    })
+    NanoWM.focusOrCreateOrgindex("ORGINDEX-WORK",
+        '/Applications/Alacritty.app/Contents/MacOS/alacritty -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-WORK" -e zsh -c "cd ~/org/life && vim ~/org/life/work/work.org"')
 end)
 hs.hotkey.bind(altShift, "d", function()
-    NanoWM.launchTask("/bin/zsh", {
-        "-c",
-        '/Applications/Alacritty.app/Contents/MacOS/alacritty -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-DUMP" -e zsh -c "cd ~/org/life && vim ~/org/life/dump.org"',
-    })
+    NanoWM.focusOrCreateOrgindex("ORGINDEX-DUMP",
+        '/Applications/Alacritty.app/Contents/MacOS/alacritty -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-DUMP" -e zsh -c "cd ~/org/life && vim ~/org/life/dump.org"')
 end)
 hs.hotkey.bind(altShift, "y", function()
-    NanoWM.launchTask("/bin/zsh", {
-        "-c",
-        '/Applications/Alacritty.app/Contents/MacOS/alacritty -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-YOUTUBE" -e zsh -c "cd ~/org/consume && vim ~/org/consume/youtube/youtube1.org"',
-    })
+    NanoWM.focusOrCreateOrgindex("ORGINDEX-YOUTUBE",
+        '/Applications/Alacritty.app/Contents/MacOS/alacritty -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-YOUTUBE" -e zsh -c "cd ~/org/consume && vim ~/org/consume/youtube/youtube1.org"')
 end)
 
 -- NEW: Timer keybindings (Alt+T as prefix, then number)
@@ -1451,13 +1740,21 @@ timerModal:bind("", "n", function()
     timerModal:exit()
     NanoWM.startCustomTimer()
 end)
+timerModal:bind("", "r", function()
+    NanoWM.showTimerRemaining()
+    timerModal:exit()
+end)
+timerModal:bind("", "c", function()
+    NanoWM.cancelTimer()
+    timerModal:exit()
+end)
 timerModal:bind("", "escape", function()
     timerModal:exit()
 end)
 
 hs.hotkey.bind({ "alt", "shift", "ctrl" }, "r", function()
     hs.reload()
-    hs.alert.show("NanoWM v35 Reloaded")
+    hs.alert.show("NanoWM v37 Reloaded")
 end)
 -- FIXED: AClock toggle with proper initialization and method checking
 hs.hotkey.bind({ "cmd", "alt" }, "t", function()
@@ -1480,5 +1777,194 @@ hs.hotkey.bind({ "cmd", "alt" }, "t", function()
     end
 end)
 
+-- -----------------------------------------------------------------------------
+-- MOUSE RESIZE WATCHER
+-- -----------------------------------------------------------------------------
+-- Detect when windows are manually resized and update master width accordingly
+NanoWM.resizeWatcher = hs.timer.delayed.new(0.3, function()
+    NanoWM.handleManualResize()
+end)
+
+function NanoWM.handleManualResize()
+    -- Skip if fullscreen or monocle mode is active (windows are intentionally full-width)
+    if NanoWM.isFullscreen or NanoWM.layout == "monocle" then
+        return
+    end
+
+    local tag = NanoWM.special.active and NanoWM.special.tag or NanoWM.currentTag
+    local windows = NanoWM.getTiledWindows(tag)
+
+    -- Only handle resize if we have 2+ windows (master + stack)
+    if #windows < 2 then
+        return
+    end
+
+    local screen = hs.screen.mainScreen():frame()
+    local masterWin = windows[1]
+    local masterFrame = masterWin:frame()
+
+    -- Skip if master window is at full screen width (likely in transition or fullscreen)
+    if math.abs(masterFrame.w - screen.w) < 10 then
+        return
+    end
+
+    -- Calculate the new master width ratio based on the master window's current width
+    local newMasterWidth = masterFrame.w / screen.w
+
+    -- Clamp to reasonable bounds
+    newMasterWidth = math.max(0.1, math.min(0.9, newMasterWidth))
+
+    -- Only update if significantly different (avoid micro-adjustments)
+    local currentWidth = NanoWM.getMasterWidth(tag)
+    if math.abs(newMasterWidth - currentWidth) > 0.02 then
+        NanoWM.setMasterWidth(tag, newMasterWidth)
+    end
+
+    -- Re-tile to ensure all windows fit properly
+    NanoWM.tile()
+end
+
+filter:subscribe(hs.window.filter.windowMoved, function(win)
+    if not win then
+        return
+    end
+    -- Only handle resize for tiled windows, not floating ones
+    if not NanoWM.isFloating(win) then
+        NanoWM.resizeWatcher:start()
+    end
+end)
+
+-- -----------------------------------------------------------------------------
+-- SKETCHYBAR INTEGRATION
+-- -----------------------------------------------------------------------------
+NanoWM.sketchybarEnabled = false  -- Disabled by default, use Alt+Shift+G to enable
+
+-- Debounced sketchybar update to prevent too many calls
+NanoWM.sketchybarUpdateTimer = nil
+
+function NanoWM.updateSketchybar()
+    if not NanoWM.sketchybarEnabled then
+        return
+    end
+
+    -- Debounce: cancel pending update and schedule a new one
+    if NanoWM.sketchybarUpdateTimer then
+        NanoWM.sketchybarUpdateTimer:stop()
+    end
+
+    NanoWM.sketchybarUpdateTimer = hs.timer.doAfter(0.02, function()
+        NanoWM.doUpdateSketchybar()
+    end)
+end
+
+function NanoWM.updateSketchybarNow()
+    if not NanoWM.sketchybarEnabled then
+        return
+    end
+    NanoWM.doUpdateSketchybar()
+end
+
+function NanoWM.doUpdateSketchybar()
+    -- Get current tag info
+    local tag = NanoWM.special.active and "S" or tostring(NanoWM.currentTag)
+    local windowCount = #NanoWM.getTiledWindows(NanoWM.special.active and NanoWM.special.tag or NanoWM.currentTag)
+    local layout = NanoWM.layout
+    local isFullscreen = NanoWM.isFullscreen and "1" or "0"
+
+    -- Get list of occupied tags (tags that have windows)
+    local occupiedTags = {}
+    for i = 1, 10 do
+        local wins = NanoWM.getTiledWindows(i)
+        if #wins > 0 then
+            table.insert(occupiedTags, tostring(i))
+        end
+    end
+    -- Check special tag
+    local specialWins = NanoWM.getTiledWindows("special")
+    if #specialWins > 0 then
+        table.insert(occupiedTags, "S")
+    end
+    local occupied = table.concat(occupiedTags, " ")
+
+    -- Get timer info
+    local timerRemaining = ""
+    if NanoWM.timerEndTime then
+        local remaining = NanoWM.timerEndTime - os.time()
+        if remaining > 0 then
+            local mins = math.floor(remaining / 60)
+            local secs = remaining % 60
+            timerRemaining = string.format("%d:%02d", mins, secs)
+        end
+    end
+
+    -- Get focused app name
+    local focusedApp = ""
+    local focusedWin = hs.window.focusedWindow()
+    if focusedWin and focusedWin:application() then
+        focusedApp = focusedWin:application():name() or ""
+    end
+
+    -- Get list of urgent tags
+    local urgentList = {}
+    for urgentTag, _ in pairs(NanoWM.urgentTags) do
+        if urgentTag == "special" then
+            table.insert(urgentList, "S")
+        else
+            table.insert(urgentList, tostring(urgentTag))
+        end
+    end
+    local urgent = table.concat(urgentList, " ")
+
+    -- Send to sketchybar via trigger (async to avoid blocking)
+    local cmd = string.format(
+        'sketchybar --trigger nanowm_update TAG="%s" WINDOWS="%d" LAYOUT="%s" FULLSCREEN="%s" TIMER="%s" APP="%s" OCCUPIED="%s" URGENT="%s" 2>/dev/null',
+        tag,
+        windowCount,
+        layout,
+        isFullscreen,
+        timerRemaining,
+        focusedApp,
+        occupied,
+        urgent
+    )
+    -- Use hs.task for async execution (fire and forget)
+    hs.task.new("/bin/zsh", nil, { "-c", cmd }):start()
+end
+
+function NanoWM.toggleSketchybar()
+    -- First check if sketchybar is running
+    hs.task.new("/bin/zsh", function(exitCode, stdOut, stdErr)
+        if exitCode ~= 0 then
+            -- Sketchybar not running, start it
+            -- Use login shell to get full environment (nix paths, config dirs, etc.)
+            os.execute("/bin/zsh -l -c 'sketchybar &' &")
+            NanoWM.sketchybarEnabled = true
+            hs.alert.show("Sketchybar: ON (started)")
+            -- Give it a moment to start, then update
+            hs.timer.doAfter(1, function()
+                NanoWM.updateSketchybar()
+            end)
+        else
+            -- Sketchybar is running, toggle visibility
+            hs.task.new("/bin/zsh", function()
+                NanoWM.sketchybarEnabled = not NanoWM.sketchybarEnabled
+                hs.alert.show("Sketchybar: " .. (NanoWM.sketchybarEnabled and "ON" or "OFF"))
+                if NanoWM.sketchybarEnabled then
+                    NanoWM.updateSketchybar()
+                end
+            end, { "-c", "sketchybar --bar hidden=toggle" }):start()
+        end
+    end, { "-c", "pgrep -x sketchybar" }):start()
+end
+
+-- Update sketchybar periodically for timer countdown
+NanoWM.sketchybarTimer = hs.timer.new(1, function()
+    if NanoWM.timerEndTime and NanoWM.sketchybarEnabled then
+        NanoWM.updateSketchybar()
+    end
+end)
+NanoWM.sketchybarTimer:start()
+
 NanoWM.tile()
-hs.alert.show("NanoWM v35 Started")
+NanoWM.updateSketchybar()
+hs.alert.show("NanoWM v37 Started")

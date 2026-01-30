@@ -15,9 +15,9 @@ in pkgs.mkShell {
     gradle
 
     # Node.js ecosystem
-    nodejs_22
+    nodejs
     nodePackages.mocha
-    nodePackages.ts-node
+    # nodePackages.ts-node
     nodePackages.typescript
 
     # Development tools
@@ -25,8 +25,7 @@ in pkgs.mkShell {
     gnumake
 
     # Database clients
-    mysql-client
-    mariadb
+    mariadb.client
     redis
 
     # Docker for macOS (Docker Desktop should be installed separately)

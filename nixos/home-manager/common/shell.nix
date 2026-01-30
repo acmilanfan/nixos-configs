@@ -27,7 +27,7 @@
       # Development shells
       docker-shell = "nix develop ~/configs/nixos-configs/shell/java";
       java-shell = "nix develop ~/configs/nixos-configs/shell/java/pure";
-      darwin-java-shell = "nix develop ~/configs/nixos-configs/shell/java/darwin";
+      java-darwin-shell = "nix develop ~/configs/nixos-configs/shell/java/darwin";
       go-darwin-shell = "nix develop ~/configs/nixos-configs/shell/go-node/darwin";
       go-shell = "nix develop ~/configs/nixos-configs/shell/go-node";
       python-shell = "nix develop ~/configs/nixos-configs/shell/python";
