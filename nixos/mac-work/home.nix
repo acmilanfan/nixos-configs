@@ -35,6 +35,7 @@ in
 
       # Window management
       sketchybar # Status bar
+      nowplaying-cli # Media info for sketchybar
 
       shortcat
 
@@ -176,33 +177,8 @@ in
           shadow=on
 
         # ═══════════════════════════════════════════════════════════════════════════
-        # LEFT SIDE - App & Workspaces
+        # LEFT SIDE - Workspaces, Timer & App
         # ═══════════════════════════════════════════════════════════════════════════
-
-        # --- Front App Icon + Name ---
-        sketchybar --add item front_app left \
-                   --set front_app \
-                         background.color=$ITEM_BG_COLOR \
-                         background.drawing=on \
-                         icon.drawing=on \
-                         icon.font="sketchybar-app-font:Regular:14.0" \
-                         label.font="$LABEL_FONT_BOLD" \
-                         label.padding_left=4 \
-                         label.padding_right=8 \
-                         icon.padding_left=8 \
-                         script="$CONFIG_DIR/plugins/front_app.sh" \
-                   --subscribe front_app front_app_switched
-
-        # --- Separator ---
-        sketchybar --add item sep_left left \
-                   --set sep_left \
-                         icon="│" \
-                         icon.color=$INACTIVE_COLOR \
-                         icon.font="$FONT_FACE:Regular:12.0" \
-                         icon.padding_left=6 \
-                         icon.padding_right=6 \
-                         background.drawing=off \
-                         label.drawing=off
 
         # --- Workspace Items (1-10 + Special) ---
         for i in 1 2 3 4 5 6 7 8 9 10 S; do
@@ -221,6 +197,17 @@ in
                      --subscribe space.$i nanowm_update mouse.clicked
         done
 
+        # --- Separator (between tags and timer) ---
+        sketchybar --add item sep_tags left \
+                   --set sep_tags \
+                         icon="│" \
+                         icon.color=$INACTIVE_COLOR \
+                         icon.font="$FONT_FACE:Regular:12.0" \
+                         icon.padding_left=6 \
+                         icon.padding_right=6 \
+                         background.drawing=off \
+                         label.drawing=off
+
         # --- NanoWM Timer (shows only when active) ---
         sketchybar --add item nanowm_timer left \
                    --set nanowm_timer \
@@ -236,6 +223,34 @@ in
                          drawing=off \
                          script="$CONFIG_DIR/plugins/nanowm_timer.sh" \
                    --subscribe nanowm_timer nanowm_update
+
+        # --- Separator (between timer and front_app, conditional) ---
+        sketchybar --add item sep_timer left \
+                   --set sep_timer \
+                         icon="│" \
+                         icon.color=$INACTIVE_COLOR \
+                         icon.font="$FONT_FACE:Regular:12.0" \
+                         icon.padding_left=6 \
+                         icon.padding_right=6 \
+                         background.drawing=off \
+                         label.drawing=off \
+                         drawing=off \
+                         script="$CONFIG_DIR/plugins/sep_timer.sh" \
+                   --subscribe sep_timer nanowm_update
+
+        # --- Front App Icon + Name ---
+        sketchybar --add item front_app left \
+                   --set front_app \
+                         background.color=$ITEM_BG_COLOR \
+                         background.drawing=on \
+                         icon.drawing=on \
+                         icon.font="sketchybar-app-font:Regular:14.0" \
+                         label.font="$LABEL_FONT_BOLD" \
+                         label.padding_left=4 \
+                         label.padding_right=8 \
+                         icon.padding_left=8 \
+                         script="$CONFIG_DIR/plugins/front_app.sh" \
+                   --subscribe front_app front_app_switched
 
         # ═══════════════════════════════════════════════════════════════════════════
         # CENTER - Date & Time
@@ -261,6 +276,27 @@ in
         # RIGHT SIDE - System Info
         # ═══════════════════════════════════════════════════════════════════════════
 
+        # --- Date & Time (Rightmost) ---
+        sketchybar --add item datetime right \
+                   --set datetime \
+                         icon="󰃭" \
+                         icon.color=$ACCENT_COLOR \
+                         background.color=$ITEM_BG_COLOR \
+                         background.drawing=on \
+                         update_freq=30 \
+                         script="$CONFIG_DIR/plugins/datetime.sh"
+
+        # --- Separator ---
+        sketchybar --add item sep_right0 right \
+                   --set sep_right0 \
+                         icon="│" \
+                         icon.color=$INACTIVE_COLOR \
+                         icon.font="$FONT_FACE:Regular:12.0" \
+                         icon.padding_left=4 \
+                         icon.padding_right=4 \
+                         background.drawing=off \
+                         label.drawing=off
+
         # --- Media (Now Playing) ---
         sketchybar --add item media right \
                    --set media \
@@ -274,16 +310,19 @@ in
                          update_freq=5 \
                    --subscribe media media_change
 
-        # --- Separator ---
-        sketchybar --add item sep_right1 right \
-                   --set sep_right1 \
+        # --- Separator (between network and media, conditional on media playing) ---
+        sketchybar --add item sep_media right \
+                   --set sep_media \
                          icon="│" \
                          icon.color=$INACTIVE_COLOR \
                          icon.font="$FONT_FACE:Regular:12.0" \
                          icon.padding_left=4 \
                          icon.padding_right=4 \
                          background.drawing=off \
-                         label.drawing=off
+                         label.drawing=off \
+                         drawing=off \
+                         script="$CONFIG_DIR/plugins/sep_media.sh" \
+                         update_freq=5
 
         # --- Network (WiFi/Ethernet) ---
         sketchybar --add item network right \
@@ -296,15 +335,22 @@ in
                          update_freq=10 \
                    --subscribe network wifi_change
 
-        # --- CPU Usage ---
-        sketchybar --add item cpu right \
-                   --set cpu \
-                         icon="󰻠" \
-                         icon.color=$ACCENT_COLOR \
+        # --- CPU Graph ---
+        sketchybar --add graph cpu_graph right 50 \
+                   --set cpu_graph \
+                         graph.color=$ACCENT_COLOR \
+                         graph.fill_color=0x407aa2f7 \
+                         graph.line_width=1 \
                          background.color=$ITEM_BG_COLOR \
                          background.drawing=on \
-                         update_freq=3 \
-                         script="$CONFIG_DIR/plugins/cpu.sh"
+                         background.height=22 \
+                         background.corner_radius=6 \
+                         icon="󰻠" \
+                         icon.color=$ACCENT_COLOR \
+                         icon.padding_left=6 \
+                         label.padding_right=6 \
+                         update_freq=2 \
+                         script="$CONFIG_DIR/plugins/cpu_graph.sh"
 
         # --- Memory Usage ---
         sketchybar --add item memory right \
@@ -315,17 +361,6 @@ in
                          background.drawing=on \
                          update_freq=5 \
                          script="$CONFIG_DIR/plugins/memory.sh"
-
-        # --- Separator ---
-        sketchybar --add item sep_right2 right \
-                   --set sep_right2 \
-                         icon="│" \
-                         icon.color=$INACTIVE_COLOR \
-                         icon.font="$FONT_FACE:Regular:12.0" \
-                         icon.padding_left=4 \
-                         icon.padding_right=4 \
-                         background.drawing=off \
-                         label.drawing=off
 
         # --- Volume ---
         sketchybar --add item volume right \
@@ -450,6 +485,22 @@ in
       '';
     };
 
+    # Separator between timer and front_app (only shows when timer is active)
+    ".config/sketchybar/plugins/sep_timer.sh" = {
+      executable = true;
+      text = ''
+        #!/bin/bash
+
+        if [ "$SENDER" = "nanowm_update" ]; then
+          if [ -n "$TIMER" ] && [ "$TIMER" != "" ]; then
+            sketchybar --set $NAME drawing=on
+          else
+            sketchybar --set $NAME drawing=off
+          fi
+        fi
+      '';
+    };
+
     # Date Plugin
     ".config/sketchybar/plugins/date.sh" = {
       executable = true;
@@ -497,12 +548,36 @@ in
     };
 
     # CPU Plugin
-    ".config/sketchybar/plugins/cpu.sh" = {
+    # DateTime Plugin (Right side - day and time)
+    ".config/sketchybar/plugins/datetime.sh" = {
       executable = true;
       text = ''
         #!/bin/bash
-        CPU_LOAD=$(top -l 2 -n 0 | grep -E "^CPU" | tail -1 | awk '{ print int($3 + $5) }')
+        # Format: "Mon 14:30"
+        DAY=$(date '+%a')
+        TIME=$(date '+%H:%M')
+        sketchybar --set $NAME label="$DAY $TIME"
+      '';
+    };
 
+    ".config/sketchybar/plugins/cpu_graph.sh" = {
+      executable = true;
+      text = ''
+        #!/bin/bash
+        # Get CPU usage - faster method using iostat
+        CPU_LOAD=$(iostat -c 2 disk0 | tail -1 | awk '{print 100 - $6}' | cut -d. -f1)
+
+        # Fallback to top if iostat fails
+        if [ -z "$CPU_LOAD" ] || [ "$CPU_LOAD" -lt 0 ] 2>/dev/null; then
+          CPU_LOAD=$(top -l 1 -n 0 | grep -E "^CPU" | awk '{ print int($3 + $5) }')
+        fi
+
+        # Ensure we have a valid number
+        if [ -z "$CPU_LOAD" ]; then
+          CPU_LOAD=0
+        fi
+
+        # Color based on load
         if [[ $CPU_LOAD -ge 80 ]]; then
           COLOR="0xfff7768e"  # Critical red
         elif [[ $CPU_LOAD -ge 50 ]]; then
@@ -511,7 +586,9 @@ in
           COLOR="0xff7aa2f7"  # Normal blue
         fi
 
-        sketchybar --set $NAME label="$CPU_LOAD%" icon.color="$COLOR"
+        # Push value to graph (0.0 to 1.0 scale) and update label
+        sketchybar --push cpu_graph $(echo "scale=2; $CPU_LOAD / 100" | bc) \
+                   --set cpu_graph label="$CPU_LOAD%" icon.color="$COLOR"
       '';
     };
 
@@ -588,75 +665,154 @@ in
       '';
     };
 
-    # Network Plugin
+    # Network Plugin - Icon only with signal strength
     ".config/sketchybar/plugins/network.sh" = {
       executable = true;
       text = ''
         #!/bin/bash
-        WIFI=$(ipconfig getsummary en0 2>/dev/null | awk -F ' SSID : ' '/ SSID : / {print $2}')
-
-        if [ -n "$WIFI" ]; then
-          # Get signal strength
-          RSSI=$(/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport -I 2>/dev/null | awk '/agrCtlRSSI/ {print $2}')
-
-          if [ -n "$RSSI" ]; then
+        # Use system_profiler to get WiFi signal strength (works on all macOS versions)
+        SIGNAL_INFO=$(system_profiler SPAirPortDataType 2>/dev/null | grep "Signal / Noise" | head -1)
+        
+        if [ -n "$SIGNAL_INFO" ]; then
+          # Extract signal strength (e.g., "-55 dBm")
+          RSSI=$(echo "$SIGNAL_INFO" | sed 's/.*: /' | cut -d' ' -f1)
+          
+          if [ -n "$RSSI" ] && [ "$RSSI" -lt 0 ] 2>/dev/null; then
+            # WiFi is connected - show signal strength icon and value
             if [[ $RSSI -ge -50 ]]; then
-              ICON="󰤨"  # Excellent
+              ICON="󰤨"  # Excellent (4 bars)
               COLOR="0xff9ece6a"
             elif [[ $RSSI -ge -60 ]]; then
-              ICON="󰤥"  # Good
+              ICON="󰤥"  # Good (3 bars)
               COLOR="0xff7aa2f7"
             elif [[ $RSSI -ge -70 ]]; then
-              ICON="󰤢"  # Fair
+              ICON="󰤢"  # Fair (2 bars)
               COLOR="0xffe0af68"
             else
-              ICON="󰤟"  # Weak
+              ICON="󰤟"  # Weak (1 bar)
               COLOR="0xfff7768e"
             fi
-          else
-            ICON="󰤨"
-            COLOR="0xff9ece6a"
+            sketchybar --set $NAME icon="$ICON" icon.color="$COLOR" label="$RSSI"
+            exit 0
           fi
-
-          # Truncate long SSID names
-          if [ ''${#WIFI} -gt 12 ]; then
-            WIFI="''${WIFI:0:10}.."
-          fi
-          sketchybar --set $NAME icon="$ICON" icon.color="$COLOR" label="$WIFI"
-        else
-          # Check for ethernet
-          ETHERNET=$(ifconfig en1 2>/dev/null | grep "status: active")
+        fi
+        
+        # Fallback: Check if connected via scutil
+        NETWORK_STATUS=$(scutil --nwi 2>/dev/null | grep "IPv4 network interface" -A1 | grep "en0")
+        if [ -n "$NETWORK_STATUS" ]; then
+          # Connected but could not get signal strength
+          sketchybar --set $NAME icon="󰤨" icon.color="0xff9ece6a" label=""
+          exit 0
+        fi
+        
+        # Check for ethernet on various interfaces
+        for iface in en1 en2 en3 en4 en5 en6; do
+          ETHERNET=$(ifconfig $iface 2>/dev/null | grep "status: active")
           if [ -n "$ETHERNET" ]; then
-            sketchybar --set $NAME icon="󰈀" icon.color="0xff9ece6a" label="Ethernet"
-          else
-            sketchybar --set $NAME icon="󰤭" icon.color="0xff565f89" label="Off"
+            sketchybar --set $NAME icon="󰈀" icon.color="0xff9ece6a" label="ETH"
+            exit 0
           fi
+        done
+        
+        # Check if WiFi is on but not connected
+        WIFI_POWER=$(networksetup -getairportpower en0 2>/dev/null | grep "On")
+        if [ -n "$WIFI_POWER" ]; then
+          sketchybar --set $NAME icon="󰤯" icon.color="0xff565f89" label=""
+        else
+          sketchybar --set $NAME icon="󰤭" icon.color="0xff565f89" label=""
+        fi
+      '';
+    };
+    ".config/sketchybar/plugins/sep_media.sh" = {
+      executable = true;
+      text = ''
+        #!/bin/bash
+        # Check if any media is playing by looking at the Now Playing info
+        NOW_PLAYING=$(nowplaying-cli get title 2>/dev/null)
+        
+        if [ -n "$NOW_PLAYING" ] && [ "$NOW_PLAYING" != "null" ]; then
+          sketchybar --set $NAME drawing=on
+        else
+          sketchybar --set $NAME drawing=off
         fi
       '';
     };
 
-    # Media Plugin (Now Playing)
+    # Media Plugin (Now Playing) - supports Spotify, Music, and browser media
     ".config/sketchybar/plugins/media.sh" = {
       executable = true;
       text = ''
         #!/bin/bash
 
-        # Try to get now playing info from Music app or Spotify
-        PLAYER_STATE=$(osascript -e 'tell application "System Events" to (name of processes) contains "Spotify"' 2>/dev/null)
+        # Use nowplaying-cli if available (detects all media including browser)
+        if command -v nowplaying-cli &> /dev/null; then
+          TITLE=$(nowplaying-cli get title 2>/dev/null)
+          ARTIST=$(nowplaying-cli get artist 2>/dev/null)
+          APP=$(nowplaying-cli get appBundleIdentifier 2>/dev/null)
+          
+          if [ -n "$TITLE" ] && [ "$TITLE" != "null" ] && [ "$TITLE" != "" ]; then
+            # Determine icon based on app
+            case "$APP" in
+              *spotify*)
+                ICON="󰓇"
+                COLOR="0xff1db954"
+                ;;
+              *music*|*itunes*)
+                ICON="󰎆"
+                COLOR="0xfffc3c44"
+                ;;
+              *firefox*)
+                ICON="󰈹"
+                COLOR="0xffff7139"
+                ;;
+              *chrome*|*chromium*)
+                ICON="󰊯"
+                COLOR="0xff4285f4"
+                ;;
+              *safari*)
+                ICON="󰀹"
+                COLOR="0xff006cff"
+                ;;
+              *)
+                ICON="󰎆"
+                COLOR="0xff7aa2f7"
+                ;;
+            esac
+            
+            # Format label
+            if [ -n "$ARTIST" ] && [ "$ARTIST" != "null" ] && [ "$ARTIST" != "" ]; then
+              LABEL="$ARTIST - $TITLE"
+            else
+              LABEL="$TITLE"
+            fi
+            
+            # Truncate if too long
+            if [ ''${#LABEL} -gt 40 ]; then
+              LABEL="''${LABEL:0:37}..."
+            fi
+            
+            sketchybar --set $NAME drawing=on label="$LABEL" icon="$ICON" icon.color="$COLOR"
+            sketchybar --set sep_media drawing=on
+            exit 0
+          fi
+        fi
 
-        if [ "$PLAYER_STATE" = "true" ]; then
+        # Fallback: Try Spotify directly
+        SPOTIFY_STATE=$(osascript -e 'tell application "System Events" to (name of processes) contains "Spotify"' 2>/dev/null)
+        if [ "$SPOTIFY_STATE" = "true" ]; then
           PLAYING=$(osascript -e 'tell application "Spotify" to player state as string' 2>/dev/null)
           if [ "$PLAYING" = "playing" ]; then
             TRACK=$(osascript -e 'tell application "Spotify" to name of current track as string' 2>/dev/null)
             ARTIST=$(osascript -e 'tell application "Spotify" to artist of current track as string' 2>/dev/null)
             if [ -n "$TRACK" ]; then
               sketchybar --set $NAME drawing=on label="$ARTIST - $TRACK" icon="󰓇" icon.color="0xff1db954"
+              sketchybar --set sep_media drawing=on
               exit 0
             fi
           fi
         fi
 
-        # Check Music app
+        # Fallback: Check Music app
         MUSIC_STATE=$(osascript -e 'tell application "System Events" to (name of processes) contains "Music"' 2>/dev/null)
         if [ "$MUSIC_STATE" = "true" ]; then
           PLAYING=$(osascript -e 'tell application "Music" to player state as string' 2>/dev/null)
@@ -665,6 +821,7 @@ in
             ARTIST=$(osascript -e 'tell application "Music" to artist of current track as string' 2>/dev/null)
             if [ -n "$TRACK" ]; then
               sketchybar --set $NAME drawing=on label="$ARTIST - $TRACK" icon="󰎆" icon.color="0xfffc3c44"
+              sketchybar --set sep_media drawing=on
               exit 0
             fi
           fi
@@ -672,6 +829,7 @@ in
 
         # Nothing playing
         sketchybar --set $NAME drawing=off
+        sketchybar --set sep_media drawing=off
       '';
     };
   };

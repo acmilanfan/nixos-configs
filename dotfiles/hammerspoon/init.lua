@@ -5,13 +5,7 @@ local clock = hs.loadSpoon("AClock")
 local VimMode = hs.loadSpoon("VimMode")
 local vim = VimMode:new()
 vim:bindHotKeys({ enter = { { "alt" }, "e" } })
--- vim:enterWithSequence("jk")
---
 
--- TODO: things to fix/improve
--- sketchybar: add time and day of the week on the right
--- sketchybar: wifi showing <redacted>
--- sketchybar: add cpu monitoring graph
 
 -- =============================================================================
 -- BASE SETTINGS
@@ -20,7 +14,7 @@ hs.window.animationDuration = 0
 hs.ipc.cliInstall()
 
 -- =============================================================================
--- NANOWM v37: Urgent Tags & Tag Switch Cooldown
+-- NANOWM v38: Urgent Tags & Tag Switch Cooldown
 -- =============================================================================
 NanoWM = {}
 
@@ -43,6 +37,8 @@ function NanoWM.loadState()
     NanoWM.sizeCache = hs.settings.get("nanoWM_sizeCache") or {}
     NanoWM.fullscreenCache = hs.settings.get("nanoWM_fullscreenCache") or {}
     NanoWM.masterWidths = clean(hs.settings.get("nanoWM_masterWidths")) or {}
+    -- NEW: Load app-based tag memory
+    NanoWM.appTagMemory = hs.settings.get("nanoWM_appTagMemory") or {}
 end
 
 NanoWM.saveTimer = hs.timer.delayed.new(2.0, function()
@@ -65,6 +61,10 @@ NanoWM.saveTimer = hs.timer.delayed.new(2.0, function()
 
     hs.settings.set("nanoWM_currentTag", NanoWM.currentTag)
     hs.settings.set("nanoWM_prevTag", NanoWM.prevTag)
+    -- NEW: Save app-based tag memory
+    hs.settings.set("nanoWM_appTagMemory", NanoWM.appTagMemory)
+    -- Save sketchybar state
+    hs.settings.set("nanoWM_sketchybarEnabled", NanoWM.sketchybarEnabled)
 end)
 
 function NanoWM.triggerSave()
@@ -80,6 +80,11 @@ NanoWM.floatingCache = {}
 NanoWM.sizeCache = {}
 NanoWM.fullscreenCache = {}
 NanoWM.windowState = {}
+NanoWM.appTagMemory = {} -- NEW: Remember tags by app+title
+
+-- Pending destruction: delay tag cleanup to handle false positives
+NanoWM.pendingDestruction = {} -- { [id] = { tag = X, appName = Y, timer = Z } }
+NanoWM.destructionDelay = 0.5 -- seconds to wait before actually clearing tag
 
 NanoWM.loadState()
 
@@ -104,16 +109,19 @@ NanoWM.timerEndTime = nil
 NanoWM.timerDuration = nil
 
 -- Urgent tags (Awesome WM style)
-NanoWM.urgentTags = {}           -- Table of urgent tags: { [tag] = true }
-NanoWM.lastManualTagSwitch = 0   -- Timestamp of last manual tag switch
-NanoWM.tagSwitchCooldown = 0.5   -- Cooldown in seconds after manual switch
+NanoWM.urgentTags = {}         -- Table of urgent tags: { [tag] = true }
+NanoWM.lastManualTagSwitch = 0 -- Timestamp of last manual tag switch
+NanoWM.tagSwitchCooldown = 1.0 -- Increased cooldown
+
+-- NEW: Anti-jump protection - track when we're in a "safe" state
+NanoWM.lastTileTime = 0
+NanoWM.tileProtectionWindow = 0.5 -- Don't process focus events within 0.5s of tiling   -- Cooldown in seconds after manual switch
 
 -- Apps that should trigger urgent (browsers, communication apps)
 NanoWM.urgentApps = {
     ["Firefox"] = true,
     ["Safari"] = true,
     ["Google Chrome"] = true,
-    ["Arc"] = true,
     ["Slack"] = true,
     ["Discord"] = true,
     ["Messages"] = true,
@@ -121,6 +129,16 @@ NanoWM.urgentApps = {
     ["WhatsApp"] = true,
     ["Microsoft Teams"] = true,
     ["Zoom"] = true,
+}
+
+-- Apps that should remember their tag by title (multi-window apps)
+-- Apps excluded from tag memory (these apps will NOT have their tags remembered)
+NanoWM.excludedFromTagMemory = {
+    ["Alacritty"] = true,
+    ["Terminal"] = true,
+    ["iTerm2"] = true,
+    ["Finder"] = true,
+    ["System Settings"] = true,
 }
 
 -- -----------------------------------------------------------------------------
@@ -158,6 +176,128 @@ NanoWM.floatingTitles = {
 }
 
 -- -----------------------------------------------------------------------------
+
+-- -----------------------------------------------------------------------------
+-- WINDOW TAG PERSISTENCE (by app name + title pattern)
+-- -----------------------------------------------------------------------------
+function NanoWM.getWindowKey(win)
+    if not win then
+        return nil
+    end
+    local app = win:application()
+    if not app then
+        return nil
+    end
+    local appName = app:name()
+    local title = win:title() or ""
+
+    -- Skip excluded apps
+    if NanoWM.excludedFromTagMemory[appName] then
+        return nil
+    end
+
+    -- Skip generic/empty titles
+    if title == "" or title == "New Tab" or title == "Untitled" then
+        return nil
+    end
+
+    -- Normalize title by removing common app suffixes
+    local normalizedTitle = title
+    normalizedTitle = string.gsub(normalizedTitle, " [-–—] Mozilla Firefox$", "")
+    normalizedTitle = string.gsub(normalizedTitle, " [-–—] Google Chrome$", "")
+    normalizedTitle = string.gsub(normalizedTitle, " [-–—] Safari$", "")
+    normalizedTitle = string.gsub(normalizedTitle, " [-–—] Arc$", "")
+    normalizedTitle = string.gsub(normalizedTitle, " [-–—] Slack$", "")
+    normalizedTitle = string.gsub(normalizedTitle, " [-–—] Discord$", "")
+    normalizedTitle = string.gsub(normalizedTitle, " [-–—] Code$", "")
+    normalizedTitle = string.gsub(normalizedTitle, " [-–—] Visual Studio Code$", "")
+
+    -- Use first 60 chars of normalized title
+    local shortTitle = string.sub(normalizedTitle, 1, 60)
+    return appName .. "::" .. shortTitle
+end
+
+function NanoWM.rememberWindowTag(win, tag)
+    local key = NanoWM.getWindowKey(win)
+    if key then
+        NanoWM.appTagMemory[key] = tag
+        NanoWM.triggerSave()
+    end
+end
+
+function NanoWM.getRememberedTag(win)
+    local key = NanoWM.getWindowKey(win)
+    if key and NanoWM.appTagMemory[key] then
+        return NanoWM.appTagMemory[key]
+    end
+    return nil
+end
+
+-- Manually save the current window's tag (called by user)
+function NanoWM.saveCurrentWindowTag()
+    local win = hs.window.focusedWindow()
+    if not win then
+        hs.alert.show("No focused window")
+        return
+    end
+
+    local app = win:application()
+    if not app then
+        hs.alert.show("Cannot get app")
+        return
+    end
+
+    local appName = app:name()
+    if NanoWM.excludedFromTagMemory[appName] then
+        hs.alert.show(appName .. " is excluded from tag memory")
+        return
+    end
+
+    local key = NanoWM.getWindowKey(win)
+    if not key then
+        hs.alert.show("Window has no valid title to save")
+        return
+    end
+
+    local tag = NanoWM.tags[win:id()]
+    if not tag then
+        hs.alert.show("Window has no tag")
+        return
+    end
+
+    NanoWM.appTagMemory[key] = tag
+    NanoWM.triggerSave()
+    hs.alert.show("Saved: " .. string.sub(key, 1, 30) .. "... -> Tag " .. tostring(tag))
+end
+
+-- Save all currently opened windows tags (except excluded apps)
+function NanoWM.saveAllWindowTags()
+    local saved = 0
+    local skipped = 0
+    for _, win in ipairs(hs.window.filter.default:getWindows()) do
+        local app = win:application()
+        if app then
+            local appName = app:name()
+            if not NanoWM.excludedFromTagMemory[appName] then
+                local key = NanoWM.getWindowKey(win)
+                if key then
+                    local tag = NanoWM.tags[win:id()]
+                    if tag then
+                        NanoWM.appTagMemory[key] = tag
+                        saved = saved + 1
+                    end
+                else
+                    skipped = skipped + 1
+                end
+            else
+                skipped = skipped + 1
+            end
+        end
+    end
+    NanoWM.triggerSave()
+    hs.alert.show("Saved " .. saved .. " window tags (skipped " .. skipped .. ")")
+end
+
 -- URGENT TAG FUNCTIONS
 -- -----------------------------------------------------------------------------
 function NanoWM.markTagUrgent(tag)
@@ -265,7 +405,42 @@ end
 function NanoWM.registerWindow(win)
     local id = win:id()
     if not NanoWM.tags[id] then
-        local targetTag = NanoWM.special.active and NanoWM.special.tag or NanoWM.currentTag
+        local app = win:application()
+        local appName = app and app:name() or "Unknown"
+
+        -- Check if we have a remembered tag for this window
+        local rememberedTag = NanoWM.getRememberedTag(win)
+        local targetTag
+
+        if rememberedTag then
+            -- Use the remembered tag
+            targetTag = rememberedTag
+            print("[NanoWM] Window opened with remembered tag: " .. tostring(rememberedTag))
+        else
+            -- Check if this app recently had a window destroyed (crash recovery)
+            local now = hs.timer.secondsSinceEpoch()
+            local recoveryTag = nil
+            for oldId, info in pairs(NanoWM.pendingDestruction) do
+                if info.appName == appName and info.tag and (now - info.time) < 2.0 then
+                    recoveryTag = info.tag
+                    print("[NanoWM] Crash recovery: " .. appName .. " was on tag " .. tostring(recoveryTag))
+                    -- Cancel the pending destruction since we're recovering
+                    if info.timer then
+                        info.timer:stop()
+                    end
+                    NanoWM.pendingDestruction[oldId] = nil
+                    break
+                end
+            end
+
+            if recoveryTag then
+                targetTag = recoveryTag
+            else
+                -- Use current tag (or special if active)
+                targetTag = NanoWM.special.active and NanoWM.special.tag or NanoWM.currentTag
+            end
+        end
+
         NanoWM.tags[id] = targetTag
         if not NanoWM.isFloating(win) then
             if not NanoWM.stacks[targetTag] then
@@ -282,6 +457,7 @@ function NanoWM.registerWindow(win)
                 table.insert(NanoWM.stacks[targetTag], 1, id)
             end
         end
+
         NanoWM.triggerSave()
     end
 end
@@ -414,6 +590,9 @@ function NanoWM.raiseFloating()
 end
 
 function NanoWM.performTile()
+    -- Mark tile time for anti-jump protection
+    NanoWM.lastTileTime = hs.timer.secondsSinceEpoch()
+
     local screen = hs.screen.mainScreen()
     local frame = screen:frame()
 
@@ -816,14 +995,38 @@ function NanoWM.openMenu(mode)
                 end,
             },
             {
+                t = "Show Tag Memory",
+                fn = function()
+                    local count = 0
+                    local msg = "Tag Memory:\n"
+                    for key, tag in pairs(NanoWM.appTagMemory) do
+                        count = count + 1
+                        if count <= 10 then
+                            msg = msg .. "Tag " .. tostring(tag) .. ": " .. string.sub(key, 1, 40) .. "...\n"
+                        end
+                    end
+                    msg = msg .. "\nTotal: " .. count .. " entries"
+                    hs.alert.show(msg, 5)
+                end,
+            },
+            {
+                t = "Clear Tag Memory",
+                fn = function()
+                    NanoWM.appTagMemory = {}
+                    NanoWM.triggerSave()
+                    hs.alert.show("Tag memory cleared")
+                end,
+            },
+            {
                 t = "Reset Tags",
                 fn = function()
                     NanoWM.tags = {}
                     NanoWM.stacks = {}
                     NanoWM.sticky = {}
                     NanoWM.floatingOverrides = {}
+                    NanoWM.appTagMemory = {}
                     NanoWM.currentTag = 1
-                    NanoWM.saveState()
+                    NanoWM.triggerSave()
                     hs.reload()
                 end,
             },
@@ -1006,7 +1209,7 @@ function NanoWM.gotoTag(i)
 
     NanoWM.triggerSave()
     NanoWM.updateBorder()
-    NanoWM.updateSketchybarNow()  -- Immediate update for responsive feel
+    NanoWM.updateSketchybarNow() -- Immediate update for responsive feel
     NanoWM.tile()
     local wins = NanoWM.getTiledWindows(i)
     if #wins > 0 then
@@ -1065,20 +1268,21 @@ function NanoWM.moveWindowToTag(destTag)
     if not win then
         return
     end
-    local currentTag = NanoWM.tags[win:id()]
+    local id = win:id()
+    local currentTag = NanoWM.tags[id]
     if currentTag and NanoWM.stacks[currentTag] then
-        for i, id in ipairs(NanoWM.stacks[currentTag]) do
-            if id == win:id() then
+        for i, vid in ipairs(NanoWM.stacks[currentTag]) do
+            if vid == id then
                 table.remove(NanoWM.stacks[currentTag], i)
                 break
             end
         end
     end
-    NanoWM.tags[win:id()] = destTag
+    NanoWM.tags[id] = destTag
     if not NanoWM.stacks[destTag] then
         NanoWM.stacks[destTag] = {}
     end
-    table.insert(NanoWM.stacks[destTag], 1, win:id())
+    table.insert(NanoWM.stacks[destTag], 1, id)
     -- Reset master width if only one window left on the source tag
     if currentTag then
         NanoWM.resetMasterWidthIfNeeded(currentTag)
@@ -1103,47 +1307,75 @@ end)
 filter:subscribe(hs.window.filter.windowDestroyed, function(win)
     if win then
         local id = win:id()
+        if not id then
+            return
+        end
+
         local idStr = tostring(id)
         local tag = NanoWM.tags[id]
-        if tag and NanoWM.stacks[tag] then
-            for i, vid in ipairs(NanoWM.stacks[tag]) do
-                if vid == id then
-                    table.remove(NanoWM.stacks[tag], i)
-                    break
+        local app = win:application()
+        local appName = app and app:name() or "Unknown"
+
+        -- Cancel any existing pending destruction for this window
+        if NanoWM.pendingDestruction[id] and NanoWM.pendingDestruction[id].timer then
+            NanoWM.pendingDestruction[id].timer:stop()
+        end
+
+        -- Store the window's tag for potential recovery
+        NanoWM.pendingDestruction[id] = {
+            tag = tag,
+            appName = appName,
+            time = hs.timer.secondsSinceEpoch()
+        }
+
+        -- Delay the actual cleanup
+        NanoWM.pendingDestruction[id].timer = hs.timer.doAfter(NanoWM.destructionDelay, function()
+            -- Check if window still doesn't exist (wasn't a false positive)
+            local stillExists = hs.window.get(id)
+            if stillExists then
+                print("[NanoWM] Window " .. tostring(id) .. " reappeared, not cleaning up")
+                NanoWM.pendingDestruction[id] = nil
+                return
+            end
+
+            print("[NanoWM] Cleaning up destroyed window: " .. appName .. " (id: " .. tostring(id) .. ") was on tag " .. tostring(tag))
+
+            -- Now actually clean up
+            if tag and NanoWM.stacks[tag] then
+                for i, vid in ipairs(NanoWM.stacks[tag]) do
+                    if vid == id then
+                        table.remove(NanoWM.stacks[tag], i)
+                        break
+                    end
                 end
             end
-        end
-        NanoWM.tags[id] = nil
-        NanoWM.sticky[id] = nil
-        NanoWM.floatingOverrides[id] = nil
-        NanoWM.windowState[id] = nil
+            NanoWM.tags[id] = nil
+            NanoWM.sticky[id] = nil
+            NanoWM.floatingOverrides[id] = nil
+            NanoWM.windowState[id] = nil
 
-        if NanoWM.floatingCache then
-            NanoWM.floatingCache[idStr] = nil
-        end
-        if NanoWM.fullscreenCache then
-            NanoWM.fullscreenCache[idStr] = nil
-        end
-        if NanoWM.sizeCache then
-            NanoWM.sizeCache[idStr] = nil
-        end
+            if NanoWM.floatingCache then
+                NanoWM.floatingCache[idStr] = nil
+            end
+            if NanoWM.fullscreenCache then
+                NanoWM.fullscreenCache[idStr] = nil
+            end
+            if NanoWM.sizeCache then
+                NanoWM.sizeCache[idStr] = nil
+            end
 
-        -- Reset master width if only one window left on the tag
-        if tag then
-            NanoWM.resetMasterWidthIfNeeded(tag)
-        end
+            -- Reset master width if only one window left on the tag
+            if tag then
+                NanoWM.resetMasterWidthIfNeeded(tag)
+            end
 
-        NanoWM.triggerSave()
+            NanoWM.pendingDestruction[id] = nil
+            NanoWM.triggerSave()
+            NanoWM.tile()
+        end)
     end
-    if NanoWM.focusTimer then
-        NanoWM.focusTimer:stop()
-        NanoWM.focusTimer = nil
-    end
-    local currentWins = NanoWM.getTiledWindows(NanoWM.currentTag)
-    if #currentWins > 0 then
-        currentWins[1]:focus()
-    end
-    NanoWM.tile()
+
+    -- Don't immediately focus another window or tile - wait for the delay
 end)
 
 filter:subscribe(hs.window.filter.windowFocused, function(win)
@@ -1154,7 +1386,17 @@ filter:subscribe(hs.window.filter.windowFocused, function(win)
         return
     end
 
-    -- Only raise THIS floating window, not all of them
+    -- NEW: Anti-jump protection - ignore focus events right after tiling
+    local timeSinceTile = hs.timer.secondsSinceEpoch() - NanoWM.lastTileTime
+    if timeSinceTile < NanoWM.tileProtectionWindow then
+        return
+    end
+    -- NEW: Check cooldown from manual tag switch
+    local timeSinceSwitch = hs.timer.secondsSinceEpoch() - NanoWM.lastManualTagSwitch
+    if timeSinceSwitch < NanoWM.tagSwitchCooldown then
+        return
+    end
+
     if NanoWM.isFloating(win) then
         win:raise()
         return
@@ -1162,42 +1404,26 @@ filter:subscribe(hs.window.filter.windowFocused, function(win)
 
     local id = win:id()
     local tag = NanoWM.tags[id]
+
+    -- If window is on current tag or special tag, nothing to do
     if not tag or tag == NanoWM.currentTag or tag == "special" then
         return
     end
 
-    -- Check if we're within the cooldown period after a manual tag switch
-    local timeSinceManualSwitch = hs.timer.secondsSinceEpoch() - NanoWM.lastManualTagSwitch
-    if timeSinceManualSwitch < NanoWM.tagSwitchCooldown then
-        -- Within cooldown, don't auto-switch, just mark as urgent
-        local app = win:application()
-        if app and NanoWM.urgentApps[app:name()] then
-            NanoWM.markTagUrgent(tag)
-        end
+    -- If special mode is active and window is on special tag, nothing to do
+    if NanoWM.special.active and tag == NanoWM.special.tag then
         return
     end
 
-    -- Outside cooldown - mark tag as urgent instead of auto-switching
-    -- This gives user control over when to switch
-    local app = win:application()
-    if app and NanoWM.urgentApps[app:name()] then
-        NanoWM.markTagUrgent(tag)
-        -- Cancel any pending focus timer
-        if NanoWM.focusTimer then
-            NanoWM.focusTimer:stop()
-            NanoWM.focusTimer = nil
-        end
-        return
-    end
+    -- Window is on a different tag - mark as urgent but DON'T auto-switch
+    -- This prevents the random jumping behavior
+    NanoWM.markTagUrgent(tag)
 
-    -- For non-urgent apps, use the original delayed switch behavior
+    -- Cancel any pending focus timer
     if NanoWM.focusTimer then
         NanoWM.focusTimer:stop()
-    end
-    NanoWM.focusTimer = hs.timer.doAfter(0.2, function()
-        NanoWM.gotoTag(tag)
         NanoWM.focusTimer = nil
-    end)
+    end
 end)
 
 -- -----------------------------------------------------------------------------
@@ -1298,7 +1524,6 @@ function NanoWM.startTimer(minutes)
         NanoWM.timerEndTime = nil
         NanoWM.timerDuration = nil
 
-
         NanoWM.updateSketchybar()
     end)
 
@@ -1328,7 +1553,6 @@ function NanoWM.cancelTimer()
         NanoWM.activeTimer = nil
         NanoWM.timerEndTime = nil
         NanoWM.timerDuration = nil
-
 
         hs.alert.show("Timer cancelled")
         NanoWM.updateSketchybar()
@@ -1395,12 +1619,14 @@ function NanoWM.showKeybindMenu()
         {
             category = "Tags",
             binds = {
-                { key = "Alt+1-9/0",       desc = "Go to tag 1-10" },
-                { key = "Alt+Shift+1-9/0", desc = "Move window to tag" },
-                { key = "Alt+Escape",      desc = "Toggle previous tag" },
-                { key = "Alt+S",           desc = "Toggle special tag" },
-                { key = "Alt+Shift+S",     desc = "Move to special tag" },
-                { key = "Alt+U",           desc = "Go to urgent tag" },
+                { key = "Alt+1-9/0",        desc = "Go to tag 1-10" },
+                { key = "Alt+Shift+1-9/0",  desc = "Move window to tag" },
+                { key = "Alt+Escape",       desc = "Toggle previous tag" },
+                { key = "Alt+S",            desc = "Toggle special tag" },
+                { key = "Alt+Shift+S",      desc = "Move to special tag" },
+                { key = "Alt+U",            desc = "Go to urgent tag" },
+                { key = "Alt+Shift+M",      desc = "Save window tag to memory" },
+                { key = "Ctrl+Alt+Shift+M", desc = "Save ALL window tags to memory" },
             },
         },
         {
@@ -1571,6 +1797,14 @@ end)
 hs.hotkey.bind(alt, "u", function()
     NanoWM.gotoUrgent()
 end)
+-- Manual save window tag to memory
+hs.hotkey.bind(altShift, "m", function()
+    NanoWM.saveCurrentWindowTag()
+end)
+-- Save all window tags to memory
+hs.hotkey.bind(ctrlAltShift, "m", function()
+    NanoWM.saveAllWindowTags()
+end)
 -- NEW: Floating window resize keybinds (note: conflicts with swap, only work on floating windows)
 hs.hotkey.bind(altShift, "h", function()
     local win = hs.window.focusedWindow()
@@ -1650,7 +1884,6 @@ hs.hotkey.bind(altShift, "q", function()
     end
 end)
 
-
 -- Helper function to find and focus ORGINDEX window, or create new one
 function NanoWM.focusOrCreateOrgindex(titlePattern, launchCmd)
     -- Search for existing window with matching title
@@ -1702,20 +1935,28 @@ function NanoWM.focusOrCreateOrgindex(titlePattern, launchCmd)
 end
 
 hs.hotkey.bind(altShift, "o", function()
-    NanoWM.focusOrCreateOrgindex("ORGINDEX-AGENDA",
-        '/Applications/Alacritty.app/Contents/MacOS/alacritty -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-AGENDA" -e zsh -c "nvim --cmd \\"cd ~/org/life\\" -c \\"lua require(\\\\\\"orgmode.api.agenda\\\\\\").agenda({span = 1})\\""')
+    NanoWM.focusOrCreateOrgindex(
+        "ORGINDEX-AGENDA",
+        '/Applications/Alacritty.app/Contents/MacOS/alacritty -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-AGENDA" -e zsh -c "nvim --cmd \\"cd ~/org/life\\" -c \\"lua require(\\\\\\"orgmode.api.agenda\\\\\\").agenda({span = 1})\\""'
+    )
 end)
 hs.hotkey.bind(altShift, "w", function()
-    NanoWM.focusOrCreateOrgindex("ORGINDEX-WORK",
-        '/Applications/Alacritty.app/Contents/MacOS/alacritty -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-WORK" -e zsh -c "cd ~/org/life && vim ~/org/life/work/work.org"')
+    NanoWM.focusOrCreateOrgindex(
+        "ORGINDEX-WORK",
+        '/Applications/Alacritty.app/Contents/MacOS/alacritty -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-WORK" -e zsh -c "cd ~/org/life && vim ~/org/life/work/work.org"'
+    )
 end)
 hs.hotkey.bind(altShift, "d", function()
-    NanoWM.focusOrCreateOrgindex("ORGINDEX-DUMP",
-        '/Applications/Alacritty.app/Contents/MacOS/alacritty -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-DUMP" -e zsh -c "cd ~/org/life && vim ~/org/life/dump.org"')
+    NanoWM.focusOrCreateOrgindex(
+        "ORGINDEX-DUMP",
+        '/Applications/Alacritty.app/Contents/MacOS/alacritty -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-DUMP" -e zsh -c "cd ~/org/life && vim ~/org/life/dump.org"'
+    )
 end)
 hs.hotkey.bind(altShift, "y", function()
-    NanoWM.focusOrCreateOrgindex("ORGINDEX-YOUTUBE",
-        '/Applications/Alacritty.app/Contents/MacOS/alacritty -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-YOUTUBE" -e zsh -c "cd ~/org/consume && vim ~/org/consume/youtube/youtube1.org"')
+    NanoWM.focusOrCreateOrgindex(
+        "ORGINDEX-YOUTUBE",
+        '/Applications/Alacritty.app/Contents/MacOS/alacritty -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-YOUTUBE" -e zsh -c "cd ~/org/consume && vim ~/org/consume/youtube/youtube1.org"'
+    )
 end)
 
 -- NEW: Timer keybindings (Alt+T as prefix, then number)
@@ -1835,9 +2076,8 @@ filter:subscribe(hs.window.filter.windowMoved, function(win)
 end)
 
 -- -----------------------------------------------------------------------------
--- SKETCHYBAR INTEGRATION
 -- -----------------------------------------------------------------------------
-NanoWM.sketchybarEnabled = false  -- Disabled by default, use Alt+Shift+G to enable
+NanoWM.sketchybarEnabled = false -- Disabled by default, use Alt+Shift+G to enable
 
 -- Debounced sketchybar update to prevent too many calls
 NanoWM.sketchybarUpdateTimer = nil
@@ -1933,28 +2173,32 @@ end
 
 function NanoWM.toggleSketchybar()
     -- First check if sketchybar is running
-    hs.task.new("/bin/zsh", function(exitCode, stdOut, stdErr)
-        if exitCode ~= 0 then
-            -- Sketchybar not running, start it
-            -- Use login shell to get full environment (nix paths, config dirs, etc.)
-            os.execute("/bin/zsh -l -c 'sketchybar &' &")
-            NanoWM.sketchybarEnabled = true
-            hs.alert.show("Sketchybar: ON (started)")
-            -- Give it a moment to start, then update
-            hs.timer.doAfter(1, function()
-                NanoWM.updateSketchybar()
-            end)
-        else
-            -- Sketchybar is running, toggle visibility
-            hs.task.new("/bin/zsh", function()
-                NanoWM.sketchybarEnabled = not NanoWM.sketchybarEnabled
-                hs.alert.show("Sketchybar: " .. (NanoWM.sketchybarEnabled and "ON" or "OFF"))
-                if NanoWM.sketchybarEnabled then
+    hs.task
+        .new("/bin/zsh", function(exitCode, stdOut, stdErr)
+            if exitCode ~= 0 then
+                -- Sketchybar not running, start it
+                -- Use login shell to get full environment (nix paths, config dirs, etc.)
+                os.execute("/bin/zsh -l -c 'sketchybar &' &")
+                NanoWM.sketchybarEnabled = true
+                hs.alert.show("Sketchybar: ON (started)")
+                -- Give it a moment to start, then update
+                hs.timer.doAfter(1, function()
                     NanoWM.updateSketchybar()
-                end
-            end, { "-c", "sketchybar --bar hidden=toggle" }):start()
-        end
-    end, { "-c", "pgrep -x sketchybar" }):start()
+                end)
+            else
+                -- Sketchybar is running, toggle visibility
+                hs.task
+                    .new("/bin/zsh", function()
+                        NanoWM.sketchybarEnabled = not NanoWM.sketchybarEnabled
+                        hs.alert.show("Sketchybar: " .. (NanoWM.sketchybarEnabled and "ON" or "OFF"))
+                        if NanoWM.sketchybarEnabled then
+                            NanoWM.updateSketchybar()
+                        end
+                    end, { "-c", "sketchybar --bar hidden=toggle" })
+                    :start()
+            end
+        end, { "-c", "pgrep -x sketchybar" })
+        :start()
 end
 
 -- Update sketchybar periodically for timer countdown
@@ -1965,6 +2209,48 @@ NanoWM.sketchybarTimer = hs.timer.new(1, function()
 end)
 NanoWM.sketchybarTimer:start()
 
+-- Restore sketchybar state and restart it
+local savedSketchybarEnabled = hs.settings.get("nanoWM_sketchybarEnabled")
+if savedSketchybarEnabled ~= nil then
+    NanoWM.sketchybarEnabled = savedSketchybarEnabled
+end
+
+-- Restart sketchybar on Hammerspoon reload
+hs.task
+    .new("/bin/zsh", function(exitCode, stdOut, stdErr)
+        if exitCode == 0 then
+            -- Sketchybar is running, kill it first
+            os.execute("pkill -x sketchybar")
+            hs.timer.doAfter(0.5, function()
+                -- Start sketchybar fresh
+                os.execute("/bin/zsh -l -c 'sketchybar &' &")
+                hs.timer.doAfter(2, function()
+                    -- Restore hidden state
+                    if not NanoWM.sketchybarEnabled then
+                        os.execute("sketchybar --bar hidden=true")
+                    else
+                        -- Send multiple updates to ensure sketchybar receives them
+                        NanoWM.updateSketchybar()
+                        hs.timer.doAfter(0.5, function()
+                            NanoWM.updateSketchybar()
+                        end)
+                    end
+                end)
+            end)
+        else
+            -- Sketchybar not running, start it if it was enabled
+            if NanoWM.sketchybarEnabled then
+                os.execute("/bin/zsh -l -c 'sketchybar &' &")
+                hs.timer.doAfter(2, function()
+                    NanoWM.updateSketchybar()
+                    hs.timer.doAfter(0.5, function()
+                        NanoWM.updateSketchybar()
+                    end)
+                end)
+            end
+        end
+    end, { "-c", "pgrep -x sketchybar" })
+    :start()
+
 NanoWM.tile()
-NanoWM.updateSketchybar()
-hs.alert.show("NanoWM v37 Started")
+hs.alert.show("NanoWM v38 Started")
