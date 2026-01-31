@@ -116,7 +116,7 @@ in
           style=round \
           width=4.0 \
           hidpi=on \
-          active_color=0xff7aa2f7 \
+          active_color=0xff7b5cff \
           inactive_color=0xff3b4261 \
           blacklist="Raycast,System Settings,Finder,Archive Utility,App Store,Hammerspoon,Disk Utility,Calculator"
       '';
@@ -152,9 +152,9 @@ in
         # BAR_COLOR=0xff1a1b26        # Tokyo Night background
         # ITEM_BG_COLOR=0xff2e2e3e   # Dark Grey Pills
         # ACCENT_COLOR=0xff7aa2f7     # Blue accent
-        BAR_COLOR=0xff000000       # Pure Black (Matches Notch)
+        ACCENT_COLOR=0xff7b5cff     # Purple Accent
+        BAR_COLOR=0xff000000        # Pure Black (Matches Notch)
         ITEM_BG_COLOR=0xff24283b    # Slightly lighter for pills
-        ACCENT_COLOR=0xff7b5cff    # Purple Accent
         ACCENT_SECONDARY=0xff9ece6a # Green accent
         WARNING_COLOR=0xffe0af68    # Yellow/Orange warning
         CRITICAL_COLOR=0xfff7768e   # Red critical
@@ -211,7 +211,7 @@ in
                            icon.font="$FONT_FACE:Bold:11.0" \
                            icon.padding_left=8 \
                            icon.padding_right=8 \
-                           background.color=$INACTIVE_COLOR \
+                           background.color=$ACCENT_COLOR \
                            background.drawing=off \
                            label.drawing=off \
                            drawing=off \
@@ -357,7 +357,7 @@ in
                          background.drawing=on \
                          update_freq=30 \
                          script="$CONFIG_DIR/plugins/power.sh" \
-                         click_script="$CONFIG_DIR/plugins/power_click.sh"
+                         # click_script="$CONFIG_DIR/plugins/power_click.sh"
 
 
         # --- Battery ---
@@ -368,6 +368,7 @@ in
                          background.drawing=on \
                          update_freq=60 \
                          script="$CONFIG_DIR/plugins/battery.sh" \
+                         click_script="$CONFIG_DIR/plugins/battery_click.sh" \
                    --subscribe battery system_woke power_source_change
 
         sketchybar --update
@@ -432,7 +433,7 @@ in
 
           if [ "$IS_ACTIVE" = true ]; then
             # Current workspace - highlighted blue
-            sketchybar --set "$NAME" drawing=on background.drawing=on background.color=0xff7aa2f7 icon.color=0xff1a1b26
+            sketchybar --set "$NAME" drawing=on background.drawing=on background.color=0xff7b5cff icon.color=0xff1a1b26
           elif [ "$IS_URGENT" = true ]; then
             # Urgent workspace - highlighted red/orange (attention needed!)
             sketchybar --set "$NAME" drawing=on background.drawing=on background.color=0xfff7768e icon.color=0xff1a1b26
@@ -713,6 +714,67 @@ in
         fi
 
         sketchybar --set $NAME icon="$ICON" icon.color="$COLOR" label="$PERCENTAGE%"
+      '';
+    };
+
+    # Battery Click Plugin (toggle between percentage and time remaining)
+    ".config/sketchybar/plugins/battery_click.sh" = {
+      executable = true;
+      text = ''
+        #!/bin/bash
+        # Toggle between battery percentage and time remaining
+
+        STATE_FILE="/tmp/sketchybar_battery_state"
+
+        # Get battery info
+        BATT_INFO=$(pmset -g batt)
+        PERCENTAGE=$(echo "$BATT_INFO" | grep -o "[0-9]\{1,3\}%" | tr -d "%")
+        CHARGING=$(echo "$BATT_INFO" | grep "AC Power")
+        TIME_LEFT=$(echo "$BATT_INFO" | grep -o "[0-9]*:[0-9]* remaining" | cut -d" " -f1)
+
+        # Determine icon and color based on state
+        if [[ $CHARGING != "" ]]; then
+          ICON="󰂄"
+          COLOR="0xff9ece6a"
+        elif [[ $PERCENTAGE -ge 80 ]]; then
+          ICON="󰁹"
+          COLOR="0xff9ece6a"
+        elif [[ $PERCENTAGE -ge 60 ]]; then
+          ICON="󰂁"
+          COLOR="0xff7aa2f7"
+        elif [[ $PERCENTAGE -ge 40 ]]; then
+          ICON="󰁿"
+          COLOR="0xff7aa2f7"
+        elif [[ $PERCENTAGE -ge 20 ]]; then
+          ICON="󰁻"
+          COLOR="0xffe0af68"
+        else
+          ICON="󰂃"
+          COLOR="0xfff7768e"
+        fi
+
+        if [ -f "$STATE_FILE" ] && [ "$(cat $STATE_FILE)" = "time" ]; then
+          # Currently showing time, switch back to percentage
+          echo "percent" > "$STATE_FILE"
+          sketchybar --set battery icon="$ICON" icon.color="$COLOR" label="$PERCENTAGE%"
+        else
+          # Currently showing percentage, switch to time
+          echo "time" > "$STATE_FILE"
+
+          if [ -n "$TIME_LEFT" ] && [ "$TIME_LEFT" != "0:00" ]; then
+            sketchybar --set battery icon="󰔟" icon.color="$COLOR" label="$TIME_LEFT"
+          elif [[ $CHARGING != "" ]]; then
+            # Charging - show charging time if available
+            CHARGE_TIME=$(echo "$BATT_INFO" | grep -o "[0-9]*:[0-9]* until" | cut -d" " -f1)
+            if [ -n "$CHARGE_TIME" ]; then
+              sketchybar --set battery icon="󰂄" icon.color="$COLOR" label="$CHARGE_TIME"
+            else
+              sketchybar --set battery icon="󰂄" icon.color="$COLOR" label="Charging"
+            fi
+          else
+            sketchybar --set battery icon="󰔟" icon.color="$COLOR" label="--:--"
+          fi
+        fi
       '';
     };
 
