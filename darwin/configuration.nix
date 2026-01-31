@@ -156,6 +156,7 @@
       "hammerspoon"
       "balenaetcher"
       "omniwm"
+      "middleclick"
     ];
 
     # Homebrew formulae (CLI tools)

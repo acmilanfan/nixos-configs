@@ -1,3 +1,22 @@
+-- =============================================================================
+-- EMERGENCY RESCUE: CMD+ALT+CTRL+0, unhides all windows
+-- =============================================================================
+hs.hotkey.bind({"cmd", "alt", "ctrl"}, "0", function()
+    hs.alert.show("🚨 Emergency Rescue Initiated 🚨")
+    local wins = hs.window.allWindows()
+    local screen = hs.screen.mainScreen():frame()
+    for _, win in ipairs(wins) do
+        -- Force show
+        win:setFrame({
+            x = screen.x + 50,
+            y = screen.y + 50,
+            w = screen.w - 100,
+            h = screen.h - 100
+        })
+        win:raise()
+    end
+end)
+
 require("macos-vim-navigation/init")
 
 local clock = hs.loadSpoon("AClock")
@@ -37,6 +56,7 @@ function NanoWM.loadState()
     NanoWM.fullscreenCache = hs.settings.get("nanoWM_fullscreenCache") or {}
     NanoWM.masterWidths = clean(hs.settings.get("nanoWM_masterWidths")) or {}
     NanoWM.appTagMemory = hs.settings.get("nanoWM_appTagMemory") or {}
+    NanoWM.freeTags = clean(hs.settings.get("nanoWM_freeTags")) or {}
 end
 
 NanoWM.saveTimer = hs.timer.delayed.new(2.0, function()
@@ -62,6 +82,7 @@ NanoWM.saveTimer = hs.timer.delayed.new(2.0, function()
     hs.settings.set("nanoWM_appTagMemory", NanoWM.appTagMemory)
     hs.settings.set("nanoWM_sketchybarEnabled", NanoWM.sketchybarEnabled)
     hs.settings.set("nanoWM_bordersEnabled", NanoWM.bordersEnabled)
+    hs.settings.set("nanoWM_freeTags", serialize(NanoWM.freeTags))
 end)
 
 function NanoWM.triggerSave()
@@ -78,6 +99,8 @@ NanoWM.sizeCache = {}
 NanoWM.fullscreenCache = {}
 NanoWM.windowState = {}
 NanoWM.appTagMemory = {}
+NanoWM.freeTags = {}  -- Tags in "free mode" (no tiling)
+NanoWM.freeTagPositions = {}  -- Cache window positions before entering free mode
 
 -- Pending destruction: delay tag cleanup to handle false positives
 NanoWM.pendingDestruction = {} -- { [id] = { tag = X, appName = Y, timer = Z } }
@@ -332,6 +355,40 @@ function NanoWM.hasUrgentTags()
         return true
     end
     return false
+end
+
+-- -----------------------------------------------------------------------------
+-- FREE MODE FUNCTIONS (disable tiling on a tag)
+-- -----------------------------------------------------------------------------
+function NanoWM.isTagFree(tag)
+    tag = tag or (NanoWM.special.active and NanoWM.special.tag or NanoWM.currentTag)
+    return NanoWM.freeTags[tag] == true
+end
+
+function NanoWM.toggleFreeMode()
+    local tag = NanoWM.special.active and NanoWM.special.tag or NanoWM.currentTag
+
+    if NanoWM.freeTags[tag] then
+        -- Exiting free mode - re-tile windows
+        NanoWM.freeTags[tag] = nil
+        NanoWM.freeTagPositions[tag] = nil
+        hs.alert.show("Free Mode: OFF (Tag " .. tostring(tag) .. ")")
+        NanoWM.tile()
+    else
+        -- Entering free mode - cache current positions first
+        local windows = NanoWM.getTiledWindows(tag)
+        NanoWM.freeTagPositions[tag] = {}
+        for _, win in ipairs(windows) do
+            local id = win:id()
+            local f = win:frame()
+            NanoWM.freeTagPositions[tag][id] = { x = f.x, y = f.y, w = f.w, h = f.h }
+        end
+        NanoWM.freeTags[tag] = true
+        hs.alert.show("Free Mode: ON (Tag " .. tostring(tag) .. ")")
+    end
+
+    NanoWM.triggerSave()
+    NanoWM.updateSketchybar()
 end
 
 -- -----------------------------------------------------------------------------
@@ -649,15 +706,49 @@ function NanoWM.performTile()
         end
     end
 
-    -- PHASE 3: TILE BACKGROUND
+    -- PHASE 3: TILE BACKGROUND (skip if tag is in free mode)
     local backgroundWindows = NanoWM.getTiledWindows(NanoWM.currentTag)
-    NanoWM.applyLayout(backgroundWindows, frame, false, NanoWM.currentTag)
+    if not NanoWM.isTagFree(NanoWM.currentTag) then
+        NanoWM.applyLayout(backgroundWindows, frame, false, NanoWM.currentTag)
+    else
+        -- In free mode, just make sure windows are visible (not hidden)
+        for _, win in ipairs(backgroundWindows) do
+            local id = win:id()
+            if NanoWM.windowState[id] and NanoWM.windowState[id].isHidden then
+                -- Restore from cache if available
+                local idStr = tostring(id)
+                local cached = NanoWM.freeTagPositions[NanoWM.currentTag] and NanoWM.freeTagPositions[NanoWM.currentTag][id]
+                if cached then
+                    win:setFrame(cached)
+                else
+                    win:centerOnScreen()
+                end
+                NanoWM.windowState[id].isHidden = false
+            end
+        end
+    end
 
     if NanoWM.special.active then
         local specialWindows = NanoWM.getTiledWindows(NanoWM.special.tag)
-        local pad = 100
-        local specialFrame = { x = frame.x + pad, y = frame.y + pad, w = frame.w - (pad * 2), h = frame.h - (pad * 2) }
-        NanoWM.applyLayout(specialWindows, specialFrame, true, NanoWM.special.tag)
+        if not NanoWM.isTagFree(NanoWM.special.tag) then
+            local pad = 100
+            local specialFrame = { x = frame.x + pad, y = frame.y + pad, w = frame.w - (pad * 2), h = frame.h - (pad * 2) }
+            NanoWM.applyLayout(specialWindows, specialFrame, true, NanoWM.special.tag)
+        else
+            -- In free mode for special tag, just make sure windows are visible
+            for _, win in ipairs(specialWindows) do
+                local id = win:id()
+                if NanoWM.windowState[id] and NanoWM.windowState[id].isHidden then
+                    local cached = NanoWM.freeTagPositions[NanoWM.special.tag] and NanoWM.freeTagPositions[NanoWM.special.tag][id]
+                    if cached then
+                        win:setFrame(cached)
+                    else
+                        win:centerOnScreen()
+                    end
+                    NanoWM.windowState[id].isHidden = false
+                end
+            end
+        end
 
         -- Immediately raise all special windows to ensure they're on top
         for _, win in ipairs(specialWindows) do
@@ -983,6 +1074,10 @@ function NanoWM.openMenu(mode)
                 end,
             },
             {
+                t = "Toggle Free Mode (current tag)",
+                fn = NanoWM.toggleFreeMode,
+            },
+            {
                 t = "Show Tag Memory",
                 fn = function()
                     local count = 0
@@ -1013,6 +1108,7 @@ function NanoWM.openMenu(mode)
                     NanoWM.sticky = {}
                     NanoWM.floatingOverrides = {}
                     NanoWM.appTagMemory = {}
+                    NanoWM.freeTags = {}
                     NanoWM.currentTag = 1
                     NanoWM.triggerSave()
                     hs.reload()
@@ -1644,6 +1740,7 @@ function NanoWM.showKeybindMenu()
                 { key = "Alt+Shift+G", desc = "Toggle sketchybar" },
                 { key = "Ctrl+Alt+B",  desc = "Toggle window borders (smart)" },
                 { key = "Ctrl+Alt+P",  desc = "Toggle battery saver mode" },
+                { key = "Ctrl+Alt+F",  desc = "Toggle free mode (disable tiling on tag)" },
             },
         },
         {
@@ -1801,6 +1898,9 @@ hs.hotkey.bind(ctrlAlt, "b", function()
 end)
 hs.hotkey.bind(ctrlAlt, "p", function()
     NanoWM.toggleBatterySaver()
+end)
+hs.hotkey.bind(ctrlAlt, "f", function()
+    NanoWM.toggleFreeMode()
 end)
 hs.hotkey.bind(alt, "/", function()
     NanoWM.showKeybindMenu()
@@ -2041,6 +2141,12 @@ function NanoWM.handleManualResize()
     end
 
     local tag = NanoWM.special.active and NanoWM.special.tag or NanoWM.currentTag
+
+    -- Skip if tag is in free mode
+    if NanoWM.isTagFree(tag) then
+        return
+    end
+
     local windows = NanoWM.getTiledWindows(tag)
 
     -- Only handle resize if we have 2+ windows (master + stack)
@@ -2078,7 +2184,9 @@ filter:subscribe(hs.window.filter.windowMoved, function(win)
         return
     end
     -- Only handle resize for tiled windows, not floating ones
-    if not NanoWM.isFloating(win) then
+    -- Also skip if tag is in free mode
+    local tag = NanoWM.special.active and NanoWM.special.tag or NanoWM.currentTag
+    if not NanoWM.isFloating(win) and not NanoWM.isTagFree(tag) then
         NanoWM.resizeWatcher:start()
     end
 end)

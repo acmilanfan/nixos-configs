@@ -2,6 +2,7 @@
 
   home.packages = with pkgs;
     [
+      (writeShellScriptBin "ns" (lib.readFile ./scripts/nixpkgs))
       git
       httpie
       kitty
@@ -20,7 +21,6 @@
         (lib.readFile ./scripts/screen-toggle))
       (writeShellScriptBin "touch-toggle" (lib.readFile ./scripts/touch-toggle))
       (writeShellScriptBin "try-lock" (lib.readFile ./scripts/try-lock))
-      (writeShellScriptBin "ns" (lib.readFile ./scripts/nixpkgs))
       vial
       (python3.withPackages (ps: with ps; [ evdev ]))
       qmk-udev-rules
