@@ -276,26 +276,6 @@ in
                    --subscribe front_app front_app_switched
 
         # ═══════════════════════════════════════════════════════════════════════════
-        # CENTER - Date & Time
-        # ═══════════════════════════════════════════════════════════════════════════
-
-        sketchybar --add item date center \
-                   --set date \
-                         update_freq=60 \
-                         icon="󰃭" \
-                         icon.color=$ACCENT_COLOR \
-                         background.drawing=off \
-                         script="$CONFIG_DIR/plugins/date.sh"
-
-        sketchybar --add item clock center \
-                   --set clock \
-                         update_freq=10 \
-                         icon="󰥔" \
-                         icon.color=$ACCENT_SECONDARY \
-                         background.drawing=off \
-                         script="$CONFIG_DIR/plugins/clock.sh"
-
-        # ═══════════════════════════════════════════════════════════════════════════
         # RIGHT SIDE - System Info
         # ═══════════════════════════════════════════════════════════════════════════
 
@@ -306,7 +286,7 @@ in
                          icon.color=$ACCENT_COLOR \
                          background.color=$ITEM_BG_COLOR \
                          background.drawing=on \
-                         update_freq=30 \
+                         update_freq=20 \
                          script="$CONFIG_DIR/plugins/datetime.sh"
 
         # --- Separator ---
@@ -329,7 +309,7 @@ in
                          background.drawing=on \
                          label.drawing=off \
                          script="$CONFIG_DIR/plugins/network.sh" \
-                         update_freq=10 \
+                         update_freq=60 \
                    --subscribe network wifi_change
 
         # --- CPU Graph ---
@@ -346,7 +326,7 @@ in
                          icon.color=$ACCENT_COLOR \
                          icon.padding_left=6 \
                          label.padding_right=6 \
-                         update_freq=2 \
+                         update_freq=5 \
                          script="$CONFIG_DIR/plugins/cpu_graph.sh"
 
         # --- Memory Usage ---
@@ -356,7 +336,7 @@ in
                          icon.color=$WARNING_COLOR \
                          background.color=$ITEM_BG_COLOR \
                          background.drawing=on \
-                         update_freq=5 \
+                         update_freq=30 \
                          script="$CONFIG_DIR/plugins/memory.sh"
 
         # --- Volume ---
@@ -375,7 +355,7 @@ in
                          icon.color=$WARNING_COLOR \
                          background.color=$ITEM_BG_COLOR \
                          background.drawing=on \
-                         update_freq=5 \
+                         update_freq=30 \
                          script="$CONFIG_DIR/plugins/power.sh" \
                          click_script="$CONFIG_DIR/plugins/power_click.sh"
 
@@ -510,24 +490,6 @@ in
       '';
     };
 
-    # Date Plugin
-    ".config/sketchybar/plugins/date.sh" = {
-      executable = true;
-      text = ''
-        #!/bin/bash
-        sketchybar --set $NAME label="$(date '+%a %d %b')"
-      '';
-    };
-
-    # Clock Plugin
-    ".config/sketchybar/plugins/clock.sh" = {
-      executable = true;
-      text = ''
-        #!/bin/bash
-        sketchybar --set $NAME label="$(date '+%H:%M')"
-      '';
-    };
-
     # Volume Plugin
     ".config/sketchybar/plugins/volume.sh" = {
       executable = true;
@@ -573,10 +535,10 @@ in
       executable = true;
       text = ''
         #!/bin/bash
-        # Get CPU usage - faster method using iostat
-        CPU_LOAD=$(iostat -c 2 disk0 | tail -1 | awk '{print 100 - $6}' | cut -d. -f1)
+        # Get CPU usage using top (fast, instant)
+        CPU_LOAD=$(top -l 1 -n 0 | grep -E "^CPU" | awk '{ print int($3 + $5) }')
 
-        # Fallback to top if iostat fails
+        # Fallback if top fails
         if [ -z "$CPU_LOAD" ] || [ "$CPU_LOAD" -lt 0 ] 2>/dev/null; then
           CPU_LOAD=$(top -l 1 -n 0 | grep -E "^CPU" | awk '{ print int($3 + $5) }')
         fi

@@ -13,7 +13,7 @@ hs.window.animationDuration = 0
 hs.ipc.cliInstall()
 
 -- =============================================================================
--- NANOWM v39: Urgent Tags & Tag Switch Cooldown
+-- NANOWM v39
 -- =============================================================================
 NanoWM = {}
 
@@ -36,7 +36,6 @@ function NanoWM.loadState()
     NanoWM.sizeCache = hs.settings.get("nanoWM_sizeCache") or {}
     NanoWM.fullscreenCache = hs.settings.get("nanoWM_fullscreenCache") or {}
     NanoWM.masterWidths = clean(hs.settings.get("nanoWM_masterWidths")) or {}
-    -- NEW: Load app-based tag memory
     NanoWM.appTagMemory = hs.settings.get("nanoWM_appTagMemory") or {}
 end
 
@@ -60,11 +59,8 @@ NanoWM.saveTimer = hs.timer.delayed.new(2.0, function()
 
     hs.settings.set("nanoWM_currentTag", NanoWM.currentTag)
     hs.settings.set("nanoWM_prevTag", NanoWM.prevTag)
-    -- NEW: Save app-based tag memory
     hs.settings.set("nanoWM_appTagMemory", NanoWM.appTagMemory)
-    -- Save sketchybar state
     hs.settings.set("nanoWM_sketchybarEnabled", NanoWM.sketchybarEnabled)
-    -- Save borders state
     hs.settings.set("nanoWM_bordersEnabled", NanoWM.bordersEnabled)
 end)
 
@@ -81,7 +77,7 @@ NanoWM.floatingCache = {}
 NanoWM.sizeCache = {}
 NanoWM.fullscreenCache = {}
 NanoWM.windowState = {}
-NanoWM.appTagMemory = {} -- NEW: Remember tags by app+title
+NanoWM.appTagMemory = {}
 
 -- Pending destruction: delay tag cleanup to handle false positives
 NanoWM.pendingDestruction = {} -- { [id] = { tag = X, appName = Y, timer = Z } }
@@ -91,9 +87,9 @@ NanoWM.loadState()
 
 NanoWM.currentTag = hs.settings.get("nanoWM_currentTag") or 1
 NanoWM.prevTag = hs.settings.get("nanoWM_prevTag") or 1
-NanoWM.masterWidths = {} -- Per-tag master widths
+NanoWM.masterWidths = {}
 NanoWM.defaultMasterWidth = 0.5
-NanoWM.gap = 0           -- UPDATED: Default 0
+NanoWM.gap = 0
 NanoWM.layout = "tile"
 NanoWM.isFullscreen = false
 NanoWM.special = { active = false, tag = "special", border = nil, raiseTimer = nil }
@@ -114,7 +110,7 @@ NanoWM.urgentTags = {}         -- Table of urgent tags: { [tag] = true }
 NanoWM.lastManualTagSwitch = 0 -- Timestamp of last manual tag switch
 NanoWM.tagSwitchCooldown = 1.0 -- Increased cooldown
 
--- NEW: Anti-jump protection - track when we're in a "safe" state
+-- Anti-jump protection - track when we're in a "safe" state
 NanoWM.lastTileTime = 0
 NanoWM.tileProtectionWindow = 0.5 -- Don't process focus events within 0.5s of tiling   -- Cooldown in seconds after manual switch
 
@@ -192,7 +188,6 @@ function NanoWM.getWindowKey(win)
     local appName = app:name()
     local title = win:title() or ""
 
-    -- Skip excluded apps
     if NanoWM.excludedFromTagMemory[appName] then
         return nil
     end
@@ -234,7 +229,6 @@ function NanoWM.getRememberedTag(win)
     return nil
 end
 
--- Manually save the current window's tag (called by user)
 function NanoWM.saveCurrentWindowTag()
     local win = hs.window.focusedWindow()
     if not win then
@@ -271,7 +265,6 @@ function NanoWM.saveCurrentWindowTag()
     hs.alert.show("Saved: " .. string.sub(key, 1, 30) .. "... -> Tag " .. tostring(tag))
 end
 
--- Save all currently opened windows tags (except excluded apps)
 function NanoWM.saveAllWindowTags()
     local saved = 0
     local skipped = 0
@@ -302,7 +295,6 @@ end
 -- URGENT TAG FUNCTIONS
 -- -----------------------------------------------------------------------------
 function NanoWM.markTagUrgent(tag)
-    -- Don't mark current tag as urgent
     if tag == NanoWM.currentTag then
         return
     end
@@ -313,8 +305,6 @@ function NanoWM.markTagUrgent(tag)
     if not NanoWM.urgentTags[tag] then
         NanoWM.urgentTags[tag] = true
         NanoWM.updateSketchybar()
-        -- Optional: play a subtle sound or show notification
-        -- hs.sound.getByName("Tink"):play()
     end
 end
 
@@ -326,7 +316,6 @@ function NanoWM.clearUrgent(tag)
 end
 
 function NanoWM.gotoUrgent()
-    -- Find first urgent tag and go to it
     for tag, _ in pairs(NanoWM.urgentTags) do
         if tag == "special" then
             NanoWM.toggleSpecial()
@@ -409,12 +398,10 @@ function NanoWM.registerWindow(win)
         local app = win:application()
         local appName = app and app:name() or "Unknown"
 
-        -- Check if we have a remembered tag for this window
         local rememberedTag = NanoWM.getRememberedTag(win)
         local targetTag
 
         if rememberedTag then
-            -- Use the remembered tag
             targetTag = rememberedTag
             print("[NanoWM] Window opened with remembered tag: " .. tostring(rememberedTag))
         else
@@ -710,9 +697,7 @@ function NanoWM.performTile()
         end)
     end
 
-    -- Update sketchybar with current state
     NanoWM.updateSketchybar()
-    -- Update borders visibility (smart borders)
     NanoWM.updateBordersVisibility()
 end
 
@@ -1396,12 +1381,12 @@ filter:subscribe(hs.window.filter.windowFocused, function(win)
         return
     end
 
-    -- NEW: Anti-jump protection - ignore focus events right after tiling
+    -- Anti-jump protection - ignore focus events right after tiling
     local timeSinceTile = hs.timer.secondsSinceEpoch() - NanoWM.lastTileTime
     if timeSinceTile < NanoWM.tileProtectionWindow then
         return
     end
-    -- NEW: Check cooldown from manual tag switch
+    -- Check cooldown from manual tag switch
     local timeSinceSwitch = hs.timer.secondsSinceEpoch() - NanoWM.lastManualTagSwitch
     if timeSinceSwitch < NanoWM.tagSwitchCooldown then
         return
@@ -1535,9 +1520,17 @@ function NanoWM.startTimer(minutes)
         NanoWM.timerDuration = nil
 
         NanoWM.updateSketchybar()
+        -- Stop the 1-second update timer
+        if NanoWM.sketchybarTimer then
+            NanoWM.sketchybarTimer:stop()
+        end
     end)
 
     NanoWM.updateSketchybar()
+    -- Start the 1-second update timer for sketchybar countdown display
+    if NanoWM.sketchybarTimer then
+        NanoWM.sketchybarTimer:start()
+    end
 end
 
 function NanoWM.showTimerRemaining()
@@ -1566,6 +1559,10 @@ function NanoWM.cancelTimer()
 
         hs.alert.show("Timer cancelled")
         NanoWM.updateSketchybar()
+        -- Stop the 1-second update timer
+        if NanoWM.sketchybarTimer then
+            NanoWM.sketchybarTimer:stop()
+        end
     else
         hs.alert.show("No active timer")
     end
@@ -1646,6 +1643,7 @@ function NanoWM.showKeybindMenu()
                 { key = "Alt+G",       desc = "Toggle gaps" },
                 { key = "Alt+Shift+G", desc = "Toggle sketchybar" },
                 { key = "Ctrl+Alt+B",  desc = "Toggle window borders (smart)" },
+                { key = "Ctrl+Alt+P",  desc = "Toggle battery saver mode" },
             },
         },
         {
@@ -1789,39 +1787,34 @@ end)
 hs.hotkey.bind(alt, "c", function()
     NanoWM.centerWindow()
 end)
--- NEW: Resize floating to 60% centered
 hs.hotkey.bind(altShift, "c", function()
     NanoWM.resizeFloatingTo60()
 end)
--- NEW: Toggle gaps
 hs.hotkey.bind(alt, "g", function()
     NanoWM.toggleGaps()
 end)
--- Toggle sketchybar
 hs.hotkey.bind(altShift, "g", function()
     NanoWM.toggleSketchybar()
 end)
--- Toggle JankyBorders (smart mode)
 hs.hotkey.bind(ctrlAlt, "b", function()
     NanoWM.toggleBorders()
 end)
--- NEW: Show keybind menu
+hs.hotkey.bind(ctrlAlt, "p", function()
+    NanoWM.toggleBatterySaver()
+end)
 hs.hotkey.bind(alt, "/", function()
     NanoWM.showKeybindMenu()
 end)
--- NEW: Go to urgent tag
 hs.hotkey.bind(alt, "u", function()
     NanoWM.gotoUrgent()
 end)
--- Manual save window tag to memory
 hs.hotkey.bind(altShift, "m", function()
     NanoWM.saveCurrentWindowTag()
 end)
--- Save all window tags to memory
 hs.hotkey.bind(ctrlAltShift, "m", function()
     NanoWM.saveAllWindowTags()
 end)
--- NEW: Floating window resize keybinds (note: conflicts with swap, only work on floating windows)
+-- Floating window resize keybinds (note: conflicts with swap, only work on floating windows)
 hs.hotkey.bind(altShift, "h", function()
     local win = hs.window.focusedWindow()
     if win and NanoWM.isFloating(win) then
@@ -1854,7 +1847,6 @@ hs.hotkey.bind(altShift, "j", function()
         NanoWM.swapWindow(1) -- Original behavior
     end
 end)
--- NEW: Floating window move keybinds
 hs.hotkey.bind(ctrlAlt, "h", function()
     NanoWM.moveFloatingWindow("left")
 end)
@@ -1975,7 +1967,7 @@ hs.hotkey.bind(altShift, "y", function()
     )
 end)
 
--- NEW: Timer keybindings (Alt+T as prefix, then number)
+-- Timer keybindings (Alt+T as prefix, then number)
 local timerModal = hs.hotkey.modal.new(alt, "t")
 timerModal:bind("", "1", function()
     NanoWM.startTimer(5)
@@ -2152,6 +2144,51 @@ if savedBordersEnabled then
 end
 
 -- -----------------------------------------------------------------------------
+-- BATTERY SAVER MODE
+-- -----------------------------------------------------------------------------
+NanoWM.batterySaverEnabled = false
+NanoWM.batterySaverPreviousState = {} -- Store previous states to restore
+
+function NanoWM.toggleBatterySaver()
+    NanoWM.batterySaverEnabled = not NanoWM.batterySaverEnabled
+
+    if NanoWM.batterySaverEnabled then
+        -- Save current states before disabling
+        NanoWM.batterySaverPreviousState.sketchybar = NanoWM.sketchybarEnabled
+        NanoWM.batterySaverPreviousState.borders = NanoWM.bordersEnabled
+
+        -- Stop sketchybar completely (not just hide)
+        os.execute("pkill -x sketchybar 2>/dev/null")
+        NanoWM.sketchybarEnabled = false
+
+        -- Stop borders
+        NanoWM.stopBorders()
+        NanoWM.bordersEnabled = false
+        NanoWM.bordersCurrentlyShowing = false
+
+        hs.alert.show("🔋 Battery Saver: ON\nSketchybar & Borders disabled", 2)
+    else
+        -- Restore previous states
+        if NanoWM.batterySaverPreviousState.sketchybar then
+            os.execute("/bin/zsh -l -c \x27sketchybar &\x27 &")
+            NanoWM.sketchybarEnabled = true
+            hs.timer.doAfter(1, function()
+                NanoWM.updateSketchybar()
+            end)
+        end
+
+        if NanoWM.batterySaverPreviousState.borders then
+            NanoWM.bordersEnabled = true
+            NanoWM.updateBordersVisibility()
+        end
+
+        hs.alert.show("⚡ Battery Saver: OFF\nFeatures restored", 2)
+    end
+
+    NanoWM.triggerSave()
+end
+
+-- -----------------------------------------------------------------------------
 NanoWM.sketchybarEnabled = false -- Disabled by default, use Alt+Shift+G to enable
 
 -- Debounced sketchybar update to prevent too many calls
@@ -2282,7 +2319,7 @@ NanoWM.sketchybarTimer = hs.timer.new(1, function()
         NanoWM.updateSketchybar()
     end
 end)
-NanoWM.sketchybarTimer:start()
+-- NanoWM.sketchybarTimer:start() -- Only start when timer is active
 
 -- Restore sketchybar state and restart it
 local savedSketchybarEnabled = hs.settings.get("nanoWM_sketchybarEnabled")
