@@ -40,6 +40,8 @@ in
       shortcat
       macmon
 
+      jankyborders
+
       (writeShellScriptBin "pip-pop" (lib.readFile ./scripts/pip-pop))
       (writeShellScriptBin "fullscreen-raise" (lib.readFile ./scripts/fullscreen-raise))
     ]
@@ -101,6 +103,24 @@ in
     # Kanata configuration (home row mods only)
     ".config/kanata/kanata.kbd".source = ../../dotfiles/kanata/kanata.kbd;
     ".config/kanata/reload-kanata.sh".source = ../../dotfiles/kanata/reload-kanata.sh;
+
+    # JankyBorders configuration
+    ".config/borders/bordersrc" = {
+      executable = true;
+      text = ''
+        #!/bin/bash
+        # JankyBorders configuration - Tokyo Night theme
+        # Toggle with Ctrl+Alt+B in Hammerspoon (smart mode: auto-hides with 1 window or monocle)
+
+        borders \
+          style=round \
+          width=4.0 \
+          hidpi=on \
+          active_color=0xff7aa2f7 \
+          inactive_color=0xff3b4261 \
+          blacklist="Raycast,System Settings,Finder,Archive Utility,App Store,Hammerspoon,Disk Utility,Calculator"
+      '';
+    };
 
     # Hammerspoon
     ".hammerspoon/init.lua".source = ../../dotfiles/hammerspoon/init.lua;

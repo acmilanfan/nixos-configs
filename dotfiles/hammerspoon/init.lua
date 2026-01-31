@@ -6,7 +6,6 @@ local VimMode = hs.loadSpoon("VimMode")
 local vim = VimMode:new()
 vim:bindHotKeys({ enter = { { "alt" }, "e" } })
 
-
 -- =============================================================================
 -- BASE SETTINGS
 -- =============================================================================
@@ -14,7 +13,7 @@ hs.window.animationDuration = 0
 hs.ipc.cliInstall()
 
 -- =============================================================================
--- NANOWM v38: Urgent Tags & Tag Switch Cooldown
+-- NANOWM v39: Urgent Tags & Tag Switch Cooldown
 -- =============================================================================
 NanoWM = {}
 
@@ -65,6 +64,8 @@ NanoWM.saveTimer = hs.timer.delayed.new(2.0, function()
     hs.settings.set("nanoWM_appTagMemory", NanoWM.appTagMemory)
     -- Save sketchybar state
     hs.settings.set("nanoWM_sketchybarEnabled", NanoWM.sketchybarEnabled)
+    -- Save borders state
+    hs.settings.set("nanoWM_bordersEnabled", NanoWM.bordersEnabled)
 end)
 
 function NanoWM.triggerSave()
@@ -84,7 +85,7 @@ NanoWM.appTagMemory = {} -- NEW: Remember tags by app+title
 
 -- Pending destruction: delay tag cleanup to handle false positives
 NanoWM.pendingDestruction = {} -- { [id] = { tag = X, appName = Y, timer = Z } }
-NanoWM.destructionDelay = 0.5 -- seconds to wait before actually clearing tag
+NanoWM.destructionDelay = 0.5  -- seconds to wait before actually clearing tag
 
 NanoWM.loadState()
 
@@ -711,6 +712,8 @@ function NanoWM.performTile()
 
     -- Update sketchybar with current state
     NanoWM.updateSketchybar()
+    -- Update borders visibility (smart borders)
+    NanoWM.updateBordersVisibility()
 end
 
 function NanoWM.applyLayout(windows, area, isSpecial, tag)
@@ -1325,7 +1328,7 @@ filter:subscribe(hs.window.filter.windowDestroyed, function(win)
         NanoWM.pendingDestruction[id] = {
             tag = tag,
             appName = appName,
-            time = hs.timer.secondsSinceEpoch()
+            time = hs.timer.secondsSinceEpoch(),
         }
 
         -- Delay the actual cleanup
@@ -1338,7 +1341,14 @@ filter:subscribe(hs.window.filter.windowDestroyed, function(win)
                 return
             end
 
-            print("[NanoWM] Cleaning up destroyed window: " .. appName .. " (id: " .. tostring(id) .. ") was on tag " .. tostring(tag))
+            print(
+                "[NanoWM] Cleaning up destroyed window: "
+                .. appName
+                .. " (id: "
+                .. tostring(id)
+                .. ") was on tag "
+                .. tostring(tag)
+            )
 
             -- Now actually clean up
             if tag and NanoWM.stacks[tag] then
@@ -1632,8 +1642,10 @@ function NanoWM.showKeybindMenu()
         {
             category = "Layout & Display",
             binds = {
-                { key = "Cmd+Space", desc = "Toggle layout (tile/monocle)" },
-                { key = "Alt+G",     desc = "Toggle gaps" },
+                { key = "Cmd+Space",   desc = "Toggle layout (tile/monocle)" },
+                { key = "Alt+G",       desc = "Toggle gaps" },
+                { key = "Alt+Shift+G", desc = "Toggle sketchybar" },
+                { key = "Ctrl+Alt+B",  desc = "Toggle window borders (smart)" },
             },
         },
         {
@@ -1788,6 +1800,10 @@ end)
 -- Toggle sketchybar
 hs.hotkey.bind(altShift, "g", function()
     NanoWM.toggleSketchybar()
+end)
+-- Toggle JankyBorders (smart mode)
+hs.hotkey.bind(ctrlAlt, "b", function()
+    NanoWM.toggleBorders()
 end)
 -- NEW: Show keybind menu
 hs.hotkey.bind(alt, "/", function()
@@ -2077,6 +2093,65 @@ end)
 
 -- -----------------------------------------------------------------------------
 -- -----------------------------------------------------------------------------
+-- JANKYBORDERS INTEGRATION (Smart Borders)
+-- -----------------------------------------------------------------------------
+NanoWM.bordersEnabled = false          -- Disabled by default
+NanoWM.bordersCurrentlyShowing = false -- Track actual visibility state
+
+function NanoWM.toggleBorders()
+    NanoWM.bordersEnabled = not NanoWM.bordersEnabled
+    if NanoWM.bordersEnabled then
+        hs.alert.show("Borders: ON (smart mode)")
+        NanoWM.updateBordersVisibility()
+    else
+        hs.alert.show("Borders: OFF")
+        NanoWM.stopBorders()
+        NanoWM.bordersCurrentlyShowing = false
+    end
+    NanoWM.triggerSave()
+end
+
+function NanoWM.startBorders()
+    os.execute("/bin/zsh -l -c \x27$HOME/.config/borders/bordersrc &\x27 &")
+end
+
+function NanoWM.stopBorders()
+    os.execute("pkill -x borders 2>/dev/null")
+end
+
+-- Smart borders: auto-hide when only 1 window or in monocle/fullscreen mode
+function NanoWM.updateBordersVisibility()
+    if not NanoWM.bordersEnabled then
+        return
+    end
+
+    local tag = NanoWM.special.active and NanoWM.special.tag or NanoWM.currentTag
+    local windows = NanoWM.getTiledWindows(tag)
+    local windowCount = #windows
+
+    -- Hide borders if: monocle mode, fullscreen, or only 1 (or 0) tiled window
+    local shouldHide = (NanoWM.layout == "monocle") or NanoWM.isFullscreen or (windowCount <= 1)
+
+    if shouldHide and NanoWM.bordersCurrentlyShowing then
+        NanoWM.stopBorders()
+        NanoWM.bordersCurrentlyShowing = false
+    elseif not shouldHide and not NanoWM.bordersCurrentlyShowing then
+        NanoWM.startBorders()
+        NanoWM.bordersCurrentlyShowing = true
+    end
+end
+
+-- Restore borders state on startup
+local savedBordersEnabled = hs.settings.get("nanoWM_bordersEnabled")
+if savedBordersEnabled then
+    NanoWM.bordersEnabled = savedBordersEnabled
+    -- Delay to let windows settle, then update visibility
+    hs.timer.doAfter(2, function()
+        NanoWM.updateBordersVisibility()
+    end)
+end
+
+-- -----------------------------------------------------------------------------
 NanoWM.sketchybarEnabled = false -- Disabled by default, use Alt+Shift+G to enable
 
 -- Debounced sketchybar update to prevent too many calls
@@ -2253,4 +2328,4 @@ hs.task
     :start()
 
 NanoWM.tile()
-hs.alert.show("NanoWM v38 Started")
+hs.alert.show("NanoWM v39 Started")
