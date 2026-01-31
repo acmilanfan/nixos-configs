@@ -35,7 +35,6 @@
     bat
     httpie
     unstable.aerospace
-    sketchybar
   ];
 
   launchd.daemons.kanata = {

@@ -38,6 +38,7 @@ in
       nowplaying-cli # Media info for sketchybar
 
       shortcat
+      macmon
 
       (writeShellScriptBin "pip-pop" (lib.readFile ./scripts/pip-pop))
       (writeShellScriptBin "fullscreen-raise" (lib.readFile ./scripts/fullscreen-raise))
@@ -103,8 +104,10 @@ in
 
     # Hammerspoon
     ".hammerspoon/init.lua".source = ../../dotfiles/hammerspoon/init.lua;
-    ".hammerspoon/macos-vim-navigation/init.lua".source = ../../dotfiles/hammerspoon/macos-vim-navigation/init.lua;
-    ".hammerspoon/Spoons/AClock.spoon".source = spoon "AClock" "0swzy9wvgjc93l0qc89m0zk9j0xk14w71v38vqfy2b96f4qd59p4";
+    ".hammerspoon/macos-vim-navigation/init.lua".source =
+      ../../dotfiles/hammerspoon/macos-vim-navigation/init.lua;
+    ".hammerspoon/Spoons/AClock.spoon".source =
+      spoon "AClock" "0swzy9wvgjc93l0qc89m0zk9j0xk14w71v38vqfy2b96f4qd59p4";
     # TODO: install https://github.com/ujwalnk/GridTile
     ".hammerspoon/Spoons/PaperWM.spoon".source = pkgs.fetchzip {
       url = "https://github.com/mogenson/PaperWM.spoon/archive/main.zip";
@@ -371,6 +374,18 @@ in
                          script="$CONFIG_DIR/plugins/volume.sh" \
                    --subscribe volume volume_change
 
+        # --- Power Consumption ---
+        sketchybar --add item power right \
+                   --set power \
+                         icon="󱐋" \
+                         icon.color=$WARNING_COLOR \
+                         background.color=$ITEM_BG_COLOR \
+                         background.drawing=on \
+                         update_freq=5 \
+                         script="$CONFIG_DIR/plugins/power.sh" \
+                         click_script="$CONFIG_DIR/plugins/power_click.sh"
+
+
         # --- Battery ---
         sketchybar --add item battery right \
                    --set battery \
@@ -632,6 +647,86 @@ in
     };
 
     # Battery Plugin
+    # Power Consumption Plugin
+    ".config/sketchybar/plugins/power.sh" = {
+      executable = true;
+      text = ''
+        #!/bin/bash
+        # Get power consumption from macmon
+        POWER_JSON=$(macmon pipe 2>/dev/null | head -1)
+
+        if [ -n "$POWER_JSON" ]; then
+          # Extract system power (total power draw)
+          SYS_POWER=$(echo "$POWER_JSON" | jq -r '.sys_power // 0' 2>/dev/null)
+
+          if [ -n "$SYS_POWER" ] && [ "$SYS_POWER" != "null" ]; then
+            # Round to 1 decimal place
+            POWER_DISPLAY=$(printf "%.1f" "$SYS_POWER")
+
+            # Color based on power consumption
+            if (( $(echo "$SYS_POWER > 30" | bc -l) )); then
+              COLOR="0xfff7768e"  # Red - high power
+            elif (( $(echo "$SYS_POWER > 15" | bc -l) )); then
+              COLOR="0xffe0af68"  # Yellow - medium power
+            else
+              COLOR="0xff9ece6a"  # Green - low power
+            fi
+
+            sketchybar --set $NAME label="''${POWER_DISPLAY}W" icon.color="$COLOR"
+          else
+            sketchybar --set $NAME label="--W"
+          fi
+        else
+          sketchybar --set $NAME label="--W"
+        fi
+      '';
+    };
+
+    # Power Click Plugin (toggle between watts and battery time)
+    ".config/sketchybar/plugins/power_click.sh" = {
+      executable = true;
+      text = ''
+        #!/bin/bash
+        # Toggle between power consumption and battery time remaining
+
+        # Check current state (stored in a temp file)
+        STATE_FILE="/tmp/sketchybar_power_state"
+
+        if [ -f "$STATE_FILE" ] && [ "$(cat $STATE_FILE)" = "time" ]; then
+          # Currently showing time, switch to power
+          echo "power" > "$STATE_FILE"
+
+          # Get power from macmon
+          POWER_JSON=$(macmon pipe 2>/dev/null | head -1)
+          SYS_POWER=$(echo "$POWER_JSON" | jq -r '.sys_power // 0' 2>/dev/null)
+          POWER_DISPLAY=$(printf "%.1f" "$SYS_POWER")
+
+          sketchybar --set power icon="󱐋" label="''${POWER_DISPLAY}W"
+        else
+          # Currently showing power (or first click), switch to time
+          echo "time" > "$STATE_FILE"
+
+          # Get battery time remaining
+          BATT_INFO=$(pmset -g batt)
+          TIME_LEFT=$(echo "$BATT_INFO" | grep -o '[0-9]*:[0-9]* remaining' | cut -d' ' -f1)
+
+          if [ -n "$TIME_LEFT" ] && [ "$TIME_LEFT" != "0:00" ]; then
+            sketchybar --set power icon="󰔟" label="$TIME_LEFT"
+          else
+            # Check if charging
+            if echo "$BATT_INFO" | grep -q "AC Power"; then
+              sketchybar --set power icon="󰂄" label="AC"
+            else
+              sketchybar --set power icon="󰔟" label="--:--"
+            fi
+          fi
+        fi
+
+        # Reset back to power after 5 seconds
+        (sleep 5 && echo "power" > "$STATE_FILE") &
+      '';
+    };
+
     ".config/sketchybar/plugins/battery.sh" = {
       executable = true;
       text = ''
@@ -672,11 +767,11 @@ in
         #!/bin/bash
         # Use system_profiler to get WiFi signal strength (works on all macOS versions)
         SIGNAL_INFO=$(system_profiler SPAirPortDataType 2>/dev/null | grep "Signal / Noise" | head -1)
-        
+
         if [ -n "$SIGNAL_INFO" ]; then
           # Extract signal strength (e.g., "-55 dBm")
           RSSI=$(echo "$SIGNAL_INFO" | sed 's/.*: /' | cut -d' ' -f1)
-          
+
           if [ -n "$RSSI" ] && [ "$RSSI" -lt 0 ] 2>/dev/null; then
             # WiFi is connected - show signal strength icon and value
             if [[ $RSSI -ge -50 ]]; then
@@ -696,7 +791,7 @@ in
             exit 0
           fi
         fi
-        
+
         # Fallback: Check if connected via scutil
         NETWORK_STATUS=$(scutil --nwi 2>/dev/null | grep "IPv4 network interface" -A1 | grep "en0")
         if [ -n "$NETWORK_STATUS" ]; then
@@ -704,7 +799,7 @@ in
           sketchybar --set $NAME icon="󰤨" icon.color="0xff9ece6a" label=""
           exit 0
         fi
-        
+
         # Check for ethernet on various interfaces
         for iface in en1 en2 en3 en4 en5 en6; do
           ETHERNET=$(ifconfig $iface 2>/dev/null | grep "status: active")
@@ -713,7 +808,7 @@ in
             exit 0
           fi
         done
-        
+
         # Check if WiFi is on but not connected
         WIFI_POWER=$(networksetup -getairportpower en0 2>/dev/null | grep "On")
         if [ -n "$WIFI_POWER" ]; then
@@ -729,7 +824,7 @@ in
         #!/bin/bash
         # Check if any media is playing by looking at the Now Playing info
         NOW_PLAYING=$(nowplaying-cli get title 2>/dev/null)
-        
+
         if [ -n "$NOW_PLAYING" ] && [ "$NOW_PLAYING" != "null" ]; then
           sketchybar --set $NAME drawing=on
         else
@@ -749,7 +844,7 @@ in
           TITLE=$(nowplaying-cli get title 2>/dev/null)
           ARTIST=$(nowplaying-cli get artist 2>/dev/null)
           APP=$(nowplaying-cli get appBundleIdentifier 2>/dev/null)
-          
+
           if [ -n "$TITLE" ] && [ "$TITLE" != "null" ] && [ "$TITLE" != "" ]; then
             # Determine icon based on app
             case "$APP" in
@@ -778,19 +873,19 @@ in
                 COLOR="0xff7aa2f7"
                 ;;
             esac
-            
+
             # Format label
             if [ -n "$ARTIST" ] && [ "$ARTIST" != "null" ] && [ "$ARTIST" != "" ]; then
               LABEL="$ARTIST - $TITLE"
             else
               LABEL="$TITLE"
             fi
-            
+
             # Truncate if too long
             if [ ''${#LABEL} -gt 40 ]; then
               LABEL="''${LABEL:0:37}..."
             fi
-            
+
             sketchybar --set $NAME drawing=on label="$LABEL" icon="$ICON" icon.color="$COLOR"
             sketchybar --set sep_media drawing=on
             exit 0
