@@ -300,33 +300,6 @@ in
                          background.drawing=off \
                          label.drawing=off
 
-        # --- Media (Now Playing) ---
-        sketchybar --add item media right \
-                   --set media \
-                         icon="󰎆" \
-                         icon.color=$ACCENT_COLOR \
-                         label.max_chars=30 \
-                         scroll_texts=on \
-                         background.color=$ITEM_BG_COLOR \
-                         background.drawing=on \
-                         script="$CONFIG_DIR/plugins/media.sh" \
-                         update_freq=5 \
-                   --subscribe media media_change
-
-        # --- Separator (between network and media, conditional on media playing) ---
-        sketchybar --add item sep_media right \
-                   --set sep_media \
-                         icon="│" \
-                         icon.color=$INACTIVE_COLOR \
-                         icon.font="$FONT_FACE:Regular:12.0" \
-                         icon.padding_left=4 \
-                         icon.padding_right=4 \
-                         background.drawing=off \
-                         label.drawing=off \
-                         drawing=off \
-                         script="$CONFIG_DIR/plugins/sep_media.sh" \
-                         update_freq=5
-
         # --- Network (WiFi/Ethernet) ---
         sketchybar --add item network right \
                    --set network \
@@ -334,6 +307,7 @@ in
                          icon.color=$ACCENT_SECONDARY \
                          background.color=$ITEM_BG_COLOR \
                          background.drawing=on \
+                         label.drawing=off \
                          script="$CONFIG_DIR/plugins/network.sh" \
                          update_freq=10 \
                    --subscribe network wifi_change
@@ -787,7 +761,7 @@ in
               ICON="󰤟"  # Weak (1 bar)
               COLOR="0xfff7768e"
             fi
-            sketchybar --set $NAME icon="$ICON" icon.color="$COLOR" label="$RSSI"
+            sketchybar --set $NAME icon="$ICON" icon.color="$COLOR" label=""
             exit 0
           fi
         fi
@@ -804,7 +778,7 @@ in
         for iface in en1 en2 en3 en4 en5 en6; do
           ETHERNET=$(ifconfig $iface 2>/dev/null | grep "status: active")
           if [ -n "$ETHERNET" ]; then
-            sketchybar --set $NAME icon="󰈀" icon.color="0xff9ece6a" label="ETH"
+            sketchybar --set $NAME icon="󰈀" icon.color="0xff9ece6a" label=""
             exit 0
           fi
         done
@@ -816,115 +790,6 @@ in
         else
           sketchybar --set $NAME icon="󰤭" icon.color="0xff565f89" label=""
         fi
-      '';
-    };
-    ".config/sketchybar/plugins/sep_media.sh" = {
-      executable = true;
-      text = ''
-        #!/bin/bash
-        # Check if any media is playing by looking at the Now Playing info
-        NOW_PLAYING=$(nowplaying-cli get title 2>/dev/null)
-
-        if [ -n "$NOW_PLAYING" ] && [ "$NOW_PLAYING" != "null" ]; then
-          sketchybar --set $NAME drawing=on
-        else
-          sketchybar --set $NAME drawing=off
-        fi
-      '';
-    };
-
-    # Media Plugin (Now Playing) - supports Spotify, Music, and browser media
-    ".config/sketchybar/plugins/media.sh" = {
-      executable = true;
-      text = ''
-        #!/bin/bash
-
-        # Use nowplaying-cli if available (detects all media including browser)
-        if command -v nowplaying-cli &> /dev/null; then
-          TITLE=$(nowplaying-cli get title 2>/dev/null)
-          ARTIST=$(nowplaying-cli get artist 2>/dev/null)
-          APP=$(nowplaying-cli get appBundleIdentifier 2>/dev/null)
-
-          if [ -n "$TITLE" ] && [ "$TITLE" != "null" ] && [ "$TITLE" != "" ]; then
-            # Determine icon based on app
-            case "$APP" in
-              *spotify*)
-                ICON="󰓇"
-                COLOR="0xff1db954"
-                ;;
-              *music*|*itunes*)
-                ICON="󰎆"
-                COLOR="0xfffc3c44"
-                ;;
-              *firefox*)
-                ICON="󰈹"
-                COLOR="0xffff7139"
-                ;;
-              *chrome*|*chromium*)
-                ICON="󰊯"
-                COLOR="0xff4285f4"
-                ;;
-              *safari*)
-                ICON="󰀹"
-                COLOR="0xff006cff"
-                ;;
-              *)
-                ICON="󰎆"
-                COLOR="0xff7aa2f7"
-                ;;
-            esac
-
-            # Format label
-            if [ -n "$ARTIST" ] && [ "$ARTIST" != "null" ] && [ "$ARTIST" != "" ]; then
-              LABEL="$ARTIST - $TITLE"
-            else
-              LABEL="$TITLE"
-            fi
-
-            # Truncate if too long
-            if [ ''${#LABEL} -gt 40 ]; then
-              LABEL="''${LABEL:0:37}..."
-            fi
-
-            sketchybar --set $NAME drawing=on label="$LABEL" icon="$ICON" icon.color="$COLOR"
-            sketchybar --set sep_media drawing=on
-            exit 0
-          fi
-        fi
-
-        # Fallback: Try Spotify directly
-        SPOTIFY_STATE=$(osascript -e 'tell application "System Events" to (name of processes) contains "Spotify"' 2>/dev/null)
-        if [ "$SPOTIFY_STATE" = "true" ]; then
-          PLAYING=$(osascript -e 'tell application "Spotify" to player state as string' 2>/dev/null)
-          if [ "$PLAYING" = "playing" ]; then
-            TRACK=$(osascript -e 'tell application "Spotify" to name of current track as string' 2>/dev/null)
-            ARTIST=$(osascript -e 'tell application "Spotify" to artist of current track as string' 2>/dev/null)
-            if [ -n "$TRACK" ]; then
-              sketchybar --set $NAME drawing=on label="$ARTIST - $TRACK" icon="󰓇" icon.color="0xff1db954"
-              sketchybar --set sep_media drawing=on
-              exit 0
-            fi
-          fi
-        fi
-
-        # Fallback: Check Music app
-        MUSIC_STATE=$(osascript -e 'tell application "System Events" to (name of processes) contains "Music"' 2>/dev/null)
-        if [ "$MUSIC_STATE" = "true" ]; then
-          PLAYING=$(osascript -e 'tell application "Music" to player state as string' 2>/dev/null)
-          if [ "$PLAYING" = "playing" ]; then
-            TRACK=$(osascript -e 'tell application "Music" to name of current track as string' 2>/dev/null)
-            ARTIST=$(osascript -e 'tell application "Music" to artist of current track as string' 2>/dev/null)
-            if [ -n "$TRACK" ]; then
-              sketchybar --set $NAME drawing=on label="$ARTIST - $TRACK" icon="󰎆" icon.color="0xfffc3c44"
-              sketchybar --set sep_media drawing=on
-              exit 0
-            fi
-          fi
-        fi
-
-        # Nothing playing
-        sketchybar --set $NAME drawing=off
-        sketchybar --set sep_media drawing=off
       '';
     };
   };
