@@ -1,7 +1,7 @@
 -- =============================================================================
 -- EMERGENCY RESCUE: CMD+ALT+CTRL+0, unhides all windows
 -- =============================================================================
-hs.hotkey.bind({"cmd", "alt", "ctrl"}, "0", function()
+hs.hotkey.bind({ "cmd", "alt", "ctrl" }, "0", function()
     hs.alert.show("🚨 Emergency Rescue Initiated 🚨")
     local wins = hs.window.allWindows()
     local screen = hs.screen.mainScreen():frame()
@@ -11,7 +11,7 @@ hs.hotkey.bind({"cmd", "alt", "ctrl"}, "0", function()
             x = screen.x + 50,
             y = screen.y + 50,
             w = screen.w - 100,
-            h = screen.h - 100
+            h = screen.h - 100,
         })
         win:raise()
     end
@@ -99,8 +99,8 @@ NanoWM.sizeCache = {}
 NanoWM.fullscreenCache = {}
 NanoWM.windowState = {}
 NanoWM.appTagMemory = {}
-NanoWM.freeTags = {}  -- Tags in "free mode" (no tiling)
-NanoWM.freeTagPositions = {}  -- Cache window positions before entering free mode
+NanoWM.freeTags = {}         -- Tags in "free mode" (no tiling)
+NanoWM.freeTagPositions = {} -- Cache window positions before entering free mode
 
 -- Pending destruction: delay tag cleanup to handle false positives
 NanoWM.pendingDestruction = {} -- { [id] = { tag = X, appName = Y, timer = Z } }
@@ -717,7 +717,8 @@ function NanoWM.performTile()
             if NanoWM.windowState[id] and NanoWM.windowState[id].isHidden then
                 -- Restore from cache if available
                 local idStr = tostring(id)
-                local cached = NanoWM.freeTagPositions[NanoWM.currentTag] and NanoWM.freeTagPositions[NanoWM.currentTag][id]
+                local cached = NanoWM.freeTagPositions[NanoWM.currentTag]
+                    and NanoWM.freeTagPositions[NanoWM.currentTag][id]
                 if cached then
                     win:setFrame(cached)
                 else
@@ -732,14 +733,16 @@ function NanoWM.performTile()
         local specialWindows = NanoWM.getTiledWindows(NanoWM.special.tag)
         if not NanoWM.isTagFree(NanoWM.special.tag) then
             local pad = 100
-            local specialFrame = { x = frame.x + pad, y = frame.y + pad, w = frame.w - (pad * 2), h = frame.h - (pad * 2) }
+            local specialFrame =
+            { x = frame.x + pad, y = frame.y + pad, w = frame.w - (pad * 2), h = frame.h - (pad * 2) }
             NanoWM.applyLayout(specialWindows, specialFrame, true, NanoWM.special.tag)
         else
             -- In free mode for special tag, just make sure windows are visible
             for _, win in ipairs(specialWindows) do
                 local id = win:id()
                 if NanoWM.windowState[id] and NanoWM.windowState[id].isHidden then
-                    local cached = NanoWM.freeTagPositions[NanoWM.special.tag] and NanoWM.freeTagPositions[NanoWM.special.tag][id]
+                    local cached = NanoWM.freeTagPositions[NanoWM.special.tag]
+                        and NanoWM.freeTagPositions[NanoWM.special.tag][id]
                     if cached then
                         win:setFrame(cached)
                     else
@@ -1678,110 +1681,402 @@ end
 
 -- Keybind menu
 function NanoWM.showKeybindMenu()
+    NanoWM.actionsCache = {}
     local keybinds = {
         {
             category = "Navigation",
             binds = {
-                { key = "Alt+J", desc = "Focus next window" },
-                { key = "Alt+K", desc = "Focus previous window" },
-                { key = "Alt+H", desc = "Decrease master width" },
-                { key = "Alt+L", desc = "Increase master width" },
+                {
+                    key = "Alt+J",
+                    desc = "Focus next window",
+                    fn = function()
+                        NanoWM.cycleFocus(1)
+                    end,
+                },
+                {
+                    key = "Alt+K",
+                    desc = "Focus previous window",
+                    fn = function()
+                        NanoWM.cycleFocus(-1)
+                    end,
+                },
+                {
+                    key = "Alt+H",
+                    desc = "Decrease master width",
+                    fn = function()
+                        local tag = NanoWM.special.active and NanoWM.special.tag or NanoWM.currentTag
+                        NanoWM.setMasterWidth(tag, math.max(0.1, NanoWM.getMasterWidth(tag) - 0.05))
+                        NanoWM.tile()
+                    end,
+                },
+                {
+                    key = "Alt+L",
+                    desc = "Increase master width",
+                    fn = function()
+                        local tag = NanoWM.special.active and NanoWM.special.tag or NanoWM.currentTag
+                        NanoWM.setMasterWidth(tag, math.min(0.9, NanoWM.getMasterWidth(tag) + 0.05))
+                        NanoWM.tile()
+                    end,
+                },
             },
         },
         {
             category = "Window Management",
             binds = {
-                { key = "Alt+Shift+J",      desc = "Swap window down" },
-                { key = "Alt+Shift+K",      desc = "Swap window up" },
-                { key = "Alt+F",            desc = "Toggle fullscreen" },
-                { key = "Alt+C",            desc = "Center window" },
-                { key = "Alt+Shift+C",      desc = "Resize floating to 60%" },
-                { key = "Alt+Shift+Space",  desc = "Toggle float" },
-                { key = "Ctrl+Alt+Shift+S", desc = "Toggle sticky" },
-                { key = "Alt+Shift+Q",      desc = "Close window" },
+                {
+                    key = "Alt+Shift+J",
+                    desc = "Swap window down",
+                    fn = function()
+                        NanoWM.swapWindow(1)
+                    end,
+                },
+                {
+                    key = "Alt+Shift+K",
+                    desc = "Swap window up",
+                    fn = function()
+                        NanoWM.swapWindow(-1)
+                    end,
+                },
+                { key = "Alt+F",            desc = "Toggle fullscreen",      fn = NanoWM.toggleFullscreen },
+                { key = "Alt+C",            desc = "Center window",          fn = NanoWM.centerWindow },
+                { key = "Alt+Shift+C",      desc = "Resize floating to 60%", fn = NanoWM.resizeFloatingTo60 },
+                { key = "Alt+Shift+Space",  desc = "Toggle float",           fn = NanoWM.toggleFloat },
+                { key = "Ctrl+Alt+Shift+S", desc = "Toggle sticky",          fn = NanoWM.toggleSticky },
+                {
+                    key = "Alt+Shift+Q",
+                    desc = "Close window",
+                    fn = function()
+                        local w = hs.window.focusedWindow()
+                        if w then
+                            w:close()
+                        end
+                    end,
+                },
             },
         },
         {
             category = "Floating Window Resize",
             binds = {
-                { key = "Alt+Shift+H", desc = "Make narrower" },
-                { key = "Alt+Shift+L", desc = "Make wider" },
-                { key = "Alt+Shift+K", desc = "Make shorter" },
-                { key = "Alt+Shift+J", desc = "Make taller" },
+                {
+                    key = "Alt+Shift+H",
+                    desc = "Make narrower",
+                    fn = function()
+                        NanoWM.resizeFloatingWindow("narrower")
+                    end,
+                },
+                {
+                    key = "Alt+Shift+L",
+                    desc = "Make wider",
+                    fn = function()
+                        NanoWM.resizeFloatingWindow("wider")
+                    end,
+                },
+                {
+                    key = "Alt+Shift+K",
+                    desc = "Make shorter",
+                    fn = function()
+                        NanoWM.resizeFloatingWindow("shorter")
+                    end,
+                },
+                {
+                    key = "Alt+Shift+J",
+                    desc = "Make taller",
+                    fn = function()
+                        NanoWM.resizeFloatingWindow("taller")
+                    end,
+                },
             },
         },
         {
             category = "Floating Window Move",
             binds = {
-                { key = "Ctrl+Alt+H", desc = "Move left" },
-                { key = "Ctrl+Alt+L", desc = "Move right" },
-                { key = "Ctrl+Alt+K", desc = "Move up" },
-                { key = "Ctrl+Alt+J", desc = "Move down" },
+                {
+                    key = "Ctrl+Alt+H",
+                    desc = "Move left",
+                    fn = function()
+                        NanoWM.moveFloatingWindow("left")
+                    end,
+                },
+                {
+                    key = "Ctrl+Alt+L",
+                    desc = "Move right",
+                    fn = function()
+                        NanoWM.moveFloatingWindow("right")
+                    end,
+                },
+                {
+                    key = "Ctrl+Alt+K",
+                    desc = "Move up",
+                    fn = function()
+                        NanoWM.moveFloatingWindow("up")
+                    end,
+                },
+                {
+                    key = "Ctrl+Alt+J",
+                    desc = "Move down",
+                    fn = function()
+                        NanoWM.moveFloatingWindow("down")
+                    end,
+                },
             },
         },
         {
             category = "Tags",
             binds = {
-                { key = "Alt+1-9/0",        desc = "Go to tag 1-10" },
-                { key = "Alt+Shift+1-9/0",  desc = "Move window to tag" },
-                { key = "Alt+Escape",       desc = "Toggle previous tag" },
-                { key = "Alt+S",            desc = "Toggle special tag" },
-                { key = "Alt+Shift+S",      desc = "Move to special tag" },
-                { key = "Alt+U",            desc = "Go to urgent tag" },
-                { key = "Alt+Shift+M",      desc = "Save window tag to memory" },
-                { key = "Ctrl+Alt+Shift+M", desc = "Save ALL window tags to memory" },
+                {
+                    key = "Alt+1",
+                    desc = "Go to tag 1",
+                    fn = function()
+                        NanoWM.gotoTag(1)
+                    end,
+                },
+                {
+                    key = "Alt+2",
+                    desc = "Go to tag 2",
+                    fn = function()
+                        NanoWM.gotoTag(2)
+                    end,
+                },
+                {
+                    key = "Alt+3",
+                    desc = "Go to tag 3",
+                    fn = function()
+                        NanoWM.gotoTag(3)
+                    end,
+                },
+                {
+                    key = "Alt+4",
+                    desc = "Go to tag 4",
+                    fn = function()
+                        NanoWM.gotoTag(4)
+                    end,
+                },
+                {
+                    key = "Alt+5",
+                    desc = "Go to tag 5",
+                    fn = function()
+                        NanoWM.gotoTag(5)
+                    end,
+                },
+                {
+                    key = "Alt+6",
+                    desc = "Go to tag 6",
+                    fn = function()
+                        NanoWM.gotoTag(6)
+                    end,
+                },
+                {
+                    key = "Alt+7",
+                    desc = "Go to tag 7",
+                    fn = function()
+                        NanoWM.gotoTag(7)
+                    end,
+                },
+                {
+                    key = "Alt+8",
+                    desc = "Go to tag 8",
+                    fn = function()
+                        NanoWM.gotoTag(8)
+                    end,
+                },
+                {
+                    key = "Alt+9",
+                    desc = "Go to tag 9",
+                    fn = function()
+                        NanoWM.gotoTag(9)
+                    end,
+                },
+                {
+                    key = "Alt+0",
+                    desc = "Go to tag 10",
+                    fn = function()
+                        NanoWM.gotoTag(10)
+                    end,
+                },
+                {
+                    key = "Alt+Shift+1",
+                    desc = "Move window to tag 1",
+                    fn = function()
+                        NanoWM.moveWindowToTag(1)
+                    end,
+                },
+                {
+                    key = "Alt+Shift+2",
+                    desc = "Move window to tag 2",
+                    fn = function()
+                        NanoWM.moveWindowToTag(2)
+                    end,
+                },
+                {
+                    key = "Alt+Shift+3",
+                    desc = "Move window to tag 3",
+                    fn = function()
+                        NanoWM.moveWindowToTag(3)
+                    end,
+                },
+                {
+                    key = "Alt+Shift+4",
+                    desc = "Move window to tag 4",
+                    fn = function()
+                        NanoWM.moveWindowToTag(4)
+                    end,
+                },
+                {
+                    key = "Alt+Shift+5",
+                    desc = "Move window to tag 5",
+                    fn = function()
+                        NanoWM.moveWindowToTag(5)
+                    end,
+                },
+                { key = "Alt+Escape", desc = "Toggle previous tag", fn = NanoWM.togglePrevTag },
+                { key = "Alt+S",      desc = "Toggle special tag",  fn = NanoWM.toggleSpecial },
+                {
+                    key = "Alt+Shift+S",
+                    desc = "Move to special tag",
+                    fn = function()
+                        NanoWM.moveWindowToTag(NanoWM.special.tag)
+                        hs.alert.show("Moved to Special")
+                    end,
+                },
+                { key = "Alt+U",            desc = "Go to urgent tag",               fn = NanoWM.gotoUrgent },
+                { key = "Alt+Shift+M",      desc = "Save window tag to memory",      fn = NanoWM.saveCurrentWindowTag },
+                { key = "Ctrl+Alt+Shift+M", desc = "Save ALL window tags to memory", fn = NanoWM.saveAllWindowTags },
             },
         },
         {
             category = "Layout & Display",
             binds = {
-                { key = "Cmd+Space",   desc = "Toggle layout (tile/monocle)" },
-                { key = "Alt+G",       desc = "Toggle gaps" },
-                { key = "Alt+Shift+G", desc = "Toggle sketchybar" },
-                { key = "Ctrl+Alt+B",  desc = "Toggle window borders (smart)" },
-                { key = "Ctrl+Alt+P",  desc = "Toggle battery saver mode" },
-                { key = "Ctrl+Alt+F",  desc = "Toggle free mode (disable tiling on tag)" },
+                {
+                    key = "Cmd+Space",
+                    desc = "Toggle layout (tile/monocle)",
+                    fn = function()
+                        NanoWM.layout = (NanoWM.layout == "tile") and "monocle" or "tile"
+                        NanoWM.tile()
+                    end,
+                },
+                { key = "Alt+G",      desc = "Toggle gaps",                   fn = NanoWM.toggleGaps },
+                {
+                    key = "Alt+Shift+G",
+                    desc = "Toggle sketchybar",
+                    fn = NanoWM.toggleSketchybar,
+                },
+                { key = "Ctrl+Alt+B", desc = "Toggle window borders (smart)", fn = NanoWM.toggleBorders },
+                {
+                    key = "Ctrl+Alt+P",
+                    desc = "Toggle battery saver mode",
+                    fn = NanoWM.toggleBatterySaver,
+                },
+                { key = "Ctrl+Alt+F", desc = "Toggle free mode (disable tiling on tag)", fn = NanoWM.toggleFreeMode },
             },
         },
         {
             category = "Menus",
             binds = {
-                { key = "Alt+M", desc = "App menu palette" },
-                { key = "Alt+P", desc = "Commands menu" },
-                { key = "Alt+I", desc = "Windows menu" },
-                { key = "Alt+/", desc = "This keybind menu" },
+                { key = "Alt+M", desc = "App menu palette",  fn = NanoWM.triggerMenuPalette },
+                {
+                    key = "Alt+P",
+                    desc = "Commands menu",
+                    fn = function()
+                        NanoWM.openMenu("commands")
+                    end,
+                },
+                {
+                    key = "Alt+I",
+                    desc = "Windows menu",
+                    fn = function()
+                        NanoWM.openMenu("windows")
+                    end,
+                },
+                { key = "Alt+/", desc = "This keybind menu", fn = NanoWM.showKeybindMenu },
             },
         },
         {
             category = "Applications",
             binds = {
-                { key = "Alt+Return",       desc = "New Alacritty" },
-                { key = "Alt+Shift+Return", desc = "Focus Alacritty" },
-                { key = "Alt+B",            desc = "New Firefox" },
-                { key = "Alt+Shift+B",      desc = "Focus Firefox" },
-                { key = "Alt+D",            desc = "Launch Raycast" },
+                {
+                    key = "Alt+Return",
+                    desc = "New Alacritty",
+                    fn = function()
+                        NanoWM.launchTask("/usr/bin/open", { "-n", "-a", "Alacritty" })
+                    end,
+                },
+                {
+                    key = "Alt+Shift+Return",
+                    desc = "Focus Alacritty",
+                    fn = function()
+                        hs.application.launchOrFocus("Alacritty")
+                    end,
+                },
+                {
+                    key = "Alt+B",
+                    desc = "New Firefox",
+                    fn = function()
+                        NanoWM.launchTask("/usr/bin/open", { "-n", "-a", "Firefox" })
+                    end,
+                },
+                {
+                    key = "Alt+Shift+B",
+                    desc = "Focus Firefox",
+                    fn = function()
+                        hs.application.launchOrFocus("Firefox")
+                    end,
+                },
+                {
+                    key = "Alt+D",
+                    desc = "Launch Raycast",
+                    fn = function()
+                        hs.application.launchOrFocus("Raycast")
+                    end,
+                },
             },
         },
         {
             category = "Timers",
             binds = {
-                { key = "Alt+T, then 1", desc = "5 min timer" },
-                { key = "Alt+T, then 2", desc = "10 min timer" },
-                { key = "Alt+T, then 3", desc = "60 min timer" },
-                { key = "Alt+T, then 4", desc = "120 min timer" },
-                { key = "Alt+T, then N", desc = "Custom timer" },
+                {
+                    key = "Alt+T, 1",
+                    desc = "5 min timer",
+                    fn = function()
+                        NanoWM.startTimer(5)
+                    end,
+                },
+                {
+                    key = "Alt+T, 2",
+                    desc = "10 min timer",
+                    fn = function()
+                        NanoWM.startTimer(10)
+                    end,
+                },
+                {
+                    key = "Alt+T, 3",
+                    desc = "60 min timer",
+                    fn = function()
+                        NanoWM.startTimer(60)
+                    end,
+                },
+                {
+                    key = "Alt+T, 4",
+                    desc = "120 min timer",
+                    fn = function()
+                        NanoWM.startTimer(120)
+                    end,
+                },
+                { key = "Alt+T, N", desc = "Custom timer",         fn = NanoWM.startCustomTimer },
+                { key = "Alt+T, R", desc = "Show timer remaining", fn = NanoWM.showTimerRemaining },
+                { key = "Alt+T, C", desc = "Cancel timer",         fn = NanoWM.cancelTimer },
             },
         },
         {
             category = "System",
             binds = {
-                { key = "Cmd+Alt+T",        desc = "Toggle AClock" },
-                { key = "Ctrl+Alt+Shift+R", desc = "Reload config" },
+                { key = "Ctrl+Alt+Shift+R", desc = "Reload config",  fn = hs.reload },
+                { key = "Alt+E",            desc = "Enter Vim mode", fn = nil }, -- Can't trigger modal from here
             },
         },
     }
 
     local choices = {}
+    local idx = 1
     for _, section in ipairs(keybinds) do
         table.insert(choices, {
             text = "━━━ " .. section.category .. " ━━━",
@@ -1789,21 +2084,34 @@ function NanoWM.showKeybindMenu()
             uuid = "header_" .. section.category,
         })
         for _, bind in ipairs(section.binds) do
+            local idStr = tostring(idx)
             table.insert(choices, {
                 text = bind.key,
                 subText = bind.desc,
-                uuid = "bind_" .. bind.key,
+                uuid = idStr,
             })
+            if bind.fn then
+                NanoWM.actionsCache[idStr] = bind.fn
+            end
+            idx = idx + 1
         end
     end
 
-    local chooser = hs.chooser.new(function() end)
+    local chooser = hs.chooser.new(function(choice)
+        if not choice then
+            return
+        end
+        local func = NanoWM.actionsCache[choice.uuid]
+        if func then
+            func()
+        end
+    end)
     chooser:width(50)
     chooser:bgDark(true)
     chooser:fgColor({ hex = "#FFFFFF" })
     chooser:subTextColor({ hex = "#CCCCCC" })
     chooser:choices(choices)
-    chooser:placeholderText("Search keybinds by key or description...")
+    chooser:placeholderText("Search keybinds (press Enter to execute)...")
     -- Enable searching in both text and subText
     chooser:searchSubText(true)
     chooser:show()
