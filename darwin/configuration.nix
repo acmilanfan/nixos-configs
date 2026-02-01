@@ -165,6 +165,7 @@
       "mas" # Mac App Store CLI
       "scrcpy" # Android screen mirroring
       "kanata"
+      "firefoxpwa"
       "devsunb/tap/kanata-vk-agent"
     ];
 
@@ -235,6 +236,11 @@
   system.activationScripts.postActivation.text = ''
     # Following line should allow us to avoid a logout/login cycle when changing settings
     sudo -u andreishumailov /System/Library/PrivateFrameworks/SystemAdministration.framework/Resources/activateSettings -u
+
+    # Setup firefoxpwa
+    echo "Linking firefoxpwa native messaging host..."
+    mkdir -p "/Library/Application Support/Mozilla/NativeMessagingHosts"
+    ln -sf "/opt/homebrew/opt/firefoxpwa/share/firefoxpwa.json" "/Library/Application Support/Mozilla/NativeMessagingHosts/firefoxpwa.json"
   '';
 
   # Create /etc/zshrc that loads the nix-darwin environment.
