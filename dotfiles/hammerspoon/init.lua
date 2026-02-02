@@ -1382,6 +1382,40 @@ function NanoWM.moveWindowToTag(destTag)
     NanoWM.tile()
 end
 
+
+-- -----------------------------------------------------------------------------
+-- DOCK CLICK DETECTION
+-- -----------------------------------------------------------------------------
+-- Check if the mouse is currently in the Dock area
+-- This helps distinguish Dock clicks from other focus events
+function NanoWM.isMouseInDockArea()
+    local mousePos = hs.mouse.absolutePosition()
+    local screen = hs.screen.mainScreen()
+    local screenFrame = screen:frame()
+
+    -- Get Dock preferences to determine position and size
+    -- Dock can be at bottom, left, or right
+    local dockPos = hs.execute("defaults read com.apple.dock orientation 2>/dev/null"):gsub("%s+", "")
+    if dockPos == "" then dockPos = "bottom" end
+
+    -- Dock height/width is typically around 70-90 pixels when visible
+    -- We use a generous threshold to account for different Dock sizes
+    local dockThreshold = 90
+
+    if dockPos == "bottom" then
+        -- Dock at bottom: check if mouse is near the bottom of the screen
+        return mousePos.y >= (screenFrame.y + screenFrame.h - dockThreshold)
+    elseif dockPos == "left" then
+        -- Dock at left: check if mouse is near the left edge
+        return mousePos.x <= (screenFrame.x + dockThreshold)
+    elseif dockPos == "right" then
+        -- Dock at right: check if mouse is near the right edge
+        return mousePos.x >= (screenFrame.x + screenFrame.w - dockThreshold)
+    end
+
+    return false
+end
+
 -- -----------------------------------------------------------------------------
 -- WATCHERS
 -- -----------------------------------------------------------------------------
@@ -1512,9 +1546,27 @@ filter:subscribe(hs.window.filter.windowFocused, function(win)
         return
     end
 
-    -- Window is on a different tag - mark as urgent but DON'T auto-switch
-    -- This prevents the random jumping behavior
-    NanoWM.markTagUrgent(tag)
+    -- Check if this focus was triggered by a Dock click
+    local isDockClick = NanoWM.isMouseInDockArea()
+
+    if isDockClick then
+        -- Dock click: switch to the window's tag immediately
+        print("[NanoWM] Dock click detected, switching to tag " .. tostring(tag))
+        if tag == "special" then
+            if not NanoWM.special.active then
+                NanoWM.toggleSpecial()
+            end
+        else
+            NanoWM.gotoTag(tag)
+        end
+        -- Focus the window after switching
+        hs.timer.doAfter(0.05, function()
+            win:focus()
+        end)
+    else
+        -- Other focus event (e.g., link click): mark as urgent but don't switch
+        NanoWM.markTagUrgent(tag)
+    end
 
     -- Cancel any pending focus timer
     if NanoWM.focusTimer then
