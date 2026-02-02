@@ -56,8 +56,8 @@ vim.keymap.set(
 vim.keymap.set("n", "<Leader>fg", builtin.live_grep, {})
 vim.keymap.set("n", "<Leader>fb", builtin.buffers, {})
 vim.keymap.set("n", "<Leader>fh", builtin.help_tags, {})
-vim.keymap.set("n", "<Leader>aa", builtin.keymaps, {})
-vim.keymap.set("n", "<Leader>ac", builtin.commands, {})
+vim.keymap.set("n", "<Leader>fk", builtin.keymaps, {})
+vim.keymap.set("n", "<Leader>fc", builtin.commands, {})
 vim.keymap.set("n", "<leader>fw", builtin.grep_string, { desc = "[S]earch current [W]ord" })
 vim.keymap.set("n", "<leader>fd", builtin.diagnostics, { desc = "[S]earch [D]iagnostics" })
 vim.keymap.set("n", "<leader>fr", builtin.resume, { desc = "[S]earch [R]esume" })
@@ -495,3 +495,12 @@ if vim.g.started_by_firenvim == true then
   vim.o.showtabline = 0
   vim.o.cmdheight = 1
 end
+
+-- Avante keybindings
+vim.keymap.set({ "n", "v" }, "<leader>aa", "<cmd>AvanteAsk<cr>", { desc = "Avante: Ask AI" })
+vim.keymap.set("n", "<leader>at", "<cmd>AvanteToggle<cr>", { desc = "Avante: Toggle sidebar" })
+vim.keymap.set("n", "<leader>af", "<cmd>AvanteFocus<cr>", { desc = "Avante: Focus window" })
+vim.keymap.set({ "n", "v" }, "<leader>ae", "<cmd>AvanteEdit<cr>", { desc = "Avante: Edit with AI" })
+vim.keymap.set("n", "<leader>ar", "<cmd>AvanteRefresh<cr>", { desc = "Avante: Refresh" })
+vim.keymap.set("n", "<leader>ac", "<cmd>AvanteClear<cr>", { desc = "Avante: Clear chat" })
+vim.keymap.set("n", "<leader>ah", "<cmd>AvanteHistory<cr>", { desc = "Avante: Chat history" })
