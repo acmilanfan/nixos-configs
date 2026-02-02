@@ -2,7 +2,7 @@
   pkgs,
   lib,
   unstable,
-  fetchzip,
+  secrets,
   ...
 }:
 
@@ -65,6 +65,18 @@ in
   home.sessionVariables = {
     EDITOR = "nvim";
     VISUAL = "nvim";
+    # AI proxy secrets - these are set as env vars to avoid storing in /nix/store
+    AI_PROXY_CLAUDE = secrets.aiProxy.claude;
+    AI_PROXY_OPENAI = secrets.aiProxy.openai;
+    AI_PROXY_MISTRAL_COMPLETION = secrets.aiProxy.mistralCompletion;
+    AI_PROXY_API_KEY = secrets.aiProxy.apiKey;
+  };
+
+  # Place Lua configuration files in ~/.config/nvim/lua/
+  xdg.configFile = {
+    "nvim/lua/init.lua".source = ./neovim/lua/init.lua;
+    "nvim/lua/config.lua".source = ./neovim/lua/config.lua;
+    "nvim/lua/plugins".source = ./neovim/lua/plugins;
   };
 
   programs.neovim = {
@@ -128,165 +140,53 @@ in
       vim-repeat
       lf-vim
       nvim-treesitter-textobjects
-      {
-        plugin = nvim-treesitter.withAllGrammars;
-        config = lib.readFile ./neovim/treesitter.lua;
-      }
-      {
-        plugin = telescope-nvim;
-        config = lib.readFile ./neovim/telescope.lua;
-      }
-      {
-        plugin = lualine-nvim;
-        config = lib.readFile ./neovim/lualine.lua;
-      }
-      {
-        plugin = orgmode;
-        config = lib.readFile ./neovim/orgmode.lua;
-      }
-      {
-        plugin = nvim-cmp;
-        config = lib.readFile ./neovim/cmp.lua;
-      }
-      {
-        plugin = nvim-tree-lua;
-        config = lib.readFile ./neovim/nvim-tree.lua;
-      }
-      {
-        plugin = nightfox-nvim;
-        config = lib.readFile ./neovim/colorscheme.lua;
-      }
-      {
-        plugin = nvim-web-devicons;
-        config = lib.readFile ./neovim/nvim-web-devicons.lua;
-      }
-      {
-        plugin = hop-nvim;
-        config = lib.readFile ./neovim/hop.lua;
-      }
-      {
-        plugin = indent-blankline-nvim;
-        config = lib.readFile ./neovim/indent-blankline.lua;
-      }
-      {
-        plugin = comment-nvim;
-        config = lib.readFile ./neovim/comment.lua;
-      }
-      {
-        plugin = which-key-nvim;
-        config = lib.readFile ./neovim/which-key.lua;
-      }
-      {
-        plugin = noice-nvim;
-        config = lib.readFile ./neovim/noice.lua;
-      }
-      {
-        plugin = inc-rename-nvim;
-        config = lib.readFile ./neovim/inc-rename.lua;
-      }
-      {
-        plugin = fidget-nvim;
-        config = lib.readFile ./neovim/fidget.lua;
-      }
-      {
-        plugin = gitsigns-nvim;
-        config = lib.readFile ./neovim/gitsigns.lua;
-      }
-      {
-        # plugin = go-nvim;
-        plugin = go-nvim.overrideAttrs (old: {
-          doCheck = false;
-        });
-        config = lib.readFile ./neovim/go.lua;
-      }
-      {
-        plugin = customPlugins.telescope-orgmode.overrideAttrs (old: {
-          doCheck = false;
-        });
-        # config = lib.readFile ./neovim/go.lua;
-      }
-      {
-        plugin = todo-comments-nvim;
-        config = lib.readFile ./neovim/todo-comments.lua;
-      }
-      {
-        plugin = harpoon2;
-        config = lib.readFile ./neovim/harpoon.lua;
-      }
-      {
-        plugin = none-ls-nvim;
-        config = lib.readFile ./neovim/null-ls.lua;
-      }
-      {
-        plugin = nvim-autopairs;
-        config = lib.readFile ./neovim/autopairs.lua;
-      }
-      {
-        plugin = highlight-undo-nvim;
-        config = lib.readFile ./neovim/highlight-undo.lua;
-      }
-      {
-        plugin = nvim-surround;
-        config = lib.readFile ./neovim/nvim-surround.lua;
-      }
-      {
-        plugin = refactoring-nvim;
-        config = lib.readFile ./neovim/refactoring.lua;
-      }
-      {
-        plugin = rest-nvim;
-        config = lib.readFile ./neovim/rest-nvim.lua;
-      }
-      # {
-      #   plugin = windsurf-nvim;
-      #   config = lib.readFile ./neovim/codeium.lua;
-      # }
-      {
-        plugin = barbecue-nvim;
-        config = lib.readFile ./neovim/barbecue.lua;
-      }
-      {
-        plugin = nvim-navbuddy;
-        config = lib.readFile ./neovim/navbuddy.lua;
-      }
-      {
-        plugin = hardtime-nvim;
-        config = lib.readFile ./neovim/hardtime.lua;
-      }
-      {
-        plugin = actions-preview-nvim;
-        config = lib.readFile ./neovim/actions-preview.lua;
-      }
-      {
-        plugin = zen-mode-nvim;
-        config = lib.readFile ./neovim/zen-mode.lua;
-      }
-      {
-        plugin = cloak-nvim;
-        config = lib.readFile ./neovim/cloak-nvim.lua;
-      }
-      {
-        plugin = nvim-pqf;
-        config = lib.readFile ./neovim/pqf.lua;
-      }
-      {
-        plugin = snacks-nvim;
-        config = lib.readFile ./neovim/snacks.lua;
-      }
-      {
-        plugin = oil-nvim;
-        config = lib.readFile ./neovim/oil-nvim.lua;
-      }
-      {
-        plugin = avante-nvim;
-        config = lib.readFile ./neovim/avante.lua;
-      }
-      {
-        plugin = minuet-ai-nvim;
-        config = lib.readFile ./neovim/minuet-ai.lua;
-      }
+      nvim-treesitter.withAllGrammars
+      telescope-nvim
+      lualine-nvim
+      orgmode
+      nvim-cmp
+      nvim-tree-lua
+      nightfox-nvim
+      nvim-web-devicons
+      hop-nvim
+      indent-blankline-nvim
+      comment-nvim
+      which-key-nvim
+      noice-nvim
+      inc-rename-nvim
+      fidget-nvim
+      gitsigns-nvim
+      (go-nvim.overrideAttrs (old: {
+        doCheck = false;
+      }))
+      (customPlugins.telescope-orgmode.overrideAttrs (old: {
+        doCheck = false;
+      }))
+      todo-comments-nvim
+      harpoon2
+      none-ls-nvim
+      nvim-autopairs
+      highlight-undo-nvim
+      nvim-surround
+      refactoring-nvim
+      rest-nvim
+      # windsurf-nvim
+      barbecue-nvim
+      nvim-navbuddy
+      hardtime-nvim
+      actions-preview-nvim
+      zen-mode-nvim
+      cloak-nvim
+      nvim-pqf
+      snacks-nvim
+      oil-nvim
+      avante-nvim
+      minuet-ai-nvim
     ];
-    extraLuaConfig = lib.readFile ./neovim/config.lua;
+    # Load the main init.lua which requires all other modules
+    extraLuaConfig = ''
+      require("init")
+    '';
   };
 
 }

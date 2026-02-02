@@ -56,6 +56,16 @@
       linuxSystem = "x86_64-linux";
       macSystem = "aarch64-darwin";
 
+      sudoUser = builtins.getEnv "SUDO_USER";
+      homeDir = if sudoUser != ""
+        then "/Users/${sudoUser}"  # macOS path when running with sudo
+        else builtins.getEnv "HOME";
+      actualHomeDir = if homeDir == "" || homeDir == "/var/root"
+        then "/home/${sudoUser}"
+        else homeDir;
+      secretsPath = "${actualHomeDir}/configs/nixos-configs/secrets/secrets.nix";
+      secrets = import secretsPath;
+
       pkgsFor =
         system:
         import inputs.nixpkgs {
@@ -100,7 +110,7 @@
               home-manager.extraSpecialArgs = {
                 pkgs = pkgsFor linuxSystem;
                 unstable = unstableFor linuxSystem;
-                inherit inputs linuxSystem;
+                inherit inputs linuxSystem secrets;
               };
             }
             musnix.nixosModules.musnix
@@ -128,7 +138,7 @@
               home-manager.extraSpecialArgs = {
                 pkgs = pkgsFor linuxSystem;
                 unstable = unstableFor linuxSystem;
-                inherit inputs linuxSystem;
+                inherit inputs linuxSystem secrets;
               };
             }
             nixos-hardware.nixosModules.lenovo-thinkpad-t480
@@ -149,7 +159,7 @@
               home-manager.extraSpecialArgs = {
                 pkgs = pkgsFor linuxSystem;
                 unstable = unstableFor linuxSystem;
-                inherit inputs linuxSystem;
+                inherit inputs linuxSystem secrets;
               };
             }
             musnix.nixosModules.musnix
@@ -173,7 +183,7 @@
         "mac-work" = nix-darwin.lib.darwinSystem {
           system = macSystem;
           specialArgs = {
-            inherit inputs;
+            inherit inputs secrets;
             unstable = unstableFor macSystem;
           };
           modules = [
@@ -199,7 +209,7 @@
               home-manager.extraSpecialArgs = {
                 pkgs = pkgsFor macSystem;
                 unstable = unstableFor macSystem;
-                inherit inputs;
+                inherit inputs secrets;
               };
             }
           ];
