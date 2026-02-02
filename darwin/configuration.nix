@@ -94,13 +94,6 @@
   #   };
   # };
 
-  system.activationScripts.scrollPrefs.text = ''
-    defaults write com.pilotmoon.scroll-reverser reverseTrackpad -bool true
-    defaults write com.pilotmoon.scroll-reverser reverseMouse -bool false
-    killall "Scroll Reverser" || true
-    open -a "Scroll Reverser"
-  '';
-
   # Homebrew packages that don't work well with nix-darwin
   homebrew = {
     enable = true;
@@ -241,6 +234,13 @@
     echo "Linking firefoxpwa native messaging host..."
     mkdir -p "/Library/Application Support/Mozilla/NativeMessagingHosts"
     ln -sf "/opt/homebrew/opt/firefoxpwa/share/firefoxpwa.json" "/Library/Application Support/Mozilla/NativeMessagingHosts/firefoxpwa.json"
+
+     # Setup Scroll Reverser
+    echo "Setting up Scroll Reverser"
+    defaults write com.pilotmoon.scroll-reverser reverseTrackpad -bool true
+    defaults write com.pilotmoon.scroll-reverser reverseMouse -bool false
+    killall "Scroll Reverser" || true
+    open -a "Scroll Reverser"
   '';
 
   # Create /etc/zshrc that loads the nix-darwin environment.
@@ -285,7 +285,7 @@
             #   type = "standard";
             # };
           };
-          # Disable 'Cmd + Alt + Space' for Finder search window
+          # Enable 'Cmd + Alt + Space' for Finder search window
           "65" = {
             enabled = true;
           };
