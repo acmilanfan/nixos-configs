@@ -513,14 +513,17 @@ function NanoWM.getTiledWindows(tag)
     local cleanStack = {}
     for _, id in ipairs(stackIds) do
         local win = hs.window.get(id)
-        if win and win:isVisible() then
+        -- IMPORTANT: Verify the window's tag actually matches (fixes multi-tag bug)
+        if win and win:isVisible() and NanoWM.tags[id] == tag then
             if not NanoWM.isFloating(win) then
                 table.insert(windows, win)
                 table.insert(cleanStack, id)
             end
-        elseif hs.window.get(id) then
+        elseif hs.window.get(id) and NanoWM.tags[id] == tag then
+            -- Window exists but not visible, keep in stack
             table.insert(cleanStack, id)
         end
+        -- If tag doesn't match, don't add to cleanStack (removes stale entries)
     end
     local allWins = hs.window.filter.default:getWindows()
     for _, win in ipairs(allWins) do
@@ -1434,12 +1437,12 @@ filter:subscribe(hs.window.filter.windowDestroyed, function(win)
                 .. tostring(tag)
             )
 
-            -- Now actually clean up
-            if tag and NanoWM.stacks[tag] then
-                for i, vid in ipairs(NanoWM.stacks[tag]) do
-                    if vid == id then
-                        table.remove(NanoWM.stacks[tag], i)
-                        break
+            -- Now actually clean up - remove from ALL stacks (not just the tagged one)
+            -- This handles edge cases where window might be in wrong stack
+            for stackTag, stack in pairs(NanoWM.stacks) do
+                for i = #stack, 1, -1 do  -- Iterate backwards for safe removal
+                    if stack[i] == id then
+                        table.remove(stack, i)
                     end
                 end
             end
