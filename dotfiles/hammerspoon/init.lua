@@ -2124,8 +2124,9 @@ function NanoWM.showKeybindMenu()
         {
             category = "System",
             binds = {
-                { key = "Ctrl+Alt+Shift+R", desc = "Reload config",  fn = hs.reload },
-                { key = "Alt+E",            desc = "Enter Vim mode", fn = nil }, -- Can't trigger modal from here
+                { key = "Ctrl+Alt+Shift+R", desc = "Reload config", fn = hs.reload },
+                { key = "Ctrl+Alt+Shift+C", desc = "Toggle HS console", fn = hs.toggleConsole },
+                { key = "Alt+E", desc = "Enter Vim mode", fn = nil }, -- Can't trigger modal from here
             },
         },
     }
@@ -2466,7 +2467,10 @@ end)
 
 hs.hotkey.bind({ "alt", "shift", "ctrl" }, "r", function()
     hs.reload()
-    hs.alert.show("NanoWM v37 Reloaded")
+    hs.alert.show("NanoWM v39 Reloaded")
+end)
+hs.hotkey.bind({ "alt", "shift", "ctrl" }, "c", function()
+    hs.toggleConsole()
 end)
 -- FIXED: AClock toggle with proper initialization and method checking
 hs.hotkey.bind({ "cmd", "alt" }, "t", function()
