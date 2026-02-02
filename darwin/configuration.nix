@@ -115,8 +115,6 @@
 
       # Development
       # "visual-studio-code"
-      "docker-desktop"
-      # "docker"
       # "postman"
 
       # Communication
@@ -160,6 +158,8 @@
       "kanata"
       "firefoxpwa"
       "devsunb/tap/kanata-vk-agent"
+      "docker" # Docker CLI (works with colima)
+      "docker-compose" # Docker Compose
     ];
 
     # Homebrew taps

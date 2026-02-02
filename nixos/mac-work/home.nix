@@ -29,6 +29,7 @@ in
 
       # Development tools that work well on macOS
       colima # Container runtime for macOS
+      lazydocker # Terminal UI for docker
 
       # Additional macOS tools
       duti # Default application handler
@@ -60,9 +61,12 @@ in
       show-hidden = "defaults write com.apple.finder AppleShowAllFiles -bool true && killall Finder";
       hide-hidden = "defaults write com.apple.finder AppleShowAllFiles -bool false && killall Finder";
 
-      # Docker/Colima shortcuts
-      docker-start = "colima start";
+      # Docker/Colima shortcuts - optimized for testcontainers
+      docker-start = "colima start --cpu 4 --memory 8 --disk 60 --network-address";
       docker-stop = "colima stop";
+      docker-status = "colima status";
+      docker-env = "colima-testcontainers-env";
+      lzd = "lazydocker";
 
       # AeroSpace shortcuts
       aerospace-reload = "aerospace reload-config";
@@ -103,6 +107,46 @@ in
     # Kanata configuration (home row mods only)
     ".config/kanata/kanata.kbd".source = ../../dotfiles/kanata/kanata.kbd;
     ".config/kanata/reload-kanata.sh".source = ../../dotfiles/kanata/reload-kanata.sh;
+
+    # Colima/Testcontainers helper script
+    ".local/bin/colima-testcontainers-env" = {
+      executable = true;
+      text = ''
+        #!/bin/bash
+        # Helper script to set up environment for testcontainers with colima
+        # Run this script with: eval "$(colima-testcontainers-env)"
+        # Or source it: source <(colima-testcontainers-env)
+
+        # Check if colima is running
+        if ! colima status &>/dev/null; then
+          echo "# Colima is not running. Start it with: docker-start" >&2
+          echo "# Then run: eval \"\$(colima-testcontainers-env)\"" >&2
+          exit 1
+        fi
+
+        # Get colima VM IP address
+        COLIMA_IP=$(colima ls -j 2>/dev/null | jq -r '.address // empty')
+
+        if [ -z "$COLIMA_IP" ]; then
+          # Fallback: try to get IP from colima ssh
+          COLIMA_IP=$(colima ssh -- hostname -I 2>/dev/null | awk '{print $1}')
+        fi
+
+        echo "export DOCKER_HOST=\"unix://\$HOME/.colima/default/docker.sock\""
+        echo "export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=\"/var/run/docker.sock\""
+        echo "export TESTCONTAINERS_RYUK_DISABLED=\"false\""
+
+        if [ -n "$COLIMA_IP" ]; then
+          echo "export TESTCONTAINERS_HOST_OVERRIDE=\"$COLIMA_IP\""
+          echo "# Colima IP: $COLIMA_IP" >&2
+        else
+          echo "# Warning: Could not determine colima IP address" >&2
+          echo "# Some testcontainers features may not work correctly" >&2
+        fi
+
+        echo "# Testcontainers environment configured for colima" >&2
+      '';
+    };
 
     # JankyBorders configuration
     ".config/borders/bordersrc" = {
@@ -842,6 +886,17 @@ in
   home.sessionVariables = {
     # macOS-specific environment
     BROWSER = "open";
+
+    # Docker/Colima configuration for testcontainers compatibility
+    # Point to colima's docker socket
+    DOCKER_HOST = "unix://\${HOME}/.colima/default/docker.sock";
+
+    # Testcontainers configuration for colima
+    # This tells testcontainers where the docker socket is inside the VM
+    TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE = "/var/run/docker.sock";
+
+    # Ryuk is the container that cleans up after tests - needs to be enabled
+    TESTCONTAINERS_RYUK_DISABLED = "false";
   };
 
   home.stateVersion = "25.11";

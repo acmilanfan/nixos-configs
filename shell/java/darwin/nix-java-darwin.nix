@@ -28,7 +28,7 @@ in pkgs.mkShell {
     mariadb.client
     redis
 
-    # Docker for macOS (Docker Desktop should be installed separately)
+    # Docker CLI (works with colima)
     docker
 
     # Shell
@@ -48,22 +48,37 @@ in pkgs.mkShell {
     export JAVA_HOME=${selectedJDK}
     export PATH=$JAVA_HOME/bin:$PATH
 
-    # Docker configuration for macOS
-    # Note: Docker Desktop should be running
-    if command -v docker &> /dev/null; then
-      if docker info &> /dev/null; then
-        echo "Docker is running"
+    # macOS-specific PATH additions
+    export PATH="/usr/local/bin:/opt/homebrew/bin:$HOME/.local/bin:$PATH"
+
+    # Docker/Colima configuration for testcontainers
+    if command -v colima &> /dev/null; then
+      if colima status &> /dev/null; then
+        echo "Colima is running, configuring testcontainers environment..."
+        if [ -x "$HOME/.local/bin/colima-testcontainers-env" ]; then
+          eval "$($HOME/.local/bin/colima-testcontainers-env)"
+        else
+          # Fallback: set basic environment variables
+          export DOCKER_HOST="unix://$HOME/.colima/default/docker.sock"
+          export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE="/var/run/docker.sock"
+          export TESTCONTAINERS_RYUK_DISABLED="false"
+          # Try to get colima IP for TESTCONTAINERS_HOST_OVERRIDE
+          COLIMA_IP=$(colima ls -j 2>/dev/null | jq -r '.address // empty')
+          if [ -n "$COLIMA_IP" ]; then
+            export TESTCONTAINERS_HOST_OVERRIDE="$COLIMA_IP"
+            echo "Testcontainers HOST_OVERRIDE set to: $COLIMA_IP"
+          fi
+        fi
+        echo "Docker is configured with colima"
       else
-        echo "Docker Desktop is not running. Please start Docker Desktop."
+        echo "⚠️  Colima is not running. Start it with: colima start --cpu 4 --memory 8 --disk 60 --network-address"
+        echo "   Then restart this shell or run: eval \"\$(colima-testcontainers-env)\""
       fi
     else
-      echo "Docker not found. Please install Docker Desktop for macOS."
+      echo "⚠️  Colima not found. Please install colima for Docker support."
     fi
 
-    # macOS-specific PATH additions
-    export PATH="/usr/local/bin:/opt/homebrew/bin:$PATH"
-    # export DOCKER_HOST="unix://$HOME/.colima/default/docker.sock"
-
+    echo ""
     echo "Java Maven Darwin Development Shell"
     echo "Java version: $(java -version 2>&1 | head -n 1)"
     echo "Maven version: $(mvn -version 2>&1 | head -n 1)"
