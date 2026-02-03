@@ -1,0 +1,268 @@
+#!/bin/bash
+
+# ═══════════════════════════════════════════════════════════════════════════
+# SKETCHYBAR CONFIG - Clean & Informative
+# ═══════════════════════════════════════════════════════════════════════════
+
+# --- Theme & Colors ---
+# BAR_COLOR=0xff1a1b26        # Tokyo Night background
+# ITEM_BG_COLOR=0xff2e2e3e   # Dark Grey Pills
+# ACCENT_COLOR=0xff7aa2f7     # Blue accent
+ACCENT_COLOR=0xff7b5cff     # Purple Accent
+BAR_COLOR=0xff000000        # Pure Black (Matches Notch)
+ITEM_BG_COLOR=0xff24283b    # Slightly lighter for pills
+ACCENT_SECONDARY=0xff9ece6a # Green accent
+WARNING_COLOR=0xffe0af68    # Yellow/Orange warning
+CRITICAL_COLOR=0xfff7768e   # Red critical
+INACTIVE_COLOR=0xff565f89   # Muted grey
+WHITE=0xffc0caf5            # Soft white
+DIM=0xff565f89              # Dimmed text
+
+# --- Fonts ---
+FONT_FACE="JetBrainsMono Nerd Font"
+ICON_FONT="$FONT_FACE:Regular:14.0"
+LABEL_FONT="$FONT_FACE:Medium:11.0"
+LABEL_FONT_BOLD="$FONT_FACE:Bold:11.0"
+
+# --- Setup Custom Events ---
+sketchybar --add event nanowm_update
+sketchybar --add event nanowm_caffeinate
+
+# --- Global Defaults ---
+sketchybar --default \
+  updates=on \
+  drawing=on \
+  icon.font="$ICON_FONT" \
+  label.font="$LABEL_FONT" \
+  icon.color=$WHITE \
+  label.color=$WHITE \
+  background.height=22 \
+  background.corner_radius=6 \
+  label.padding_left=4 \
+  label.padding_right=6 \
+  icon.padding_left=6 \
+  icon.padding_right=4 \
+  background.padding_right=2 \
+  background.padding_left=2
+
+# --- Bar Settings ---
+sketchybar --bar \
+  height=32 \
+  color=$BAR_COLOR \
+  position=top \
+  sticky=on \
+  topmost=window \
+  padding_left=6 \
+  padding_right=6 \
+  shadow=on
+
+# ═══════════════════════════════════════════════════════════════════════════
+# LEFT SIDE - Workspaces, Timer & App
+# ═══════════════════════════════════════════════════════════════════════════
+
+# --- Workspace Items (1-10 + Special) ---
+for i in 1 2 3 4 5 6 7 8 9 10 S; do
+  sketchybar --add item space.$i left \
+             --set space.$i \
+                   icon="$i" \
+                   icon.font="$FONT_FACE:Bold:11.0" \
+                   icon.padding_left=8 \
+                   icon.padding_right=8 \
+                   background.color=$ACCENT_COLOR \
+                   background.drawing=off \
+                   label.drawing=off \
+                   drawing=off \
+                   click_script="$CONFIG_DIR/plugins/space_click.sh" \
+                   script="$CONFIG_DIR/plugins/space.sh" \
+             --subscribe space.$i nanowm_update mouse.clicked
+done
+
+# --- Separator (between tags and timer) ---
+sketchybar --add item sep_tags left \
+           --set sep_tags \
+                 icon="│" \
+                 icon.color=$INACTIVE_COLOR \
+                 icon.font="$FONT_FACE:Regular:12.0" \
+                 icon.padding_left=6 \
+                 icon.padding_right=6 \
+                 background.drawing=off \
+                 label.drawing=off
+
+# --- NanoWM Timer (shows only when active) ---
+sketchybar --add item nanowm_timer left \
+           --set nanowm_timer \
+                 background.color=0xff3d5a80 \
+                 background.drawing=off \
+                 icon="󰔟" \
+                 icon.color=$WARNING_COLOR \
+                 icon.padding_left=8 \
+                 icon.padding_right=4 \
+                 label="" \
+                 label.padding_left=4 \
+                 label.padding_right=8 \
+                 drawing=off \
+                 script="$CONFIG_DIR/plugins/nanowm_timer.sh" \
+           --subscribe nanowm_timer nanowm_update
+
+# --- Separator (between timer and front_app, conditional) ---
+sketchybar --add item sep_timer left \
+           --set sep_timer \
+                 icon="│" \
+                 icon.color=$INACTIVE_COLOR \
+                 icon.font="$FONT_FACE:Regular:12.0" \
+                 icon.padding_left=6 \
+                 icon.padding_right=6 \
+                 background.drawing=off \
+                 label.drawing=off \
+                 drawing=off \
+                 script="$CONFIG_DIR/plugins/sep_timer.sh" \
+           --subscribe sep_timer nanowm_update
+
+# --- Caffeinate Indicator ---
+sketchybar --add item caffeinate left \
+           --set caffeinate \
+                 icon="☕" \
+                 icon.color=$WARNING_COLOR \
+                 background.color=$ITEM_BG_COLOR \
+                 background.drawing=on \
+                 label.drawing=off \
+                 drawing=off \
+                 script="$CONFIG_DIR/plugins/caffeinate.sh" \
+           --subscribe caffeinate nanowm_caffeinate
+
+# --- NanoWM Layout Indicator (Monocle/Fullscreen) ---
+sketchybar --add item nanowm_layout left \
+           --set nanowm_layout \
+                 background.color=$ITEM_BG_COLOR \
+                 background.drawing=off \
+                 icon.color=$ACCENT_COLOR \
+                 label.drawing=on \
+                 drawing=off \
+                 script="$CONFIG_DIR/plugins/nanowm_layout.sh" \
+           --subscribe nanowm_layout nanowm_update
+
+# --- Front App Icon + Name ---
+sketchybar --add item front_app left \
+           --set front_app \
+                 background.color=$ITEM_BG_COLOR \
+                 background.drawing=on \
+                 icon.drawing=on \
+                 icon.font="sketchybar-app-font:Regular:14.0" \
+                 label.font="$LABEL_FONT_BOLD" \
+                 label.padding_left=4 \
+                 label.padding_right=8 \
+                 icon.padding_left=8 \
+                 script="$CONFIG_DIR/plugins/front_app.sh" \
+           --subscribe front_app front_app_switched
+
+# ═══════════════════════════════════════════════════════════════════════════
+# RIGHT SIDE - System Info
+# ═══════════════════════════════════════════════════════════════════════════
+
+# --- Date & Time (Rightmost) ---
+sketchybar --add item datetime right \
+           --set datetime \
+                 icon="󰃭" \
+                 icon.color=$ACCENT_COLOR \
+                 background.color=$ITEM_BG_COLOR \
+                 background.drawing=on \
+                 update_freq=20 \
+                 script="$CONFIG_DIR/plugins/datetime.sh"
+
+# --- Separator ---
+sketchybar --add item sep_right0 right \
+           --set sep_right0 \
+                 icon="│" \
+                 icon.color=$INACTIVE_COLOR \
+                 icon.font="$FONT_FACE:Regular:12.0" \
+                 icon.padding_left=4 \
+                 icon.padding_right=4 \
+                 background.drawing=off \
+                 label.drawing=off
+
+# --- Network (WiFi/Ethernet) ---
+sketchybar --add item network right \
+           --set network \
+                 icon="󰤨" \
+                 icon.color=$ACCENT_SECONDARY \
+                 background.color=$ITEM_BG_COLOR \
+                 background.drawing=on \
+                 label.drawing=off \
+                 script="$CONFIG_DIR/plugins/network.sh" \
+                 update_freq=60 \
+           --subscribe network wifi_change
+
+# --- CPU Graph ---
+sketchybar --add graph cpu_graph right 50 \
+           --set cpu_graph \
+                 graph.color=$ACCENT_COLOR \
+                 graph.fill_color=0x407aa2f7 \
+                 graph.line_width=1 \
+                 background.color=$ITEM_BG_COLOR \
+                 background.drawing=on \
+                 background.height=22 \
+                 background.corner_radius=6 \
+                 icon="󰻠" \
+                 icon.color=$ACCENT_COLOR \
+                 icon.padding_left=6 \
+                 label.padding_right=6 \
+                 update_freq=5 \
+                 script="$CONFIG_DIR/plugins/cpu_graph.sh"
+
+# --- Memory Usage ---
+sketchybar --add item memory right \
+           --set memory \
+                 icon="󰍛" \
+                 icon.color=$WARNING_COLOR \
+                 background.color=$ITEM_BG_COLOR \
+                 background.drawing=on \
+                 update_freq=30 \
+                 script="$CONFIG_DIR/plugins/memory.sh"
+
+
+# --- Volume ---
+sketchybar --add item volume right \
+           --set volume \
+                 icon="󰕾" \
+                 background.color=$ITEM_BG_COLOR \
+                 background.drawing=on \
+                 script="$CONFIG_DIR/plugins/volume.sh" \
+           --subscribe volume volume_change
+
+# --- Power Consumption ---
+sketchybar --add item power right \
+           --set power \
+                 icon="󱐋" \
+                 icon.color=$WARNING_COLOR \
+                 background.color=$ITEM_BG_COLOR \
+                 background.drawing=on \
+                 update_freq=30 \
+                 script="$CONFIG_DIR/plugins/power.sh"
+                 # click_script="$CONFIG_DIR/plugins/power_click.sh"
+
+
+# --- Battery ---
+sketchybar --add item battery right \
+           --set battery \
+                 icon="󰁹" \
+                 background.color=$ITEM_BG_COLOR \
+                 background.drawing=on \
+                 update_freq=60 \
+                 script="$CONFIG_DIR/plugins/battery.sh" \
+                 click_script="$CONFIG_DIR/plugins/battery_click.sh" \
+           --subscribe battery system_woke power_source_change
+
+# --- Help / Keybind Menu Button (Left of Battery) ---
+sketchybar --add item help_menu right \
+           --set help_menu \
+                 icon="󰋖" \
+                 icon.color=$ACCENT_COLOR \
+                 background.color=$ITEM_BG_COLOR \
+                 background.drawing=on \
+                 label.drawing=off \
+                 padding_left=2 \
+                 padding_right=2 \
+                 click_script="/opt/homebrew/bin/hs -c 'NanoWM.showKeybindMenu()'"
+
+sketchybar --update
+echo "SketchyBar config loaded."
