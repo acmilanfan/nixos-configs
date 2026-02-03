@@ -42,6 +42,7 @@ in
       macmon
 
       jankyborders
+      claude-code
 
       (writeShellScriptBin "pip-pop" (lib.readFile ./scripts/pip-pop))
       (writeShellScriptBin "fullscreen-raise" (lib.readFile ./scripts/fullscreen-raise))
@@ -214,6 +215,7 @@ in
 
         # --- Setup Custom Events ---
         sketchybar --add event nanowm_update
+        sketchybar --add event nanowm_caffeinate
 
         # --- Global Defaults ---
         sketchybar --default \
@@ -304,6 +306,29 @@ in
                          drawing=off \
                          script="$CONFIG_DIR/plugins/sep_timer.sh" \
                    --subscribe sep_timer nanowm_update
+
+        # --- Caffeinate Indicator ---
+        sketchybar --add item caffeinate left \
+                   --set caffeinate \
+                         icon="☕" \
+                         icon.color=$WARNING_COLOR \
+                         background.color=$ITEM_BG_COLOR \
+                         background.drawing=on \
+                         label.drawing=off \
+                         drawing=off \
+                         script="$CONFIG_DIR/plugins/caffeinate.sh" \
+                   --subscribe caffeinate nanowm_caffeinate
+
+        # --- NanoWM Layout Indicator (Monocle/Fullscreen) ---
+        sketchybar --add item nanowm_layout left \
+                   --set nanowm_layout \
+                         background.color=$ITEM_BG_COLOR \
+                         background.drawing=off \
+                         icon.color=$ACCENT_COLOR \
+                         label.drawing=on \
+                         drawing=off \
+                         script="$CONFIG_DIR/plugins/nanowm_layout.sh" \
+                   --subscribe nanowm_layout nanowm_update
 
         # --- Front App Icon + Name ---
         sketchybar --add item front_app left \
@@ -415,6 +440,18 @@ in
                          click_script="$CONFIG_DIR/plugins/battery_click.sh" \
                    --subscribe battery system_woke power_source_change
 
+        # --- Help / Keybind Menu Button (Left of Battery) ---
+        sketchybar --add item help_menu right \
+                   --set help_menu \
+                         icon="󰋖" \
+                         icon.color=$ACCENT_COLOR \
+                         background.color=$ITEM_BG_COLOR \
+                         background.drawing=on \
+                         label.drawing=off \
+                         padding_left=2 \
+                         padding_right=2 \
+                         click_script="/opt/homebrew/bin/hs -c 'NanoWM.showKeybindMenu()'"
+
         sketchybar --update
         echo "SketchyBar config loaded."
       '';
@@ -436,6 +473,54 @@ in
           /opt/homebrew/bin/hs -c "NanoWM.toggleSpecial()"
         else
           /opt/homebrew/bin/hs -c "NanoWM.gotoTag($SPACE_ID)"
+        fi
+      '';
+    };
+    # --- Layout Indicator ---
+    ".config/sketchybar/plugins/nanowm_layout.sh" = {
+      executable = true;
+      text = ''
+        #!/bin/bash
+
+        if [ "$SENDER" = "nanowm_update" ]; then
+          LABEL=""
+          DRAWING="off"
+          ICON=""
+          BG_DRAWING="off"
+
+          # Check Fullscreen first (highest priority)
+          if [ "$FULLSCREEN" = "1" ]; then
+            LABEL="Full"
+            DRAWING="on"
+            BG_DRAWING="on"
+            ICON="󰊓"
+          # Check Monocle
+          elif [ "$LAYOUT" = "monocle" ]; then
+            LABEL="Mono"
+            DRAWING="on"
+            BG_DRAWING="on"
+            ICON="󰊓"
+          fi
+
+          sketchybar --set $NAME drawing=$DRAWING \
+                                 background.drawing=$BG_DRAWING \
+                                 label="$LABEL" \
+                                 icon="$ICON"
+        fi
+      '';
+    };
+
+    ".config/sketchybar/plugins/caffeinate.sh" = {
+      executable = true;
+      text = ''
+        #!/bin/bash
+
+        if [ "$SENDER" = "nanowm_caffeinate" ]; then
+          if [ "$STATE" = "on" ]; then
+            sketchybar --set $NAME drawing=on
+          else
+            sketchybar --set $NAME drawing=off
+          fi
         fi
       '';
     };

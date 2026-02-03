@@ -117,6 +117,7 @@ NanoWM.layout = "tile"
 NanoWM.isFullscreen = false
 NanoWM.special = { active = false, tag = "special", border = nil, raiseTimer = nil }
 NanoWM.actionsCache = {}
+NanoWM.caffeinateActive = false
 
 -- GUARDS
 NanoWM.focusTimer = nil
@@ -313,6 +314,17 @@ function NanoWM.saveAllWindowTags()
     end
     NanoWM.triggerSave()
     hs.alert.show("Saved " .. saved .. " window tags (skipped " .. skipped .. ")")
+end
+
+function NanoWM.toggleCaffeinate()
+    NanoWM.caffeinateActive = not NanoWM.caffeinateActive
+    hs.caffeinate.set("displayIdle", NanoWM.caffeinateActive, true)
+
+    local status = NanoWM.caffeinateActive and "on" or "off"
+    hs.alert.show("Caffeinate: " .. status:upper())
+
+    -- Update SketchyBar
+    hs.task.new("/bin/zsh", nil, { "-c", "sketchybar --trigger nanowm_caffeinate STATE=" .. status }):start()
 end
 
 -- URGENT TAG FUNCTIONS
@@ -1382,7 +1394,6 @@ function NanoWM.moveWindowToTag(destTag)
     NanoWM.tile()
 end
 
-
 -- -----------------------------------------------------------------------------
 -- DOCK CLICK DETECTION
 -- -----------------------------------------------------------------------------
@@ -1396,7 +1407,9 @@ function NanoWM.isMouseInDockArea()
     -- Get Dock preferences to determine position and size
     -- Dock can be at bottom, left, or right
     local dockPos = hs.execute("defaults read com.apple.dock orientation 2>/dev/null"):gsub("%s+", "")
-    if dockPos == "" then dockPos = "bottom" end
+    if dockPos == "" then
+        dockPos = "bottom"
+    end
 
     -- Dock height/width is typically around 70-90 pixels when visible
     -- We use a generous threshold to account for different Dock sizes
@@ -1474,7 +1487,7 @@ filter:subscribe(hs.window.filter.windowDestroyed, function(win)
             -- Now actually clean up - remove from ALL stacks (not just the tagged one)
             -- This handles edge cases where window might be in wrong stack
             for stackTag, stack in pairs(NanoWM.stacks) do
-                for i = #stack, 1, -1 do  -- Iterate backwards for safe removal
+                for i = #stack, 1, -1 do -- Iterate backwards for safe removal
                     if stack[i] == id then
                         table.remove(stack, i)
                     end
@@ -2124,9 +2137,17 @@ function NanoWM.showKeybindMenu()
         {
             category = "System",
             binds = {
-                { key = "Ctrl+Alt+Shift+R", desc = "Reload config", fn = hs.reload },
-                { key = "Ctrl+Alt+Shift+C", desc = "Toggle HS console", fn = hs.toggleConsole },
-                { key = "Alt+E", desc = "Enter Vim mode", fn = nil }, -- Can't trigger modal from here
+                { key = "Ctrl+Alt+Shift+R", desc = "Reload config",                     fn = hs.reload },
+                { key = "Ctrl+Alt+Shift+C", desc = "Toggle HS console",                 fn = hs.toggleConsole },
+                { key = "Cmd+Alt+Shift+C",  desc = "Toggle Caffeinate (Prevent Sleep)", fn = NanoWM.toggleCaffeinate },
+                {
+                    key = "Cmd+Alt+Shift+Ctrl+L",
+                    desc = "Lock Screen",
+                    fn = function()
+                        hs.caffeinate.lockScreen()
+                    end,
+                }, -- [NEW]
+                { key = "Alt+E", desc = "Enter Vim mode", fn = nil },
             },
         },
     }
@@ -2465,6 +2486,31 @@ timerModal:bind("", "escape", function()
     timerModal:exit()
 end)
 
+-- LEADER KEY MODAL (Alt + Comma)
+NanoWM.leader = hs.hotkey.modal.new(alt, ",")
+NanoWM.leaderActive = false
+
+function NanoWM.leader:entered()
+    hs.alert.show("Leader Mode Active", 999999)
+    NanoWM.leaderActive = true
+    NanoWM.updateBorder()
+end
+
+function NanoWM.leader:exited()
+    hs.alert.closeAll()
+    NanoWM.leaderActive = false
+    NanoWM.updateBorder()
+end
+
+NanoWM.leader:bind("", "escape", function() NanoWM.leader:exit() end)
+-- Leader bindings
+NanoWM.leader:bind("", "l", function() hs.caffeinate.lockScreen(); NanoWM.leader:exit() end)
+NanoWM.leader:bind("", "t", function() NanoWM.launchTask("/usr/bin/open", { "-n", "-a", "Alacritty" }); NanoWM.leader:exit() end)
+NanoWM.leader:bind("", "b", function() NanoWM.launchTask("/usr/bin/open", { "-n", "-a", "Firefox" }); NanoWM.leader:exit() end)
+NanoWM.leader:bind("", "r", function() hs.reload(); NanoWM.leader:exit() end)
+NanoWM.leader:bind("", "q", function() NanoWM.leader:exit() end)
+
+
 hs.hotkey.bind({ "alt", "shift", "ctrl" }, "r", function()
     hs.reload()
     hs.alert.show("NanoWM v39 Reloaded")
@@ -2491,6 +2537,40 @@ hs.hotkey.bind({ "cmd", "alt" }, "t", function()
     else
         hs.alert.show("AClock not loaded")
     end
+end)
+
+hs.hotkey.bind({ "alt", "shift", "ctrl" }, "r", function()
+    hs.reload()
+    hs.alert.show("NanoWM v39 Reloaded")
+end)
+hs.hotkey.bind({ "alt", "shift", "ctrl" }, "c", function()
+    hs.toggleConsole()
+end)
+-- FIXED: AClock toggle with proper initialization and method checking
+hs.hotkey.bind({ "cmd", "alt" }, "t", function()
+    if clock then
+        -- Try different methods that AClock might have
+        if clock.toggleShow then
+            clock:toggleShow()
+        elseif clock.show and clock.hide then
+            -- Toggle manually if no toggleShow method
+            if clock.canvas and clock.canvas:isShowing() then
+                clock:hide()
+            else
+                clock:show()
+            end
+        else
+            hs.alert.show("AClock method not found")
+        end
+    else
+        hs.alert.show("AClock not loaded")
+    end
+end)
+hs.hotkey.bind({ "cmd", "alt", "shift", "ctrl" }, "l", function()
+    hs.caffeinate.lockScreen()
+end)
+hs.hotkey.bind({"cmd", "alt", "shift"}, "c", function()
+    NanoWM.toggleCaffeinate()
 end)
 
 -- -----------------------------------------------------------------------------
