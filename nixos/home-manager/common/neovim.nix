@@ -70,6 +70,8 @@ in
     AI_PROXY_OPENAI = secrets.aiProxy.openai;
     AI_PROXY_MISTRAL_COMPLETION = secrets.aiProxy.mistralCompletion;
     AI_PROXY_API_KEY = secrets.aiProxy.apiKey;
+    ANTHROPIC_API_KEY = secrets.aiProxy.claudeKey;
+    ANTHROPIC_BASE_URL = secrets.aiProxy.claude;
   };
 
   # Place Lua configuration files in ~/.config/nvim/lua/
