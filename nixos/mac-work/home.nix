@@ -1,4 +1,4 @@
-{ pkgs, lib, ... }:
+{ pkgs, lib, unstable, ... }:
 
 let
   spoon =
@@ -42,8 +42,8 @@ in
       macmon
 
       jankyborders
-      claude-code
-      gemini-cli
+      unstable.claude-code
+      unstable.gemini-cli
 
       (writeShellScriptBin "pip-pop" (lib.readFile ./scripts/pip-pop))
       (writeShellScriptBin "fullscreen-raise" (lib.readFile ./scripts/fullscreen-raise))
