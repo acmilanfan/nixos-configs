@@ -11,13 +11,13 @@ if [ "$SENDER" = "nanowm_update" ]; then
     LABEL="Full"
     DRAWING="on"
     BG_DRAWING="on"
-    ICON=""
+    ICON="󰊓"
   # Check Monocle
   elif [ "$LAYOUT" = "monocle" ]; then
     LABEL="Mono"
     DRAWING="on"
     BG_DRAWING="on"
-    ICON=""
+    ICON="󰊓"
   fi
 
   sketchybar --set $NAME drawing=$DRAWING \
