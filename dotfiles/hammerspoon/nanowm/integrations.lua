@@ -97,6 +97,7 @@ function M.toggleSketchybar()
             hs.timer.doAfter(1, function()
                 M.updateSketchybar()
             end)
+            require("nanowm.layout").tile()
         else
             hs.task.new("/bin/zsh", function()
                 state.sketchybarEnabled = not state.sketchybarEnabled
@@ -104,6 +105,7 @@ function M.toggleSketchybar()
                 if state.sketchybarEnabled then
                     M.updateSketchybar()
                 end
+                require("nanowm.layout").tile()
             end, { "-c", "sketchybar --bar hidden=toggle" }):start()
         end
     end, { "-c", "pgrep -x sketchybar" }):start()

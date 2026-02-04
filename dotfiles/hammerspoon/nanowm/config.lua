@@ -77,6 +77,7 @@ M.excludedFromTagMemory = {
 -- Special tag configuration
 M.specialTag = "special"
 M.specialPadding = 100
+M.sketchybarHeight = 35
 
 -- Modifier key shortcuts
 M.modifiers = {

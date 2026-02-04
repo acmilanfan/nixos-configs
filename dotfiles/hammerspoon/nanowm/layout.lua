@@ -79,6 +79,16 @@ function M.performTile()
     local screen = hs.screen.mainScreen()
     local frame = screen:frame()
 
+    if state.sketchybarEnabled then
+        local name = screen:name()
+        -- Adjust for SketchyBar on external monitors (assuming non-built-in are external)
+        -- Common built-in names: "Built-in Retina Display", "Color LCD"
+        if name ~= "Built-in Retina Display" and name ~= "Color LCD" then
+            frame.y = frame.y + config.sketchybarHeight
+            frame.h = frame.h - config.sketchybarHeight
+        end
+    end
+
     local toHide = {}
     local toFloat = {}
 
