@@ -17,7 +17,7 @@
   (c v)    (multi lmet v)   50 all-released ()
   (x c)    (multi lmet c)   50 all-released ()
   (z x)    (multi lmet x)   50 all-released ()
-  (y u)    (multi fn fn)    50 all-released ()
+  (y u)    @lang            50 all-released ()
 )
 
 (platform (macos)
@@ -37,8 +37,8 @@
     _     _     _     _     _     _     _     _     _     _     _     _     _     _
     _     _     _     _     _     _     _     _     _     _     _     _     _
     _     @a    @s    @d    @f    _     _     @j    @k    @l    @;    _     _     _
-    _     _     _     @c    @v    _     @n    @m    _     _     _     _
-    @fn   _     _     _                 _                 _     _     _     _     _     _
+    _     _     _     @c    @v    @b    @n    @m    _     _     _     _
+    @fn   _     _     _                 @spc              _     _     _     _     _     _
   )
 )
 
@@ -46,9 +46,9 @@
   (deflayer fn
     _     f1    f2    f3    f4    f5    f6    f7    f8    f9    f10   f11   f12
     _     _     _     _     _     _     _     _     _     _     _     _     _     del
-    _     _     _     _     lrld  _     _     _     _     _     _     _     _
-    _     _     _     _     _     _     _     _     _     _     _     _     _     _
-    _     _     _     _     _     _     _     _     _     _     _     _
+    _     f12   f7    f8    f9    ssrq  _     @redo @paste @copy @cut  @undo _
+    _     f11   f4    f5    f6    slck  _     lctl  lsft  lalt  lmet  _     _     _
+    _     f10   f1    f2    f3    pause _     _     _     _     _     _
     _     _     _     _                 _                 _     _     ⤒    ⇞ ⇟    ⤓
   )
 )
@@ -79,9 +79,9 @@
   (deflayer arrows
     _     _     _     _     _     _     _     _     _     _     _     _     _
     _     _     _     _     _     _     _     _     _     _     _     _     _     _
-    _     _     _     _     _     _     _     _     _     _     _     _     _
-    _     lmet  lalt  lsft  lctl  _     left  down  up    rght  bspc  _     _     _
-    _     _     _     _     _     _     ins   pgup  pgdn  home  end   _
+    _     _     _     _     _     _     @redo @paste @copy @cut  @undo  _     _
+    _     lmet  lalt  lsft  lctl  _     left  down  up    rght  del   _     _     _
+    _     _     _     _     _     _     ins   pgdn  pgup  home  end   _
     _     _     _     _                 ret               _     _     _     _     _     _
   )
 )
@@ -90,10 +90,10 @@
   (deflayer mouse
     _     _     _     _     _     _     _     _     _     _     _     _     _
     _     _     _     _     _     _     _     _     _     _     _     _     _     _
-    _     _     _     _     _     _     _     _     _     _     _     _     _
-    _     lmet  lalt  lsft  lctl  _     left  down  up    rght  del   _     _     _
-    _     _     _     _     _     _     _     _     _     _     _     _
-    _     _     _     _                 ret               _     _     _     _     _     _
+    _     _     _     _     _     _     @redo @paste @copy @cut  @undo  _     _
+    _     lmet  lalt  lsft  lctl  _     @mlft @mdn   @mup  @mrgt del   _     _     @mb-r
+    _     _     _     _     _     _     @ms-l @ms-d  @ms-u @ms-r @mb-m _
+    _     _     _     _                 @mb-l             _     _     _     _     _     _
   )
 )
 
@@ -135,129 +135,48 @@
 
     fn (tap-hold 250 250 fn (layer-toggle fn))
 
+    ;; Space alias to trigger fn layer
+    spc (tap-hold-release $tap-time $hold-time spc (layer-while-held fn))
+
+    ;; Mouse actions
+    mup (movemouse-up 1 5)
+    mdn (movemouse-down 1 5)
+    mlft (movemouse-left 1 5)
+    mrgt (movemouse-right 1 5)
+    ms-u (mwheel-up 1 5)
+    ms-d (mwheel-down 1 5)
+    ms-l (mwheel-left 1 5)
+    ms-r (mwheel-right 1 5)
+    mb-l mouseleft
+    mb-r mouseright
+    mb-m mousemid
+
+    ;; Mac shortcuts for mouse layer
+    redo (multi lmet lsft z)
+    paste (multi lmet v)
+    copy (multi lmet c)
+    cut (multi lmet x)
+    undo (multi lmet z)
+
+    ;; Language switch (matches Sweep RS(RCTRL))
+    lang (multi rsft rctl)
+
     ;; Layer toggle keys
     n (tap-hold-release $tap-time $hold-time n (layer-while-held numbers))
     m (tap-hold-release $tap-time $hold-time m (layer-while-held symbols))
     v (tap-hold-release $tap-time $hold-time v (layer-while-held arrows))
     c (tap-hold-release $tap-time $hold-time c (layer-while-held mouse))
+    b (tap-hold-release $tap-time $hold-time b (layer-while-held media))
   )
 )
 
-  ;; Home row mods layer
-  ;; (deflayer homerow
-  ;;   @a @c @f @l @n @r @t @v @w @x @y @z
-  ;;   @lctl
-  ;; )
-
-  ;; Browser-specific Ctrl layer
-  ;; (deflayer browser-ctrl
-  ;;   @ctrl-a @ctrl-c @ctrl-f @ctrl-l @ctrl-n @ctrl-r @ctrl-t @ctrl-v @ctrl-w @ctrl-x @ctrl-y @ctrl-z
-  ;;   _
-  ;; )
-
-;; Aliases for browser-specific shortcuts
-;; (defalias
-;;   ;; Left Control - activates browser-specific layer when held, but passes through for non-letter keys
-;;   lctl (tap-hold-release 200 200 lctl (layer-while-held browser-ctrl))
-;;
-;;   ;; Regular keys that pass through normally in base layer
-;;   a a
-;;   c c
-;;   f f
-;;   l l
-;;   n n
-;;   r r
-;;   t t
-;;   v v
-;;   w w
-;;   x x
-;;   y y
-;;   z z
-;;
-;;   ;; Browser-specific Ctrl+Key shortcuts (only active in browser-ctrl layer)
-;;   ;; These only trigger when in the browser-ctrl layer (i.e., when Ctrl is held)
-;;
-;;   ;; Copy - Ctrl+C becomes Cmd+C in browsers
-;;   ctrl-c (switch
-;;     ((input virtual org.mozilla.firefox)) (multi lmet c) break
-;;     ((input virtual com.apple.Safari)) (multi lmet c) break
-;;     () c break
-;;   )
-;;
-;;   ;; Paste - Ctrl+V becomes Cmd+V in browsers
-;;   ctrl-v (switch
-;;     ((input virtual org.mozilla.firefox)) (multi lmet v) break
-;;     ((input virtual com.apple.Safari)) (multi lmet v) break
-;;     () v break
-;;   )
-;;
-;;   ;; Cut - Ctrl+X becomes Cmd+X in browsers
-;;   ctrl-x (switch
-;;     ((input virtual org.mozilla.firefox)) (multi lmet x) break
-;;     ((input virtual com.apple.Safari)) (multi lmet x) break
-;;     () x break
-;;   )
-;;
-;;   ;; Undo - Ctrl+Z becomes Cmd+Z in browsers
-;;   ctrl-z (switch
-;;     ((input virtual org.mozilla.firefox)) (multi lmet z) break
-;;     ((input virtual com.apple.Safari)) (multi lmet z) break
-;;     () z break
-;;   )
-;;
-;;   ;; Redo - Ctrl+Y becomes Cmd+Y in browsers
-;;   ctrl-y (switch
-;;     ((input virtual org.mozilla.firefox)) (multi lmet y) break
-;;     ((input virtual com.apple.Safari)) (multi lmet y) break
-;;     () y break
-;;   )
-;;
-;;   ;; New Tab - Ctrl+T becomes Cmd+T in browsers
-;;   ctrl-t (switch
-;;     ((input virtual org.mozilla.firefox)) (multi lmet t) break
-;;     ((input virtual com.apple.Safari)) (multi lmet t) break
-;;     () t break
-;;   )
-;;
-;;   ;; Close Tab - Ctrl+W becomes Cmd+W in browsers
-;;   ctrl-w (switch
-;;     ((input virtual org.mozilla.firefox)) (multi lmet w) break
-;;     ((input virtual com.apple.Safari)) (multi lmet w) break
-;;     () w break
-;;   )
-;;
-;;   ;; Reload - Ctrl+R becomes Cmd+R in browsers
-;;   ctrl-r (switch
-;;     ((input virtual org.mozilla.firefox)) (multi lmet r) break
-;;     ((input virtual com.apple.Safari)) (multi lmet r) break
-;;     () r break
-;;   )
-;;
-;;   ;; Find - Ctrl+F becomes Cmd+F in browsers
-;;   ctrl-f (switch
-;;     ((input virtual org.mozilla.firefox)) (multi lmet f) break
-;;     ((input virtual com.apple.Safari)) (multi lmet f) break
-;;     () f break
-;;   )
-;;
-;;   ;; Select All - Ctrl+A becomes Cmd+A in browsers
-  ;; ctrl-a (switch
-  ;;   ((input virtual org.mozilla.firefox)) (multi lmet a) break
-  ;;   ((input virtual com.apple.Safari)) (multi lmet a) break
-  ;;   () a break
-  ;; )
-;;
-;;   ;; Address Bar - Ctrl+L becomes Cmd+L in browsers
-;;   ctrl-l (switch
-;;     ((input virtual org.mozilla.firefox)) (multi lmet l) break
-;;     ((input virtual com.apple.Safari)) (multi lmet l) break
-;;     () l break
-;;   )
-;;
-;;   ;; New Window - Ctrl+N becomes Cmd+N in browsers
-;;   ctrl-n (switch
-;;     ((input virtual org.mozilla.firefox)) (multi lmet n) break
-;;     ((input virtual com.apple.Safari)) (multi lmet n) break
-;;     () n break
-;;   )
-;; )
+(platform (macos)
+  (deflayer media
+    _     _     _     _     _     _     _     _     _     _     _     _     _
+    _     _     _     _     _     _     _     _     _     _     _     _     _     _
+    _     _     _     _     _     _     _     brdn  brup  _     _     _     _
+    _     lmet  lalt  lsft  lctl  _     prev  vold  volu  next  mute  _     _     _
+    _     _     _     _     _     _     _     _     _     _     _     _
+    _     _     _     _                 pp                _     _     _     _     _     _
+  )
+)
