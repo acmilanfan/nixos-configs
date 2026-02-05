@@ -258,6 +258,36 @@ function M.cancelTimer()
     end
 end
 
+-- =============================================================================
+-- Kanata Integration
+-- =============================================================================
+
+function M.switchKanata(mode)
+    if mode ~= "default" and mode ~= "homerow" then
+        hs.alert.show("Invalid Kanata mode: " .. tostring(mode))
+        return
+    end
+
+    local script = os.getenv("HOME") .. "/.config/kanata/switch-kanata.sh"
+    hs.alert.show("Switching Kanata to: " .. mode .. "...")
+
+    hs.task.new("/bin/zsh", function(exitCode, stdOut, stdErr)
+        if exitCode == 0 then
+            state.kanataMode = mode
+            state.triggerSave()
+            hs.alert.show("Kanata: " .. (mode == "homerow" and "Home Row Mods" or "Standard") .. " active", 2)
+        else
+            hs.alert.show("Failed to switch Kanata: " .. stdErr, 5)
+            print("Kanata switch error: " .. stdErr)
+        end
+    end, { "-c", script .. " " .. mode }):start()
+end
+
+function M.toggleKanata()
+    local nextMode = (state.kanataMode == "homerow") and "default" or "homerow"
+    M.switchKanata(nextMode)
+end
+
 function M.startCustomTimer()
     local button, minutes = hs.dialog.textPrompt("Start Timer", "Enter minutes:", "", "Start", "Cancel")
     if button == "Start" then

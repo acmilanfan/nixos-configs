@@ -64,6 +64,7 @@ M.bordersEnabled = false
 M.bordersCurrentlyShowing = false
 M.batterySaverEnabled = false
 M.batterySaverPreviousState = {}
+M.kanataMode = "homerow"
 
 -- =============================================================================
 -- Persistence Functions
@@ -105,6 +106,7 @@ function M.load()
     M.prevTag = hs.settings.get("nanoWM_prevTag") or 1
     M.sketchybarEnabled = hs.settings.get("nanoWM_sketchybarEnabled") or false
     M.bordersEnabled = hs.settings.get("nanoWM_bordersEnabled") or false
+    M.kanataMode = hs.settings.get("nanoWM_kanataMode") or "homerow"
 end
 
 function M.save()
@@ -122,6 +124,7 @@ function M.save()
     hs.settings.set("nanoWM_sketchybarEnabled", M.sketchybarEnabled)
     hs.settings.set("nanoWM_bordersEnabled", M.bordersEnabled)
     hs.settings.set("nanoWM_freeTags", serialize(M.freeTags))
+    hs.settings.set("nanoWM_kanataMode", M.kanataMode)
 end
 
 function M.triggerSave()

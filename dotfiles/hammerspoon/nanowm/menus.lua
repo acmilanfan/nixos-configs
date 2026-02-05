@@ -8,6 +8,7 @@ local state = require("nanowm.state")
 local core = require("nanowm.core")
 local layout = require("nanowm.layout")
 local tags = require("nanowm.tags")
+local integrations = require("nanowm.integrations")
 
 local M = {}
 
@@ -72,6 +73,18 @@ function M.openMenu(mode)
                     hs.reload()
                 end,
             },
+            {
+                t = "Kanata: Standard Mode",
+                fn = function()
+                    integrations.switchKanata("default")
+                end,
+            },
+            {
+                t = "Kanata: Home Row Mods Mode",
+                fn = function()
+                    integrations.switchKanata("homerow")
+                end,
+            },
         }
 
         for _, cmd in ipairs(commands) do
@@ -134,6 +147,32 @@ function M.openMenu(mode)
 
     menu:choices(choices)
     menu:show()
+end
+
+function M.openKanataMenu()
+    state.actionsCache = {}
+    local choices = {
+        {
+            text = "Home Row Mods + Layers",
+            subText = (state.kanataMode == "homerow") and "ACTIVE" or "Switch to home row mods and layers",
+            uuid = "homerow",
+        },
+        {
+            text = "Standard Mode",
+            subText = (state.kanataMode == "default") and "ACTIVE" or "Switch to standard keyboard behavior",
+            uuid = "default",
+        },
+    }
+
+    local kanataChooser = hs.chooser.new(function(choice)
+        if not choice then return end
+        integrations.switchKanata(choice.uuid)
+    end)
+    kanataChooser:width(30)
+    kanataChooser:bgDark(true)
+    kanataChooser:choices(choices)
+    kanataChooser:placeholderText("Select Kanata Mode")
+    kanataChooser:show()
 end
 
 -- =============================================================================
@@ -287,6 +326,16 @@ function M.showKeybindMenu()
                 { key = "Alt+Return", desc = "New Alacritty", fn = function() core.launchTask("/usr/bin/open", { "-n", "-a", "Alacritty" }) end },
                 { key = "Alt+B", desc = "New Firefox", fn = function() core.launchTask("/usr/bin/open", { "-n", "-a", "Firefox" }) end },
                 { key = "Alt+D", desc = "Launch Raycast", fn = function() hs.application.launchOrFocus("Raycast") end },
+            },
+        },
+        {
+            category = "Integrations",
+            binds = {
+                { key = "Alt+Shift+G", desc = "Toggle sketchybar", fn = integrations.toggleSketchybar },
+                { key = "Ctrl+Alt+B", desc = "Toggle borders", fn = integrations.toggleBorders },
+                { key = "Ctrl+Alt+P", desc = "Toggle battery saver", fn = integrations.toggleBatterySaver },
+                { key = "Ctrl+Alt+Shift+K", desc = "Kanata mode menu", fn = M.openKanataMenu },
+                { key = "Leader+K", desc = "Toggle Kanata mode", fn = integrations.toggleKanata },
             },
         },
         {

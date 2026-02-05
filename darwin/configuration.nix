@@ -38,7 +38,7 @@
   ];
 
   launchd.daemons.kanata = {
-    command = "/opt/homebrew/bin/kanata --cfg /Users/andreishumailov/.config/kanata/kanata.kbd --port 5829";
+    command = "/opt/homebrew/bin/kanata --cfg /Users/andreishumailov/.config/kanata/active_config.kbd --port 5829";
 
     serviceConfig = {
       KeepAlive = {
@@ -172,6 +172,7 @@
 
     # Mac App Store apps
     masApps = {
+      # "Weekenduo" = 6757489903;
       # "Xcode" = 497799835;
       # "TestFlight" = 899247664;
     };

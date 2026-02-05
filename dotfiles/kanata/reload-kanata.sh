@@ -22,7 +22,7 @@ KANATA_PLIST="/Library/LaunchDaemons/${KANATA_LABEL}.plist"
 VK_AGENT_LABEL="local.kanata-vk-agent"
 VK_AGENT_PLIST="/Library/LaunchAgents/${VK_AGENT_LABEL}.plist"
 
-CONFIG_FILE="/Users/andreishumailov/.config/kanata/kanata.kbd"
+CONFIG_FILE="/Users/andreishumailov/.config/kanata/active_config.kbd"
 
 print_status "Starting Kanata configuration reload..."
 

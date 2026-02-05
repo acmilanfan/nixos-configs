@@ -81,6 +81,7 @@ in
 
       # Kanata configuration management
       reload-kanata = "~/.config/kanata/reload-kanata.sh";
+      switch-kanata = "~/.config/kanata/switch-kanata.sh";
       reload-kanata-logs = "~/.config/kanata/reload-kanata.sh --show-logs";
     }
   ];
@@ -106,9 +107,14 @@ in
     # Karabiner-Elements configuration
     ".config/karabiner/karabiner.json".source = ../../dotfiles/karabiner/karabiner.json;
 
-    # Kanata configuration (home row mods only)
-    ".config/kanata/kanata.kbd".source = ../../dotfiles/kanata/kanata.kbd;
+    # Kanata configuration
+    ".config/kanata/kanata-homerow.kbd".source = ../../dotfiles/kanata/kanata.kbd;
+    ".config/kanata/kanata-default.kbd".source = ../../dotfiles/kanata/kanata-default.kbd;
     ".config/kanata/reload-kanata.sh".source = ../../dotfiles/kanata/reload-kanata.sh;
+    ".config/kanata/switch-kanata.sh" = {
+      source = ../../dotfiles/kanata/switch-kanata.sh;
+      executable = true;
+    };
 
     # Colima/Testcontainers helper script
     ".local/bin/colima-testcontainers-env" = {

@@ -260,6 +260,7 @@ function M.setup()
 
     leader:bind("", "escape", function() leader:exit() end)
     leader:bind("", "l", function() hs.caffeinate.lockScreen(); leader:exit() end)
+    leader:bind("", "k", function() integrations.toggleKanata(); leader:exit() end)
     leader:bind("", "t", function() core.launchTask("/usr/bin/open", { "-n", "-a", "Alacritty" }); leader:exit() end)
     leader:bind("", "b", function() core.launchTask("/usr/bin/open", { "-n", "-a", "Firefox" }); leader:exit() end)
     leader:bind("", "r", function() hs.reload(); leader:exit() end)
@@ -271,6 +272,7 @@ function M.setup()
     hs.hotkey.bind(altShift, "g", integrations.toggleSketchybar)
     hs.hotkey.bind(ctrlAlt, "b", integrations.toggleBorders)
     hs.hotkey.bind(ctrlAlt, "p", integrations.toggleBatterySaver)
+    hs.hotkey.bind(ctrlAltShift, "k", menus.openKanataMenu)
 
     -- =========================================================================
     -- SYSTEM
