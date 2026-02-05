@@ -9,6 +9,7 @@ CONFIG_DIR="$HOME/.config/kanata"
 ACTIVE_CONFIG="$CONFIG_DIR/active_config.kbd"
 DEFAULT_SOURCE="$CONFIG_DIR/kanata-default.kbd"
 HOMEROW_SOURCE="$CONFIG_DIR/kanata-homerow.kbd"
+SPLIT_SOURCE="$CONFIG_DIR/kanata-split.kbd"
 RELOAD_SCRIPT="$CONFIG_DIR/reload-kanata.sh"
 
 MODE=$1
@@ -22,8 +23,12 @@ case $MODE in
         echo "Switching to Home Row Mods configuration..."
         ln -sf "$HOMEROW_SOURCE" "$ACTIVE_CONFIG"
         ;;
+    split)
+        echo "Switching to Split layout configuration..."
+        ln -sf "$SPLIT_SOURCE" "$ACTIVE_CONFIG"
+        ;;
     *)
-        echo "Usage: $0 [default|homerow]"
+        echo "Usage: $0 [default|homerow|split]"
         exit 1
         ;;
 esac

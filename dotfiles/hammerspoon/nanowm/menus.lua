@@ -85,6 +85,12 @@ function M.openMenu(mode)
                     integrations.switchKanata("homerow")
                 end,
             },
+            {
+                t = "Kanata: Split Layout Mode",
+                fn = function()
+                    integrations.switchKanata("split")
+                end,
+            },
         }
 
         for _, cmd in ipairs(commands) do
@@ -156,6 +162,11 @@ function M.openKanataMenu()
             text = "Home Row Mods + Layers",
             subText = (state.kanataMode == "homerow") and "ACTIVE" or "Switch to home row mods and layers",
             uuid = "homerow",
+        },
+        {
+            text = "Split Layout (Experimental)",
+            subText = (state.kanataMode == "split") and "ACTIVE" or "Home row on QWERTY, ZXCV as thumbs",
+            uuid = "split",
         },
         {
             text = "Standard Mode",

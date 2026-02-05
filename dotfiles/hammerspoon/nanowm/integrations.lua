@@ -263,7 +263,7 @@ end
 -- =============================================================================
 
 function M.switchKanata(mode)
-    if mode ~= "default" and mode ~= "homerow" then
+    if mode ~= "default" and mode ~= "homerow" and mode ~= "split" then
         hs.alert.show("Invalid Kanata mode: " .. tostring(mode))
         return
     end
