@@ -2,6 +2,18 @@
 
   home.packages = with pkgs; [ zsh-you-should-use ];
 
+  programs.fzf = {
+    enable = true;
+    enableZshIntegration = true;
+    historyWidgetOptions = [
+      "--sort"
+      "--exact"
+    ];
+    # Use fd for better performance (falls back to find if fd not available)
+    changeDirWidgetCommand = "fd --type d --hidden --exclude .git";
+    changeDirWidgetOptions = [ "--preview" "'ls -la {}'" ];
+  };
+
   programs.zsh = {
     enable = true;
     autosuggestion.enable = true;
@@ -114,6 +126,9 @@
       # Edit line in vim with ctrl-e:
       autoload edit-command-line; zle -N edit-command-line
       bindkey '^e' edit-command-line
+
+      # Rebind fzf cd widget to Ctrl+G (Alt+C conflicts with Hammerspoon)
+      bindkey '^g' fzf-cd-widget
     '';
   };
 
