@@ -106,6 +106,7 @@
     (defvirtualkeys
       com.apple.Safari nop0
       org.mozilla.firefox nop0
+      com.google.Chrome nop0
     )
 )
 

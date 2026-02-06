@@ -1,0 +1,34 @@
+;; Configuration for internal keyboard with home row mods
+(defcfg
+  process-unmapped-keys yes
+  ;; Target only the built-in keyboard
+  macos-dev-names-include (
+    "Apple Internal Keyboard / Trackpad"
+  )
+)
+
+;; Source layer - standard QWERTY layout
+(defsrc
+  a s d f j k l ;
+)
+
+;; Home row mods layer
+(deflayer homerow
+  @a @s @d @f @j @k @l @;
+)
+
+;; Aliases for home row modifiers
+(defalias
+  ;; Left hand home row mods
+  a (tap-hold-press 200 200 a lmet)
+  s (tap-hold-press 200 200 s lalt)
+  d (tap-hold-press 200 200 d lsft)
+  f (tap-hold-press 200 200 f lctl)
+
+  ;; Right hand home row mods
+  j (tap-hold-press 200 200 j rctl)
+  k (tap-hold-press 200 200 k rsft)
+  l (tap-hold-press 200 200 l ralt)
+  ; (tap-hold-press 200 200 ; rmet)
+)
+

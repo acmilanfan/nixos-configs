@@ -7,19 +7,10 @@
 
 {
   ## TODO things to fix
-  # - lock keybind
-  # - try OmniWM instead of Aerospace
-  # - top menu on mouse keybinds (menu and search separately, see OmniWM)
   # - kanata config for browser ctr/cmd for external keyboard
-  # - add a keybind to switch kanata normal config and canata home row mode with numbers and modifiers disabled
-  # - setup middle click three fingers tap
-  # - when full screen a window (not OS fullscreen), automatically raise the window on top
   # - firenvim does not work
   # - warpd for system layer mouse replacement
   # - keyboard BT control
-  # - fix sketchybar
-  # - faster animations of window tiling
-  # - remove window decoration on some (most) apps
 
   system.primaryUser = "andreishumailov";
   environment.systemPackages = with pkgs; [
@@ -52,8 +43,23 @@
     };
   };
 
+  launchd.daemons.kanata-charibdis = {
+    command = "/opt/homebrew/bin/kanata --cfg /Users/andreishumailov/.config/kanata/kanata-charibdis-browser.kbd --port 5830";
+
+    serviceConfig = {
+      KeepAlive = {
+        Crashed = true;
+        SuccessfulExit = false;
+      };
+      RunAtLoad = true;
+      StandardOutPath = "/Users/andreishumailov/.config/kanata/kanata-charibdis.log";
+      StandardErrorPath = "/Users/andreishumailov/.config/kanata/kanata-charibdis.error.log";
+      UserName = "root";
+    };
+  };
+
   launchd.agents.kanata-vk-agent = {
-    command = "/opt/homebrew/bin/kanata-vk-agent -p 5829 -b com.apple.Safari,org.mozilla.firefox -i com.apple.keylayout.ABC";
+    command = "/opt/homebrew/bin/kanata-vk-agent -p 5829 -b com.apple.Safari,org.mozilla.firefox,com.google.Chrome,arc.browser -i com.apple.keylayout.ABC";
     serviceConfig = {
       Label = "local.kanata-vk-agent";
       KeepAlive = {
@@ -63,6 +69,20 @@
       RunAtLoad = true;
       StandardOutPath = "/tmp/kanata_vk_agent_stdout.log";
       StandardErrorPath = "/tmp/kanata_vk_agent_stderr.log";
+    };
+  };
+
+  launchd.agents.kanata-vk-agent-charibdis = {
+    command = "/opt/homebrew/bin/kanata-vk-agent -p 5830 -b com.apple.Safari,org.mozilla.firefox,com.google.Chrome,arc.browser -i com.apple.keylayout.ABC";
+    serviceConfig = {
+      Label = "local.kanata-vk-agent-charibdis";
+      KeepAlive = {
+        Crashed = true;
+        SuccessfulExit = false;
+      };
+      RunAtLoad = true;
+      StandardOutPath = "/tmp/kanata_vk_agent_charibdis_stdout.log";
+      StandardErrorPath = "/tmp/kanata_vk_agent_charibdis_stderr.log";
     };
   };
 

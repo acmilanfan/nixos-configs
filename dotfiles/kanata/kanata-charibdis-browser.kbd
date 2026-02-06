@@ -1,0 +1,44 @@
+;; Kanata configuration for Charybdis Nano
+;; Goal: Map rctl to lmet (Cmd) ONLY in browsers
+
+(defcfg
+  process-unmapped-keys yes
+  concurrent-tap-hold yes
+  log-layer-changes yes
+  macos-dev-names-include (
+    "Charybdis Nano (3x5) Splinky"
+  )
+)
+
+(platform (macos)
+  ;; Virtual keys for browser detection
+  (defvirtualkeys
+    com.apple.Safari nop0
+    org.mozilla.firefox nop0
+    com.google.Chrome nop0
+  )
+)
+
+(platform (macos)
+  (defsrc
+    lctl rctl lmet rmet
+  )
+)
+
+(platform (macos)
+  (deflayer base
+    lctl @rctl-smart lmet rmet
+  )
+)
+
+(platform (macos)
+  (defalias
+    ;; Smart Right Control: Becomes lmet (Cmd) in browsers, remains rctl otherwise
+    rctl-smart (switch
+      ((input virtual com.apple.Safari)) lmet break
+      ((input virtual org.mozilla.firefox)) lmet break
+      ((input virtual com.google.Chrome)) lmet break
+      () rctl break
+    )
+  )
+)

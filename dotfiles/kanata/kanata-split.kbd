@@ -1,0 +1,163 @@
+;; Configuration for split-keyboard style layout on laptop
+;; All layers shifted up by one row
+;; Home row is physical QWERTY row
+;; Thumb keys are physical C V N M keys
+  (defcfg
+    process-unmapped-keys yes
+    concurrent-tap-hold yes
+    macos-dev-names-include (
+      "Apple Internal Keyboard / Trackpad"
+    )
+  )
+
+(defchordsv2
+  (w e)    esc      50 all-released ()
+  (a ;)    esc      50 all-released ()
+  (m ,)    -        50 all-released ()
+  (d v)    tab      50 all-released ()
+  (d k)    caps     50 all-released ()
+  (o p)    S-;      50 all-released ()
+  (c v)    (multi lmet v)   50 all-released ()
+  (x c)    (multi lmet c)   50 all-released ()
+  (z x)    (multi lmet x)   50 all-released ()
+  (y u)    @lang            50 all-released ()
+)
+
+(platform (macos)
+  (defsrc
+    esc    f1    f2    f3    f4    f5    f6    f7    f8    f9    f10   f11   f12
+    grv    1     2     3     4     5     6     7     8     9     0     -     =     bspc
+    tab    q     w     e     r     t     y     u     i     o     p     [     ]
+    caps   a     s     d     f     g     h     j     k     l     ;     '     \     ret
+    lsft   z     x     c     v     b     n     m     ,     .     /     rsft
+    fn     lctl  lalt  lmet              spc               rmet  ralt  ◀    ▲ ▼    ▶
+  )
+)
+
+(platform (macos)
+  (deflayer base
+    _     🔅    🔆    mctl  sls   dtn   dnd   ◀◀    ▶⏸    ▶▶    🔇    🔉    🔊
+    _     q     w     e     r     t     y     u     i     o     p     _     _     _
+    _     @a    @s    @d    @f    g     h     @j    @k    @l    @;    _     _
+    _     z     x     c     v     b     n     m     ,     .     /     _     _     _
+    _     _     _     @tabm @spcm             @entm @bspm       _     _     _     _     _
+  )
+)
+
+(platform (macos)
+  (deflayer fn
+    _     f1    f2    f3    f4    f5    f6    f7    f8    f9    f10   f11   f12
+    _     f12   f7    f8    f9    prtsc _     @redo @paste @copy @cut  @undo _     del
+    _     f11   f4    f5    f6    slck  _     lctl  lsft  lalt  lmet  _     _
+    _     f10   f1    f2    f3    pause _     _     _     _     _     _     _     _
+    _     _     _     _     _                 _     _           _     _     ⤒    ⇞ ⇟    ⤓
+  )
+)
+
+(platform (macos)
+  (deflayer numbers
+    _     _     _     _     _     _     _     _     _     _     _     _     _
+    _     [     7     8     9     ]     _     _     _     _     _     _     _     _
+    _     '     4     5     6     =     _     lctl  lsft  lalt  lmet  _     _
+    _     `     1     2     3     \     _     _     _     _     _     _     _     _
+    _     _     _     _     0                 _     _           _     _     _     _     _
+  )
+)
+
+(platform (macos)
+  (deflayer symbols
+    _     _     _     _     _     _     _     _     _     _     _     _     _
+    _     S-[   S-7   S-8   S-9   S-]   _     _     _     _     _     _     _     _
+    _     S-'   S-4   S-5   S-6   S-=   _     lctl  lsft  lalt  lmet  _     _
+    _     S-`   S-1   S-2   S-3   S-\   _     _     _     _     _     _     _     _
+    _     _     _     _     S-0               _     _           _     _     _     _     _
+  )
+)
+
+(platform (macos)
+  (deflayer arrows
+    _     _     _     _     _     _     _     _     _     _     _     _     _
+    _     _     _     _     _     _     @redo @paste @copy @cut  @undo  _     _     _
+    _     lmet  lalt  lsft  lctl  _     left  down  up    rght  del    _     _
+    _     _     _     _     _     _     ins   pgdn  pgup  home  end    _     _     _
+    _     _     _     _     _                 ret   _           _     _     _     _     _
+  )
+)
+
+(platform (macos)
+  (deflayer mouse
+    _     _     _     _     _     _     _     _     _     _     _     _     _
+    _     _     _     _     _     _     @redo @paste @copy @cut  @undo  _     _     _
+    _     lmet  lalt  lsft  lctl  _     @mlft @mdn   @mup  @mrgt del    _     _
+    _     _     _     _     _     _     @ms-l @ms-d  @ms-u @ms-r @mb-m  _     _     _
+    _     _     _     _     _                 @mb-l _           _     _     _     _     _
+  )
+)
+
+(platform (macos)
+  (deflayer media
+    _     _     _     _     _     _     _     _     _     _     _     _     _
+    _     _     _     _     _     _     _     brdn  brup  _     _     _     _     _
+    _     lmet  lalt  lsft  lctl  _     prev  vold  volu  next  mute   _     _
+    _     _     _     _     _     _     _     _     _     _     _      _     _     _
+    _     _     _     _     _                 pp    _           _     _     _     _     _
+  )
+)
+
+(defvar
+  tap-time 200
+  hold-time 200
+)
+
+(platform (macos)
+    (defvirtualkeys
+      com.apple.Safari nop0
+      org.mozilla.firefox nop0
+    )
+)
+
+(platform (macos)
+  (defalias
+    ;; Home row mods on Row 2 (physical QWERTY row)
+    a (tap-hold-release $tap-time $hold-time a lmet)
+    s (tap-hold-release $tap-time $hold-time s lalt)
+    d (tap-hold-release $tap-time $hold-time d lsft)
+    f (tap-hold-release $tap-time $hold-time f lctl)
+
+    j (tap-hold-release $tap-time $hold-time j rctl)
+    k (tap-hold-release $tap-time $hold-time k rsft)
+    l (tap-hold-release $tap-time $hold-time l ralt)
+    ; (tap-hold-release $tap-time $hold-time ; rmet)
+
+    fn (tap-hold 250 250 fn (layer-toggle fn))
+
+    ;; Thumb keys on Row 4 (physical ZXCV row)
+    tabm (tap-hold-release $tap-time $hold-time tab (layer-while-held mouse))
+    spcm (tap-hold-release $tap-time $hold-time spc (layer-while-held arrows))
+    entm (tap-hold-release $tap-time $hold-time ret (layer-while-held symbols))
+    bspm (tap-hold-release $tap-time $hold-time bspc (layer-while-held numbers))
+
+    ;; Mouse actions
+    mup (movemouse-up 1 5)
+    mdn (movemouse-down 1 5)
+    mlft (movemouse-left 1 5)
+    mrgt (movemouse-right 1 5)
+    ms-u (mwheel-up 1 5)
+    ms-d (mwheel-down 1 5)
+    ms-l (mwheel-left 1 5)
+    ms-r (mwheel-right 1 5)
+    mb-l mouseleft
+    mb-r mouseright
+    mb-m mousemid
+
+    ;; Mac shortcuts for mouse layer
+    redo (multi lmet lsft z)
+    paste (multi lmet v)
+    copy (multi lmet c)
+    cut (multi lmet x)
+    undo (multi lmet z)
+
+    ;; Language switch (matches Sweep RS(RCTRL))
+    lang (multi rsft rctl)
+  )
+)

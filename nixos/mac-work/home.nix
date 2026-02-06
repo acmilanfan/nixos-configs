@@ -111,6 +111,7 @@ in
     ".config/kanata/kanata-homerow.kbd".source = ../../dotfiles/kanata/kanata.kbd;
     ".config/kanata/kanata-default.kbd".source = ../../dotfiles/kanata/kanata-default.kbd;
     ".config/kanata/kanata-split.kbd".source = ../../dotfiles/kanata/kanata-split.kbd;
+    ".config/kanata/kanata-charibdis-browser.kbd".source = ../../dotfiles/kanata/kanata-charibdis-browser.kbd;
     ".config/kanata/reload-kanata.sh".source = ../../dotfiles/kanata/reload-kanata.sh;
     ".config/kanata/switch-kanata.sh" = {
       source = ../../dotfiles/kanata/switch-kanata.sh;

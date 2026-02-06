@@ -27,7 +27,7 @@
             "is_pointing_device": false,
             "product_id": 6194
           },
-          "ignore": false
+          "ignore": true
         },
         {
           "manipulate_caps_lock_led": false,
