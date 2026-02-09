@@ -35,6 +35,7 @@
       op = ''(cd ~/org && git add . && git commit -m "Sync" && git push)'';
       up = "cd $HOME/configs/nixos-configs && nix flake update";
       nb = "newsboat --url-file=~/org/rss --cache-file=~/Nextcloud/newsboat/cache.db";
+      refresh = "exec zsh";
 
       # Development shells
       docker-shell = "nix develop ~/configs/nixos-configs/shell/java";
@@ -50,6 +51,10 @@
       # sup = "sudo darwin-rebuild switch --flake $HOME/configs/nixos-configs/#$NIX_SYSTEM --impure";
     };
     initContent = ''
+      if [ -n "$TMUX" ]; then
+        export SSH_AUTH_SOCK="$HOME/.ssh/ssh_auth_sock"
+      fi
+
       autoload -U colors && colors
       PS1="%B%{$fg[cyan]%}$IN_NIX_SHELL%{$fg[red]%}[%{$fg[yellow]%}%n%{$fg[green]%}@%{$fg[blue]%}%M %{$fg[magenta]%}%~%{$fg[red]%}]%{$reset_color%}$%b "
 
