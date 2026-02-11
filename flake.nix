@@ -187,7 +187,7 @@
             unstable = unstableFor macSystem;
           };
           modules = [
-            ./darwin/configuration.nix
+            ./darwin/mac-work.nix
             # mac-app-util.darwinModules.default
             nix-homebrew.darwinModules.nix-homebrew
             {
@@ -206,6 +206,41 @@
               # home-manager.sharedModules =
               #   [ mac-app-util.homeManagerModules.default ];
               home-manager.users.andreishumailov = import ./nixos/mac-work/home.nix;
+              home-manager.extraSpecialArgs = {
+                pkgs = pkgsFor macSystem;
+                unstable = unstableFor macSystem;
+                inherit inputs secrets;
+              };
+            }
+          ];
+        };
+
+        "mac-home" = nix-darwin.lib.darwinSystem {
+          system = macSystem;
+          specialArgs = {
+            inherit inputs secrets;
+            unstable = unstableFor macSystem;
+          };
+          modules = [
+            ./darwin/mac-home.nix
+            # mac-app-util.darwinModules.default
+            nix-homebrew.darwinModules.nix-homebrew
+            {
+              nix-homebrew = {
+                enable = true;
+                enableRosetta = true;
+                user = "gentooway";
+                autoMigrate = true;
+              };
+            }
+            home-manager.darwinModules.home-manager
+            {
+              # home-manager.useGlobalPkgs = true;
+              home-manager.useUserPackages = true;
+              home-manager.backupFileExtension = "backup";
+              # home-manager.sharedModules =
+              #   [ mac-app-util.homeManagerModules.default ];
+              home-manager.users.gentooway = import ./nixos/mac-home/home.nix;
               home-manager.extraSpecialArgs = {
                 pkgs = pkgsFor macSystem;
                 unstable = unstableFor macSystem;

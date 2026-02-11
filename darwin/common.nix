@@ -2,9 +2,13 @@
   pkgs,
   inputs,
   unstable,
+  config,
   ...
 }:
 
+let
+  user = config.system.primaryUser;
+in
 {
   ## TODO things to fix
   # - kanata config for browser ctr/cmd for external keyboard
@@ -12,7 +16,6 @@
   # - warpd for system layer mouse replacement
   # - keyboard BT control
 
-  system.primaryUser = "andreishumailov";
   environment.systemPackages = with pkgs; [
     vim
     git
@@ -29,7 +32,7 @@
   ];
 
   launchd.daemons.kanata = {
-    command = "/opt/homebrew/bin/kanata --cfg /Users/andreishumailov/.config/kanata/active_config.kbd --port 5829";
+    command = "/opt/homebrew/bin/kanata --cfg /Users/${user}/.config/kanata/active_config.kbd --port 5829";
 
     serviceConfig = {
       KeepAlive = {
@@ -37,14 +40,14 @@
         SuccessfulExit = false;
       };
       RunAtLoad = true;
-      StandardOutPath = "/Users/andreishumailov/.config/kanata/kanata.log";
-      StandardErrorPath = "/Users/andreishumailov/.config/kanata/kanata.error.log";
+      StandardOutPath = "/Users/${user}/.config/kanata/kanata.log";
+      StandardErrorPath = "/Users/${user}/.config/kanata/kanata.error.log";
       UserName = "root";
     };
   };
 
   launchd.daemons.kanata-charibdis = {
-    command = "/opt/homebrew/bin/kanata --cfg /Users/andreishumailov/.config/kanata/kanata-charibdis-browser.kbd --port 5830";
+    command = "/opt/homebrew/bin/kanata --cfg /Users/${user}/.config/kanata/kanata-charibdis-browser.kbd --port 5830";
 
     serviceConfig = {
       KeepAlive = {
@@ -52,8 +55,8 @@
         SuccessfulExit = false;
       };
       RunAtLoad = true;
-      StandardOutPath = "/Users/andreishumailov/.config/kanata/kanata-charibdis.log";
-      StandardErrorPath = "/Users/andreishumailov/.config/kanata/kanata-charibdis.error.log";
+      StandardOutPath = "/Users/${user}/.config/kanata/kanata-charibdis.log";
+      StandardErrorPath = "/Users/${user}/.config/kanata/kanata-charibdis.error.log";
       UserName = "root";
     };
   };
@@ -85,34 +88,6 @@
       StandardErrorPath = "/tmp/kanata_vk_agent_charibdis_stderr.log";
     };
   };
-
-  # launchd.agents.aerospace-window-highlight = {
-  #   command = "/bin/zsh -c 'source /Users/andreishumailov/.zshrc && aerospace-highlight-daemon'";
-  #   serviceConfig = {
-  #     Label = "local.aerospace-window-highlight";
-  #     KeepAlive = {
-  #       Crashed = true;
-  #       SuccessfulExit = false;
-  #     };
-  #     RunAtLoad = true;
-  #     StandardOutPath = "/tmp/aerospace_window_highlight_stdout.log";
-  #     StandardErrorPath = "/tmp/aerospace_window_highlight_stderr.log";
-  #     # Wait a bit after system startup to ensure Aerospace is running
-  #     StartInterval = 30;
-  #   };
-  # };
-
-  # launchd.agents.scroll-reverser = {
-  #   command =
-  #     "open -a /Applications/Scroll Reverser.app/Contents/MacOS/Scroll Reverser";
-  #   serviceConfig = {
-  #     KeepAlive = {
-  #       Crashed = true;
-  #       SuccessfulExit = false;
-  #     };
-  #     RunAtLoad = true;
-  #   };
-  # };
 
   # Homebrew packages that don't work well with nix-darwin
   homebrew = {
@@ -231,7 +206,7 @@
       # Trusted users for multi-user nix
       trusted-users = [
         "root"
-        "andreishumailov"
+        "${user}"
       ];
     };
 
@@ -249,12 +224,16 @@
 
   system.activationScripts.postActivation.text = ''
     # Following line should allow us to avoid a logout/login cycle when changing settings
-    sudo -u andreishumailov /System/Library/PrivateFrameworks/SystemAdministration.framework/Resources/activateSettings -u
+    sudo -u ${user} /System/Library/PrivateFrameworks/SystemAdministration.framework/Resources/activateSettings -u
 
     # Setup firefoxpwa
     echo "Linking firefoxpwa native messaging host..."
     mkdir -p "/Library/Application Support/Mozilla/NativeMessagingHosts"
     ln -sf "/opt/homebrew/opt/firefoxpwa/share/firefoxpwa.json" "/Library/Application Support/Mozilla/NativeMessagingHosts/firefoxpwa.json"
+
+    # Setup firenvim native messaging host
+    echo "Setting up firenvim native messaging host..."
+    sudo -u ${user} nvim --headless "+call firenvim#install(0)" +quit 2>/dev/null || true
 
      # Setup Scroll Reverser
     echo "Setting up Scroll Reverser"
@@ -262,6 +241,9 @@
     defaults write com.pilotmoon.scroll-reverser reverseMouse -bool false
     killall "Scroll Reverser" || true
     open -a "Scroll Reverser"
+
+    # Set AppleHighlightColor (Purple)
+    defaults write -g AppleHighlightColor -string "0.968627 0.831373 1.000000 Purple"
   '';
 
   # Create /etc/zshrc that loads the nix-darwin environment.
@@ -284,6 +266,39 @@
   system.defaults = {
     # Custom system preferences using defaults
     CustomUserPreferences = {
+      "com.apple.HIToolbox" = {
+        AppleCurrentKeyboardLayoutInputSourceID = "com.apple.keylayout.US";
+        AppleDictationAutoEnable = 1;
+        AppleEnabledInputSources = [
+          {
+            InputSourceKind = "Keyboard Layout";
+            "KeyboardLayout ID" = 0;
+            "KeyboardLayout Name" = "U.S.";
+          }
+          {
+            "Bundle ID" = "com.apple.CharacterPaletteIM";
+            InputSourceKind = "Non Keyboard Input Method";
+          }
+          {
+            InputSourceKind = "Keyboard Layout";
+            "KeyboardLayout ID" = 19458;
+            "KeyboardLayout Name" = "RussianWin";
+          }
+          {
+            "Bundle ID" = "com.apple.inputmethod.ironwood";
+            InputSourceKind = "Non Keyboard Input Method";
+          }
+        ];
+        AppleFnUsageType = 1;
+      };
+      "NSGlobalDomain" = {
+        AppleLanguages = [
+          "en-US"
+          "de-DE"
+          "ru-DE"
+        ];
+        AppleLocale = "en_US@rg=dezzzz";
+      };
       "com.apple.symbolichotkeys" = {
         AppleSymbolicHotKeys = {
           # Disable '^ + Space' for selecting the previous input source
@@ -312,7 +327,47 @@
           };
         };
       };
-
+      "com.apple.dock" = {
+        enterMissionControlByTopWindowDrag = true;
+      };
+      "com.apple.finder" = {
+        FK_AppCentricShowSidebar = true;
+      };
+      "com.apple.desktopservices" = {
+        DSDontWriteNetworkStores = true;
+        DSDontWriteUSBStores = true;
+      };
+      "com.pilotmoon.scroll-reverser" = {
+        ReverseMouse = false;
+        ReverseTrackpad = true;
+        InvertScrollingOn = true;
+        ShowDiscreteScrollOptions = true;
+      };
+      "com.sbmpost.AutoRaise" = {
+        autoFocusDelay = 55;
+        autoRaiseDelay = 0;
+        enableOnLaunch = true;
+        ignoreSpaceChanged = false;
+      };
+      "art.ginzburg.MiddleClick" = {
+        ignoredAppBundles = [ "org.mozilla.firefox" ];
+      };
+      "com.barut.OmniWM" = {
+        "settings.borderColorAlpha" = 1;
+        "settings.borderColorBlue" = "0.9710568785667419";
+        "settings.borderColorGreen" = 0;
+        "settings.borderColorRed" = "0.8149236440658569";
+        "settings.borderEffectType" = "none";
+        "settings.borderWidth" = 1;
+        "settings.bordersEnabled" = 0;
+        "settings.defaultLayoutType" = "niri";
+        "settings.dwindleSingleWindowAspectRatio" = "fill";
+        "settings.focusFollowsMouse" = 0;
+      };
+      "com.raycast.macos" = {
+        navigationCommandStyleIdentifierKey = "vim";
+        "fileSearch_fileSearchScope" = "kMDQueryScopeHome";
+      };
     };
 
     # Dock settings
@@ -325,44 +380,51 @@
       static-only = true;
       tilesize = 48;
       expose-group-apps = true;
+      mru-spaces = false;
+      wvous-tl-corner = 1;
+      wvous-br-corner = 1;
+      persistent-apps = [];
+      persistent-others = [];
     };
 
     spaces = {
       spans-displays = true;
     };
-    #
-    #    # Finder settings
-    #    finder = {
-    #      AppleShowAllExtensions = true;
-    #      AppleShowAllFiles = true;
-    #      CreateDesktop = false;
-    #      FXDefaultSearchScope = "SCcf"; # Search current folder
-    #      FXEnableExtensionChangeWarning = false;
-    #      FXPreferredViewStyle = "Nlsv"; # List view
-    #      QuitMenuItem = true;
-    #      ShowPathbar = true;
-    #      ShowStatusBar = true;
-    #    };
-    #
-    #    # Login window settings
-    #    loginwindow = {
-    #      GuestEnabled = false;
-    #      SHOWFULLNAME = false;
-    #    };
+
+    # Finder settings
+    finder = {
+      AppleShowAllFiles = true;
+      FXDefaultSearchScope = "SCcf"; # Search current folder
+      ShowPathbar = true;
+      ShowStatusBar = true;
+      _FXShowPosixPathInTitle = true;
+    };
+
+    # Login window settings
+    loginwindow = {
+      GuestEnabled = false;
+      SHOWFULLNAME = false;
+    };
 
     # Menu bar settings
-    #    menuExtrasClock = {
-    #      Show24Hour = true;
-    #      ShowAMPM = false;
-    #      ShowDate = 1;
-    #      ShowDayOfMonth = true;
-    #      ShowDayOfWeek = true;
-    #      ShowSeconds = false;
-    #    };
+    menuExtraClock = {
+      ShowAMPM = true;
+      ShowDate = 0;
+      ShowDayOfWeek = true;
+    };
+
+    # Screen Capture
+    screencapture = {
+      location = "~/Documents/Screenshots";
+      type = "png";
+      disable-shadow = true;
+    };
 
     # NSGlobalDomain settings (system-wide preferences)
     NSGlobalDomain = {
       "com.apple.swipescrolldirection" = false; # true = natural scrolling
+      "com.apple.trackpad.scaling" = 1.0;
+
       # Appearance
       AppleInterfaceStyle = "Dark";
       AppleInterfaceStyleSwitchesAutomatically = false;
@@ -384,31 +446,16 @@
       # Reduce visual effects that add to window decorations
       NSUseAnimatedFocusRing = false;
 
-      #      # Keyboard
+      # Keyboard
+      AppleKeyboardUIMode = 3;
       ApplePressAndHoldEnabled = false;
       InitialKeyRepeat = 15;
       KeyRepeat = 2;
-      #
-      #      # Mouse/Trackpad
-      #      AppleEnableMouseSwipeNavigateWithScrolls = true;
-      #      AppleEnableSwipeNavigateWithScrolls = true;
-      #
-      #      # Misc
-      #      AppleShowAllExtensions = true;
-      #      AppleShowScrollBars = "Always";
-      #      NSAutomaticCapitalizationEnabled = false;
-      #      NSAutomaticDashSubstitutionEnabled = false;
-      #      NSAutomaticPeriodSubstitutionEnabled = false;
-      #      NSAutomaticQuoteSubstitutionEnabled = false;
-      #      NSAutomaticSpellingCorrectionEnabled = false;
-      #      NSNavPanelExpandedStateForSaveMode = true;
-      #      NSNavPanelExpandedStateForSaveMode2 = true;
-      #      PMPrintingExpandedStateForPrint = true;
-      #      PMPrintingExpandedStateForPrint2 = true;
+
+      # Spaces
+      AppleSpacesSwitchOnActivate = true;
     };
 
-    # defaults write com.pilotmoon.scroll-reverser reverseTrackpad -bool true
-    # defaults write com.pilotmoon.scroll-reverser reverseMouse -bool false
     # Trackpad settings
     trackpad = {
       Clicking = true;
@@ -416,11 +463,6 @@
       TrackpadRightClick = true;
       TrackpadThreeFingerDrag = true;
     };
-
-    # Universal Access
-    #    universalaccess = {
-    #      reduceMotion = true;
-    #    };
   };
 
   # Keyboard settings
