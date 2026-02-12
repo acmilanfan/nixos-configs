@@ -1,6 +1,6 @@
 { ... }:
 
-let secrets = import /Users/andreishumailov/configs/nixos-configs/secrets/secrets.nix;
+let secrets = import /Users/gentooway/configs/nixos-configs/secrets/secrets.nix;
 in {
   programs.git = {
     enable = true;

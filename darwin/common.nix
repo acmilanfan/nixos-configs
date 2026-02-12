@@ -151,7 +151,6 @@ in
       "scroll-reverser"
       "hammerspoon"
       "balenaetcher"
-      "omniwm"
       "middleclick"
     ];
 
@@ -172,7 +171,6 @@ in
       "FelixKratz/formulae"
       "dimentium/autoraise"
       "devsunb/tap"
-      "BarutSRB/tap"
     ];
 
     # Mac App Store apps
@@ -254,30 +252,6 @@ in
 
     # Safely set cursor settings via defaults write as the user
     echo "Setting cursor size and colors..."
-    # Ensure ownership is correct to prevent "Could not write domain" errors
-    chown ${user} /Users/${user}/Library/Preferences/com.apple.universalaccess.plist || true
-
-    sudo -u ${user} bash -c '
-      # Kill daemon to release locks on the plist file
-      killall universalaccessd || true
-
-      defaults write com.apple.universalaccess mouseDriverCursorSize -float 1.5
-      defaults write com.apple.universalaccess cursorIsCustomized -bool true
-
-      # Set cursor fill (Black)
-      defaults write com.apple.universalaccess cursorFill -dict \
-        red -float 0 \
-        green -float 0 \
-        blue -float 0 \
-        alpha -float 1
-
-      # Set cursor outline (Purple)
-      defaults write com.apple.universalaccess cursorOutline -dict \
-        red -float 1 \
-        green -float 0.7983930706977844 \
-        blue -float 0.9761069416999817 \
-        alpha -float 1
-    '
 
     # Following line should allow us to avoid a logout/login cycle when changing settings
     sudo -u ${user} /System/Library/PrivateFrameworks/SystemAdministration.framework/Resources/activateSettings -u
