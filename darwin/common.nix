@@ -15,6 +15,7 @@ in
   # - firenvim does not work
   # - warpd for system layer mouse replacement
   # - keyboard BT control
+  # - kanata, jankyborders autostart
 
   environment.systemPackages = with pkgs; [
     vim
@@ -223,9 +224,6 @@ in
   };
 
   system.activationScripts.postActivation.text = ''
-    # Following line should allow us to avoid a logout/login cycle when changing settings
-    sudo -u ${user} /System/Library/PrivateFrameworks/SystemAdministration.framework/Resources/activateSettings -u
-
     # Setup firefoxpwa
     echo "Linking firefoxpwa native messaging host..."
     mkdir -p "/Library/Application Support/Mozilla/NativeMessagingHosts"
@@ -244,6 +242,30 @@ in
 
     # Set AppleHighlightColor (Purple)
     defaults write -g AppleHighlightColor -string "0.968627 0.831373 1.000000 Purple"
+
+    # Safely set cursor settings via defaults write as the user
+    echo "Setting cursor size and colors..."
+    sudo -u ${user} bash -c '
+      defaults write com.apple.universalaccess mouseDriverCursorSize -float 1.5
+      defaults write com.apple.universalaccess cursorIsCustomized -bool true
+
+      # Set cursor fill (Black)
+      defaults write com.apple.universalaccess cursorFill -dict \
+        red -float 0 \
+        green -float 0 \
+        blue -float 0 \
+        alpha -float 1
+
+      # Set cursor outline (Purple)
+      defaults write com.apple.universalaccess cursorOutline -dict \
+        red -float 1 \
+        green -float 0.7983930706977844 \
+        blue -float 0.9761069416999817 \
+        alpha -float 1
+    '
+
+    # Following line should allow us to avoid a logout/login cycle when changing settings
+    sudo -u ${user} /System/Library/PrivateFrameworks/SystemAdministration.framework/Resources/activateSettings -u
   '';
 
   # Create /etc/zshrc that loads the nix-darwin environment.
