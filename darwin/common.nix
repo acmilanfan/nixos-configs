@@ -15,7 +15,6 @@ in
   # - firenvim does not work
   # - warpd for system layer mouse replacement
   # - keyboard BT control
-  # - kanata, jankyborders autostart
 
   environment.systemPackages = with pkgs; [
     vim
@@ -30,6 +29,14 @@ in
     bat
     httpie
     unstable.aerospace
+    (pkgs.writeShellScriptBin "kanata-driver-loader" ''
+      echo "Launching Karabiner-Elements to load driver..."
+      open -a Karabiner-Elements
+      echo "Waiting for driver to load..."
+      sleep 5
+      echo "Quitting Karabiner-Elements..."
+      osascript -e 'quit app "Karabiner-Elements"'
+    '')
   ];
 
   launchd.daemons.kanata = {
@@ -41,8 +48,9 @@ in
         SuccessfulExit = false;
       };
       RunAtLoad = true;
-      StandardOutPath = "/Users/${user}/.config/kanata/kanata.log";
-      StandardErrorPath = "/Users/${user}/.config/kanata/kanata.error.log";
+      ProcessType = "Interactive";
+      StandardOutPath = "/tmp/kanata.log";
+      StandardErrorPath = "/tmp/kanata.error.log";
       UserName = "root";
     };
   };
@@ -56,8 +64,9 @@ in
         SuccessfulExit = false;
       };
       RunAtLoad = true;
-      StandardOutPath = "/Users/${user}/.config/kanata/kanata-charibdis.log";
-      StandardErrorPath = "/Users/${user}/.config/kanata/kanata-charibdis.error.log";
+      ProcessType = "Interactive";
+      StandardOutPath = "/tmp/kanata-charibdis.log";
+      StandardErrorPath = "/tmp/kanata-charibdis.error.log";
       UserName = "root";
     };
   };

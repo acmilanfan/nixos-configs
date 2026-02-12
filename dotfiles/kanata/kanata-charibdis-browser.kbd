@@ -10,6 +10,10 @@
   )
 )
 
+(defchordsv2
+  (y u)    (multi fn fn)    50 all-released ()
+)
+
 (platform (macos)
   ;; Virtual keys for browser detection
   (defvirtualkeys
