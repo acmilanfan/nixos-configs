@@ -254,7 +254,13 @@ in
 
     # Safely set cursor settings via defaults write as the user
     echo "Setting cursor size and colors..."
+    # Ensure ownership is correct to prevent "Could not write domain" errors
+    chown ${user} /Users/${user}/Library/Preferences/com.apple.universalaccess.plist || true
+
     sudo -u ${user} bash -c '
+      # Kill daemon to release locks on the plist file
+      killall universalaccessd || true
+
       defaults write com.apple.universalaccess mouseDriverCursorSize -float 1.5
       defaults write com.apple.universalaccess cursorIsCustomized -bool true
 
