@@ -250,8 +250,30 @@ in
     # Set AppleHighlightColor (Purple)
     defaults write -g AppleHighlightColor -string "0.968627 0.831373 1.000000 Purple"
 
-    # Safely set cursor settings via defaults write as the user
-    echo "Setting cursor size and colors..."
+    # # Safely set cursor settings via defaults write as the user
+    # echo "Setting cursor size and colors..."
+    #
+    # # Kill daemon to release locks on the plist file
+    # killall universalaccessd
+    #
+    # defaults write com.apple.universalaccess mouseDriverCursorSize -float 1.1
+    # defaults write com.apple.universalaccess cursorIsCustomized -bool true
+    #
+    # # Set cursor fill (Black)
+    # defaults write com.apple.universalaccess cursorFill -dict \
+    #   red -float 0 \
+    #   green -float 0 \
+    #   blue -float 0 \
+    #   alpha -float 1
+    #
+    # # Set cursor outline (Purple)
+    # defaults write com.apple.universalaccess cursorOutline -dict \
+    #   red -float 1 \
+    #   green -float 0.7983930706977844 \
+    #   blue -float 0.9761069416999817 \
+    #   alpha -float 1
+    # # Kill daemon to release locks on the plist file
+    # killall universalaccessd
 
     # Following line should allow us to avoid a logout/login cycle when changing settings
     sudo -u ${user} /System/Library/PrivateFrameworks/SystemAdministration.framework/Resources/activateSettings -u
@@ -314,7 +336,7 @@ in
         AppleSymbolicHotKeys = {
           # Disable '^ + Space' for selecting the previous input source
           "60" = {
-            enabled = false;
+            enabled = true;
           };
           # Disable '^ + Option + Space' for selecting the next input source
           "61" = {

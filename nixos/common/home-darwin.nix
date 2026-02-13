@@ -212,9 +212,9 @@ in
     ".hammerspoon/nanowm/watchers.lua".source = ../../dotfiles/hammerspoon/nanowm/watchers.lua;
 
     # Rofi-like menus
-    ".hammerspoon/rofi-menus/init.lua".source = ../../dotfiles/hammerspoon/rofi-menus/init.lua;
-    ".hammerspoon/rofi-menus/services-scan.sh".source =
-      ../../dotfiles/hammerspoon/rofi-menus/services-scan.sh;
+    # ".hammerspoon/rofi-menus/init.lua".source = ../../dotfiles/hammerspoon/rofi-menus/init.lua;
+    # ".hammerspoon/rofi-menus/services-scan.sh".source =
+    #   ../../dotfiles/hammerspoon/rofi-menus/services-scan.sh;
 
     # Hammerspoon Spoons
     ".hammerspoon/Spoons/AClock.spoon".source =
