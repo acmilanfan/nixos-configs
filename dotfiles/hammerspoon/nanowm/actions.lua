@@ -16,7 +16,9 @@ local M = {}
 
 function M.toggleFloat()
     local win = hs.window.focusedWindow()
-    if not win then return end
+    if not win then
+        return
+    end
 
     local id = win:id()
     local idStr = tostring(id)
@@ -71,7 +73,9 @@ end
 
 function M.toggleSticky()
     local win = hs.window.focusedWindow()
-    if not win then return end
+    if not win then
+        return
+    end
 
     local id = win:id()
     if state.sticky[id] then
@@ -91,7 +95,9 @@ end
 
 function M.toggleFullscreen()
     local win = hs.window.focusedWindow()
-    if not win then return end
+    if not win then
+        return
+    end
 
     local idStr = tostring(win:id())
 
@@ -107,6 +113,10 @@ function M.toggleFullscreen()
         win:raise()
     else
         state.isFullscreen = not state.isFullscreen
+
+        local currentContextTag = state.special.active and state.special.tag or state.currentTag
+        state.tagFullscreenState[currentContextTag] = state.isFullscreen
+
         if state.isFullscreen then
             win:raise()
         end
@@ -144,7 +154,9 @@ function M.cycleFocus(dir)
         allVisible = core.getAllVisibleWindows()
     end
 
-    if #allVisible == 0 then return end
+    if #allVisible == 0 then
+        return
+    end
 
     local focused = hs.window.focusedWindow()
     local idx = 0
@@ -157,11 +169,17 @@ function M.cycleFocus(dir)
         end
     end
 
-    if idx == 0 then idx = 1 end
+    if idx == 0 then
+        idx = 1
+    end
 
     local newIdx = idx + dir
-    if newIdx < 1 then newIdx = #allVisible end
-    if newIdx > #allVisible then newIdx = 1 end
+    if newIdx < 1 then
+        newIdx = #allVisible
+    end
+    if newIdx > #allVisible then
+        newIdx = 1
+    end
 
     local targetWin = allVisible[newIdx]
     targetWin:focus()
@@ -179,12 +197,18 @@ function M.swapWindow(dir)
     local tag = state.special.active and state.special.tag or state.currentTag
     local stack = state.stacks[tag]
 
-    if not stack or #stack < 2 then return end
+    if not stack or #stack < 2 then
+        return
+    end
 
     local focused = hs.window.focusedWindow()
-    if not focused then return end
+    if not focused then
+        return
+    end
 
-    if core.isFloating(focused) then return end
+    if core.isFloating(focused) then
+        return
+    end
 
     local fid = focused:id()
     local idx = 0
@@ -195,11 +219,17 @@ function M.swapWindow(dir)
         end
     end
 
-    if idx == 0 then return end
+    if idx == 0 then
+        return
+    end
 
     local targetIdx = idx + dir
-    if targetIdx < 1 then targetIdx = #stack end
-    if targetIdx > #stack then targetIdx = 1 end
+    if targetIdx < 1 then
+        targetIdx = #stack
+    end
+    if targetIdx > #stack then
+        targetIdx = 1
+    end
 
     stack[idx], stack[targetIdx] = stack[targetIdx], stack[idx]
 
@@ -309,7 +339,7 @@ end
 -- =============================================================================
 
 function M.toggleGaps()
-    state.gap = (state.gap == 0) and 6 or 0
+    state.gap = (state.gap == 0) and 4 or 0
     layout.tile()
     hs.alert.show("Gaps: " .. (state.gap == 0 and "OFF" or "ON"))
 end

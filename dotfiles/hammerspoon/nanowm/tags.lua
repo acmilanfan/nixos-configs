@@ -11,7 +11,7 @@ local layout = require("nanowm.layout")
 local M = {}
 
 -- Forward declarations for integration callbacks
-M.onTagChange = nil  -- Set by integrations module
+M.onTagChange = nil -- Set by integrations module
 
 -- =============================================================================
 -- Special Tag Border
@@ -46,19 +46,27 @@ M.updateBorder = updateBorder
 -- =============================================================================
 
 function M.markTagUrgent(tag)
-    if tag == state.currentTag then return end
-    if tag == state.special.tag and state.special.active then return end
+    if tag == state.currentTag then
+        return
+    end
+    if tag == state.special.tag and state.special.active then
+        return
+    end
 
     if not state.urgentTags[tag] then
         state.urgentTags[tag] = true
-        if M.onTagChange then M.onTagChange() end
+        if M.onTagChange then
+            M.onTagChange()
+        end
     end
 end
 
 function M.clearUrgent(tag)
     if state.urgentTags[tag] then
         state.urgentTags[tag] = nil
-        if M.onTagChange then M.onTagChange() end
+        if M.onTagChange then
+            M.onTagChange()
+        end
     end
 end
 
@@ -106,7 +114,9 @@ function M.toggleFreeMode()
     end
 
     state.triggerSave()
-    if M.onTagChange then M.onTagChange() end
+    if M.onTagChange then
+        M.onTagChange()
+    end
 end
 
 -- =============================================================================
@@ -118,10 +128,21 @@ function M.gotoTag(i)
         return
     end
 
-    state.isFullscreen = false
+    -- Save current tag state just in case
+    state.tagFullscreenState[state.currentTag] = state.isFullscreen
+
+    -- Save focused window
+    local focusedWin = hs.window.focusedWindow()
+    if focusedWin and state.tags[focusedWin:id()] == state.currentTag then
+        state.tagLastFocused[state.currentTag] = focusedWin:id()
+    end
+
     state.prevTag = state.currentTag
     state.currentTag = i
     state.special.active = false
+
+    -- Restore new tag state
+    state.isFullscreen = state.tagFullscreenState[i] or false
 
     state.lastManualTagSwitch = hs.timer.secondsSinceEpoch()
     M.clearUrgent(i)
@@ -129,14 +150,32 @@ function M.gotoTag(i)
     state.triggerSave()
     updateBorder()
 
-    if M.onTagChange then M.onTagChange() end
+    if M.onTagChange then
+        M.onTagChange()
+    end
 
     layout.tile()
 
     local wins = core.getTiledWindows(i)
     if #wins > 0 then
         hs.timer.doAfter(0.01, function()
-            wins[1]:focus()
+            local lastFocusedId = state.tagLastFocused[i]
+            local targetWin = nil
+
+            if lastFocusedId then
+                for _, w in ipairs(wins) do
+                    if w:id() == lastFocusedId then
+                        targetWin = w
+                        break
+                    end
+                end
+            end
+
+            if targetWin then
+                targetWin:focus()
+            else
+                wins[1]:focus()
+            end
         end)
     end
 end
@@ -150,7 +189,22 @@ end
 -- =============================================================================
 
 function M.toggleSpecial()
+    -- Save state of the current context before switching
+    local oldContextTag = state.special.active and state.special.tag or state.currentTag
+    state.tagFullscreenState[oldContextTag] = state.isFullscreen
+
+    -- Save focused window
+    local focusedWin = hs.window.focusedWindow()
+    if focusedWin and state.tags[focusedWin:id()] == oldContextTag then
+        state.tagLastFocused[oldContextTag] = focusedWin:id()
+    end
+
     state.special.active = not state.special.active
+
+    -- Restore state of the new context
+    local newContextTag = state.special.active and state.special.tag or state.currentTag
+    state.isFullscreen = state.tagFullscreenState[newContextTag] or false
+
     state.lastManualTagSwitch = hs.timer.secondsSinceEpoch()
 
     if state.special.active then
@@ -165,21 +219,33 @@ function M.toggleSpecial()
         state.special.raiseTimer = nil
     end
 
-    if state.special.active then
-        local wins = core.getTiledWindows(state.special.tag)
-        if #wins > 0 then
+    local wins = core.getTiledWindows(newContextTag)
+    if #wins > 0 then
+        if state.special.active then
             for _, win in ipairs(wins) do
                 win:raise()
             end
-            hs.timer.doAfter(0.01, function()
+        end
+
+        hs.timer.doAfter(0.01, function()
+            local lastFocusedId = state.tagLastFocused[newContextTag]
+            local targetWin = nil
+
+            if lastFocusedId then
+                for _, w in ipairs(wins) do
+                    if w:id() == lastFocusedId then
+                        targetWin = w
+                        break
+                    end
+                end
+            end
+
+            if targetWin then
+                targetWin:focus()
+            else
                 wins[1]:focus()
-            end)
-        end
-    else
-        local wins = core.getTiledWindows(state.currentTag)
-        if #wins > 0 then
-            wins[1]:focus()
-        end
+            end
+        end)
     end
 end
 
@@ -189,7 +255,9 @@ end
 
 function M.moveWindowToTag(destTag)
     local win = hs.window.focusedWindow()
-    if not win then return end
+    if not win then
+        return
+    end
 
     local id = win:id()
     local currentTag = state.tags[id]

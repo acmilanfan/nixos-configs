@@ -11,6 +11,7 @@ M.VERSION = "v40"
 -- Layout defaults
 M.defaultMasterWidth = 0.5
 M.gap = 0
+M.borderWidth = 4
 M.layout = "tile"  -- "tile" or "monocle"
 
 -- Timing

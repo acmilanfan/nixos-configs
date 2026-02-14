@@ -10,7 +10,7 @@ local core = require("nanowm.core")
 local M = {}
 
 -- Forward declarations for integration callbacks
-M.onTileComplete = nil  -- Set by integrations module
+M.onTileComplete = nil -- Set by integrations module
 
 -- =============================================================================
 -- Debounced Tile Timer
@@ -40,9 +40,15 @@ function M.raiseFloating()
         local isFloat = core.isFloating(win)
 
         local isVisible = false
-        if winTag == state.currentTag then isVisible = true end
-        if state.special.active and winTag == state.special.tag then isVisible = true end
-        if isSticky or isPip then isVisible = true end
+        if winTag == state.currentTag then
+            isVisible = true
+        end
+        if state.special.active and winTag == state.special.tag then
+            isVisible = true
+        end
+        if isSticky or isPip then
+            isVisible = true
+        end
 
         if isFloat and not isSticky and not isPip and winTag ~= state.currentTag and winTag ~= state.special.tag then
             isVisible = false
@@ -103,9 +109,15 @@ function M.performTile()
         local isFloat = core.isFloating(win)
 
         local isVisible = false
-        if winTag == state.currentTag then isVisible = true end
-        if state.special.active and winTag == state.special.tag then isVisible = true end
-        if isSticky or isPip then isVisible = true end
+        if winTag == state.currentTag then
+            isVisible = true
+        end
+        if state.special.active and winTag == state.special.tag then
+            isVisible = true
+        end
+        if isSticky or isPip then
+            isVisible = true
+        end
 
         if isFloat and not isSticky and not isPip and winTag ~= state.currentTag and winTag ~= state.special.tag then
             isVisible = false
@@ -174,14 +186,15 @@ function M.performTile()
                 x = frame.x + pad,
                 y = frame.y + pad,
                 w = frame.w - (pad * 2),
-                h = frame.h - (pad * 2)
+                h = frame.h - (pad * 2),
             }
             M.applyLayout(specialWindows, specialFrame, true, state.special.tag)
         else
             for _, win in ipairs(specialWindows) do
                 local id = win:id()
                 if state.windowState[id] and state.windowState[id].isHidden then
-                    local cached = state.freeTagPositions[state.special.tag] and state.freeTagPositions[state.special.tag][id]
+                    local cached = state.freeTagPositions[state.special.tag]
+                        and state.freeTagPositions[state.special.tag][id]
                     if cached then
                         win:setFrame(cached)
                     else
@@ -238,16 +251,24 @@ end
 
 function M.applyLayout(windows, area, isSpecial, tag)
     local count = #windows
-    if count == 0 then return end
+    if count == 0 then
+        return
+    end
 
-    local gap = state.gap
+    local innerGap = state.gap
+    local outerGap = 0
+    if state.bordersEnabled then
+        outerGap = config.borderWidth
+    end
 
     local function setFrameSmart(win, newFrame)
         local f = win:frame()
-        if math.abs(f.x - newFrame.x) > 1 or
-           math.abs(f.y - newFrame.y) > 1 or
-           math.abs(f.w - newFrame.w) > 1 or
-           math.abs(f.h - newFrame.h) > 1 then
+        if
+            math.abs(f.x - newFrame.x) > 1
+            or math.abs(f.y - newFrame.y) > 1
+            or math.abs(f.w - newFrame.w) > 1
+            or math.abs(f.h - newFrame.h) > 1
+        then
             win:setFrame(newFrame)
         end
     end
@@ -263,7 +284,12 @@ function M.applyLayout(windows, area, isSpecial, tag)
     -- Monocle layout
     if state.layout == "monocle" then
         for _, win in ipairs(windows) do
-            setFrameSmart(win, area)
+            setFrameSmart(win, {
+                x = area.x,
+                y = area.y + outerGap,
+                w = area.w,
+                h = area.h - outerGap,
+            })
         end
         return
     end
@@ -272,31 +298,45 @@ function M.applyLayout(windows, area, isSpecial, tag)
     local masterWin = windows[1]
     if count == 1 then
         setFrameSmart(masterWin, {
-            x = area.x + gap,
-            y = area.y + gap,
-            w = area.w - (2 * gap),
-            h = area.h - (2 * gap)
+            x = area.x,
+            y = area.y + outerGap,
+            w = area.w,
+            h = area.h - outerGap,
         })
     else
         local masterWidth = state.getMasterWidth(tag)
-        local mw = math.floor(area.w * masterWidth)
+        local availW = area.w - innerGap
+        local mw = math.floor(availW * masterWidth)
+
         setFrameSmart(masterWin, {
-            x = area.x + gap,
-            y = area.y + gap,
-            w = mw - (1.5 * gap),
-            h = area.h - (2 * gap)
+            x = area.x,
+            y = area.y + outerGap,
+            w = mw,
+            h = area.h - outerGap,
         })
 
-        local sx = area.x + mw + (0.5 * gap)
-        local sw = area.w - mw - (1.5 * gap)
-        local sh = (area.h - (gap * count)) / (count - 1)
+        local sx = area.x + mw + innerGap
+        local sw = availW - mw
+
+        local stackWindows = count - 1
+        local stackTotalHeight = area.h - outerGap - ((stackWindows - 1) * innerGap)
+        local sh = math.floor(stackTotalHeight / stackWindows)
 
         for i = 2, count do
+            local stackIndex = i - 2
+            local yPos = area.y + outerGap + (stackIndex * (sh + innerGap))
+            local hSize = sh
+
+            -- Adjust last window to fill remaining space
+            if i == count then
+                hSize = (area.y + area.h) - yPos
+            end
+
             setFrameSmart(windows[i], {
                 x = sx,
-                y = area.y + gap + ((i - 2) * (sh + gap)),
+                y = yPos,
                 w = sw,
-                h = sh
+                h = hSize,
             })
         end
     end

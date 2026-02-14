@@ -256,7 +256,7 @@ in
     # # Kill daemon to release locks on the plist file
     # killall universalaccessd
     #
-    # defaults write com.apple.universalaccess mouseDriverCursorSize -float 1.1
+    # defaults write com.apple.universalaccess mouseDriverCursorSize -float 1.5
     # defaults write com.apple.universalaccess cursorIsCustomized -bool true
     #
     # # Set cursor fill (Black)

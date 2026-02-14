@@ -17,6 +17,8 @@ M.sizeCache = {}
 M.fullscreenCache = {}
 M.windowState = {}
 M.masterWidths = {}
+M.tagFullscreenState = {}
+M.tagLastFocused = {}
 M.appTagMemory = {}
 M.freeTags = {}
 M.freeTagPositions = {}
@@ -99,6 +101,8 @@ function M.load()
     M.sizeCache = hs.settings.get("nanoWM_sizeCache") or {}
     M.fullscreenCache = hs.settings.get("nanoWM_fullscreenCache") or {}
     M.masterWidths = clean(hs.settings.get("nanoWM_masterWidths")) or {}
+    M.tagFullscreenState = clean(hs.settings.get("nanoWM_tagFullscreenState")) or {}
+    M.tagLastFocused = clean(hs.settings.get("nanoWM_tagLastFocused")) or {}
     M.appTagMemory = hs.settings.get("nanoWM_appTagMemory") or {}
     M.freeTags = clean(hs.settings.get("nanoWM_freeTags")) or {}
 
@@ -118,6 +122,8 @@ function M.save()
     hs.settings.set("nanoWM_sizeCache", M.sizeCache)
     hs.settings.set("nanoWM_fullscreenCache", M.fullscreenCache)
     hs.settings.set("nanoWM_masterWidths", serialize(M.masterWidths))
+    hs.settings.set("nanoWM_tagFullscreenState", serialize(M.tagFullscreenState))
+    hs.settings.set("nanoWM_tagLastFocused", serialize(M.tagLastFocused))
     hs.settings.set("nanoWM_currentTag", M.currentTag)
     hs.settings.set("nanoWM_prevTag", M.prevTag)
     hs.settings.set("nanoWM_appTagMemory", M.appTagMemory)
@@ -151,16 +157,24 @@ end
 -- =============================================================================
 
 function M.getWindowKey(win)
-    if not win then return nil end
+    if not win then
+        return nil
+    end
 
     local app = win:application()
-    if not app then return nil end
+    if not app then
+        return nil
+    end
 
     local appName = app:name()
     local title = win:title() or ""
 
-    if config.excludedFromTagMemory[appName] then return nil end
-    if title == "" or title == "New Tab" or title == "Untitled" then return nil end
+    if config.excludedFromTagMemory[appName] then
+        return nil
+    end
+    if title == "" or title == "New Tab" or title == "Untitled" then
+        return nil
+    end
 
     -- Normalize title by removing common app suffixes
     local normalizedTitle = title
