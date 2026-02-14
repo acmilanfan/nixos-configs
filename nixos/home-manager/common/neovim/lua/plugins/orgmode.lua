@@ -194,7 +194,62 @@ local function open_youtube_query(opts)
   end
 end
 
+local function open_random_video()
+  local org_api = require("orgmode.api")
+
+  local function has_youtube_tag(headline)
+    local current = headline
+    while current do
+      for _, tag in ipairs(current.tags or {}) do
+        if tag == "youtube" then return true end
+      end
+      current = current.parent
+    end
+    return false
+  end
+
+  local files = org_api.load()
+  local all_items = {}
+  for _, file in ipairs(files) do
+    local file_path = file.filename
+    for _, h in ipairs(file.headlines) do
+      if h.todo_type == "TODO" and has_youtube_tag(h) then
+        table.insert(all_items, { headline = h, path = file_path })
+      end
+    end
+  end
+
+  if #all_items == 0 then
+    print("No YouTube videos found.")
+    return
+  end
+
+  math.randomseed(os.time())
+  local selection = {}
+  local count = math.min(3, #all_items)
+  for _ = 1, count do
+    local idx = math.random(#all_items)
+    table.insert(selection, table.remove(all_items, idx))
+  end
+
+  local qf = {}
+  for _, item in ipairs(selection) do
+    local h = item.headline
+    local abs_path = vim.fn.fnamemodify(vim.fn.expand(item.path), ":p")
+    table.insert(qf, {
+      filename = abs_path,
+      lnum = h.position.start_line,
+      text = string.format("[%s] %s", h.todo_value, h.title),
+    })
+  end
+
+  vim.fn.setqflist(qf, "r")
+  vim.cmd("copen")
+  print(string.format("Selected %d random videos.", #qf))
+end
+
 vim.api.nvim_create_user_command("OrgYoutube", open_youtube_query, { nargs = "?" })
+vim.api.nvim_create_user_command("OrgYoutubeRandom", open_random_video, {})
 
 vim.api.nvim_create_autocmd("FileType", {
   pattern = "org",
@@ -205,5 +260,6 @@ vim.api.nvim_create_autocmd("FileType", {
     vim.keymap.set("n", "<leader>oyt", ":OrgYoutube<CR>", { desc = "YouTube All" })
     vim.keymap.set("n", "<leader>oys", ":OrgYoutube Duration<600<CR>", { desc = "YouTube Short" })
     vim.keymap.set("n", "<leader>oyi", ":OrgYoutube Importance=5<CR>", { desc = "YouTube Important" })
+    vim.keymap.set("n", "<leader>oyr", ":OrgYoutubeRandom<CR>", { desc = "YouTube Random" })
   end,
 })
