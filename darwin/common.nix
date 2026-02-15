@@ -40,7 +40,7 @@ in
   ];
 
   launchd.daemons.kanata = {
-    command = "/opt/homebrew/bin/kanata --cfg /Users/${user}/.config/kanata/active_config.kbd --port 5829";
+    command = "/bin/bash -c 'mkdir -p /Users/${user}/.config/kanata && [ ! -e /Users/${user}/.config/kanata/active_config.kbd ] && ln -sf /Users/${user}/.config/kanata/kanata-homerow.kbd /Users/${user}/.config/kanata/active_config.kbd; exec /opt/homebrew/bin/kanata --cfg /Users/${user}/.config/kanata/active_config.kbd --port 5829'";
 
     serviceConfig = {
       KeepAlive = {
@@ -96,6 +96,16 @@ in
       RunAtLoad = true;
       StandardOutPath = "/tmp/kanata_vk_agent_charibdis_stdout.log";
       StandardErrorPath = "/tmp/kanata_vk_agent_charibdis_stderr.log";
+    };
+  };
+
+  launchd.agents.kanata-driver-loader = {
+    command = "/usr/bin/open -a Karabiner-Elements && sleep 5 && /usr/bin/osascript -e 'quit app \"Karabiner-Elements\"'";
+    serviceConfig = {
+      RunAtLoad = true;
+      LaunchOnlyOnce = true;
+      StandardOutPath = "/tmp/kanata-driver-loader.log";
+      StandardErrorPath = "/tmp/kanata-driver-loader.err.log";
     };
   };
 

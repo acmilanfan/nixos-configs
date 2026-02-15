@@ -129,7 +129,10 @@ in
     ".config/kanata/kanata-charibdis-browser.kbd".source =
       ../../dotfiles/kanata/kanata-charibdis-browser.kbd;
     # ".config/kanata/active_config.kbd".source = ../../dotfiles/kanata/kanata-default.kbd;
-    ".config/kanata/reload-kanata.sh".source = ../../dotfiles/kanata/reload-kanata.sh;
+    ".config/kanata/reload-kanata.sh" = {
+      source = ../../dotfiles/kanata/reload-kanata.sh;
+      executable = true;
+    };
     ".config/kanata/switch-kanata.sh" = {
       source = ../../dotfiles/kanata/switch-kanata.sh;
       executable = true;
