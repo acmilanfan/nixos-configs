@@ -39,10 +39,11 @@ in
     '')
   ];
 
-  launchd.daemons.kanata = {
-    command = "/opt/homebrew/bin/kanata --cfg /Users/${user}/.config/kanata/active_config.kbd --port 5829";
+  launchd.agents.kanata = {
+    command = "/usr/bin/sudo /opt/homebrew/bin/kanata --cfg /Users/${user}/.config/kanata/active_config.kbd --port 5829";
 
     serviceConfig = {
+      Label = "local.kanata";
       KeepAlive = {
         Crashed = true;
         SuccessfulExit = false;
@@ -51,14 +52,14 @@ in
       ProcessType = "Interactive";
       StandardOutPath = "/tmp/kanata.log";
       StandardErrorPath = "/tmp/kanata.error.log";
-      UserName = "root";
     };
   };
 
-  launchd.daemons.kanata-charibdis = {
-    command = "/opt/homebrew/bin/kanata --cfg /Users/${user}/.config/kanata/kanata-charibdis-browser.kbd --port 5830";
+  launchd.agents.kanata-charibdis = {
+    command = "/usr/bin/sudo /opt/homebrew/bin/kanata --cfg /Users/${user}/.config/kanata/kanata-charibdis-browser.kbd --port 5830";
 
     serviceConfig = {
+      Label = "local.kanata-charibdis";
       KeepAlive = {
         Crashed = true;
         SuccessfulExit = false;
@@ -67,9 +68,12 @@ in
       ProcessType = "Interactive";
       StandardOutPath = "/tmp/kanata-charibdis.log";
       StandardErrorPath = "/tmp/kanata-charibdis.error.log";
-      UserName = "root";
     };
   };
+
+  security.sudo.extraConfig = ''
+    %admin ALL=(ALL) NOPASSWD: /opt/homebrew/bin/kanata
+  '';
 
   launchd.agents.kanata-vk-agent = {
     command = "/bin/bash -c 'sleep 5; exec /opt/homebrew/bin/kanata-vk-agent -p 5829 -b com.apple.Safari,org.mozilla.firefox,com.google.Chrome,arc.browser -i com.apple.keylayout.ABC'";

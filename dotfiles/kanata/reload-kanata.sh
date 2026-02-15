@@ -15,13 +15,14 @@ print_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
 USER_ID=$(id -u)
 
-# Function to ensure sudo access
+# Function to ensure sudo access (only for things that still might need it,
+# although kanata agents now use internal sudo with NOPASSWD)
 ensure_sudo() {
     if ! sudo -n true 2>/dev/null; then
-        print_warning "Sudo access required to reload system daemons."
+        print_warning "Sudo access required for some operations."
         print_status "Please enter your password:"
         if ! sudo true; then
-            print_error "Failed to acquire sudo privileges. System daemons will not be reloaded."
+            print_error "Failed to acquire sudo privileges."
             return 1
         fi
     fi
@@ -29,28 +30,27 @@ ensure_sudo() {
 }
 
 reload_instance() {
-    local DAEMON_LABEL=$1
+    local KANATA_LABEL=$1
     local AGENT_LABEL=$2
     local PORT=$3
 
-    print_status "--- Reloading $DAEMON_LABEL (Port $PORT) ---"
+    print_status "--- Reloading $KANATA_LABEL and $AGENT_LABEL (Port $PORT) ---"
 
-    # 1. Restart Daemon (Root)
-    if ensure_sudo; then
-        if sudo launchctl list | grep -q "$DAEMON_LABEL"; then
-            sudo launchctl bootout system/"$DAEMON_LABEL" 2>/dev/null || true
-        fi
-
-        local DAEMON_PLIST="/Library/LaunchDaemons/${DAEMON_LABEL}.plist"
-        if [[ -f "$DAEMON_PLIST" ]]; then
-            sudo launchctl bootstrap system "$DAEMON_PLIST"
-            print_status "Daemon $DAEMON_LABEL bootstrapped."
-        else
-            print_warning "Daemon plist not found at $DAEMON_PLIST"
-        fi
+    # 1. Restart Kanata (User Agent with internal sudo)
+    if launchctl print gui/"$USER_ID"/"$KANATA_LABEL" &>/dev/null; then
+        launchctl bootout gui/"$USER_ID"/"$KANATA_LABEL" 2>/dev/null || true
+        sleep 0.5
     fi
 
-    # 2. Restart VK Agent (User)
+    local KANATA_PLIST="/Library/LaunchAgents/${KANATA_LABEL}.plist"
+    if [[ -f "$KANATA_PLIST" ]]; then
+        launchctl bootstrap gui/"$USER_ID" "$KANATA_PLIST"
+        print_status "Kanata $KANATA_LABEL bootstrapped."
+    else
+        print_warning "Kanata plist not found at $KANATA_PLIST"
+    fi
+
+    # 2. Restart VK Agent (User Agent)
     if launchctl print gui/"$USER_ID"/"$AGENT_LABEL" &>/dev/null; then
         launchctl bootout gui/"$USER_ID"/"$AGENT_LABEL" 2>/dev/null || true
         sleep 1
@@ -66,23 +66,25 @@ reload_instance() {
 
     # 3. Verify
     sleep 2
+    if pgrep -f "kanata.*--port $PORT" >/dev/null; then
+        print_status "✓ Kanata ($PORT) is running"
+    else
+        print_error "✗ Kanata ($PORT) failed to start"
+    fi
+
     if pgrep -f "kanata-vk-agent.*-p $PORT" >/dev/null; then
         print_status "✓ $AGENT_LABEL is running"
     else
-        if launchctl print gui/"$USER_ID"/"$AGENT_LABEL" &>/dev/null; then
-             print_status "✓ $AGENT_LABEL is registered with launchd"
-        else
-             print_error "✗ $AGENT_LABEL failed to start"
-        fi
+        print_error "✗ $AGENT_LABEL failed to start"
     fi
 }
 
 print_status "Starting Kanata system-wide reload..."
 
 # Reload Main Instance
-reload_instance "org.nixos.kanata" "local.kanata-vk-agent" "5829"
+reload_instance "local.kanata" "local.kanata-vk-agent" "5829"
 
 # Reload Charybdis Instance
-reload_instance "org.nixos.kanata-charibdis" "local.kanata-vk-agent-charibdis" "5830"
+reload_instance "local.kanata-charibdis" "local.kanata-vk-agent-charibdis" "5830"
 
 print_status "Reload complete!"
