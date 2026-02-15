@@ -8,6 +8,70 @@
 
 let
   user = config.system.primaryUser;
+
+  # Dedicated startup script for GUI apps and driver initialization
+  startupScript = pkgs.writeShellScriptBin "darwin-startup" ''
+    USER_HOME="/Users/${user}"
+    export PATH=$PATH:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/opt/homebrew/bin
+
+    echo "--- Darwin Startup Script ($(date)) ---"
+
+    # 1. Karabiner-Elements Driver Loader
+    # We open it to ensure drivers are active, then clean up the GUI components
+    if [ -d "/Applications/Karabiner-Elements.app" ]; then
+      echo "Initializing Karabiner-Elements drivers..."
+      open -a "Karabiner-Elements"
+      sleep 1
+
+      echo "Cleaning up Karabiner GUI components..."
+      # Use multiple methods to ensure it's gone from tray
+      osascript -e 'quit app "Karabiner-Elements"' 2>/dev/null || true
+      pkill -x "Karabiner-Menu" 2>/dev/null || true
+      pkill -x "Karabiner-NotificationWindow" 2>/dev/null || true
+      pkill -x "Karabiner-NotificationCenter" 2>/dev/null || true
+      pkill -x "karabiner_console_user_server" 2>/dev/null || true
+    fi
+
+    # 2. Start GUI Utilities
+    # 3. Ensure apps are running
+    # We only start these apps if they are NOT currently running.
+    # This prevents flickering and state loss during rebuilds.
+    ensure_apps=(
+      "Hammerspoon"
+      "Raycast"
+      "Scroll Reverser"
+      "MiddleClick"
+      "AutoRaise"
+    )
+
+    for app in "''${ensure_apps[@]}"; do
+      if ! pgrep -x "$app" >/dev/null; then
+        if [ -d "/Applications/$app.app" ] || [ -d "$USER_HOME/Applications/$app.app" ]; then
+          echo "Starting $app (was not running)..."
+
+          # If we are starting Hammerspoon, we might want a clean sketchybar
+          if [ "$app" == "Hammerspoon" ]; then
+             pkill -x "sketchybar" 2>/dev/null || true
+          fi
+
+          open -a "$app"
+        fi
+      fi
+    done
+
+    # 4. Cursorcerer
+    CURSORCERER_SYS="/Library/PreferencePanes/Cursorcerer.prefPane/Contents/Resources/Cursorcerer.app"
+    CURSORCERER_USER="$USER_HOME/Library/PreferencePanes/Cursorcerer.prefPane/Contents/Resources/Cursorcerer.app"
+    if [ -d "$CURSORCERER_SYS" ]; then
+      echo "Starting Cursorcerer (System)..."
+      open -a "$CURSORCERER_SYS"
+    elif [ -d "$CURSORCERER_USER" ]; then
+      echo "Starting Cursorcerer (User)..."
+      open -a "$CURSORCERER_USER"
+    fi
+
+    echo "Startup script completed."
+  '';
 in
 {
   ## TODO things to fix
@@ -29,14 +93,7 @@ in
     bat
     httpie
     unstable.aerospace
-    (pkgs.writeShellScriptBin "kanata-driver-loader" ''
-      echo "Launching Karabiner-Elements to load driver..."
-      open -a Karabiner-Elements
-      echo "Waiting for driver to load..."
-      sleep 5
-      echo "Quitting Karabiner-Elements..."
-      osascript -e 'quit app "Karabiner-Elements"'
-    '')
+    startupScript
   ];
 
   launchd.agents.kanata = {
@@ -103,13 +160,15 @@ in
     };
   };
 
-  launchd.agents.kanata-driver-loader = {
-    command = "/usr/bin/open -a Karabiner-Elements && sleep 5 && /usr/bin/osascript -e 'quit app \"Karabiner-Elements\"'";
+  # Main login agent that triggers the startup script
+  launchd.agents.darwin-startup = {
+    command = "${startupScript}/bin/darwin-startup";
     serviceConfig = {
+      Label = "local.darwin-startup";
       RunAtLoad = true;
       LaunchOnlyOnce = true;
-      StandardOutPath = "/tmp/kanata-driver-loader.log";
-      StandardErrorPath = "/tmp/kanata-driver-loader.err.log";
+      StandardOutPath = "/tmp/darwin-startup.log";
+      StandardErrorPath = "/tmp/darwin-startup.err.log";
     };
   };
 
@@ -264,19 +323,11 @@ in
     echo "Setting up firenvim native messaging host..."
     sudo -u ${user} nvim --headless "+call firenvim#install(0)" +quit 2>/dev/null || true
 
-    # Attempt to start Cursorcerer helper if possible.
-    CURSORCERER_SYS="/Library/PreferencePanes/Cursorcerer.prefPane/Contents/Resources/Cursorcerer.app"
-    CURSORCERER_USER="/Users/${user}/Library/PreferencePanes/Cursorcerer.prefPane/Contents/Resources/Cursorcerer.app"
-
-    if [ -d "$CURSORCERER_SYS" ]; then
-      echo "Found system-wide Cursorcerer at $CURSORCERER_SYS"
-      sudo -u ${user} open -a "$CURSORCERER_SYS"
-    elif [ -d "$CURSORCERER_USER" ]; then
-      echo "Found user Cursorcerer at $CURSORCERER_USER"
-      sudo -u ${user} open -a "$CURSORCERER_USER"
-    else
-      echo "Cursorcerer app not found in standard locations. Please open the Preference Pane manually to start it."
-    fi
+    # Run user-level startup tasks (apps, drivers)
+    # We use kickstart to run the agent in the proper GUI session context
+    echo "Triggering user-level startup script via launchd..."
+    USER_ID=$(id -u ${user})
+    sudo -u ${user} launchctl kickstart -k "gui/$USER_ID/local.darwin-startup" || sudo -u ${user} "${startupScript}/bin/darwin-startup"
 
     # Following line should allow us to avoid a logout/login cycle when changing settings
     sudo -u ${user} /System/Library/PrivateFrameworks/SystemAdministration.framework/Resources/activateSettings -u
@@ -502,7 +553,7 @@ in
       Clicking = true;
       Dragging = true;
       TrackpadRightClick = true;
-      TrackpadThreeFingerDrag = true;
+      TrackpadThreeFingerDrag = false;
     };
   };
 
