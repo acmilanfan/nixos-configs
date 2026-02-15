@@ -15,6 +15,19 @@ print_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
 USER_ID=$(id -u)
 
+# Function to ensure sudo access
+ensure_sudo() {
+    if ! sudo -n true 2>/dev/null; then
+        print_warning "Sudo access required to reload system daemons."
+        print_status "Please enter your password:"
+        if ! sudo true; then
+            print_error "Failed to acquire sudo privileges. System daemons will not be reloaded."
+            return 1
+        fi
+    fi
+    return 0
+}
+
 reload_instance() {
     local DAEMON_LABEL=$1
     local AGENT_LABEL=$2
@@ -23,7 +36,7 @@ reload_instance() {
     print_status "--- Reloading $DAEMON_LABEL (Port $PORT) ---"
 
     # 1. Restart Daemon (Root)
-    if sudo -n true 2>/dev/null; then
+    if ensure_sudo; then
         if sudo launchctl list | grep -q "$DAEMON_LABEL"; then
             sudo launchctl bootout system/"$DAEMON_LABEL" 2>/dev/null || true
         fi
@@ -35,9 +48,6 @@ reload_instance() {
         else
             print_warning "Daemon plist not found at $DAEMON_PLIST"
         fi
-    else
-        print_warning "Sudo access not available (non-interactive). Skipping daemon restart."
-        print_warning "To restart the daemon, run this script manually from a terminal."
     fi
 
     # 2. Restart VK Agent (User)
@@ -59,7 +69,6 @@ reload_instance() {
     if pgrep -f "kanata-vk-agent.*-p $PORT" >/dev/null; then
         print_status "✓ $AGENT_LABEL is running"
     else
-        # Fallback check if port matching fails
         if launchctl print gui/"$USER_ID"/"$AGENT_LABEL" &>/dev/null; then
              print_status "✓ $AGENT_LABEL is registered with launchd"
         else
