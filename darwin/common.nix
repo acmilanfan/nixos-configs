@@ -40,7 +40,7 @@ in
   ];
 
   launchd.daemons.kanata = {
-    command = "/bin/bash -c 'mkdir -p /Users/${user}/.config/kanata && [ ! -e /Users/${user}/.config/kanata/active_config.kbd ] && ln -sf /Users/${user}/.config/kanata/kanata-homerow.kbd /Users/${user}/.config/kanata/active_config.kbd; exec /opt/homebrew/bin/kanata --cfg /Users/${user}/.config/kanata/active_config.kbd --port 5829'";
+    command = "/opt/homebrew/bin/kanata --cfg /Users/${user}/.config/kanata/active_config.kbd --port 5829";
 
     serviceConfig = {
       KeepAlive = {
@@ -72,7 +72,7 @@ in
   };
 
   launchd.agents.kanata-vk-agent = {
-    command = "/opt/homebrew/bin/kanata-vk-agent -p 5829 -b com.apple.Safari,org.mozilla.firefox,com.google.Chrome,arc.browser -i com.apple.keylayout.ABC";
+    command = "/bin/bash -c 'sleep 5; exec /opt/homebrew/bin/kanata-vk-agent -p 5829 -b com.apple.Safari,org.mozilla.firefox,com.google.Chrome,arc.browser -i com.apple.keylayout.ABC'";
     serviceConfig = {
       Label = "local.kanata-vk-agent";
       KeepAlive = {
@@ -86,7 +86,7 @@ in
   };
 
   launchd.agents.kanata-vk-agent-charibdis = {
-    command = "/opt/homebrew/bin/kanata-vk-agent -p 5830 -b com.apple.Safari,org.mozilla.firefox,com.google.Chrome,arc.browser -i com.apple.keylayout.ABC";
+    command = "/bin/bash -c 'sleep 5; exec /opt/homebrew/bin/kanata-vk-agent -p 5830 -b com.apple.Safari,org.mozilla.firefox,com.google.Chrome,arc.browser -i com.apple.keylayout.ABC'";
     serviceConfig = {
       Label = "local.kanata-vk-agent-charibdis";
       KeepAlive = {
@@ -242,6 +242,15 @@ in
   };
 
   system.activationScripts.postActivation.text = ''
+    # Setup Kanata configuration
+    echo "Setting up Kanata configuration..."
+    mkdir -p "/Users/${user}/.config/kanata"
+    if [ ! -L "/Users/${user}/.config/kanata/active_config.kbd" ] && [ ! -f "/Users/${user}/.config/kanata/active_config.kbd" ]; then
+      echo "Initializing active_config.kbd symlink..."
+      ln -sf "/Users/${user}/.config/kanata/kanata-homerow.kbd" "/Users/${user}/.config/kanata/active_config.kbd"
+    fi
+    chown -R ${user}:staff "/Users/${user}/.config/kanata"
+
     # Setup firefoxpwa
     echo "Linking firefoxpwa native messaging host..."
     mkdir -p "/Library/Application Support/Mozilla/NativeMessagingHosts"
