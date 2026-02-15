@@ -152,6 +152,7 @@ in
       "hammerspoon"
       "balenaetcher"
       "middleclick"
+      "cursorcerer"
     ];
 
     # Homebrew formulae (CLI tools)
@@ -240,40 +241,19 @@ in
     echo "Setting up firenvim native messaging host..."
     sudo -u ${user} nvim --headless "+call firenvim#install(0)" +quit 2>/dev/null || true
 
-     # Setup Scroll Reverser
-    echo "Setting up Scroll Reverser"
-    defaults write com.pilotmoon.scroll-reverser reverseTrackpad -bool true
-    defaults write com.pilotmoon.scroll-reverser reverseMouse -bool false
-    killall "Scroll Reverser" || true
-    open -a "Scroll Reverser"
+    # Attempt to start Cursorcerer helper if possible.
+    CURSORCERER_SYS="/Library/PreferencePanes/Cursorcerer.prefPane/Contents/Resources/Cursorcerer.app"
+    CURSORCERER_USER="/Users/${user}/Library/PreferencePanes/Cursorcerer.prefPane/Contents/Resources/Cursorcerer.app"
 
-    # Set AppleHighlightColor (Purple)
-    defaults write -g AppleHighlightColor -string "0.968627 0.831373 1.000000 Purple"
-
-    # # Safely set cursor settings via defaults write as the user
-    # echo "Setting cursor size and colors..."
-    #
-    # # Kill daemon to release locks on the plist file
-    # killall universalaccessd
-    #
-    # defaults write com.apple.universalaccess mouseDriverCursorSize -float 1.5
-    # defaults write com.apple.universalaccess cursorIsCustomized -bool true
-    #
-    # # Set cursor fill (Black)
-    # defaults write com.apple.universalaccess cursorFill -dict \
-    #   red -float 0 \
-    #   green -float 0 \
-    #   blue -float 0 \
-    #   alpha -float 1
-    #
-    # # Set cursor outline (Purple)
-    # defaults write com.apple.universalaccess cursorOutline -dict \
-    #   red -float 1 \
-    #   green -float 0.7983930706977844 \
-    #   blue -float 0.9761069416999817 \
-    #   alpha -float 1
-    # # Kill daemon to release locks on the plist file
-    # killall universalaccessd
+    if [ -d "$CURSORCERER_SYS" ]; then
+      echo "Found system-wide Cursorcerer at $CURSORCERER_SYS"
+      sudo -u ${user} open -a "$CURSORCERER_SYS"
+    elif [ -d "$CURSORCERER_USER" ]; then
+      echo "Found user Cursorcerer at $CURSORCERER_USER"
+      sudo -u ${user} open -a "$CURSORCERER_USER"
+    else
+      echo "Cursorcerer app not found in standard locations. Please open the Preference Pane manually to start it."
+    fi
 
     # Following line should allow us to avoid a logout/login cycle when changing settings
     sudo -u ${user} /System/Library/PrivateFrameworks/SystemAdministration.framework/Resources/activateSettings -u
@@ -325,6 +305,7 @@ in
         AppleFnUsageType = 1;
       };
       "NSGlobalDomain" = {
+        AppleHighlightColor = "0.968627 0.831373 1.000000 Purple";
         AppleLanguages = [
           "en-US"
           "de-DE"
@@ -401,6 +382,10 @@ in
         navigationCommandStyleIdentifierKey = "vim";
         "fileSearch_fileSearchScope" = "kMDQueryScopeHome";
       };
+      "com.doomlaser.cursorcerer" = {
+        "idleHide" = 5.0;
+        "enabled" = true;
+      };
     };
 
     # Dock settings
@@ -416,8 +401,8 @@ in
       mru-spaces = false;
       wvous-tl-corner = 1;
       wvous-br-corner = 1;
-      persistent-apps = [];
-      persistent-others = [];
+      persistent-apps = [ ];
+      persistent-others = [ ];
     };
 
     spaces = {
