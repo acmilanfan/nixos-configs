@@ -256,10 +256,18 @@ function M.applyLayout(windows, area, isSpecial, tag)
     end
 
     local innerGap = state.gap
-    local outerGap = 0
-    if state.bordersEnabled then
-        outerGap = config.borderWidth
+    local screenGap = 0
+    -- Only add screen gaps if borders are enabled and we are in a tiled layout with multiple windows
+    if state.bordersEnabled and not state.isFullscreen and state.layout ~= "monocle" and count > 1 then
+        screenGap = config.borderWidth
     end
+
+    local workArea = {
+        x = area.x + screenGap,
+        y = area.y + screenGap,
+        w = area.w - (screenGap * 2),
+        h = area.h - (screenGap * 2)
+    }
 
     local function setFrameSmart(win, newFrame)
         local f = win:frame()
@@ -285,10 +293,10 @@ function M.applyLayout(windows, area, isSpecial, tag)
     if state.layout == "monocle" then
         for _, win in ipairs(windows) do
             setFrameSmart(win, {
-                x = area.x,
-                y = area.y + outerGap,
-                w = area.w,
-                h = area.h - outerGap,
+                x = workArea.x,
+                y = workArea.y,
+                w = workArea.w,
+                h = workArea.h,
             })
         end
         return
@@ -298,38 +306,38 @@ function M.applyLayout(windows, area, isSpecial, tag)
     local masterWin = windows[1]
     if count == 1 then
         setFrameSmart(masterWin, {
-            x = area.x,
-            y = area.y + outerGap,
-            w = area.w,
-            h = area.h - outerGap,
+            x = workArea.x,
+            y = workArea.y,
+            w = workArea.w,
+            h = workArea.h,
         })
     else
         local masterWidth = state.getMasterWidth(tag)
-        local availW = area.w - innerGap
+        local availW = workArea.w - innerGap
         local mw = math.floor(availW * masterWidth)
 
         setFrameSmart(masterWin, {
-            x = area.x,
-            y = area.y + outerGap,
+            x = workArea.x,
+            y = workArea.y,
             w = mw,
-            h = area.h - outerGap,
+            h = workArea.h,
         })
 
-        local sx = area.x + mw + innerGap
+        local sx = workArea.x + mw + innerGap
         local sw = availW - mw
 
         local stackWindows = count - 1
-        local stackTotalHeight = area.h - outerGap - ((stackWindows - 1) * innerGap)
+        local stackTotalHeight = workArea.h - ((stackWindows - 1) * innerGap)
         local sh = math.floor(stackTotalHeight / stackWindows)
 
         for i = 2, count do
             local stackIndex = i - 2
-            local yPos = area.y + outerGap + (stackIndex * (sh + innerGap))
+            local yPos = workArea.y + (stackIndex * (sh + innerGap))
             local hSize = sh
 
             -- Adjust last window to fill remaining space
             if i == count then
-                hSize = (area.y + area.h) - yPos
+                hSize = (workArea.y + workArea.h) - yPos
             end
 
             setFrameSmart(windows[i], {
