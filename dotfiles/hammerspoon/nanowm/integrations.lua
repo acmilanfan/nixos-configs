@@ -301,10 +301,52 @@ function M.startCustomTimer()
 end
 
 -- =============================================================================
+-- System Watcher (Wake/Unlock)
+-- =============================================================================
+
+local systemWatcher = nil
+
+function M.reloadKanata()
+    local script = os.getenv("HOME") .. "/.config/kanata/reload-kanata.sh"
+    if not hs.fs.attributes(script) then
+        print("[NanoWM] Kanata reload script not found: " .. script)
+        return
+    end
+
+    print("[NanoWM] System event detected, reloading Kanata...")
+    hs.task.new("/bin/zsh", function(exitCode, stdOut, stdErr)
+        if exitCode == 0 then
+            print("[NanoWM] Kanata reloaded successfully")
+        else
+            print("[NanoWM] Kanata reload failed: " .. (stdErr or "unknown error"))
+        end
+    end, { "-c", "bash " .. script }):start()
+end
+
+function M.setupSystemWatcher()
+    if systemWatcher then systemWatcher:stop() end
+
+    systemWatcher = hs.caffeinate.watcher.new(function(event)
+        if event == hs.caffeinate.watcher.systemDidWake or
+           event == hs.caffeinate.watcher.screensDidUnlock or
+           event == hs.caffeinate.watcher.screensDidWake then
+            -- Small delay to ensure drivers are ready
+            hs.timer.doAfter(2, function()
+                M.reloadKanata()
+            end)
+        end
+    end)
+    systemWatcher:start()
+end
+
+-- =============================================================================
 -- Initialization
 -- =============================================================================
 
 function M.init()
+    -- Setup system watcher for wake/unlock events
+    M.setupSystemWatcher()
+
     -- Restore borders state
     if state.bordersEnabled then
         hs.timer.doAfter(2, function()
