@@ -437,21 +437,6 @@ in
         enableOnLaunch = true;
         ignoreSpaceChanged = false;
       };
-      "art.ginzburg.MiddleClick" = {
-        ignoredAppBundles = [ "org.mozilla.firefox" ];
-      };
-      "com.barut.OmniWM" = {
-        "settings.borderColorAlpha" = 1;
-        "settings.borderColorBlue" = "0.9710568785667419";
-        "settings.borderColorGreen" = 0;
-        "settings.borderColorRed" = "0.8149236440658569";
-        "settings.borderEffectType" = "none";
-        "settings.borderWidth" = 1;
-        "settings.bordersEnabled" = 0;
-        "settings.defaultLayoutType" = "niri";
-        "settings.dwindleSingleWindowAspectRatio" = "fill";
-        "settings.focusFollowsMouse" = 0;
-      };
       "com.raycast.macos" = {
         navigationCommandStyleIdentifierKey = "vim";
         "fileSearch_fileSearchScope" = "kMDQueryScopeHome";
