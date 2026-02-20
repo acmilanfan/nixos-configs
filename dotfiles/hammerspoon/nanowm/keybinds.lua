@@ -11,6 +11,7 @@ local actions = require("nanowm.actions")
 local tags = require("nanowm.tags")
 local menus = require("nanowm.menus")
 local integrations = require("nanowm.integrations")
+local agents = require("nanowm.agents")
 
 local M = {}
 
@@ -35,6 +36,12 @@ function M.setup()
     hs.hotkey.bind(alt, "p", function() menus.openMenu("commands") end)
     hs.hotkey.bind(alt, "i", function() menus.openMenu("windows") end)
     hs.hotkey.bind(alt, "/", menus.showKeybindMenu)
+
+    -- AI Agents: chooser (Alt+A) and SketchyBar popup toggle (Ctrl+Alt+A)
+    hs.hotkey.bind(alt,     "a", agents.showMenu)
+    hs.hotkey.bind(ctrlAlt, "a", function()
+        hs.task.new("/bin/zsh", nil, { "-c", "sketchybar --set ai_agents popup.drawing=toggle 2>/dev/null" }):start()
+    end)
 
     -- Forward Cmd+Shift+/ to app (Help menu)
     hs.hotkey.bind(altShift, "/", function()

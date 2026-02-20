@@ -30,6 +30,7 @@ local menus = require("nanowm.menus")
 local integrations = require("nanowm.integrations")
 local keybinds = require("nanowm.keybinds")
 local watchers = require("nanowm.watchers")
+local agents = require("nanowm.agents")
 
 -- =============================================================================
 -- Wire up module callbacks
@@ -95,6 +96,10 @@ M.updateBorder = tags.updateBorder
 M.openMenu = menus.openMenu
 M.triggerMenuPalette = menus.triggerMenuPalette
 M.showKeybindMenu = menus.showKeybindMenu
+
+-- AI agent functions
+M.showAgentMenu = agents.showMenu
+M.focusAgent    = agents.focusAgent
 
 -- Integration functions
 M.updateSketchybar = integrations.updateSketchybar

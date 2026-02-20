@@ -251,6 +251,51 @@ sketchybar --add item battery right \
                  click_script="$CONFIG_DIR/plugins/battery_click.sh" \
            --subscribe battery system_woke power_source_change
 
+# --- AI Coding Agents (Claude Code / Gemini CLI) ---
+sketchybar --add item ai_agents right \
+           --set ai_agents \
+                 icon="󰧑" \
+                 icon.color=$ACCENT_COLOR \
+                 background.color=$ITEM_BG_COLOR \
+                 background.drawing=on \
+                 drawing=off \
+                 update_freq=10 \
+                 script="$CONFIG_DIR/plugins/ai_agents.sh" \
+                 click_script="$CONFIG_DIR/plugins/ai_agents_click.sh" \
+                 popup.background.color=$ITEM_BG_COLOR \
+                 popup.background.corner_radius=12 \
+                 popup.background.border_width=1 \
+                 popup.background.border_color=$INACTIVE_COLOR \
+                 popup.background.shadow.drawing=on \
+                 popup.horizontal=false \
+           --subscribe ai_agents mouse.exited.global
+
+# Popup: static header
+sketchybar --add item ai_agents.popup.header popup.ai_agents \
+           --set ai_agents.popup.header \
+                 icon="󰧑" \
+                 icon.color=$ACCENT_COLOR \
+                 icon.padding_left=8 \
+                 label="AI Agents" \
+                 label.font="$LABEL_FONT_BOLD" \
+                 label.padding_right=12 \
+                 background.drawing=off
+
+# Popup: up to 8 agent slots (drawing=off until populated by ai_agents.sh)
+for i in 1 2 3 4 5 6 7 8; do
+  sketchybar --add item "ai_agents.popup.${i}" popup.ai_agents \
+             --set "ai_agents.popup.${i}" \
+                   drawing=off \
+                   icon="○" \
+                   icon.color=$INACTIVE_COLOR \
+                   icon.padding_left=8 \
+                   label="" \
+                   label.color=$WHITE \
+                   label.padding_right=12 \
+                   background.drawing=off \
+                   click_script="$CONFIG_DIR/plugins/ai_agents_focus.sh"
+done
+
 # --- Help / Keybind Menu Button (Left of Battery) ---
 sketchybar --add item help_menu right \
            --set help_menu \

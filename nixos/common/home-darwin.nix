@@ -214,6 +214,7 @@ in
     ".hammerspoon/nanowm/integrations.lua".source = ../../dotfiles/hammerspoon/nanowm/integrations.lua;
     ".hammerspoon/nanowm/keybinds.lua".source = ../../dotfiles/hammerspoon/nanowm/keybinds.lua;
     ".hammerspoon/nanowm/watchers.lua".source = ../../dotfiles/hammerspoon/nanowm/watchers.lua;
+    ".hammerspoon/nanowm/agents.lua".source   = ../../dotfiles/hammerspoon/nanowm/agents.lua;
 
     # Rofi-like menus
     # ".hammerspoon/rofi-menus/init.lua".source = ../../dotfiles/hammerspoon/rofi-menus/init.lua;
@@ -302,6 +303,18 @@ in
     ".config/sketchybar/plugins/network.sh" = {
       executable = true;
       source = ../../dotfiles/sketchybar/plugins/network.sh;
+    };
+    ".config/sketchybar/plugins/ai_agents.sh" = {
+      executable = true;
+      source = ../../dotfiles/sketchybar/plugins/ai_agents.sh;
+    };
+    ".config/sketchybar/plugins/ai_agents_click.sh" = {
+      executable = true;
+      source = ../../dotfiles/sketchybar/plugins/ai_agents_click.sh;
+    };
+    ".config/sketchybar/plugins/ai_agents_focus.sh" = {
+      executable = true;
+      source = ../../dotfiles/sketchybar/plugins/ai_agents_focus.sh;
     };
   };
 
