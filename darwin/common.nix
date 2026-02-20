@@ -23,13 +23,17 @@ let
       open -a "Karabiner-Elements"
       sleep 1
 
-      echo "Cleaning up Karabiner GUI components..."
+      echo "Cleaning up Karabiner GUI components and grabber..."
       # Use multiple methods to ensure it's gone from tray
       osascript -e 'quit app "Karabiner-Elements"' 2>/dev/null || true
       pkill -x "Karabiner-Menu" 2>/dev/null || true
       pkill -x "Karabiner-NotificationWindow" 2>/dev/null || true
       pkill -x "Karabiner-NotificationCenter" 2>/dev/null || true
       pkill -x "karabiner_console_user_server" 2>/dev/null || true
+      # Kill karabiner_grabber to prevent it from holding exclusive HID access
+      # (Kanata needs the raw HID device; only VirtualHIDDevice should remain)
+      sudo killall karabiner_grabber 2>/dev/null || true
+      pkill -x "karabiner_session_monitor" 2>/dev/null || true
     fi
 
     # 2. Start GUI Utilities
@@ -130,6 +134,7 @@ in
 
   security.sudo.extraConfig = ''
     %admin ALL=(ALL) NOPASSWD: /opt/homebrew/bin/kanata
+    %admin ALL=(ALL) NOPASSWD: /usr/bin/killall karabiner_grabber
   '';
 
   launchd.agents.kanata-vk-agent = {
