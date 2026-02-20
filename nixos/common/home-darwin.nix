@@ -2,6 +2,7 @@
   pkgs,
   lib,
   unstable,
+  inputs,
   ...
 }:
 
@@ -48,8 +49,8 @@ in
       blueutil
 
       jankyborders
-      unstable.claude-code
-      unstable.gemini-cli
+      inputs.llm-agents.packages.${pkgs.system}.claude-code
+      inputs.llm-agents.packages.${pkgs.system}.gemini-cli
 
       # Scripts need to be handled. They were in ./scripts/ relative to mac-work/home.nix.
       # We need to make sure they are accessible.

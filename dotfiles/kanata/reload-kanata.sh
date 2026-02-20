@@ -81,6 +81,11 @@ reload_instance() {
 
 print_status "Starting Kanata system-wide reload..."
 
+# Stop karabiner_grabber to release exclusive HID access before Kanata starts
+print_status "Stopping karabiner_grabber to release HID device..."
+sudo killall karabiner_grabber 2>/dev/null || true
+sleep 0.5
+
 # Reload Main Instance
 reload_instance "local.kanata" "local.kanata-vk-agent" "5829"
 
