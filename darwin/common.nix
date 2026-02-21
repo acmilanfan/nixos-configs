@@ -17,23 +17,32 @@ let
     echo "--- Darwin Startup Script ($(date)) ---"
 
     # 1. Karabiner-Elements Driver Loader
-    # We open it to ensure drivers are active, then clean up the GUI components
+    # We only open it if drivers aren't loaded, then clean up GUI components
     if [ -d "/Applications/Karabiner-Elements.app" ]; then
-      echo "Initializing Karabiner-Elements drivers..."
-      open -a "Karabiner-Elements"
-      sleep 1
+      # Check if virtual device is already present
+      if ! ioreg -rn "Karabiner VirtualHIDDevice" >/dev/null 2>&1; then
+        echo "Initializing Karabiner-Elements drivers..."
+        open -a "Karabiner-Elements"
+        sleep 2
+      fi
 
       echo "Cleaning up Karabiner GUI components and grabber..."
-      # Use multiple methods to ensure it's gone from tray
+      # Quit the main app first to prevent it from restarting the grabber
       osascript -e 'quit app "Karabiner-Elements"' 2>/dev/null || true
+      sleep 1
+
+      # Kill all Karabiner related processes
       pkill -x "Karabiner-Menu" 2>/dev/null || true
       pkill -x "Karabiner-NotificationWindow" 2>/dev/null || true
       pkill -x "Karabiner-NotificationCenter" 2>/dev/null || true
       pkill -x "karabiner_console_user_server" 2>/dev/null || true
-      # Kill karabiner_grabber to prevent it from holding exclusive HID access
-      # (Kanata needs the raw HID device; only VirtualHIDDevice should remain)
-      sudo killall karabiner_grabber 2>/dev/null || true
       pkill -x "karabiner_session_monitor" 2>/dev/null || true
+
+      # Repeatedly kill grabber for a few seconds to ensure it stays down
+      for i in {1..5}; do
+        sudo killall karabiner_grabber 2>/dev/null || true
+        sleep 0.2
+      done
     fi
 
     # 2. Start GUI Utilities
@@ -100,8 +109,8 @@ in
     startupScript
   ];
 
-  launchd.agents.kanata = {
-    command = "/usr/bin/sudo /opt/homebrew/bin/kanata --cfg /Users/${user}/.config/kanata/active_config.kbd --port 5829";
+  launchd.daemons.kanata = {
+    command = "/bin/bash -c 'sleep 3; exec /opt/homebrew/bin/kanata --cfg /Users/${user}/.config/kanata/active_config.kbd --port 5829'";
 
     serviceConfig = {
       Label = "local.kanata";
@@ -116,8 +125,8 @@ in
     };
   };
 
-  launchd.agents.kanata-charibdis = {
-    command = "/usr/bin/sudo /opt/homebrew/bin/kanata --cfg /Users/${user}/.config/kanata/kanata-charibdis-browser.kbd --port 5830";
+  launchd.daemons.kanata-charibdis = {
+    command = "/bin/bash -c 'sleep 3; exec /opt/homebrew/bin/kanata --cfg /Users/${user}/.config/kanata/kanata-charibdis-browser.kbd --port 5830'";
 
     serviceConfig = {
       Label = "local.kanata-charibdis";
@@ -135,6 +144,7 @@ in
   security.sudo.extraConfig = ''
     %admin ALL=(ALL) NOPASSWD: /opt/homebrew/bin/kanata
     %admin ALL=(ALL) NOPASSWD: /usr/bin/killall karabiner_grabber
+    %admin ALL=(ALL) NOPASSWD: /bin/launchctl
   '';
 
   launchd.agents.kanata-vk-agent = {
@@ -146,6 +156,7 @@ in
         SuccessfulExit = false;
       };
       RunAtLoad = true;
+      LimitLoadToSessionType = "Aqua";
       StandardOutPath = "/tmp/kanata_vk_agent_stdout.log";
       StandardErrorPath = "/tmp/kanata_vk_agent_stderr.log";
     };
@@ -160,6 +171,7 @@ in
         SuccessfulExit = false;
       };
       RunAtLoad = true;
+      LimitLoadToSessionType = "Aqua";
       StandardOutPath = "/tmp/kanata_vk_agent_charibdis_stdout.log";
       StandardErrorPath = "/tmp/kanata_vk_agent_charibdis_stderr.log";
     };
@@ -550,7 +562,7 @@ in
   # Keyboard settings
   system.keyboard = {
     enableKeyMapping = true;
-    remapCapsLockToEscape = true;
+    remapCapsLockToEscape = false;
     userKeyMapping = [
       # Left Control ↔ Left Command
       # {

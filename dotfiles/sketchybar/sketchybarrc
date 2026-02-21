@@ -60,6 +60,41 @@ sketchybar --bar \
 # LEFT SIDE - Workspaces, Timer & App
 # ═══════════════════════════════════════════════════════════════════════════
 
+# --- Kanata Configuration Switcher (Leftmost) ---
+sketchybar --add item kanata left \
+           --set kanata \
+                 icon="󰌌" \
+                 icon.color=$ACCENT_COLOR \
+                 background.color=$ITEM_BG_COLOR \
+                 background.drawing=on \
+                 label.drawing=off \
+                 update_freq=30 \
+                 script="$CONFIG_DIR/plugins/kanata.sh" \
+                 click_script="$CONFIG_DIR/plugins/kanata.sh" \
+                 popup.background.color=$ITEM_BG_COLOR \
+                 popup.background.corner_radius=12 \
+                 popup.background.border_width=1 \
+                 popup.background.border_color=$INACTIVE_COLOR \
+                 popup.background.shadow.drawing=on \
+           --subscribe kanata mouse.clicked
+
+# Popup items for Kanata
+sketchybar --add item kanata.default popup.kanata \
+           --set kanata.default \
+                 icon="󰌌" \
+                 label="Standard Mode" \
+                 click_script="SENDER=kanata_switch_default $CONFIG_DIR/plugins/kanata.sh" \
+           --add item kanata.homerow popup.kanata \
+           --set kanata.homerow \
+                 icon="󰓁" \
+                 label="Home Row Mods" \
+                 click_script="SENDER=kanata_switch_homerow $CONFIG_DIR/plugins/kanata.sh" \
+           --add item kanata.split popup.kanata \
+           --set kanata.split \
+                 icon="󰗵" \
+                 label="Split Layout" \
+                 click_script="SENDER=kanata_switch_split $CONFIG_DIR/plugins/kanata.sh"
+
 # --- Workspace Items (1-10 + Special) ---
 for i in 1 2 3 4 5 6 7 8 9 10 S; do
   sketchybar --add item space.$i left \

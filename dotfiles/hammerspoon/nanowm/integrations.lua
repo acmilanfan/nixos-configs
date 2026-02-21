@@ -275,7 +275,10 @@ function M.switchKanata(mode)
         if exitCode == 0 then
             state.kanataMode = mode
             state.triggerSave()
-            hs.alert.show("Kanata: " .. (mode == "homerow" and "Home Row Mods" or "Standard") .. " active", 2)
+            local modeName = "Standard"
+            if mode == "homerow" then modeName = "Home Row Mods"
+            elseif mode == "split" then modeName = "Split Layout" end
+            hs.alert.show("Kanata: " .. modeName .. " active", 2)
         else
             hs.alert.show("Failed to switch Kanata: " .. stdErr, 5)
             print("Kanata switch error: " .. stdErr)

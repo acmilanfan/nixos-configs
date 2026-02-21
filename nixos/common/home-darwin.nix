@@ -300,6 +300,10 @@ in
       executable = true;
       source = ../../dotfiles/sketchybar/plugins/power_click.sh;
     };
+    ".config/sketchybar/plugins/kanata.sh" = {
+      executable = true;
+      source = ../../dotfiles/sketchybar/plugins/kanata.sh;
+    };
     ".config/sketchybar/plugins/network.sh" = {
       executable = true;
       source = ../../dotfiles/sketchybar/plugins/network.sh;

@@ -1,9 +1,12 @@
 #!/bin/bash
 
 # Kanata Configuration Switcher
-# Usage: ./switch-kanata.sh [default|homerow]
+# Usage: ./switch-kanata.sh [default|homerow|split]
 
 set -e
+
+# Ensure standard paths are available
+export PATH="/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/opt/homebrew/bin:$PATH"
 
 CONFIG_DIR="$HOME/.config/kanata"
 ACTIVE_CONFIG="$CONFIG_DIR/active_config.kbd"
@@ -35,6 +38,7 @@ esac
 
 # Execute reload
 if [[ -f "$RELOAD_SCRIPT" ]]; then
+    echo "Executing reload script: $RELOAD_SCRIPT"
     bash "$RELOAD_SCRIPT"
 else
     echo "Reload script not found at $RELOAD_SCRIPT"
