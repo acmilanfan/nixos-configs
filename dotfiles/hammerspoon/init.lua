@@ -72,3 +72,48 @@ hs.hotkey.bind({ "cmd", "alt" }, "t", function()
         hs.alert.show("AClock not loaded")
     end
 end)
+
+-- =============================================================================
+-- Language Switcher (Universal: Ctrl+Shift+Space)
+-- =============================================================================
+
+local function cycleInputSource()
+    local current = hs.keycodes.currentSourceID()
+    local all_layouts = hs.keycodes.layouts(true) or {}
+    local all_methods = hs.keycodes.methods(true) or {}
+
+    local sources = {}
+    local seen = {}
+    local function add_source(s)
+        if s and not seen[s] and not s:find("CharacterPalette") and not s:find("InkInput") then
+            table.insert(sources, s)
+            seen[s] = true
+        end
+    end
+
+    for _, s in ipairs(all_layouts) do add_source(s) end
+    for _, s in ipairs(all_methods) do add_source(s) end
+
+    if #sources <= 1 then
+        hs.alert.show("Only one input source available", 0.5)
+        return
+    end
+
+    local nextIndex = 1
+    for i, source in ipairs(sources) do
+        if source == current then
+            nextIndex = (i % #sources) + 1
+            break
+        end
+    end
+
+    local nextSource = sources[nextIndex]
+    if nextSource then
+        hs.keycodes.currentSourceID(nextSource)
+        -- Show a cleaner name (e.g., "US" instead of "com.apple.keylayout.US")
+        local cleanName = nextSource:match("[^.]*$")
+        hs.alert.show("Input: " .. cleanName, 0.5)
+    end
+end
+
+hs.hotkey.bind({ "ctrl", "shift" }, "space", cycleInputSource)

@@ -396,7 +396,7 @@ in
         AppleSymbolicHotKeys = {
           # Disable '^ + Space' for selecting the previous input source
           "60" = {
-            enabled = true;
+            enabled = false;
           };
           # Disable '^ + Option + Space' for selecting the next input source
           "61" = {

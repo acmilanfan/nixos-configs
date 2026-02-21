@@ -17,7 +17,7 @@
   (c v)    (multi lmet v)    50 all-released ()
   (x c)    (multi lmet c)    50 all-released ()
   (z x)    (multi lmet x)    50 all-released ()
-  (y u)    (multi lctrl spc) 50 all-released ()
+  (y u)    @lang             50 all-released ()
 )
 
 (platform (macos)
@@ -139,8 +139,8 @@
     scr (multi lmet lsft 4)
     scrm (multi lmet lsft 5)
 
-    ;; Language switch (matches Sweep RS(RCTRL))
-    lang (multi rsft rctl)
+    ;; Language switch (matches Sweep RS(RCTRL) + Space for universality)
+    lang (multi rsft rctl spc)
 
     ;; Layer toggle keys
     n (tap-hold-release $tap-time $hold-time n (layer-while-held numbers))

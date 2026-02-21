@@ -157,7 +157,7 @@
     cut (multi lmet x)
     undo (multi lmet z)
 
-    ;; Language switch (matches Sweep RS(RCTRL))
-    lang (multi rsft rctl)
+    ;; Language switch (matches Sweep RS(RCTRL) + Space for universality)
+    lang (multi rsft rctl spc)
   )
 )
