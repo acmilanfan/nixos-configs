@@ -31,7 +31,7 @@ CLAUDE_PIDS=$(ps -eo pid,ucomm | awk '$2 == ".claude-wrapped" {print $1}')
 # Gemini CLI: runs as "node /path/to/bin/gemini".
 # Gemini spawns a child node process with the same args, so keep only
 # session roots — PIDs whose parent is not also a gemini process.
-_ALL_GEMINI=$(ps -eo pid,ppid,ucomm,args | awk '$3 ~ /^node/ && $NF ~ /\/bin\/gemini$/ {print $1, $2}')
+_ALL_GEMINI=$(ps -eo pid,ppid,ucomm,args | awk '$3 ~ /^node/ && $0 ~ /\/bin\/gemini/ {print $1, $2}')
 GEMINI_PIDS=$(echo "$_ALL_GEMINI" | awk '
   { pid[NR]=$1; ppid[NR]=$2 }
   END {
@@ -50,7 +50,7 @@ GEMINI_COUNT=$(echo "$GEMINI_PIDS" | grep -c '^[0-9]' 2>/dev/null || echo 0)
 TOTAL=$((CLAUDE_COUNT + GEMINI_COUNT))
 
 if [ "$TOTAL" -eq 0 ]; then
-  sketchybar --set "$NAME" drawing=off popup.drawing=off
+  sketchybar --set "$NAME" drawing=off background.drawing=off popup.drawing=off
   exit 0
 fi
 
@@ -229,7 +229,12 @@ case "$AGGREGATE" in
   idle)    ICON_COLOR="0xff565f89" ;;   # gray   — nothing needs attention
 esac
 
-sketchybar --set "$NAME" \
-  drawing=on \
-  label="$LABEL" \
-  icon.color="$ICON_COLOR"
+if [ "$AGGREGATE" = "idle" ]; then
+  sketchybar --set "$NAME" drawing=off background.drawing=off popup.drawing=off
+else
+  sketchybar --set "$NAME" \
+    drawing=on \
+    background.drawing=on \
+    label="$LABEL" \
+    icon.color="$ICON_COLOR"
+fi
