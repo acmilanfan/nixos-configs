@@ -333,10 +333,11 @@ function M.setupSystemWatcher()
         if event == hs.caffeinate.watcher.systemDidWake or
            event == hs.caffeinate.watcher.screensDidUnlock or
            event == hs.caffeinate.watcher.screensDidWake then
-            -- Small delay to ensure drivers are ready
-            hs.timer.doAfter(2, function()
-                M.reloadKanata()
-            end)
+            -- With LaunchDaemons, Kanata should handle wake naturally.
+            -- Automatic reload is disabled to prevent sudo prompts.
+            -- hs.timer.doAfter(2, function()
+            --     M.reloadKanata()
+            -- end)
         end
     end)
     systemWatcher:start()

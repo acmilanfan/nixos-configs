@@ -143,8 +143,9 @@ in
 
   security.sudo.extraConfig = ''
     %admin ALL=(ALL) NOPASSWD: /opt/homebrew/bin/kanata
-    %admin ALL=(ALL) NOPASSWD: /usr/bin/killall karabiner_grabber
+    %admin ALL=(ALL) NOPASSWD: /usr/bin/killall
     %admin ALL=(ALL) NOPASSWD: /bin/launchctl
+    %admin ALL=(ALL) NOPASSWD: /usr/bin/pkill
   '';
 
   launchd.agents.kanata-vk-agent = {
@@ -346,6 +347,31 @@ in
     USER_ID=$(id -u ${user})
     sudo -u ${user} launchctl kickstart -k "gui/$USER_ID/local.darwin-startup" || sudo -u ${user} "${startupScript}/bin/darwin-startup"
 
+    # Safely set cursor settings via defaults write as the user
+    echo "Setting cursor size and colors..."
+    sudo -u ${user} bash -c '
+      killall universalaccessd || true
+
+      defaults write com.apple.universalaccess mouseDriverCursorSize -float 1.5
+      defaults write com.apple.universalaccess cursorIsCustomized -bool true
+
+      # Set cursor fill (Black)
+      defaults write com.apple.universalaccess cursorFill -dict \
+        red -float 0 \
+        green -float 0 \
+        blue -float 0 \
+        alpha -float 1
+
+      # Set cursor outline (Purple)
+      defaults write com.apple.universalaccess cursorOutline -dict \
+        red -float 1 \
+        green -float 0.7983930706977844 \
+        blue -float 0.9761069416999817 \
+        alpha -float 1
+
+      killall universalaccessd || true
+    '
+
     # Following line should allow us to avoid a logout/login cycle when changing settings
     sudo -u ${user} /System/Library/PrivateFrameworks/SystemAdministration.framework/Resources/activateSettings -u
   '';
@@ -369,6 +395,9 @@ in
   # System preferences
   system.defaults = {
     # Custom system preferences using defaults
+    universalaccess = {
+      reduceTransparency = true;
+    };
     CustomUserPreferences = {
       "com.apple.HIToolbox" = {
         AppleCurrentKeyboardLayoutInputSourceID = "com.apple.keylayout.US";

@@ -46,8 +46,16 @@ popup() {
 switch_mode() {
     local mode="$1"
     if [ -f "$SWITCH_SCRIPT" ]; then
+        # Feedback: Loading state
+        sketchybar --set kanata icon="󱑊" icon.color=0xffe0af68 popup.drawing=off
+
+        # Run switch in background so bar doesn't hang, but wait for it
         bash "$SWITCH_SCRIPT" "$mode" > /tmp/sketchybar_kanata_switch.log 2>&1
-        sketchybar --set "$NAME" popup.drawing=off
+
+        # Feedback: Brief success state
+        sketchybar --set kanata icon="󰄬" icon.color=0xff9ece6a
+        sleep 1
+
         update
     fi
 }
