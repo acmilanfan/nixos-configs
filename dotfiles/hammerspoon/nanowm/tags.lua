@@ -262,6 +262,11 @@ function M.moveWindowToTag(destTag)
     local id = win:id()
     local currentTag = state.tags[id]
 
+    -- Record move for undo (if not already there)
+    if currentTag ~= destTag then
+        state.lastMove = { winId = id, fromTag = currentTag, toTag = destTag }
+    end
+
     if currentTag and state.stacks[currentTag] then
         for i, vid in ipairs(state.stacks[currentTag]) do
             if vid == id then
@@ -284,6 +289,56 @@ function M.moveWindowToTag(destTag)
 
     state.triggerSave()
     layout.tile()
+end
+
+function M.undoLastMove()
+    if not state.lastMove then
+        hs.alert.show("Nothing to undo")
+        return
+    end
+
+    local id = state.lastMove.winId
+    local fromTag = state.lastMove.fromTag
+    local toTag = state.lastMove.toTag
+
+    local win = hs.window.get(id)
+    if not win then
+        hs.alert.show("Window not found")
+        state.lastMove = nil
+        return
+    end
+
+    -- Reverse the move
+    if state.tags[id] == toTag then
+        -- Temporarily clear lastMove to avoid recursion or double recording if we use moveWindowToTag
+        local lastMove = state.lastMove
+        state.lastMove = nil
+
+        -- Move it back
+        if state.stacks[toTag] then
+            for i, vid in ipairs(state.stacks[toTag]) do
+                if vid == id then
+                    table.remove(state.stacks[toTag], i)
+                    break
+                end
+            end
+        end
+
+        state.tags[id] = fromTag
+        if not state.stacks[fromTag] then
+            state.stacks[fromTag] = {}
+        end
+        table.insert(state.stacks[fromTag], 1, id)
+
+        core.resetMasterWidthIfNeeded(toTag)
+        state.triggerSave()
+        layout.tile()
+
+        hs.alert.show("Undo: Moved back to Tag " .. tostring(fromTag))
+    else
+        hs.alert.show("Window state changed, cannot undo")
+        state.lastMove = nil
+    end
 end
 
 -- =============================================================================

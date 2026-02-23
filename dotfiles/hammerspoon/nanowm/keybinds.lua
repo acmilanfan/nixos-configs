@@ -85,6 +85,7 @@ function M.setup()
         hs.alert.show("Moved to Special")
     end)
     hs.hotkey.bind(alt, "u", tags.gotoUrgent)
+    hs.hotkey.bind(altShift, "u", tags.undoLastMove)
 
     -- Tag memory
     hs.hotkey.bind(altShift, "m", tags.saveCurrentWindowTag)

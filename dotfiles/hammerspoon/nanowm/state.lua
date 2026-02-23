@@ -56,6 +56,7 @@ M.timerDuration = nil
 M.urgentTags = {}
 M.lastManualTagSwitch = 0
 M.lastTileTime = 0
+M.lastMove = nil -- { winId, fromTag, toTag }
 
 -- UI state
 M.actionsCache = {}
