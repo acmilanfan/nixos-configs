@@ -350,8 +350,6 @@ in
     # Safely set cursor settings via defaults write as the user
     echo "Setting cursor size and colors..."
     sudo -u ${user} bash -c '
-      killall universalaccessd || true
-
       defaults write com.apple.universalaccess mouseDriverCursorSize -float 1.5
       defaults write com.apple.universalaccess cursorIsCustomized -bool true
 
@@ -368,12 +366,11 @@ in
         green -float 0.7983930706977844 \
         blue -float 0.9761069416999817 \
         alpha -float 1
-
-      killall universalaccessd || true
     '
 
     # Following line should allow us to avoid a logout/login cycle when changing settings
     sudo -u ${user} /System/Library/PrivateFrameworks/SystemAdministration.framework/Resources/activateSettings -u
+    sudo -u ${user} killall universalaccessd
   '';
 
   # Create /etc/zshrc that loads the nix-darwin environment.
