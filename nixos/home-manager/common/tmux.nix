@@ -7,6 +7,21 @@ let
         ln -sf "$SOCK" "$HOME/.ssh/ssh_auth_sock"
     fi
   '';
+
+  tmux-agent-indicator = pkgs.tmuxPlugins.mkTmuxPlugin {
+    pluginName = "agent-indicator";
+    version = "unstable-2026-02-23";
+    src = pkgs.fetchFromGitHub {
+      owner = "accessd";
+      repo = "tmux-agent-indicator";
+      rev = "main";
+      sha256 = "1n5jbpnclfijizg01vyy4wh972fyrddp4fibd0i2jfb0q5488ihn";
+    };
+    postInstall = ''
+      cd $out/share/tmux-plugins/agent-indicator
+      ln -s agent-indicator.tmux agent_indicator.tmux
+    '';
+  };
 in
 {
 
@@ -35,10 +50,16 @@ in
       better-mouse-mode
       prefix-highlight
       urlview
+      { plugin = tmux-agent-indicator; }
       # { plugin = inputs.minimal-tmux.packages.${pkgs.system}.default; }
     ];
   };
 
-  home.packages = [ tmuxUpdateEnv ];
+  home.packages = [
+    tmuxUpdateEnv
+    (pkgs.writeShellScriptBin "agent-state" ''
+      exec "${tmux-agent-indicator}/share/tmux-plugins/agent-indicator/scripts/agent-state.sh" "$@"
+    '')
+  ];
 
 }

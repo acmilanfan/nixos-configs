@@ -287,6 +287,7 @@ sketchybar --add item battery right \
            --subscribe battery system_woke power_source_change
 
 # --- AI Coding Agents (Claude Code / Gemini CLI) ---
+sketchybar --add event ai_agent_update
 sketchybar --add item ai_agents right \
            --set ai_agents \
                  icon="󰧑" \
@@ -303,7 +304,7 @@ sketchybar --add item ai_agents right \
                  popup.background.border_color=$INACTIVE_COLOR \
                  popup.background.shadow.drawing=on \
                  popup.horizontal=false \
-           --subscribe ai_agents mouse.exited.global
+           --subscribe ai_agents mouse.exited.global ai_agent_update
 
 # Popup: static header
 sketchybar --add item ai_agents.popup.header popup.ai_agents \

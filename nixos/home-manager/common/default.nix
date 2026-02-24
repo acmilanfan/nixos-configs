@@ -18,6 +18,7 @@
     ./rss.nix
     ./tmux.nix
     ./lazygit.nix
+    ./ai-agents.nix
   ]
   ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
     ./awesome.nix
