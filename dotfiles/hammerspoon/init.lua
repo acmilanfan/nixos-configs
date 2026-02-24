@@ -42,6 +42,23 @@ hs.window.animationDuration = 0
 hs.ipc.cliInstall()
 
 -- =============================================================================
+-- SketchyBar Event Timers
+-- =============================================================================
+
+-- Precision clock trigger at the start of every minute
+local function triggerClockTick()
+    hs.execute("sketchybar --trigger clock_tick", true)
+end
+
+-- Calculate seconds until the next minute starts
+local secondsUntilNextMinute = 60 - os.date("*t").sec
+hs.timer.doAfter(secondsUntilNextMinute, function()
+    triggerClockTick()
+    -- Start a repeating timer every 60 seconds from now
+    hs.timer.doEvery(60, triggerClockTick)
+end)
+
+-- =============================================================================
 -- NanoWM - Tiling Window Manager
 -- =============================================================================
 

@@ -36,11 +36,12 @@ update() {
             ;;
     esac
 
-    sketchybar --set "$NAME" icon="$icon" icon.color="$color"
+    # Always update the main 'kanata' item, regardless of which popup item triggered the script
+    sketchybar --set kanata icon="$icon" icon.color="$color"
 }
 
 popup() {
-    sketchybar --set "$NAME" popup.drawing=toggle
+    sketchybar --set kanata popup.drawing=toggle
 }
 
 switch_mode() {
@@ -49,19 +50,16 @@ switch_mode() {
         # Feedback: Loading state
         sketchybar --set kanata icon="󱑊" icon.color=0xffe0af68 popup.drawing=off
 
-        # Run switch in background so bar doesn't hang, but wait for it
+        # Run switch (this script will trigger 'kanata_changed' event)
         bash "$SWITCH_SCRIPT" "$mode" > /tmp/sketchybar_kanata_switch.log 2>&1
 
-        # Feedback: Brief success state
-        sketchybar --set kanata icon="󰄬" icon.color=0xff9ece6a
-        sleep 1
-
-        update
+        # No need to call update or sleep here;
+        # the 'kanata_changed' event triggered by switch-kanata.sh will handle it.
     fi
 }
 
 case "$SENDER" in
-    "routine" | "forced")
+    "routine" | "forced" | "kanata_changed")
         update
         ;;
     "mouse.clicked")

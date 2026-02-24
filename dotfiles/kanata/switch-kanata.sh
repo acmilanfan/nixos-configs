@@ -40,6 +40,11 @@ esac
 if [[ -f "$RELOAD_SCRIPT" ]]; then
     echo "Executing reload script: $RELOAD_SCRIPT"
     bash "$RELOAD_SCRIPT"
+
+    # Notify SketchyBar of the change
+    if command -v sketchybar >/dev/null 2>&1; then
+        sketchybar --trigger kanata_changed
+    fi
 else
     echo "Reload script not found at $RELOAD_SCRIPT"
     exit 1

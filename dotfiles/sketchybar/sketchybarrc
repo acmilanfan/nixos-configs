@@ -27,6 +27,8 @@ LABEL_FONT_BOLD="$FONT_FACE:Bold:11.0"
 # --- Setup Custom Events ---
 sketchybar --add event nanowm_update
 sketchybar --add event nanowm_caffeinate
+sketchybar --add event kanata_changed
+sketchybar --add event clock_tick
 
 # --- Global Defaults ---
 sketchybar --default \
@@ -68,7 +70,6 @@ sketchybar --add item kanata left \
                  background.color=$ITEM_BG_COLOR \
                  background.drawing=on \
                  label.drawing=off \
-                 update_freq=30 \
                  script="$CONFIG_DIR/plugins/kanata.sh" \
                  click_script="$CONFIG_DIR/plugins/kanata.sh" \
                  popup.background.color=$ITEM_BG_COLOR \
@@ -76,7 +77,7 @@ sketchybar --add item kanata left \
                  popup.background.border_width=1 \
                  popup.background.border_color=$INACTIVE_COLOR \
                  popup.background.shadow.drawing=on \
-           --subscribe kanata mouse.clicked
+           --subscribe kanata mouse.clicked kanata_changed
 
 # Popup items for Kanata
 sketchybar --add item kanata.default popup.kanata \
@@ -201,8 +202,8 @@ sketchybar --add item datetime right \
                  icon.color=$ACCENT_COLOR \
                  background.color=$ITEM_BG_COLOR \
                  background.drawing=on \
-                 update_freq=20 \
-                 script="$CONFIG_DIR/plugins/datetime.sh"
+                 script="$CONFIG_DIR/plugins/datetime.sh" \
+           --subscribe datetime clock_tick
 
 # --- Separator ---
 sketchybar --add item sep_right0 right \
@@ -224,8 +225,7 @@ sketchybar --add item network right \
                  background.drawing=on \
                  label.drawing=off \
                  script="$CONFIG_DIR/plugins/network.sh" \
-                 update_freq=60 \
-           --subscribe network wifi_change
+           --subscribe network wifi_change network_change
 
 # --- CPU Graph ---
 sketchybar --add graph cpu_graph right 50 \
@@ -295,7 +295,6 @@ sketchybar --add item ai_agents right \
                  background.color=$ITEM_BG_COLOR \
                  background.drawing=on \
                  drawing=off \
-                 update_freq=10 \
                  script="$CONFIG_DIR/plugins/ai_agents.sh" \
                  click_script="$CONFIG_DIR/plugins/ai_agents_click.sh" \
                  popup.background.color=$ITEM_BG_COLOR \
