@@ -12,4 +12,7 @@
 
   home.username = "gentooway";
   home.homeDirectory = lib.mkForce "/Users/gentooway";
+
+  home.file.".config/kanata/kanata-homerow.kbd".source = lib.mkForce ../../dotfiles/kanata/kanata-iso.kbd;
+  home.file.".config/kanata/kanata-default.kbd".source = lib.mkForce ../../dotfiles/kanata/kanata-default-iso.kbd;
 }
