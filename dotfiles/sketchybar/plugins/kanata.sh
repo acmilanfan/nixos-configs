@@ -34,6 +34,11 @@ update() {
             icon="󰗵"
             color=0xffe0af68 # Yellow
             ;;
+        *kanata-angle.kbd)
+            label="Angle"
+            icon="󰓁"
+            color=0xff7dcfff # Cyan
+            ;;
     esac
 
     # Always update the main 'kanata' item, regardless of which popup item triggered the script
@@ -75,5 +80,8 @@ case "$SENDER" in
         ;;
     "kanata_switch_split")
         switch_mode "split"
+        ;;
+    "kanata_switch_angle")
+        switch_mode "angle"
         ;;
 esac

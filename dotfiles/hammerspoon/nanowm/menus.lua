@@ -91,6 +91,12 @@ function M.openMenu(mode)
                     integrations.switchKanata("split")
                 end,
             },
+            {
+                t = "Kanata: Angle Mod Mode",
+                fn = function()
+                    integrations.switchKanata("angle")
+                end,
+            },
         }
 
         for _, cmd in ipairs(commands) do
@@ -172,6 +178,11 @@ function M.openKanataMenu()
             text = "Standard Mode",
             subText = (state.kanataMode == "default") and "ACTIVE" or "Switch to standard keyboard behavior",
             uuid = "default",
+        },
+        {
+            text = "Angle Mod Layout",
+            subText = (state.kanataMode == "angle") and "ACTIVE" or "Shift bottom row keys to the left",
+            uuid = "angle",
         },
     }
 

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Kanata Configuration Switcher
-# Usage: ./switch-kanata.sh [default|homerow|split]
+# Usage: ./switch-kanata.sh [default|homerow|split|angle]
 
 set -e
 
@@ -13,6 +13,7 @@ ACTIVE_CONFIG="$CONFIG_DIR/active_config.kbd"
 DEFAULT_SOURCE="$CONFIG_DIR/kanata-default.kbd"
 HOMEROW_SOURCE="$CONFIG_DIR/kanata-homerow.kbd"
 SPLIT_SOURCE="$CONFIG_DIR/kanata-split.kbd"
+ANGLE_SOURCE="$CONFIG_DIR/kanata-angle.kbd"
 RELOAD_SCRIPT="$CONFIG_DIR/reload-kanata.sh"
 
 MODE=$1
@@ -30,8 +31,12 @@ case $MODE in
         echo "Switching to Split layout configuration..."
         ln -sf "$SPLIT_SOURCE" "$ACTIVE_CONFIG"
         ;;
+    angle)
+        echo "Switching to Angle Mod configuration..."
+        ln -sf "$ANGLE_SOURCE" "$ACTIVE_CONFIG"
+        ;;
     *)
-        echo "Usage: $0 [default|homerow|split]"
+        echo "Usage: $0 [default|homerow|split|angle]"
         exit 1
         ;;
 esac

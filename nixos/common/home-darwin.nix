@@ -127,6 +127,7 @@ in
     ".config/kanata/kanata-homerow.kbd".source = ../../dotfiles/kanata/kanata.kbd;
     ".config/kanata/kanata-default.kbd".source = ../../dotfiles/kanata/kanata-default.kbd;
     ".config/kanata/kanata-split.kbd".source = ../../dotfiles/kanata/kanata-split.kbd;
+    ".config/kanata/kanata-angle.kbd".source = ../../dotfiles/kanata/kanata-angle.kbd;
     ".config/kanata/kanata-charibdis-browser.kbd".source =
       ../../dotfiles/kanata/kanata-charibdis-browser.kbd;
     # ".config/kanata/active_config.kbd".source = ../../dotfiles/kanata/kanata-default.kbd;
