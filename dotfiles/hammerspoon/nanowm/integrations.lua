@@ -93,20 +93,24 @@ function M.toggleSketchybar()
         if exitCode ~= 0 then
             os.execute("/bin/zsh -l -c 'sketchybar &' &")
             state.sketchybarEnabled = true
+            state.triggerSave()
             hs.alert.show("Sketchybar: ON (started)")
             hs.timer.doAfter(1, function()
                 M.updateSketchybar()
             end)
             require("nanowm.layout").tile()
         else
+            state.sketchybarEnabled = not state.sketchybarEnabled
+            state.triggerSave()
+            local hiddenVal = state.sketchybarEnabled and "false" or "true"
+
             hs.task.new("/bin/zsh", function()
-                state.sketchybarEnabled = not state.sketchybarEnabled
                 hs.alert.show("Sketchybar: " .. (state.sketchybarEnabled and "ON" or "OFF"))
                 if state.sketchybarEnabled then
                     M.updateSketchybar()
                 end
                 require("nanowm.layout").tile()
-            end, { "-c", "sketchybar --bar hidden=toggle" }):start()
+            end, { "-c", "sketchybar --bar hidden=" .. hiddenVal }):start()
         end
     end, { "-c", "pgrep -x sketchybar" }):start()
 end
@@ -362,24 +366,28 @@ function M.init()
         end)
     end
 
-    -- Restart sketchybar
+    -- Restart sketchybar if needed, or kill it if it should be hidden
     hs.task.new("/bin/zsh", function(exitCode, stdOut, stdErr)
         if exitCode == 0 then
-            os.execute("pkill -x sketchybar")
-            hs.timer.doAfter(0.5, function()
-                os.execute("/bin/zsh -l -c 'sketchybar &' &")
-                hs.timer.doAfter(2, function()
-                    if not state.sketchybarEnabled then
-                        os.execute("sketchybar --bar hidden=true")
-                    else
+            -- It's running. Check if it's supposed to be.
+            if state.sketchybarEnabled then
+                -- Refresh it to ensure everything is correct
+                os.execute("pkill -x sketchybar")
+                hs.timer.doAfter(0.5, function()
+                    os.execute("/bin/zsh -l -c 'sketchybar &' &")
+                    hs.timer.doAfter(2, function()
                         M.updateSketchybar()
                         hs.timer.doAfter(0.5, function()
                             M.updateSketchybar()
                         end)
-                    end
+                    end)
                 end)
-            end)
+            else
+                -- We want it hidden/off. Just kill it.
+                os.execute("pkill -x sketchybar")
+            end
         else
+            -- It's NOT running. Check if it's supposed to be.
             if state.sketchybarEnabled then
                 os.execute("/bin/zsh -l -c 'sketchybar &' &")
                 hs.timer.doAfter(2, function()

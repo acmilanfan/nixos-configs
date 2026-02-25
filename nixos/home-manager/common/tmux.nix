@@ -15,7 +15,7 @@ let
       owner = "accessd";
       repo = "tmux-agent-indicator";
       rev = "main";
-      hash = "sha256-SZcSwspsoAXPtHoovP0Xc057CuIfeaKPZjXoj2HUQYY=";
+      hash = "sha256-XHV4PEWnzwUkDTgDsSJJu5rrcz/4O6YFCJH4ekl4dCQ=";
     };
     postInstall = ''
       cd $out/share/tmux-plugins/agent-indicator
