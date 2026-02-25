@@ -263,7 +263,7 @@ end
 -- =============================================================================
 
 function M.switchKanata(mode)
-    if mode ~= "default" and mode ~= "homerow" and mode ~= "split" then
+    if mode ~= "default" and mode ~= "homerow" and mode ~= "split" and mode ~= "angle" then
         hs.alert.show("Invalid Kanata mode: " .. tostring(mode))
         return
     end
@@ -277,7 +277,8 @@ function M.switchKanata(mode)
             state.triggerSave()
             local modeName = "Standard"
             if mode == "homerow" then modeName = "Home Row Mods"
-            elseif mode == "split" then modeName = "Split Layout" end
+            elseif mode == "split" then modeName = "Split Layout"
+            elseif mode == "angle" then modeName = "Angle Mod" end
             hs.alert.show("Kanata: " .. modeName .. " active", 2)
         else
             hs.alert.show("Failed to switch Kanata: " .. stdErr, 5)
@@ -333,11 +334,14 @@ function M.setupSystemWatcher()
         if event == hs.caffeinate.watcher.systemDidWake or
            event == hs.caffeinate.watcher.screensDidUnlock or
            event == hs.caffeinate.watcher.screensDidWake then
-            -- With LaunchDaemons, Kanata should handle wake naturally.
-            -- Automatic reload is disabled to prevent sudo prompts.
-            -- hs.timer.doAfter(2, function()
-            --     M.reloadKanata()
-            -- end)
+            -- Force clock update immediately on wake
+            hs.task.new("/bin/zsh", nil, { "-c", "sketchybar --trigger clock_tick" }):start()
+
+            -- With LaunchDaemons, Kanata should handle wake naturally, but often loses HID access.
+            -- Force reload to ensure keyboard is functional.
+            hs.timer.doAfter(2, function()
+                M.reloadKanata()
+            end)
         end
     end)
     systemWatcher:start()

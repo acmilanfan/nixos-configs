@@ -45,17 +45,28 @@ hs.ipc.cliInstall()
 -- SketchyBar Event Timers
 -- =============================================================================
 
+-- Store timers in a global table to prevent garbage collection
+_G.sketchybarTimers = _G.sketchybarTimers or {}
+
 -- Precision clock trigger at the start of every minute
 local function triggerClockTick()
-    hs.execute("sketchybar --trigger clock_tick", true)
+    -- Use hs.task for non-blocking execution and better reliability
+    hs.task.new("/bin/zsh", nil, { "-c", "sketchybar --trigger clock_tick" }):start()
 end
 
--- Calculate seconds until the next minute starts
+-- Initial trigger on config load
+triggerClockTick()
+
+-- Sync with the start of the next minute
 local secondsUntilNextMinute = 60 - os.date("*t").sec
-hs.timer.doAfter(secondsUntilNextMinute, function()
+if secondsUntilNextMinute <= 0 then secondsUntilNextMinute = 60 end
+
+if _G.sketchybarTimers.initial then _G.sketchybarTimers.initial:stop() end
+_G.sketchybarTimers.initial = hs.timer.doAfter(secondsUntilNextMinute, function()
     triggerClockTick()
     -- Start a repeating timer every 60 seconds from now
-    hs.timer.doEvery(60, triggerClockTick)
+    if _G.sketchybarTimers.repeating then _G.sketchybarTimers.repeating:stop() end
+    _G.sketchybarTimers.repeating = hs.timer.doEvery(60, triggerClockTick)
 end)
 
 -- =============================================================================

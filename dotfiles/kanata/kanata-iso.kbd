@@ -81,7 +81,7 @@
     _     _     _     _     _     _     _     _     _     _     _     _     _     _
     _     _     _     _     _     _     @redo @paste @copy @cut  @undo  _     _
     _     lmet  lalt  lsft  lctl  _     left  down  up    rght  bspc  _     _     _
-    _     _     _     _     _     _     _     ins   pgdn  pgup  home  end   _     _
+    _     _     _     _     _     _     ins   pgdn  pgup  home  end   _     _
     _     _     _     _                 ret               _     _     _     _     _     _
   )
 )
@@ -113,6 +113,7 @@
           () rctl break))
     k (tap-hold-release $tap-time $hold-time k rsft)
     l (tap-hold-release $tap-time $hold-time l ralt)
+    ; (tap-hold-release $tap-time $hold-time ; rmet)
 
     fn (tap-hold 250 250 fn (layer-toggle fn))
 
@@ -147,7 +148,7 @@
     _     _     _     _     _     _     _     _     _     _     _     _     _     _
     _     _     _     _     _     _     _     brdn  brup  _     _     _     _
     _     lmet  lalt  lsft  lctl  _     prev  vold  volu  next  mute  _     _     _
-    _     _     _     _     _     _     _     _     _     _     _     _     _     _
+    _     _     _     _     _     _     _     _     _     _     _     _     _
     _     _     _     _                 pp                _     _     _     _     _     _
   )
 )
