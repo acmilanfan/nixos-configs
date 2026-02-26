@@ -76,10 +76,18 @@ local function contentIsConfirm(content)
         return true
     end
 
-    -- Gemini menu list (e.g., "3. Modify with external editor")
-    if content:match("%d%. ") then
-        return true
+    -- Gemini numbered menu (require 2+ sequential numbered items in last 5 lines)
+    local lineCount, numberedCount = 0, 0
+    for _ in content:gmatch("[^\n]+") do lineCount = lineCount + 1 end
+    local skip = lineCount > 5 and lineCount - 5 or 0
+    local idx = 0
+    for line in content:gmatch("[^\n]+") do
+        idx = idx + 1
+        if idx > skip and line:match("^%s*%d+%. ") then
+            numberedCount = numberedCount + 1
+        end
     end
+    if numberedCount >= 2 then return true end
 
     -- TUI menu cursor (❯ or ›) followed by yes/no/deny
     local CURSOR  = "\xe2\x9d\xaf"
@@ -94,7 +102,7 @@ local function contentIsConfirm(content)
         end
     end
 
-    return content:find("%%[y/n%%]") ~= nil or content:find("%%[Y/n%%]") ~= nil
+    return content:find("[y/n]", 1, true) ~= nil or content:find("[Y/n]", 1, true) ~= nil
 end
 
 -- =============================================================================
@@ -154,7 +162,7 @@ function M.getAgents()
     end
 
     -- 2. Fallback: process detection (Gemini etc.)
-    local AGENT_PROCESSES = { "claude", ".claude-wrapped", "gemini", "node", "aider", "cursor" }
+    local AGENT_PROCESSES = { "claude", ".claude-wrapped", "gemini", "aider", "cursor" }
     for id, info in pairs(panes) do
         if not processedIds[id] then
             local ttyShort = info.tty:match("([^/]+)$")
@@ -163,11 +171,7 @@ function M.getAgents()
             local foundAgent = nil
             for _, proc in ipairs(AGENT_PROCESSES) do
                 if psFull:find(proc) then
-                    if proc == "node" then
-                        if psFull:find("gemini") then foundAgent = "Gemini"; break end
-                    else
-                        foundAgent = proc; break
-                    end
+                    foundAgent = proc; break
                 end
             end
 
@@ -249,6 +253,32 @@ function M.focusAgent(paneId)
 end
 
 -- =============================================================================
+-- Event-driven state change handler (called via hs IPC from tmux)
+-- =============================================================================
+
+-- Debounce: avoid repeated alerts within a short window
+local lastAlertTime = 0
+
+function M.onAgentStateChange()
+    local now = hs.timer.secondsSinceEpoch()
+    -- Debounce: skip if called within the last 3 seconds
+    if now - lastAlertTime < 3 then return end
+
+    local agents = M.getAgents()
+    local needsInput = {}
+    for _, ag in ipairs(agents) do
+        if ag.status == "needs-input" then
+            table.insert(needsInput, ag.type .. ": " .. ag.project)
+        end
+    end
+
+    if #needsInput > 0 then
+        lastAlertTime = now
+        hs.alert.show("Agent needs input: " .. table.concat(needsInput, ", "), 3)
+    end
+end
+
+-- =============================================================================
 -- NanoWM chooser menu
 -- =============================================================================
 
@@ -256,6 +286,14 @@ local STATUS_ICON  = { working = "● ", confirm = "⚠ ", recent = "◉ ", idle
 local STATUS_LABEL = { working = "working", confirm = "needs input", recent = "waiting", idle = "idle" }
 
 local chooser = nil
+
+-- Map agent-indicator states to display states
+local STATUS_MAP = {
+    ["needs-input"] = "confirm",
+    running = "working",
+    done = "recent",
+    idle = "idle",
+}
 
 function M.showMenu()
     local agents = M.getAgents()
@@ -266,7 +304,7 @@ function M.showMenu()
 
     local choices, actions = {}, {}
     for i, ag in ipairs(agents) do
-        local s = M.getStatus(ag.paneId)
+        local s = STATUS_MAP[ag.status] or "working"
         table.insert(choices, {
             text    = STATUS_ICON[s]  .. ag.type .. ": " .. ag.project,
             subText = STATUS_LABEL[s] .. "  •  " .. (ag.cwd ~= "" and ag.cwd or "?"),

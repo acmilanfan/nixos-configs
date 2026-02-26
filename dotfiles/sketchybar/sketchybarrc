@@ -300,6 +300,7 @@ sketchybar --add item ai_agents right \
                  background.color=$ITEM_BG_COLOR \
                  background.drawing=on \
                  drawing=off \
+                 update_freq=10 \
                  script="$CONFIG_DIR/plugins/ai_agents.sh" \
                  click_script="$CONFIG_DIR/plugins/ai_agents_click.sh" \
                  popup.background.color=$ITEM_BG_COLOR \

@@ -61,8 +61,10 @@ content_is_confirm() {
   # Gemini cursor or menu options
   printf '%s\n' "$content" | grep -qiE '^[[:space:]]*(❯|›)[[:space:]]*(yes|no|deny)[[:space:]]*$' && return 0
   printf '%s\n' "$content" | grep -qE '\[y/n\]|\[Y/n\]|\(y/n\)' && return 0
-  # Gemini menu list (e.g., "3. Modify with external editor")
-  printf '%s\n' "$content" | grep -qE '[0-9]\. ' && return 0
+  # Gemini numbered menu (require 2+ sequential numbered items in last 5 lines)
+  local tail5
+  tail5=$(printf '%s\n' "$content" | tail -5)
+  [ "$(printf '%s\n' "$tail5" | grep -cE '^\s*[0-9]+\. ')" -ge 2 ] && return 0
   return 1
 }
 
@@ -87,7 +89,7 @@ if [ -n "$AGENT_ENV" ]; then
     # Verify process is still there
     tty=$(echo "$PANE_INFO" | cut -d'|' -f3)
     tty_short=$(basename "$tty")
-    AGENT_PROCESSES="claude .claude-wrapped gemini node aider cursor"
+    AGENT_PROCESSES="claude .claude-wrapped gemini aider cursor"
     found_proc=0
     for proc in $AGENT_PROCESSES; do
       if ps -t "$tty_short" -o command= 2>/dev/null | grep -qw "$proc"; then
@@ -147,8 +149,8 @@ if [ -n "$AGENT_ENV" ]; then
   done
 fi
 
-# 2b. Fallback: check all other panes for known agent processes (Gemini etc.)
-AGENT_PROCESSES="claude .claude-wrapped gemini node aider cursor"
+# 2b. Fallback: check all other panes for known agent processes
+AGENT_PROCESSES="claude .claude-wrapped gemini aider cursor"
 while IFS='|' read -r pane_id pid tty cwd; do
   [[ "$PROCESSED_PANES" =~ "$pane_id" ]] && continue
   [ "$SLOT" -gt "$MAX_SLOTS" ] && break
@@ -162,12 +164,6 @@ while IFS='|' read -r pane_id pid tty cwd; do
 
   for proc in $AGENT_PROCESSES; do
     if echo "$TTY_PROCS" | grep -qw "$proc"; then
-      if [ "$proc" = "node" ]; then
-        if echo "$TTY_PROCS" | grep -qw "gemini"; then
-           found_agent="Gemini"; break
-        fi
-        continue
-      fi
       case "$proc" in
         *claude*) found_agent="Claude" ;;
         *gemini*) found_agent="Gemini" ;;

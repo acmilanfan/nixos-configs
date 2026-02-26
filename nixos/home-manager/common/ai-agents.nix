@@ -52,6 +52,28 @@ let
         ];
       }
     ];
+    BeforeTool = [
+      {
+        matcher = "*";
+        hooks = [
+          {
+            type = "command";
+            command = "agent-state --agent gemini --state running";
+          }
+        ];
+      }
+    ];
+    BeforeAgent = [
+      {
+        matcher = "*";
+        hooks = [
+          {
+            type = "command";
+            command = "agent-state --agent gemini --state running";
+          }
+        ];
+      }
+    ];
     AfterAgent = [
       {
         matcher = "*";
@@ -70,6 +92,17 @@ let
           {
             type = "command";
             command = "agent-state --agent gemini --state done";
+          }
+        ];
+      }
+    ];
+    SessionEnd = [
+      {
+        matcher = "*";
+        hooks = [
+          {
+            type = "command";
+            command = "agent-state --agent gemini --state off";
           }
         ];
       }

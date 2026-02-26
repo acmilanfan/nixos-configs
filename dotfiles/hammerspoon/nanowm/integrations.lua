@@ -355,13 +355,30 @@ end
 -- Initialization
 -- =============================================================================
 
+-- Track init timers to cancel on rapid reloads
+local initTimers = {}
+
+local function cancelInitTimers()
+    for _, t in ipairs(initTimers) do t:stop() end
+    initTimers = {}
+end
+
+local function scheduleInit(delay, fn)
+    local t = hs.timer.doAfter(delay, fn)
+    table.insert(initTimers, t)
+    return t
+end
+
 function M.init()
+    -- Cancel any outstanding init timers from a previous reload
+    cancelInitTimers()
+
     -- Setup system watcher for wake/unlock events
     M.setupSystemWatcher()
 
     -- Restore borders state
     if state.bordersEnabled then
-        hs.timer.doAfter(2, function()
+        scheduleInit(2, function()
             M.updateBordersVisibility()
         end)
     end
@@ -373,11 +390,11 @@ function M.init()
             if state.sketchybarEnabled then
                 -- Refresh it to ensure everything is correct
                 os.execute("pkill -x sketchybar")
-                hs.timer.doAfter(0.5, function()
+                scheduleInit(0.5, function()
                     os.execute("/bin/zsh -l -c 'sketchybar &' &")
-                    hs.timer.doAfter(2, function()
+                    scheduleInit(2, function()
                         M.updateSketchybar()
-                        hs.timer.doAfter(0.5, function()
+                        scheduleInit(0.5, function()
                             M.updateSketchybar()
                         end)
                     end)
@@ -390,9 +407,9 @@ function M.init()
             -- It's NOT running. Check if it's supposed to be.
             if state.sketchybarEnabled then
                 os.execute("/bin/zsh -l -c 'sketchybar &' &")
-                hs.timer.doAfter(2, function()
+                scheduleInit(2, function()
                     M.updateSketchybar()
-                    hs.timer.doAfter(0.5, function()
+                    scheduleInit(0.5, function()
                         M.updateSketchybar()
                     end)
                 end)
