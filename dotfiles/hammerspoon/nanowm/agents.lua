@@ -52,14 +52,34 @@ local function findTerminalPid(pid, procs)
     return nil
 end
 
+local function focusWindowOnTag(win)
+    local state = require("nanowm.state")
+    local tags  = require("nanowm.tags")
+
+    local tag = state.tags[win:id()]
+    if tag and tag ~= state.currentTag then
+        if tag == "special" then
+            if not state.special.active then
+                tags.toggleSpecial()
+            end
+        else
+            tags.gotoTag(tag)
+        end
+    end
+    hs.timer.doAfter(0.05, function()
+        win:focus()
+    end)
+end
+
 local function focusByPid(termPid)
     local app = hs.application.applicationForPID(termPid)
     if app then
-        app:activate(true)
-        hs.timer.doAfter(0.05, function()
-            local win = app:focusedWindow() or app:mainWindow()
-            if win then win:focus() end
-        end)
+        local win = app:focusedWindow() or app:mainWindow()
+        if win then
+            focusWindowOnTag(win)
+        else
+            app:activate(true)
+        end
     end
 end
 
