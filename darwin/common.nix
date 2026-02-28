@@ -89,7 +89,6 @@ let
 in
 {
   ## TODO things to fix
-  # - kanata config for browser ctr/cmd for external keyboard
   # - firenvim does not work
   # - warpd for system layer mouse replacement
   # - keyboard BT control
