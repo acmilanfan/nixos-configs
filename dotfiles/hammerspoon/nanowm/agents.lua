@@ -276,25 +276,25 @@ end
 -- Event-driven state change handler (called via hs IPC from tmux)
 -- =============================================================================
 
--- Debounce: avoid repeated alerts within a short window
-local lastAlertTime = 0
+-- Track per-agent last notified state to avoid duplicate alerts
+local lastNotifiedState = {}
 
-function M.onAgentStateChange()
-    local now = hs.timer.secondsSinceEpoch()
-    -- Debounce: skip if called within the last 3 seconds
-    if now - lastAlertTime < 3 then return end
+function M.onAgentStateChange(agentState, agentName)
+    if not agentState or not agentName then return end
 
-    local agents = M.getAgents()
-    local needsInput = {}
-    for _, ag in ipairs(agents) do
-        if ag.status == "needs-input" then
-            table.insert(needsInput, ag.type .. ": " .. ag.project)
-        end
-    end
+    -- Only notify once per state transition per agent
+    if lastNotifiedState[agentName] == agentState then return end
+    lastNotifiedState[agentName] = agentState
 
-    if #needsInput > 0 then
-        lastAlertTime = now
-        hs.alert.show("Agent needs input: " .. table.concat(needsInput, ", "), 3)
+    local label = agentName:sub(1,1):upper() .. agentName:sub(2)
+
+    if agentState == "needs-input" then
+        hs.alert.show(label .. " needs input", 3)
+    elseif agentState == "done" then
+        hs.alert.show(label .. " finished", 3)
+    elseif agentState == "off" then
+        -- Clean up tracking for exited agents
+        lastNotifiedState[agentName] = nil
     end
 end
 

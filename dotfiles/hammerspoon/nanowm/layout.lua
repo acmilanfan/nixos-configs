@@ -284,7 +284,7 @@ function M.applyLayout(windows, area, isSpecial, tag)
     -- Fullscreen mode
     if state.isFullscreen and not isSpecial then
         for _, win in ipairs(windows) do
-            setFrameSmart(win, hs.screen.mainScreen():frame())
+            setFrameSmart(win, { x = area.x, y = area.y, w = area.w, h = area.h })
         end
         return
     end

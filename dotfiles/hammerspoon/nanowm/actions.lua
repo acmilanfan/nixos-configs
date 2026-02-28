@@ -108,7 +108,15 @@ function M.toggleFullscreen()
         else
             local f = win:frame()
             state.fullscreenCache[idStr] = { x = f.x, y = f.y, w = f.w, h = f.h }
-            win:setFrame(hs.screen.mainScreen():frame())
+            local frame = hs.screen.mainScreen():frame()
+            if state.sketchybarEnabled then
+                local name = hs.screen.mainScreen():name()
+                if name ~= "Built-in Retina Display" and name ~= "Color LCD" then
+                    frame.y = frame.y + config.sketchybarHeight
+                    frame.h = frame.h - config.sketchybarHeight
+                end
+            end
+            win:setFrame(frame)
         end
         win:raise()
     else
