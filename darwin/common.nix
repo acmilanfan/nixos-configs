@@ -55,6 +55,7 @@ let
       "Scroll Reverser"
       "MiddleClick"
       "AutoRaise"
+      "Syncthing"
     )
 
     for app in "''${ensure_apps[@]}"; do
