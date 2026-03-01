@@ -1,4 +1,6 @@
-{ pkgs ? import <nixpkgs> { } }:
+{
+  pkgs ? import <nixpkgs> { },
+}:
 
 pkgs.mkShell {
   name = "go-shell";
@@ -13,6 +15,7 @@ pkgs.mkShell {
     python3
     supabase-cli
     go-mockery
+    golangci-lint
   ];
   shellHook = ''
     export LANG=en_US.UTF-8

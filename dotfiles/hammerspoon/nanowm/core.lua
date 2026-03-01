@@ -36,9 +36,9 @@ function M.isFloating(win)
     end
 
     -- Check title-based floating
-    local title = win:title() or ""
+    local title = (win:title() or ""):lower()
     for _, str in ipairs(config.floatingTitles) do
-        if string.find(title, str) then
+        if string.find(title, str:lower(), 1, true) then
             return true
         end
     end

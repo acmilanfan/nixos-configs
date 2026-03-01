@@ -175,12 +175,14 @@ function M.setup()
     local function focusOrCreateApp(titlePattern, launchCmd, sizeFactor, appName)
         local allWins = hs.window.allWindows()
         local targetWin = nil
+        local lowerPattern = titlePattern:lower()
+
         for _, win in ipairs(allWins) do
-            local title = win:title() or ""
+            local title = (win:title() or ""):lower()
             local app = win:application()
             local winAppName = app and app:name() or ""
 
-            if (not appName or winAppName == appName) and string.find(title, titlePattern, 1, true) then
+            if (not appName or winAppName == appName) and string.find(title, lowerPattern, 1, true) then
                 targetWin = win
                 break
             end
@@ -286,7 +288,7 @@ function M.setup()
 
     hs.hotkey.bind(altShift, "x", function()
         focusOrCreateApp(
-            "Weekenduo",
+            "weekenduo",
             '/Applications/Firefox.app/Contents/MacOS/firefox --new-window "https://weekenduo.app"',
             0.8,
             "Firefox"

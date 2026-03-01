@@ -16,21 +16,44 @@ local M = {}
 local sketchybarUpdateTimer = nil
 
 local function doUpdateSketchybar()
+    -- These floating windows should contribute to tag "occupancy"
+    local function isUtilityWindow(win)
+        if not win then return false end
+        local title = (win:title() or ""):lower()
+        return string.find(title, "weekenduo", 1, true) or
+               string.find(title, "orgindex", 1, true)
+    end
+
+    local function getTagWindowCount(tag)
+        -- Start with tiled windows
+        local wins = core.getTiledWindows(tag)
+        local count = #wins
+
+        -- Add floating utility windows that are on this tag
+        local allWins = hs.window.filter.default:getWindows()
+        for _, win in ipairs(allWins) do
+            local id = win:id()
+            if state.tags[id] == tag and core.isFloating(win) and isUtilityWindow(win) then
+                count = count + 1
+            end
+        end
+        return count
+    end
+
     local tag = state.special.active and "S" or tostring(state.currentTag)
-    local windowCount = #core.getTiledWindows(state.special.active and state.special.tag or state.currentTag)
+    local currentTagValue = state.special.active and state.special.tag or state.currentTag
+    local windowCount = getTagWindowCount(currentTagValue)
     local layout = state.layout
     local isFullscreen = state.isFullscreen and "1" or "0"
 
     -- Get occupied tags
     local occupiedTags = {}
     for i = 1, 10 do
-        local wins = core.getTiledWindows(i)
-        if #wins > 0 then
+        if getTagWindowCount(i) > 0 then
             table.insert(occupiedTags, tostring(i))
         end
     end
-    local specialWins = core.getTiledWindows("special")
-    if #specialWins > 0 then
+    if getTagWindowCount("special") > 0 then
         table.insert(occupiedTags, "S")
     end
     local occupied = table.concat(occupiedTags, " ")
