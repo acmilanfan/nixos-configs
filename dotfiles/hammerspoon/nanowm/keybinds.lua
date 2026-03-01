@@ -170,68 +170,126 @@ function M.setup()
     end)
 
     -- =========================================================================
-    -- ORG MODE WINDOWS
+    -- APP WINDOWS (Focus or Create)
     -- =========================================================================
-    local function focusOrCreateOrgindex(titlePattern, launchCmd)
+    local function focusOrCreateApp(titlePattern, launchCmd, sizeFactor, appName)
         local allWins = hs.window.allWindows()
+        local targetWin = nil
         for _, win in ipairs(allWins) do
             local title = win:title() or ""
-            if string.find(title, titlePattern, 1, true) then
-                local id = win:id()
-                local currentTag = state.tags[id]
-                local targetTag = state.special.active and state.special.tag or state.currentTag
+            local app = win:application()
+            local winAppName = app and app:name() or ""
 
-                if currentTag ~= targetTag then
-                    if currentTag and state.stacks[currentTag] then
-                        for i, vid in ipairs(state.stacks[currentTag]) do
-                            if vid == id then
-                                table.remove(state.stacks[currentTag], i)
-                                break
-                            end
-                        end
-                    end
-                    state.tags[id] = targetTag
-                    if not state.stacks[targetTag] then
-                        state.stacks[targetTag] = {}
-                    end
-                    table.insert(state.stacks[targetTag], 1, id)
-                    state.triggerSave()
-                end
-
-                win:raise()
-                win:focus()
-                layout.tile()
-                return
+            if (not appName or winAppName == appName) and string.find(title, titlePattern, 1, true) then
+                targetWin = win
+                break
             end
         end
+
+        if targetWin then
+            local id = targetWin:id()
+            local currentTag = state.tags[id]
+            local targetTag = state.special.active and state.special.tag or state.currentTag
+
+            if currentTag ~= targetTag then
+                if currentTag and state.stacks[currentTag] then
+                    for i, vid in ipairs(state.stacks[currentTag]) do
+                        if vid == id then
+                            table.remove(state.stacks[currentTag], i)
+                            break
+                        end
+                    end
+                end
+                state.tags[id] = targetTag
+                if not state.stacks[targetTag] then
+                    state.stacks[targetTag] = {}
+                end
+                table.insert(state.stacks[targetTag], 1, id)
+                state.triggerSave()
+            end
+
+            targetWin:raise()
+            targetWin:focus()
+
+            if sizeFactor and core.isFloating(targetWin) then
+                local screen = targetWin:screen():frame()
+                local newW = screen.w * sizeFactor
+                local newH = screen.h * sizeFactor
+                local newX = screen.x + (screen.w - newW) / 2
+                local newY = screen.y + (screen.h - newH) / 2
+                targetWin:setFrame({ x = newX, y = newY, w = newW, h = newH })
+            end
+
+            layout.tile()
+            return
+        end
+
+        -- If we have a sizeFactor, watch for the window to appear to resize it
+        if sizeFactor then
+            local filter = hs.window.filter.new(false):setAppFilter(appName or "Firefox", {allowTitles = titlePattern})
+            filter:subscribe(hs.window.filter.windowCreated, function(newWin)
+                filter:unsubscribe()
+                hs.timer.doAfter(1.0, function()
+                    if newWin:isValid() then
+                        local screen = newWin:screen():frame()
+                        local newW = screen.w * sizeFactor
+                        local newH = screen.h * sizeFactor
+                        local newX = screen.x + (screen.w - newW) / 2
+                        local newY = screen.y + (screen.h - newH) / 2
+                        newWin:setFrame({ x = newX, y = newY, w = newW, h = newH })
+                        newWin:raise()
+                        newWin:focus()
+                        layout.tile()
+                    end
+                end)
+            end)
+        end
+
         core.launchTask("/bin/zsh", { "-c", launchCmd })
     end
 
     hs.hotkey.bind(altShift, "o", function()
-        focusOrCreateOrgindex(
+        focusOrCreateApp(
             "ORGINDEX-AGENDA",
-            '/Applications/Alacritty.app/Contents/MacOS/alacritty -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-AGENDA" -e zsh -c "nvim --cmd \\"cd ~/org/life\\" -c \\"lua require(\\\\\\"orgmode.api.agenda\\\\\\").agenda({span = 1})\\""'
+            '/Applications/Alacritty.app/Contents/MacOS/alacritty -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-AGENDA" -e zsh -c "nvim --cmd \\"cd ~/org/life\\" -c \\"lua require(\\\\\\"orgmode.api.agenda\\\\\\").agenda({span = 1})\\""',
+            nil,
+            "Alacritty"
         )
     end)
 
     hs.hotkey.bind(altShift, "w", function()
-        focusOrCreateOrgindex(
+        focusOrCreateApp(
             "ORGINDEX-WORK",
-            '/Applications/Alacritty.app/Contents/MacOS/alacritty -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-WORK" -e zsh -c "cd ~/org/life && vim ~/org/life/work/work.org"'
+            '/Applications/Alacritty.app/Contents/MacOS/alacritty -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-WORK" -e zsh -c "cd ~/org/life && vim ~/org/life/work/work.org"',
+            nil,
+            "Alacritty"
         )
     end)
 
     hs.hotkey.bind(altShift, "d", function()
-        focusOrCreateOrgindex(
+        focusOrCreateApp(
             "ORGINDEX-DUMP",
-            '/Applications/Alacritty.app/Contents/MacOS/alacritty -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-DUMP" -e zsh -c "cd ~/org/life && vim ~/org/life/dump.org"'
+            '/Applications/Alacritty.app/Contents/MacOS/alacritty -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-DUMP" -e zsh -c "cd ~/org/life && vim ~/org/life/dump.org"',
+            nil,
+            "Alacritty"
         )
     end)
 
     hs.hotkey.bind(altShift, "y", function()
-        focusOrCreateOrgindex(
+        focusOrCreateApp(
             "ORGINDEX-YOUTUBE",
-            '/Applications/Alacritty.app/Contents/MacOS/alacritty -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-YOUTUBE" -e zsh -c "cd ~/org/consume && vim ~/org/consume/youtube/youtube1.org"'
+            '/Applications/Alacritty.app/Contents/MacOS/alacritty -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-YOUTUBE" -e zsh -c "cd ~/org/consume && vim ~/org/consume/youtube/youtube1.org"',
+            nil,
+            "Alacritty"
+        )
+    end)
+
+    hs.hotkey.bind(altShift, "x", function()
+        focusOrCreateApp(
+            "Weekenduo",
+            '/Applications/Firefox.app/Contents/MacOS/firefox --new-window "https://weekenduo.app"',
+            0.8,
+            "Firefox"
         )
     end)
 
