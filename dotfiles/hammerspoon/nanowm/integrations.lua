@@ -342,9 +342,16 @@ function M.setupSystemWatcher()
             hs.task.new("/bin/zsh", nil, { "-c", "sketchybar --trigger clock_tick" }):start()
 
             -- With LaunchDaemons, Kanata should handle wake naturally, but often loses HID access.
-            -- Force reload to ensure keyboard is functional.
-            hs.timer.doAfter(2, function()
-                M.reloadKanata()
+            -- Check if Kanata is responsive before forcing a heavy reload.
+            hs.timer.doAfter(0.5, function()
+                hs.task.new("/usr/bin/nc", function(exitCode)
+                    if exitCode ~= 0 then
+                        print("[NanoWM] Kanata not responsive after wake, reloading...")
+                        M.reloadKanata()
+                    else
+                        print("[NanoWM] Kanata is responsive, skipping reload")
+                    end
+                end, { "-z", "-w", "1", "localhost", "5829" }):start()
             end)
         end
     end)

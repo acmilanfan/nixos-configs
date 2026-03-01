@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Unified Kanata Reload Script
+# Optimized Unified Kanata Reload Script
 # Reloads both Main and Charybdis instances
 
 # Ensure standard paths are available
@@ -18,21 +18,30 @@ print_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
 USER_ID=$(id -u)
 
-# Function to clean up a service from all possible domains
-cleanup_service() {
-    local LABEL=$1
-    print_status "Cleaning up $LABEL from all domains..."
+# Function to restart a service quickly or bootstrap if needed
+restart_service() {
+    local DOMAIN=$1
+    local LABEL=$2
+    local PLIST=$3
+    local SUDO=$4
 
-    # Try to bootout from GUI domain
-    launchctl bootout gui/"$USER_ID"/"$LABEL" 2>/dev/null || true
-
-    # Try to bootout from System domain
-    sudo launchctl bootout system/"$LABEL" 2>/dev/null || true
-
-    # Legacy unloads
-    launchctl unload "/Library/LaunchAgents/${LABEL}.plist" 2>/dev/null || true
-    sudo launchctl unload "/Library/LaunchAgents/${LABEL}.plist" 2>/dev/null || true
-    sudo launchctl unload "/Library/LaunchDaemons/${LABEL}.plist" 2>/dev/null || true
+    if [[ "$SUDO" == "sudo" ]]; then
+        if sudo launchctl list "$LABEL" >/dev/null 2>&1; then
+            print_status "Kickstarting $LABEL ($DOMAIN)..."
+            sudo launchctl kickstart -k "$DOMAIN"/"$LABEL"
+        elif [[ -f "$PLIST" ]]; then
+            print_status "Bootstrapping $LABEL ($DOMAIN)..."
+            sudo launchctl bootstrap "$DOMAIN" "$PLIST"
+        fi
+    else
+        if launchctl list "$LABEL" >/dev/null 2>&1; then
+            print_status "Kickstarting $LABEL ($DOMAIN)..."
+            launchctl kickstart -k "$DOMAIN"/"$LABEL"
+        elif [[ -f "$PLIST" ]]; then
+            print_status "Bootstrapping $LABEL ($DOMAIN)..."
+            launchctl bootstrap "$DOMAIN" "$PLIST"
+        fi
+    fi
 }
 
 reload_instance() {
@@ -40,80 +49,59 @@ reload_instance() {
     local AGENT_LABEL=$2
     local PORT=$3
 
-    print_status "--- Reloading $KANATA_LABEL (System) and $AGENT_LABEL (User) (Port $PORT) ---"
+    print_status "--- Reloading $KANATA_LABEL and $AGENT_LABEL (Port $PORT) ---"
 
-    # Aggressively clean up both labels from EVERYWHERE
-    cleanup_service "$KANATA_LABEL"
-    cleanup_service "$AGENT_LABEL"
-
-    # Global termination check for rogue processes matching this port
-    print_status "Ensuring no lingering processes for port $PORT..."
-    sudo pkill -9 -f "kanata.*--port $PORT" 2>/dev/null || true
-    pkill -9 -f "kanata-vk-agent.*-p $PORT" 2>/dev/null || true
-
-    sleep 2
-
-    local KANATA_PLIST="/Library/LaunchDaemons/${KANATA_LABEL}.plist"
-    if [[ -f "$KANATA_PLIST" ]]; then
-        print_status "Starting $KANATA_LABEL in System domain..."
-        sudo launchctl bootstrap system "$KANATA_PLIST"
-    else
-        print_warning "Kanata Daemon plist not found at $KANATA_PLIST"
+    # Stop karabiner_grabber quickly if it's running
+    if pgrep -x "karabiner_grabber" >/dev/null; then
+        print_status "Stopping karabiner_grabber..."
+        sudo -n killall -9 karabiner_grabber 2>/dev/null || true
     fi
 
-    local AGENT_PLIST="/Library/LaunchAgents/${AGENT_LABEL}.plist"
-    if [[ -f "$AGENT_PLIST" ]]; then
-        print_status "Starting $AGENT_LABEL in GUI domain..."
-        launchctl bootstrap gui/"$USER_ID" "$AGENT_PLIST"
-    else
-        print_warning "VK Agent Agent plist not found at $AGENT_PLIST"
-    fi
+    # Restart Kanata (System domain)
+    restart_service "system" "$KANATA_LABEL" "/Library/LaunchDaemons/${KANATA_LABEL}.plist" "sudo"
 
-    # 3. Verify
-    sleep 3
-    local SUCCESS=true
-    if ! pgrep -f "kanata.*--port $PORT" >/dev/null; then
-        print_error "✗ Kanata ($PORT) failed to start"
-        SUCCESS=false
-    else
-        print_status "✓ Kanata ($PORT) is running"
-    fi
+    # Restart Agent (User domain)
+    restart_service "gui/$USER_ID" "$AGENT_LABEL" "/Library/LaunchAgents/${AGENT_LABEL}.plist" ""
 
-    if ! pgrep -f "kanata-vk-agent.*-p $PORT" >/dev/null; then
-        print_error "✗ $AGENT_LABEL failed to start"
-        SUCCESS=false
-    else
-        print_status "✓ $AGENT_LABEL is running"
-    fi
+    # Fast verification loop
+    local SUCCESS=false
+    for i in {1..10}; do
+        if pgrep -f "kanata.*--port $PORT" >/dev/null && pgrep -f "kanata-vk-agent.*-p $PORT" >/dev/null; then
+            SUCCESS=true
+            break
+        fi
+        sleep 0.2
+    done
 
-    return $([ "$SUCCESS" = true ] && echo 0 || echo 1)
+    if [ "$SUCCESS" = true ]; then
+        print_status "✓ Instance $PORT reloaded successfully"
+        return 0
+    else
+        print_error "✗ Instance $PORT failed to start correctly"
+        return 1
+    fi
 }
 
-print_status "Starting Kanata system-wide reload..."
-
-# Stop everything related to Kanata first to be absolutely sure
-print_status "Global cleanup of any rogue Kanata processes..."
-sudo killall kanata 2>/dev/null || true
-killall kanata-vk-agent 2>/dev/null || true
-
-# Stop karabiner_grabber to release exclusive HID access before Kanata starts
-print_status "Stopping karabiner_grabber to release HID device..."
-# Use sudo -n to avoid hanging on password prompts
-sudo -n killall karabiner_grabber 2>/dev/null || true
-sleep 1
+print_status "Starting Optimized Kanata reload..."
 
 EXIT_CODE=0
 
 # Reload Main Instance
 reload_instance "local.kanata" "local.kanata-vk-agent" "5829" || EXIT_CODE=1
 
-# Reload Charybdis Instance
-reload_instance "local.kanata-charibdis" "local.kanata-vk-agent-charibdis" "5830" || EXIT_CODE=1
+# Reload Charybdis Instance (only if needed/configured)
+if [[ -f "/Library/LaunchDaemons/local.kanata-charibdis.plist" ]]; then
+    reload_instance "local.kanata-charibdis" "local.kanata-vk-agent-charibdis" "5830" || EXIT_CODE=1
+fi
 
-if [ "$EXIT_CODE" = 1 ]; then
+if [ "$EXIT_CODE" = 0 ]; then
+    print_status "Reload complete!"
+    if [[ "$*" == *"--show-logs"* ]]; then
+        print_status "Showing logs (Ctrl+C to stop)..."
+        tail -f /tmp/kanata.log
+    fi
+    exit 0
+else
     print_error "Reload complete with ERRORS!"
     exit 1
 fi
-
-print_status "Reload complete!"
-exit 0
