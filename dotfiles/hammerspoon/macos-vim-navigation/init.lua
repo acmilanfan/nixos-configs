@@ -387,7 +387,7 @@ end)
 gResetTap:start()
 -- Modal entry/exit
 hs.hotkey.bind({"ctrl","alt","cmd"}, "space", function() modal:enter() end)
-hs.hotkey.bind({}, "f12", function() modal:enter() end)
+-- hs.hotkey.bind({}, "f12", function() modal:enter() end)
 hs.hotkey.bind({"ctrl"}, "=", function() modal:enter() end)
 modal:bind({}, "escape", function() modal:exit() end)
 modal:bind({"ctrl"}, "c", function() modal:exit() end)
