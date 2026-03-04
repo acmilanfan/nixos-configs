@@ -184,6 +184,11 @@ function M.openKanataMenu()
             subText = (state.kanataMode == "angle") and "ACTIVE" or "Shift bottom row keys to the left",
             uuid = "angle",
         },
+        {
+            text = "Disabled Mode",
+            subText = (state.kanataMode == "disabled") and "ACTIVE" or "Block all internal keyboard input",
+            uuid = "disabled",
+        },
     }
 
     local kanataChooser = hs.chooser.new(function(choice)

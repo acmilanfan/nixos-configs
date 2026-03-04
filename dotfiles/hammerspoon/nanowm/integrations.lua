@@ -290,7 +290,7 @@ end
 -- =============================================================================
 
 function M.switchKanata(mode)
-    if mode ~= "default" and mode ~= "homerow" and mode ~= "split" and mode ~= "angle" then
+    if mode ~= "default" and mode ~= "homerow" and mode ~= "split" and mode ~= "angle" and mode ~= "disabled" then
         hs.alert.show("Invalid Kanata mode: " .. tostring(mode))
         return
     end
@@ -305,7 +305,8 @@ function M.switchKanata(mode)
             local modeName = "Standard"
             if mode == "homerow" then modeName = "Home Row Mods"
             elseif mode == "split" then modeName = "Split Layout"
-            elseif mode == "angle" then modeName = "Angle Mod" end
+            elseif mode == "angle" then modeName = "Angle Mod"
+            elseif mode == "disabled" then modeName = "Disabled" end
             hs.alert.show("Kanata: " .. modeName .. " active", 2)
         else
             hs.alert.show("Failed to switch Kanata: " .. stdErr, 5)

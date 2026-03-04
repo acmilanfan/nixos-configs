@@ -14,6 +14,7 @@ DEFAULT_SOURCE="$CONFIG_DIR/kanata-default.kbd"
 HOMEROW_SOURCE="$CONFIG_DIR/kanata-homerow.kbd"
 SPLIT_SOURCE="$CONFIG_DIR/kanata-split.kbd"
 ANGLE_SOURCE="$CONFIG_DIR/kanata-angle.kbd"
+DISABLED_SOURCE="$CONFIG_DIR/kanata-disabled.kbd"
 RELOAD_SCRIPT="$CONFIG_DIR/reload-kanata.sh"
 
 MODE=$1
@@ -35,8 +36,12 @@ case $MODE in
         echo "Switching to Angle Mod configuration..."
         ln -sf "$ANGLE_SOURCE" "$ACTIVE_CONFIG"
         ;;
+    disabled)
+        echo "Switching to Disabled configuration..."
+        ln -sf "$DISABLED_SOURCE" "$ACTIVE_CONFIG"
+        ;;
     *)
-        echo "Usage: $0 [default|homerow|split|angle]"
+        echo "Usage: $0 [default|homerow|split|angle|disabled]"
         exit 1
         ;;
 esac

@@ -39,6 +39,11 @@ update() {
             icon="󰓁"
             color=0xff7dcfff # Cyan
             ;;
+        *kanata-disabled.kbd)
+            label="Disabled"
+            icon="󰅛"
+            color=0xfff7768e # Red
+            ;;
     esac
 
     # Always update the main 'kanata' item, regardless of which popup item triggered the script
@@ -83,5 +88,8 @@ case "$SENDER" in
         ;;
     "kanata_switch_angle")
         switch_mode "angle"
+        ;;
+    "kanata_switch_disabled")
+        switch_mode "disabled"
         ;;
 esac

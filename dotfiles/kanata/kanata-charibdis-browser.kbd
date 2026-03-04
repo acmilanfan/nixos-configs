@@ -7,6 +7,7 @@
   log-layer-changes yes
   macos-dev-names-include (
     "Charybdis Nano (3x5) Splinky"
+    "Aurora Sweep"
   )
 )
 
