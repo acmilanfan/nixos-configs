@@ -34,10 +34,10 @@
 (platform (macos)
   (deflayer base
     _     🔅    🔆    mctl  sls   dtn   dnd   ◀◀    ▶⏸    ▶▶    🔇    🔉    🔊
-    nubs  _     _     _     _     _     _     _     _     _     _     _     _     _
+    lsft  _     _     _     _     _     _     _     _     _     _     _     _     _
     _     _     _     _     _     _     _     _     _     _     _     _     _
     _     @a    @s    @d    @f    _     _     @j    @k    @l    @;    _     _     _
-    _     lsft  _     _     _     @v    @b    @n    @m    _     _     _     _
+    _     grv   _     _     _     @v    @b    @n    @m    _     _     _     _
     @fn   _     _     _                 @spc              _     _     _     _     _     _
   )
 )
