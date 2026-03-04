@@ -1,0 +1,38 @@
+# warpd configuration for macOS
+
+# Activation keys
+# C = Control, M = Meta (Cmd), A = Alt (Option), S = Shift
+
+# Primary activation keys
+hint_activation_key: A-x
+grid_activation_key: A-M-x
+activation_key: A-S-x
+
+# Movement keys (in normal mode)
+up: k
+down: j
+left: h
+right: l
+
+# Speed control
+accelerator: a
+decelerator: d
+
+# Mouse Buttons (active in normal mode)
+# 1 = Left, 2 = Middle, 3 = Right
+left: f
+right: g
+middle: v
+
+# Scrolling
+scroll_up: e
+scroll_down: r
+
+# Exit warpd
+exit: esc
+
+# Visuals
+hint_bgcolor: #7b5cff
+hint_fgcolor: #ffffff
+hint_border_radius: 4
+hint_size: 20

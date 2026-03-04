@@ -286,7 +286,7 @@ function M.setup()
         )
     end)
 
-    hs.hotkey.bind(altShift, "x", function()
+    hs.hotkey.bind(altShift, "z", function()
         focusOrCreateApp(
             "weekenduo",
             '/Applications/Firefox.app/Contents/MacOS/firefox --new-window "https://weekenduo.app"',

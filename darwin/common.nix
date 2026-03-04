@@ -56,6 +56,7 @@ let
       "MiddleClick"
       "AutoRaise"
       "Syncthing"
+      "Warpd"
     )
 
     for app in "''${ensure_apps[@]}"; do
@@ -86,11 +87,12 @@ let
 
     echo "Startup script completed."
   '';
+
+  warpd = pkgs.callPackage ../nixos/common/pkgs/warpd.nix { };
 in
 {
   ## TODO things to fix
   # - firenvim does not work
-  # - warpd for system layer mouse replacement
   # - keyboard BT control
 
   environment.systemPackages = with pkgs; [
@@ -107,6 +109,7 @@ in
     httpie
     unstable.aerospace
     startupScript
+    warpd
   ];
 
   launchd.daemons.kanata = {
@@ -371,6 +374,13 @@ in
     # Following line should allow us to avoid a logout/login cycle when changing settings
     sudo -u ${user} /System/Library/PrivateFrameworks/SystemAdministration.framework/Resources/activateSettings -u
     sudo -u ${user} killall universalaccessd
+
+    # Setup warpd stable path for Accessibility permissions
+    echo "Ensuring warpd stable binary path for Accessibility permissions..."
+    mkdir -p /usr/local/bin
+    cp -f ${warpd}/bin/warpd /usr/local/bin/warpd-nix
+    chmod 755 /usr/local/bin/warpd-nix
+    pkill -x warpd || true
   '';
 
   # Create /etc/zshrc that loads the nix-darwin environment.

@@ -140,6 +140,9 @@ in
       executable = true;
     };
 
+    # Warpd configuration
+    ".config/warpd/config".source = ../../dotfiles/warpd/config;
+
     # Colima/Testcontainers helper script
     ".local/bin/colima-testcontainers-env" = {
       executable = true;
