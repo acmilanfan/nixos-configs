@@ -173,11 +173,7 @@ in
         echo "export TESTCONTAINERS_RYUK_DISABLED=\"false\""
 
         if [ -n "$COLIMA_IP" ]; then
-          echo "export TESTCONTAINERS_HOST_OVERRIDE=\"$COLIMA_IP\""
           echo "# Colima IP: $COLIMA_IP" >&2
-        else
-          echo "# Warning: Could not determine colima IP address" >&2
-          echo "# Some testcontainers features may not work correctly" >&2
         fi
 
         echo "# Testcontainers environment configured for colima" >&2

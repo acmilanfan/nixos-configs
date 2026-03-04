@@ -131,7 +131,7 @@ let
       ];
       ask = [ ];
     };
-    model = "opus";
+    model = "opusplan";
     enabledPlugins = {
       "jdtls-lsp@claude-plugins-official" = true;
       "clangd-lsp@claude-plugins-official" = true;
