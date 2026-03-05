@@ -309,13 +309,21 @@ function M.setup()
     timerModal:bind("", "escape", function() timerModal:exit() end)
 
     -- =========================================================================
-    -- LEADER KEY MODAL
+    -- LEADER KEY MODAL (Nested)
     -- =========================================================================
     local leader = hs.hotkey.modal.new(alt, ",")
+    local appsModal = hs.hotkey.modal.new()
+    local systemModal = hs.hotkey.modal.new()
     local leaderActive = false
 
+    local function exitAll()
+        appsModal:exit()
+        systemModal:exit()
+        leader:exit()
+    end
+
     function leader:entered()
-        hs.alert.show("Leader Mode Active", 999999)
+        hs.alert.show("Leader: [a]pps [s]ystem [r]eload [c]onsole [v]im", 999999)
         leaderActive = true
         tags.updateBorder()
     end
@@ -326,13 +334,45 @@ function M.setup()
         tags.updateBorder()
     end
 
-    leader:bind("", "escape", function() leader:exit() end)
-    leader:bind("", "l", function() hs.caffeinate.lockScreen(); leader:exit() end)
-    leader:bind("", "k", function() integrations.toggleKanata(); leader:exit() end)
-    leader:bind("", "t", function() core.launchTask("/usr/bin/open", { "-n", "-a", "Alacritty" }); leader:exit() end)
-    leader:bind("", "b", function() core.launchTask("/usr/bin/open", { "-n", "-a", "Firefox" }); leader:exit() end)
-    leader:bind("", "r", function() hs.reload(); leader:exit() end)
-    leader:bind("", "q", function() leader:exit() end)
+    -- Root level shortcuts
+    leader:bind("", "escape", exitAll)
+    leader:bind("", "q", exitAll)
+    leader:bind("", "r", function() hs.reload(); exitAll() end)
+    leader:bind("", "c", function() hs.toggleConsole(); exitAll() end)
+    leader:bind("", "v", function() 
+        if _G.vim then _G.vim:enter() end
+        exitAll() 
+    end)
+
+    -- [a]pps Sub-modal
+    leader:bind("", "a", function()
+        hs.alert.closeAll()
+        hs.alert.show("Apps: [t/a] Alacritty [f/b] Firefox [s] Slack", 999999)
+        appsModal:enter()
+    end)
+
+    appsModal:bind("", "escape", exitAll)
+    appsModal:bind("", "q", exitAll)
+    appsModal:bind("", "t", function() core.launchTask("/usr/bin/open", { "-n", "-a", "Alacritty" }); exitAll() end)
+    appsModal:bind("", "a", function() core.launchTask("/usr/bin/open", { "-n", "-a", "Alacritty" }); exitAll() end)
+    appsModal:bind("", "f", function() core.launchTask("/usr/bin/open", { "-n", "-a", "Firefox" }); exitAll() end)
+    appsModal:bind("", "b", function() core.launchTask("/usr/bin/open", { "-n", "-a", "Firefox" }); exitAll() end)
+    appsModal:bind("", "s", function() core.launchTask("/usr/bin/open", { "-n", "-a", "Slack" }); exitAll() end)
+
+    -- [s]ystem Sub-modal
+    leader:bind("", "s", function()
+        hs.alert.closeAll()
+        hs.alert.show("System: [p] Battery [g] Bar [o] Borders [k] Kanata [l] Lock", 999999)
+        systemModal:enter()
+    end)
+
+    systemModal:bind("", "escape", exitAll)
+    systemModal:bind("", "q", exitAll)
+    systemModal:bind("", "p", function() integrations.toggleBatterySaver(); exitAll() end)
+    systemModal:bind("", "g", function() integrations.toggleSketchybar(); exitAll() end)
+    systemModal:bind("", "o", function() integrations.toggleBorders(); exitAll() end)
+    systemModal:bind("", "k", function() integrations.toggleKanata(); exitAll() end)
+    systemModal:bind("", "l", function() hs.caffeinate.lockScreen(); exitAll() end)
 
     -- =========================================================================
     -- INTEGRATIONS
