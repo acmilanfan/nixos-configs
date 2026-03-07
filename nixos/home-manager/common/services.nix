@@ -1,8 +1,7 @@
-{ ... }: {
+{ config, ... }: {
 
   services.flameshot = {
-    # TODO: enable if not wayland session
-    # enable = true;
+    enable = !config.wayland.windowManager.hyprland.enable;
     settings = {
       General = {
         showStartupLaunchMessage = false;
@@ -11,7 +10,7 @@
     };
   };
   # services.safeeyes.enable = true;
-  services.unclutter.enable = true;
+  services.unclutter.enable = !config.wayland.windowManager.hyprland.enable;
 
   services.nextcloud-client = {
     enable = true;

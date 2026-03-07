@@ -1,8 +1,7 @@
-{ pkgs, ... }: {
+{ config, pkgs, ... }: {
 
   services.screen-locker = {
-    # TODO enable if not wayland seesion
-    # enable = true;
+    enable = !config.wayland.windowManager.hyprland.enable;
     inactiveInterval = 5;
     # xautolock.enable = true;
     xautolock.extraOptions = [

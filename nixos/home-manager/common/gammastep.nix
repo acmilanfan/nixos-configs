@@ -1,7 +1,7 @@
-{ ... }:
+{ config, ... }:
 {
   services.gammastep = {
-    enable = true;
+    enable = config.wayland.windowManager.hyprland.enable;
     provider = "manual";
     latitude = 52.494865;
     longitude = 13.353801;

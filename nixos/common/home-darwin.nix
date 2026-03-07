@@ -1,10 +1,4 @@
-{
-  pkgs,
-  lib,
-  unstable,
-  inputs,
-  ...
-}:
+{ pkgs, lib, ... }:
 
 let
   spoon =
@@ -49,9 +43,6 @@ in
       blueutil
 
       jankyborders
-      inputs.llm-agents.packages.${pkgs.system}.claude-code
-      inputs.llm-agents.packages.${pkgs.system}.gemini-cli
-
       # Scripts need to be handled. They were in ./scripts/ relative to mac-work/home.nix.
       # We need to make sure they are accessible.
       # (writeShellScriptBin "pip-pop" (lib.readFile ./scripts/pip-pop))
@@ -215,7 +206,7 @@ in
     ".hammerspoon/nanowm/integrations.lua".source = ../../dotfiles/hammerspoon/nanowm/integrations.lua;
     ".hammerspoon/nanowm/keybinds.lua".source = ../../dotfiles/hammerspoon/nanowm/keybinds.lua;
     ".hammerspoon/nanowm/watchers.lua".source = ../../dotfiles/hammerspoon/nanowm/watchers.lua;
-    ".hammerspoon/nanowm/agents.lua".source   = ../../dotfiles/hammerspoon/nanowm/agents.lua;
+    ".hammerspoon/nanowm/agents.lua".source = ../../dotfiles/hammerspoon/nanowm/agents.lua;
 
     # Rofi-like menus
     # ".hammerspoon/rofi-menus/init.lua".source = ../../dotfiles/hammerspoon/rofi-menus/init.lua;
