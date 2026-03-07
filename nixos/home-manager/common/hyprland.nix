@@ -63,17 +63,8 @@ in
 
       general {
           hide_cursor = false
+          immediate_render = true
       }
-
-      # uncomment to enable fingerprint authentication
-      # auth {
-      #     fingerprint {
-      #         enabled = true
-      #         ready_message = Scan fingerprint to unlock
-      #         present_message = Scanning...
-      #         retry_delay = 250 # in milliseconds
-      #     }
-      # }
 
       animations {
           enabled = true
@@ -154,6 +145,35 @@ in
           halign = center
           valign = center
       }
+
+      # FACE ID BUTTON
+      shape {
+          monitor =
+          size = 200, 50
+          color = rgba(200, 200, 200, 0.1)
+          rounding = 10
+          border_size = 2
+          border_color = rgba(200, 200, 200, 0.5)
+
+          position = 0, -120
+          halign = center
+          valign = center
+
+          onclick = touch /tmp/hyprlock_face_trigger
+      }
+
+      label {
+          monitor =
+          text = 👤 Scan Face
+          color = rgba(200, 200, 200, 1.0)
+          font_size = 16
+          font_family = $font
+
+          position = 0, -120
+          halign = center
+          valign = center
+      }
+
       # KEYBOARD TOGGLE BUTTON
       label {
           monitor =
@@ -167,8 +187,6 @@ in
           halign = center
           valign = center
 
-          # Toggle keyboard visibility
-          # onclick = kill -34 $(pidof wvkbd-mobintl)
           onclick = hypr-toggle-kb
       }
     '';
@@ -338,7 +356,6 @@ in
     wdisplays
     wlr-randr
     nwg-drawer
-    # zathura
     socat
     wvkbd
     iio-hyprland
@@ -369,7 +386,81 @@ in
     (writeShellScriptBin "hypr-iio-toggle" (lib.readFile ./scripts/hypr-iio-toggle))
     (writeShellScriptBin "hypr-touch-action" (lib.readFile ./scripts/hypr-touch-action))
     (writeShellScriptBin "hypr-waybar-toggle" (lib.readFile ./scripts/hypr-waybar-toggle))
+    wtype
   ];
+
+  systemd.user.services.hyprlock-proximity = {
+    Unit = {
+      Description = "Trigger hyprlock on proximity sensor";
+      After = [ "graphical-session.target" ];
+    };
+    Service = {
+      ExecStart = pkgs.writeShellScript "prox-trigger" ''
+        SENSOR1="/sys/bus/iio/devices/iio:device1/in_proximity0_raw"
+        SENSOR2="/sys/bus/iio/devices/iio:device2/in_proximity0_raw"
+        TRIGGER_FILE="/tmp/hyprlock_face_trigger"
+        LAST_STATE=0
+        WAS_LOCKED=0
+        LAST_TRIGGER_TIME=0
+        
+        while true; do
+          if pgrep -x "hyprlock" > /dev/null; then
+            CURRENT_TIME=$(date +%s)
+            
+            # Combine both sensors (if either is 1, presence is detected)
+            STATE1=0
+            STATE2=0
+            [ -f "$SENSOR1" ] && STATE1=$(cat "$SENSOR1")
+            [ -f "$SENSOR2" ] && STATE2=$(cat "$SENSOR2")
+            STATE=$((STATE1 | STATE2))
+            
+            TRIGGER=0
+            if [ "$STATE" -eq 1 ]; then
+              # 1. Trigger on approach (0 -> 1)
+              if [ "$LAST_STATE" -eq 0 ]; then
+                echo "Proximity detected (approach)! Waking up hyprlock..."
+                TRIGGER=1
+              # 2. Trigger on initial lock if already present
+              elif [ "$WAS_LOCKED" -eq 0 ]; then
+                echo "Proximity detected (initial lock)! Waking up hyprlock..."
+                TRIGGER=1
+              # 3. Periodic re-trigger while present (every 10 seconds)
+              elif [ $((CURRENT_TIME - LAST_TRIGGER_TIME)) -ge 10 ]; then
+                echo "Proximity detected (continuous presence)! Re-waking hyprlock..."
+                TRIGGER=1
+              fi
+            fi
+            
+            if [ "$TRIGGER" -eq 1 ]; then
+              sleep 0.2
+              ${pkgs.wtype}/bin/wtype -P Return -p Return
+              LAST_TRIGGER_TIME=$CURRENT_TIME
+            fi
+            
+            if [ -f "$TRIGGER_FILE" ]; then
+              echo "Manual trigger detected! Waking up hyprlock..."
+              rm -f "$TRIGGER_FILE"
+              sleep 0.1
+              ${pkgs.wtype}/bin/wtype -P Return -p Return
+              LAST_TRIGGER_TIME=$CURRENT_TIME
+            fi
+            
+            LAST_STATE=$STATE
+            WAS_LOCKED=1
+          else
+            WAS_LOCKED=0
+            LAST_STATE=0
+            LAST_TRIGGER_TIME=0
+          fi
+          sleep 0.5
+        done
+      '';
+      Restart = "always";
+    };
+    Install = {
+      WantedBy = [ "graphical-session.target" ];
+    };
+  };
 
   systemd.user.services.iio-hyprland = {
     Unit = {

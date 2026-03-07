@@ -40,6 +40,10 @@
       url = "github:numtide/llm-agents.nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    nixpkgs-howdy = {
+      url = "github:fufexan/nixpkgs/howdy";
+    };
   };
 
   outputs =
@@ -72,11 +76,17 @@
       secretsPath = "${actualHomeDir}/configs/nixos-configs/secrets/secrets.nix";
       secrets = import secretsPath;
 
+      overlay-howdy = _: prev: {
+        howdy = inputs.nixpkgs-howdy.legacyPackages.${prev.system}.howdy;
+        linux-enable-ir-emitter = inputs.nixpkgs-howdy.legacyPackages.${prev.system}.linux-enable-ir-emitter;
+      };
+
       pkgsFor =
         system:
         import inputs.nixpkgs {
           inherit system;
           config.allowUnfree = true;
+          overlays = [ overlay-howdy ];
         };
 
       unstableFor =
@@ -84,6 +94,7 @@
         import inputs.unstable-nixpkgs {
           inherit system;
           config.allowUnfree = true;
+          overlays = [ overlay-howdy ];
         };
 
       overlay-davinci-resolve = _: prev: {
@@ -124,7 +135,7 @@
             (
               { config, pkgs, ... }:
               {
-                nixpkgs.overlays = [ overlay-davinci-resolve ];
+                nixpkgs.overlays = [ overlay-davinci-resolve overlay-howdy ];
               }
             )
           ];
@@ -148,6 +159,7 @@
               };
             }
             nixos-hardware.nixosModules.lenovo-thinkpad-t480
+            ({ ... }: { nixpkgs.overlays = [ overlay-howdy ]; })
           ];
         };
 
@@ -178,7 +190,7 @@
             (
               { config, pkgs, ... }:
               {
-                nixpkgs.overlays = [ overlay-davinci-resolve ];
+                nixpkgs.overlays = [ overlay-davinci-resolve overlay-howdy ];
               }
             )
           ];
