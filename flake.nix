@@ -62,12 +62,13 @@
       macSystem = "aarch64-darwin";
 
       sudoUser = builtins.getEnv "SUDO_USER";
-      homeDir = if sudoUser != ""
-        then "/Users/${sudoUser}"  # macOS path when running with sudo
-        else builtins.getEnv "HOME";
-      actualHomeDir = if homeDir == "" || homeDir == "/var/root"
-        then "/home/${sudoUser}"
-        else homeDir;
+      isDarwin = builtins.pathExists "/Users";
+      actualHomeDir =
+        if isDarwin then
+          (if sudoUser != "" then "/Users/${sudoUser}" else builtins.getEnv "HOME")
+        else
+          (if sudoUser != "" then "/home/${sudoUser}" else builtins.getEnv "HOME");
+
       secretsPath = "${actualHomeDir}/configs/nixos-configs/secrets/secrets.nix";
       secrets = import secretsPath;
 
