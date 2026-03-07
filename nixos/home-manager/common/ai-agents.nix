@@ -1,4 +1,4 @@
-{ config, secrets, ... }:
+{ config, secrets, pkgs, inputs, ... }:
 let
   isWork = config.home.username == "andreishumailov";
 
@@ -173,5 +173,10 @@ in
 {
   home.file.".claude/settings.json".text = builtins.toJSON claudeSettings;
   home.file.".gemini/settings.json".text = builtins.toJSON geminiSettings;
+
+  home.packages = [
+      inputs.llm-agents.packages.${pkgs.system}.claude-code
+      inputs.llm-agents.packages.${pkgs.system}.gemini-cli
+  ];
 }
 
