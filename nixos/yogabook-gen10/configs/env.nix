@@ -228,6 +228,8 @@
       (lib.readFile ./restore-sync-brightness.sh))
     (writeShellScriptBin "adjust-sync-brightness"
       (lib.readFile ./adjust-sync-brightness.sh))
+    (writeShellScriptBin "sync-volume" (lib.readFile ./sync-volume.sh))
+    (writeShellScriptBin "change-volume" (lib.readFile ./change-volume.sh))
   ];
 
   services.xserver.videoDrivers = [ "modesetting" ];
