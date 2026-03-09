@@ -294,7 +294,7 @@ in
       };
     };
     extensions = with inputs.vicinae-extensions.packages.${pkgs.stdenv.hostPlatform.system}; [
-      bluetooth
+      # bluetooth
       nix
       hypr-keybinds
       # Extension names can be found in the link below, it's just the folder names
@@ -404,18 +404,18 @@ in
         LAST_STATE=0
         WAS_LOCKED=0
         LAST_TRIGGER_TIME=0
-        
+
         while true; do
           if pgrep -x "hyprlock" > /dev/null; then
             CURRENT_TIME=$(date +%s)
-            
+
             # Combine both sensors (if either is 1, presence is detected)
             STATE1=0
             STATE2=0
             [ -f "$SENSOR1" ] && STATE1=$(cat "$SENSOR1")
             [ -f "$SENSOR2" ] && STATE2=$(cat "$SENSOR2")
             STATE=$((STATE1 | STATE2))
-            
+
             TRIGGER=0
             if [ "$STATE" -eq 1 ]; then
               # 1. Trigger on approach (0 -> 1)
@@ -432,13 +432,13 @@ in
                 TRIGGER=1
               fi
             fi
-            
+
             if [ "$TRIGGER" -eq 1 ]; then
               sleep 0.2
               ${pkgs.wtype}/bin/wtype -P Return -p Return
               LAST_TRIGGER_TIME=$CURRENT_TIME
             fi
-            
+
             if [ -f "$TRIGGER_FILE" ]; then
               echo "Manual trigger detected! Waking up hyprlock..."
               rm -f "$TRIGGER_FILE"
@@ -446,7 +446,7 @@ in
               ${pkgs.wtype}/bin/wtype -P Return -p Return
               LAST_TRIGGER_TIME=$CURRENT_TIME
             fi
-            
+
             LAST_STATE=$STATE
             WAS_LOCKED=1
           else
