@@ -136,24 +136,27 @@
   # hardware.enableAllFirmware = true;
   hardware.firmware = with pkgs; [ linux-firmware sof-firmware ];
 
-  environment.etc."systemd/sleep.conf".text = ''
-    [Sleep]
-    HibernateMode=platform
-    HibernateState=disk
-    AllowSuspend=false
-  '';
+  # environment.etc."systemd/sleep.conf".text = ''
+  #   [Sleep]
+  #   HibernateMode=platform
+  #   HibernateState=disk
+  #   AllowSuspend=false
+  # '';
 
-  systemd.targets.suspend.wants = [ "hibernate.target" ];
+  # systemd.targets.suspend.wants = [ "hibernate.target" ];
 
   # boot.kernel.sysctl."kernel.debug" = 1;
 
   boot.kernelParams = [
-    "mem_sleep_default=deep"
+    "mem_sleep_default=s2idle"
     "i915.enable_dpcd_backlight=2"
     "i915.force_probe=7d51"
     "video=eDP-1:panel_orientation=upside_down"
     "btusb.enable_autosuspend=n"
   ];
+
+  services.logind.lidSwitch = lib.mkForce "suspend";
+
 
   # "reboot=pci"
   # "apm=power_off"
