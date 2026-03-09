@@ -9,13 +9,13 @@ STEP=${1:-5} # Default to 5% step
 # We use Speaker as the primary reference
 
 if [[ "$STEP" == +* ]]; then
-    amixer -c 1 sset 'Speaker' "${STEP#+}%+" > /dev/null
-    amixer -c 1 sset 'Bass Speaker' "${STEP#+}%+" > /dev/null
+    amixer -c sofhdadsp sset 'Speaker' "${STEP#+}%+" > /dev/null
+    amixer -c sofhdadsp sset 'Bass Speaker' "${STEP#+}%+" > /dev/null
 elif [[ "$STEP" == -* ]]; then
-    amixer -c 1 sset 'Speaker' "${STEP#-}%-" > /dev/null
-    amixer -c 1 sset 'Bass Speaker' "${STEP#-}%-" > /dev/null
+    amixer -c sofhdadsp sset 'Speaker' "${STEP#-}%-" > /dev/null
+    amixer -c sofhdadsp sset 'Bass Speaker' "${STEP#-}%-" > /dev/null
 else
     # Treat as absolute if no +/-
-    amixer -c 1 sset 'Speaker' "${STEP}%" > /dev/null
-    amixer -c 1 sset 'Bass Speaker' "${STEP}%" > /dev/null
+    amixer -c sofhdadsp sset 'Speaker' "${STEP}%" > /dev/null
+    amixer -c sofhdadsp sset 'Bass Speaker' "${STEP}%" > /dev/null
 fi
