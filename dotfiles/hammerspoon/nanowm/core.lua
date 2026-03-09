@@ -17,6 +17,11 @@ function M.isFloating(win)
 
     local id = win:id()
 
+    -- Special case for weekenduo
+    if state.weekenduoWinId == id then
+        return true
+    end
+
     -- Check explicit override
     if state.floatingOverrides[id] ~= nil then
         return state.floatingOverrides[id]
@@ -57,6 +62,14 @@ end
 
 function M.registerWindow(win)
     local id = win:id()
+    local title = (win:title() or ""):lower()
+
+    if state.markNextWeekenduo and string.find(title, "weekenduo", 1, true) then
+        state.weekenduoWinId = id
+        state.markNextWeekenduo = false
+        print("[NanoWM] Marked weekenduo window ID: " .. tostring(id))
+    end
+
     if not state.tags[id] then
         local app = win:application()
         local appName = app and app:name() or "Unknown"

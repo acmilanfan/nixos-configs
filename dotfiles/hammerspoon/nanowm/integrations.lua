@@ -19,8 +19,9 @@ local function doUpdateSketchybar()
     -- These floating windows should contribute to tag "occupancy"
     local function isUtilityWindow(win)
         if not win then return false end
+        local id = win:id()
         local title = (win:title() or ""):lower()
-        return string.find(title, "weekenduo", 1, true) or
+        return id == state.weekenduoWinId or
                string.find(title, "orgindex", 1, true)
     end
 

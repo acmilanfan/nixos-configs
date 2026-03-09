@@ -45,7 +45,6 @@ M.floatingApps = {
 -- Window titles that should float
 M.floatingTitles = {
     "ORGINDEX",
-    "Weekenduo",
     "Picture-in-Picture",
     "Copy",
     "Move",

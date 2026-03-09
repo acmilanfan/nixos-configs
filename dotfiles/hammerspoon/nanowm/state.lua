@@ -33,6 +33,8 @@ M.isFullscreen = false
 M.layout = config.layout
 M.gap = config.gap
 M.caffeinateActive = false
+M.weekenduoWinId = nil
+M.markNextWeekenduo = false
 
 -- Special tag state
 M.special = {

@@ -79,6 +79,11 @@ function M.setup()
                 end
             end
 
+            if id == state.weekenduoWinId then
+                state.weekenduoWinId = nil
+                print("[NanoWM] Cleared weekenduo window ID")
+            end
+
             state.tags[id] = nil
             state.sticky[id] = nil
             state.floatingOverrides[id] = nil

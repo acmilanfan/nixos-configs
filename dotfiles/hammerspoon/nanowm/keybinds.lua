@@ -287,12 +287,72 @@ function M.setup()
     end)
 
     hs.hotkey.bind(altShift, "z", function()
-        focusOrCreateApp(
-            "weekenduo",
-            '/Applications/Firefox.app/Contents/MacOS/firefox --new-window "https://weekenduo.app"',
-            0.8,
-            "Firefox"
-        )
+        local existingWin = state.weekenduoWinId and hs.window.get(state.weekenduoWinId)
+        if existingWin then
+            local id = existingWin:id()
+            local currentTag = state.tags[id]
+            local targetTag = state.special.active and state.special.tag or state.currentTag
+
+            if currentTag ~= targetTag then
+                if currentTag and state.stacks[currentTag] then
+                    for i, vid in ipairs(state.stacks[currentTag]) do
+                        if vid == id then
+                            table.remove(state.stacks[currentTag], i)
+                            break
+                        end
+                    end
+                end
+                state.tags[id] = targetTag
+                if not state.stacks[targetTag] then
+                    state.stacks[targetTag] = {}
+                end
+                table.insert(state.stacks[targetTag], 1, id)
+                state.triggerSave()
+            end
+
+            existingWin:raise()
+            existingWin:focus()
+
+            -- Ensure it's sized correctly if it's floating
+            if core.isFloating(existingWin) then
+                local screen = existingWin:screen():frame()
+                local sizeFactor = 0.8
+                local newW = screen.w * sizeFactor
+                local newH = screen.h * sizeFactor
+                local newX = screen.x + (screen.w - newW) / 2
+                local newY = screen.y + (screen.h - newH) / 2
+                existingWin:setFrame({ x = newX, y = newY, w = newW, h = newH })
+            end
+
+            layout.tile()
+            return
+        end
+
+        state.markNextWeekenduo = true
+        local sizeFactor = 0.8
+        local appName = "Firefox"
+        local titlePattern = "weekenduo"
+        local launchCmd = '/Applications/Firefox.app/Contents/MacOS/firefox --new-window "https://weekenduo.app"'
+
+        local filter = hs.window.filter.new(false):setAppFilter(appName, {allowTitles = titlePattern})
+        filter:subscribe(hs.window.filter.windowCreated, function(newWin)
+            filter:unsubscribe()
+            hs.timer.doAfter(1.0, function()
+                if newWin:isValid() then
+                    local screen = newWin:screen():frame()
+                    local newW = screen.w * sizeFactor
+                    local newH = screen.h * sizeFactor
+                    local newX = screen.x + (screen.w - newW) / 2
+                    local newY = screen.y + (screen.h - newH) / 2
+                    newWin:setFrame({ x = newX, y = newY, w = newW, h = newH })
+                    newWin:raise()
+                    newWin:focus()
+                    layout.tile()
+                end
+            end)
+        end)
+
+        core.launchTask("/bin/zsh", { "-c", launchCmd })
     end)
 
     -- =========================================================================
