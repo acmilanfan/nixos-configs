@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 
-if systemctl --user is-active iio-hyprland.service >/dev/null 2>&1; then
-  systemctl --user stop iio-hyprland.service
+if systemctl --user is-active hypr-iio-rotate.service >/dev/null 2>&1; then
+  systemctl --user stop hypr-iio-rotate.service
   pkill iio-hyprland || true
+  pkill hypr-iio-rotate || true
   # systemctl --user stop iio-sensor-proxy.service
   notify-send -u low -t 2000 "Auto-rotation" "Disabled 🔒"
 else
-  systemctl --user start iio-hyprland.service
+  systemctl --user start hypr-iio-rotate.service
   # systemctl --user start iio-sensor-proxy.service
   notify-send -u low -t 2000 "Auto-rotation" "Enabled 🔄"
 fi

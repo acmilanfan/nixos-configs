@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+
+# Device Names
+TOUCH_TOP="ingenic-gadget-serial-and-keyboard-touchscreen-top"
+STYLUS_TOP="ingenic-gadget-serial-and-keyboard-stylus-top"
+TOUCH_BOTTOM="ingenic-gadget-serial-and-keyboard-touchscreen-bottom"
+STYLUS_BOTTOM="ingenic-gadget-serial-and-keyboard-stylus-bottom"
+
+# Path to caches
+ROT_CACHE_DIR="$HOME/.cache/hypr-rot"
+mkdir -p "$ROT_CACHE_DIR"
+
+LAST_ORIENTATION=""
+
+apply_rotation() {
+    local orientation=$1
+
+    # Debounce: Skip if orientation hasn't changed
+    if [[ "$orientation" == "$LAST_ORIENTATION" ]]; then
+        return
+    fi
+    LAST_ORIENTATION="$orientation"
+
+    local trans=0
+    local x2=0 y2=1130 # Default Stacked
+
+    case "$orientation" in
+        normal)    trans=0; x2=0; y2=1130 ;;
+        bottom-up) trans=2; x2=0; y2=1130 ;;
+        left-up)   trans=1; x2=1130; y2=0 ;;
+        right-up)  trans=3; x2=1130; y2=0 ;;
+        *) return ;;
+    esac
+
+    echo "Orientation: $orientation -> Transform: $trans"
+    notify-send -u low -t 500 "Auto-rotate" "$orientation"
+
+    # Update caches for other scripts
+    echo "$trans" > "$ROT_CACHE_DIR/eDP-1"
+    echo "$trans" > "$ROT_CACHE_DIR/eDP-2"
+
+    # Check active monitors
+    MONITORS=$(hyprctl monitors -j)
+    E1_ACTIVE=$(echo "$MONITORS" | jq -e '.[] | select(.name == "eDP-1")' > /dev/null && echo true || echo false)
+    E2_ACTIVE=$(echo "$MONITORS" | jq -e '.[] | select(.name == "eDP-2")' > /dev/null && echo true || echo false)
+
+    # Build atomic batch command
+    # We temporarily disable animations to prevent "sliding" during coordinate jumps
+    local BATCH_CMD="keyword animations:enabled 0 ; "
+
+    if [ "$E1_ACTIVE" = "true" ]; then
+        BATCH_CMD+="keyword monitor eDP-1,2880x1800@120,0x0,1.6,transform,$trans ; "
+        BATCH_CMD+="keyword device[$TOUCH_TOP]:output eDP-1 ; "
+        BATCH_CMD+="keyword device[$STYLUS_TOP]:output eDP-1 ; "
+        BATCH_CMD+="keyword device[$TOUCH_TOP]:transform $trans ; "
+        BATCH_CMD+="keyword device[$STYLUS_TOP]:transform $trans ; "
+    fi
+
+    if [ "$E2_ACTIVE" = "true" ]; then
+        BATCH_CMD+="keyword monitor eDP-2,2880x1800@120,${x2}x${y2},1.6,transform,$trans ; "
+        BATCH_CMD+="keyword device[$TOUCH_BOTTOM]:output eDP-2 ; "
+        BATCH_CMD+="keyword device[$STYLUS_BOTTOM]:output eDP-2 ; "
+        BATCH_CMD+="keyword device[$TOUCH_BOTTOM]:transform $trans ; "
+        BATCH_CMD+="keyword device[$STYLUS_BOTTOM]:transform $trans ; "
+    fi
+
+    # Re-enable animations at the end of the batch
+    BATCH_CMD+="keyword animations:enabled 1"
+
+    # Execute all at once
+    hyprctl --batch "$BATCH_CMD"
+}
+
+# Listen for sensor changes
+monitor-sensor | while read -r line; do
+    if [[ $line =~ "Accelerometer orientation changed" ]]; then
+        orientation=$(echo "$line" | awk -F': ' '{print $2}')
+        apply_rotation "$orientation"
+    fi
+done

@@ -12,6 +12,7 @@ let
       sha256 = "sha256-rlP2+Okq8TUSfvk63HvjMrDyMDjjbpDxH3buhGi3b3Y=";
     };
   });
+  hypr-iio-rotate-script = (pkgs.writeShellScriptBin "hypr-iio-rotate" (lib.readFile ./scripts/hypr-iio-rotate));
 in
 {
 
@@ -369,8 +370,8 @@ in
     bluetui
     wiremix
     yazi
+    hypr-iio-rotate-script
     (writeShellScriptBin "hypr-profile" (lib.readFile ./scripts/hypr-profile))
-    (writeShellScriptBin "hypr-profile-tablet" (lib.readFile ./scripts/hypr-profile-tablet))
     (writeShellScriptBin "hypr-toggle-kb" (lib.readFile ./scripts/hypr-toggle-kb))
     (writeShellScriptBin "hypr-send-to-other-monitor" (
       lib.readFile ./scripts/hypr-send-to-other-monitor
@@ -382,6 +383,7 @@ in
     (writeShellScriptBin "hypr-animations-toggle" (lib.readFile ./scripts/hypr-animations-toggle))
     (writeShellScriptBin "hypr-expand-float" (lib.readFile ./scripts/hypr-expand-float))
     (writeShellScriptBin "hypr-expand-float-recover" (lib.readFile ./scripts/hypr-expand-float-recover))
+    (writeShellScriptBin "hypr-iio-rotate" (lib.readFile ./scripts/hypr-iio-rotate))
     (writeShellScriptBin "hypr-reset-touch" (lib.readFile ./scripts/hypr-reset-touch))
     (writeShellScriptBin "hypr-iio-toggle" (lib.readFile ./scripts/hypr-iio-toggle))
     (writeShellScriptBin "hypr-touch-action" (lib.readFile ./scripts/hypr-touch-action))
@@ -462,24 +464,23 @@ in
     };
   };
 
-  systemd.user.services.iio-hyprland = {
+  systemd.user.services.hypr-iio-rotate = {
     Unit = {
-      Description = "Auto-rotation for Hyprland (Dual Monitor)";
+      Description = "Auto-rotation for Hyprland (Dual Monitor and Touch)";
       After = [ "graphical-session.target" ];
     };
     Service = {
-      ExecStart = pkgs.writeShellScript "iio-dual-runner" ''
-        TRANSFORM_MAP="0,1,2,3"
-
-        pkill iio-hyprland || true
-
-        # Start for Top Screen
-        ${pkgs.iio-hyprland}/bin/iio-hyprland eDP-1 --transform $TRANSFORM_MAP &
-        # Start for Bottom Screen
-        ${pkgs.iio-hyprland}/bin/iio-hyprland eDP-2 --transform $TRANSFORM_MAP &
-
-        wait
-      '';
+      Environment = "PATH=${lib.makeBinPath [
+        pkgs.bash
+        pkgs.hyprland
+        pkgs.iio-sensor-proxy
+        pkgs.jq
+        pkgs.coreutils
+        pkgs.gawk
+        pkgs.procps
+        pkgs.libnotify
+      ]}";
+      ExecStart = "${hypr-iio-rotate-script}/bin/hypr-iio-rotate";
       Restart = "on-failure";
     };
     Install = {
