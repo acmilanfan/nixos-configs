@@ -136,6 +136,9 @@ let
       "jdtls-lsp@claude-plugins-official" = true;
       "clangd-lsp@claude-plugins-official" = true;
       "lua-lsp@claude-plugins-official" = true;
+      "github@claude-plugins-official" = true;
+      "code-review@claude-plugins-official" = true;
+      "superpowers@claude-plugins-official" = true;
     } // (if isWork && workMarketplaceName != "" then {
       "check-setup@${workMarketplaceName}" = true;
       "coding-java@${workMarketplaceName}" = true;
