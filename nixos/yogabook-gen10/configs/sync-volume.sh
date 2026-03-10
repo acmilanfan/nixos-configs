@@ -1,15 +1,35 @@
 #!/usr/bin/env bash
 
-# This script synchronizes 'Bass Speaker' volume with 'Speaker' volume
-# Card 1 is the sof-hda-dsp card on the Yoga Book Gen 10
+# This script synchronizes 'Bass Speaker' with 'Speaker' volume
+# with a -6% offset for the Bass Speaker.
+# It retries to ensure pipewire/alsa are ready.
 
-# Get current Speaker volume (percentage)
-SPEAKER_VOL=$(amixer -c sofhdadsp sget Speaker | grep -Po '\[\d+%\]' | head -1 | tr -d '[]%')
+LOG_FILE="/tmp/sync-volume.log"
+echo "Starting sync-volume at $(date)" > "$LOG_FILE"
 
-if [ -n "$SPEAKER_VOL" ]; then
-    # Set Bass Speaker volume to match
-    amixer -c sofhdadsp sset 'Bass Speaker' "${SPEAKER_VOL}%" > /dev/null
+# Wait a bit for the system to settle
+sleep 2
 
-    # Also sync Master if it's lagging (optional, but Master usually controls both)
-    # amixer -c sofhdadsp sset 'Master' "${SPEAKER_VOL}%" > /dev/null
-fi
+for i in {1..15}; do
+    # Try to get volume from pamixer (Pipewire)
+    SPEAKER_VOL=$(pamixer --get-volume 2>/dev/null)
+
+    if [ -n "$SPEAKER_VOL" ]; then
+        # Calculate Bass volume (Speaker - 6)
+        BASS_VOL=$(( SPEAKER_VOL - 6 ))
+        if [ "$BASS_VOL" -lt 0 ]; then BASS_VOL=0; fi
+
+        echo "Found volume: $SPEAKER_VOL. Setting Bass to $BASS_VOL." >> "$LOG_FILE"
+
+        # Apply to hardware controls
+        # We do NOT touch Master as requested
+        amixer -c sofhdadsp sset 'Speaker' "${SPEAKER_VOL}%" >> "$LOG_FILE" 2>&1
+        amixer -c sofhdadsp sset 'Bass Speaker' "${BASS_VOL}%" >> "$LOG_FILE" 2>&1
+
+        echo "Sync complete." >> "$LOG_FILE"
+        exit 0
+    fi
+    echo "Waiting for audio system... (attempt $i)" >> "$LOG_FILE"
+    sleep 1
+done
+echo "Failed to sync volume after 15 attempts" >> "$LOG_FILE"
