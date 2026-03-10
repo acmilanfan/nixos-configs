@@ -35,6 +35,6 @@
     Option  "RegistryDwords"  "EnableBrightnessControl=1"
   '';
 
-  services.logind.lidSwitch = "ignore";
+  services.logind.settings.Login.HandleLidSwitch = "ignore";
 
 }

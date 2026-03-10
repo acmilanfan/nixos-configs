@@ -8,6 +8,7 @@
 
   nix = {
     package = pkgs.nixVersions.stable;
+    nixPath = [ ];
     extraOptions = ''
       experimental-features = nix-command flakes
     '';

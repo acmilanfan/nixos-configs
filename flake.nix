@@ -36,6 +36,11 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    vicinae = {
+      url = "github:vicinaehq/vicinae";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     llm-agents = {
       url = "github:numtide/llm-agents.nix";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -77,8 +82,8 @@
       secrets = import secretsPath;
 
       overlay-howdy = _: prev: {
-        howdy = inputs.nixpkgs-howdy.legacyPackages.${prev.system}.howdy;
-        linux-enable-ir-emitter = inputs.nixpkgs-howdy.legacyPackages.${prev.system}.linux-enable-ir-emitter;
+        howdy = inputs.nixpkgs-howdy.legacyPackages.${prev.stdenv.hostPlatform.system}.howdy;
+        linux-enable-ir-emitter = inputs.nixpkgs-howdy.legacyPackages.${prev.stdenv.hostPlatform.system}.linux-enable-ir-emitter;
       };
 
       pkgsFor =
