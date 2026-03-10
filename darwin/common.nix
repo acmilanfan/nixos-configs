@@ -238,7 +238,6 @@ in
 
       # Terminal
       "kitty"
-      "alacritty"
 
       # Usability improvements
       "dimentium/autoraise/autoraiseapp"

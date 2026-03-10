@@ -253,7 +253,7 @@ function M.setup()
     hs.hotkey.bind(altShift, "o", function()
         focusOrCreateApp(
             "ORGINDEX-AGENDA",
-            '/Applications/Alacritty.app/Contents/MacOS/alacritty -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-AGENDA" -e zsh -c "nvim --cmd \\"cd ~/org/life\\" -c \\"lua require(\\\\\\"orgmode.api.agenda\\\\\\").agenda({span = 1})\\""',
+            '"/Users/andreishumailov/Applications/Home Manager Apps/Alacritty.app/Contents/MacOS/alacritty" -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-AGENDA" -e zsh -c "nvim --cmd \\"cd ~/org/life\\" -c \\"lua require(\\\\\\"orgmode.api.agenda\\\\\\").agenda({span = 1})\\""',
             nil,
             "Alacritty"
         )
@@ -262,7 +262,7 @@ function M.setup()
     hs.hotkey.bind(altShift, "w", function()
         focusOrCreateApp(
             "ORGINDEX-WORK",
-            '/Applications/Alacritty.app/Contents/MacOS/alacritty -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-WORK" -e zsh -c "cd ~/org/life && vim ~/org/life/work/work.org"',
+            '"/Users/andreishumailov/Applications/Home Manager Apps/Alacritty.app/Contents/MacOS/alacritty" -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-WORK" -e zsh -c "cd ~/org/life && vim ~/org/life/work/work.org"',
             nil,
             "Alacritty"
         )
@@ -271,7 +271,7 @@ function M.setup()
     hs.hotkey.bind(altShift, "d", function()
         focusOrCreateApp(
             "ORGINDEX-DUMP",
-            '/Applications/Alacritty.app/Contents/MacOS/alacritty -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-DUMP" -e zsh -c "cd ~/org/life && vim ~/org/life/dump.org"',
+            '"/Users/andreishumailov/Applications/Home Manager Apps/Alacritty.app/Contents/MacOS/alacritty" -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-DUMP" -e zsh -c "cd ~/org/life && vim ~/org/life/dump.org"',
             nil,
             "Alacritty"
         )
@@ -280,7 +280,7 @@ function M.setup()
     hs.hotkey.bind(altShift, "y", function()
         focusOrCreateApp(
             "ORGINDEX-YOUTUBE",
-            '/Applications/Alacritty.app/Contents/MacOS/alacritty -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-YOUTUBE" -e zsh -c "cd ~/org/consume && vim ~/org/consume/youtube/youtube1.org"',
+            '"/Users/andreishumailov/Applications/Home Manager Apps/Alacritty.app/Contents/MacOS/alacritty" -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-YOUTUBE" -e zsh -c "cd ~/org/consume && vim ~/org/consume/youtube/youtube1.org"',
             nil,
             "Alacritty"
         )
