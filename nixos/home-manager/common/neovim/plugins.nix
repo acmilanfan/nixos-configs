@@ -1,7 +1,7 @@
-{ lib, buildVimPluginFrom2Nix, fetchFromGitHub, fetchgit }:
+{ lib, buildVimPlugin, fetchFromGitHub, fetchgit }:
 
 {
-  telescope-orgmode = buildVimPluginFrom2Nix {
+  telescope-orgmode = buildVimPlugin {
     pname = "telescope-orgmode";
     version = "main";
     src = fetchFromGitHub {
@@ -12,7 +12,7 @@
     };
   };
 
-  org-bullets = buildVimPluginFrom2Nix {
+  org-bullets = buildVimPlugin {
     pname = "org-bullets";
     version = "main";
     src = fetchFromGitHub {
@@ -23,7 +23,7 @@
     };
   };
 
-  # headlines-nvim = buildVimPluginFrom2Nix {
+  # headlines-nvim = buildVimPlugin {
   #   pname = "headlines";
   #   version = "v3.3.0";
   #   src = fetchFromGitHub {
@@ -34,7 +34,7 @@
   #   };
   # };
 
-  nvim-macroni = buildVimPluginFrom2Nix {
+  nvim-macroni = buildVimPlugin {
     pname = "macroni";
     version = "master";
     src = fetchFromGitHub {
@@ -45,7 +45,7 @@
     };
   };
 
-  lsplinks-nvim = buildVimPluginFrom2Nix {
+  lsplinks-nvim = buildVimPlugin {
     pname = "lsplinks";
     version = "master";
     src = fetchFromGitHub {
@@ -56,7 +56,7 @@
     };
   };
 
-  nvim-java = buildVimPluginFrom2Nix {
+  nvim-java = buildVimPlugin {
     pname = "nvim-java";
     version = "main";
     src = fetchFromGitHub {
@@ -67,7 +67,7 @@
     };
   };
 
-  spring-boot-nvim = buildVimPluginFrom2Nix {
+  spring-boot-nvim = buildVimPlugin {
     pname = "spring-boot-nvim";
     version = "main";
     src = fetchFromGitHub {
@@ -78,7 +78,7 @@
     };
   };
 
-  lua-async-await = buildVimPluginFrom2Nix {
+  lua-async-await = buildVimPlugin {
     pname = "lua-async-await";
     version = "main";
     src = fetchFromGitHub {
@@ -89,7 +89,7 @@
     };
   };
 
-  nvim-java-refactor = buildVimPluginFrom2Nix {
+  nvim-java-refactor = buildVimPlugin {
     pname = "nvim-java-refactor";
     version = "main";
     src = fetchFromGitHub {
@@ -100,7 +100,7 @@
     };
   };
 
-  nvim-java-core = buildVimPluginFrom2Nix {
+  nvim-java-core = buildVimPlugin {
     pname = "nvim-java-core";
     version = "main";
     src = fetchFromGitHub {
@@ -111,7 +111,7 @@
     };
   };
 
-  nvim-java-test = buildVimPluginFrom2Nix {
+  nvim-java-test = buildVimPlugin {
     pname = "nvim-java-test";
     version = "main";
     src = fetchFromGitHub {
@@ -122,7 +122,7 @@
     };
   };
 
-  nvim-java-dap = buildVimPluginFrom2Nix {
+  nvim-java-dap = buildVimPlugin {
     pname = "nvim-java-dap";
     version = "main";
     src = fetchFromGitHub {
