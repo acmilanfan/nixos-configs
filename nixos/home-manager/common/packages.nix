@@ -2,6 +2,10 @@
 
   home.packages = with pkgs;
     [
+      (writeShellScriptBin "ssh-askpass" ''
+        ${pkgs.zenity}/bin/zenity --password --title="SSH Password"
+      '')
+      (writeShellScriptBin "ssh-add-login" (lib.readFile ./scripts/ssh-add-login.sh))
       (writeShellScriptBin "ns" (lib.readFile ./scripts/nixpkgs))
       git
       httpie

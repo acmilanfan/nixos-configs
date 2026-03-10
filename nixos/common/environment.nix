@@ -1,10 +1,12 @@
-{ config, pkgs, ... }: {
+{ config, pkgs, lib, ... }: {
 
   environment.variables = {
     BROWSER="firefox";
     EDITOR="vim";
     MOZ_USE_XINPUT2="1";
     WINIT_X11_SCALE_FACTOR = "1.3";
+    SSH_ASKPASS = lib.mkForce "ssh-askpass";
+    SSH_AUTH_SOCK = "/home/gentooway/.ssh/ssh_auth_sock";
   } // (if config.programs.hyprland.enable then {
     MOZ_ENABLE_WAYLAND = "1";
     QT_QPA_PLATFORM = "wayland";

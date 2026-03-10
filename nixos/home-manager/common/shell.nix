@@ -1,4 +1,4 @@
-{ pkgs, ... }: {
+{ pkgs, lib, ... }: {
 
   home.packages = with pkgs; [ zsh-you-should-use ];
 
@@ -134,6 +134,17 @@
 
       # Rebind fzf cd widget to Ctrl+G (Alt+C conflicts with Hammerspoon)
       bindkey '^g' fzf-cd-widget
+    '';
+  };
+
+  programs.ssh = {
+    enable = true;
+    enableDefaultConfig = false;
+    extraConfig = lib.mkIf pkgs.stdenv.isDarwin ''
+      Host *
+        AddKeysToAgent yes
+        UseKeychain yes
+        IdentityFile ~/.ssh/id_ed25519
     '';
   };
 

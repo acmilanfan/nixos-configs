@@ -8,7 +8,7 @@
 
 let
   customPlugins = pkgs.callPackage ./neovim/plugins.nix {
-    inherit (pkgs.vimUtils) buildVimPluginFrom2Nix;
+    inherit (pkgs.vimUtils) buildVimPlugin;
   };
   jdtlsWrapped = pkgs.writeShellScriptBin "jdtls" ''
     ${unstable.jdt-language-server}/bin/jdtls \

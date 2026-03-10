@@ -155,7 +155,7 @@
     "btusb.enable_autosuspend=n"
   ];
 
-  services.logind.lidSwitch = lib.mkForce "suspend";
+  services.logind.settings.Login.HandleLidSwitch = lib.mkForce "suspend";
 
 
   # "reboot=pci"

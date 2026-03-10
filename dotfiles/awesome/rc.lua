@@ -106,6 +106,9 @@ awful.layout.layouts = {
 awful.spawn("nm-applet")
 awful.spawn("killall ..onboard-wrapped-wrapped & onboard -e")
 awful.spawn("autorandr --change")
+awful.spawn.with_shell("sleep 3 && sync-volume")
+awful.spawn.with_shell("ln -sf /run/user/1000/ssh-agent ~/.ssh/ssh_auth_sock")
+awful.spawn("ssh-add-login")
 
 -- {{{ Menu
 -- Create a launcher widget and a main menu

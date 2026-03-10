@@ -1,6 +1,7 @@
-{ pkgs, ... }: {
+{ pkgs, lib, ... }: {
 
   services.desktopManager.gnome.enable = true;
+  services.gnome.gcr-ssh-agent.enable = lib.mkForce false;
   services.displayManager.gdm ={
     enable = true;
     wayland = true;
