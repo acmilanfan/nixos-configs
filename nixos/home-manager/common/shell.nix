@@ -140,12 +140,13 @@
   programs.ssh = {
     enable = true;
     enableDefaultConfig = false;
-    extraConfig = lib.mkIf pkgs.stdenv.isDarwin ''
-      Host *
-        AddKeysToAgent yes
-        UseKeychain yes
-        IdentityFile ~/.ssh/id_ed25519
-    '';
+    matchBlocks."*" = lib.mkIf pkgs.stdenv.isDarwin {
+      extraOptions = {
+        AddKeysToAgent = "yes";
+        UseKeychain = "yes";
+        IdentityFile = "~/.ssh/id_ed25519";
+      };
+    };
   };
 
 }
