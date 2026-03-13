@@ -59,12 +59,20 @@
 #custom-lock,
 #custom-screen_toggle,
 #custom-rotation,
-#idle_inhibitor,
 #custom-power {
   background-color: #101010;
   padding: 0.5rem 1rem;
   margin: 5px 0;
   border-radius: 0px 5px 5px 0px;
+}
+
+#custom-touch_menu,
+#idle_inhibitor {
+  background-color: #101010;
+  padding: 0.5rem 1rem;
+  margin: 5px 5px;
+  border-radius: 5px;
+  color: #babbf1;
 }
 
 #memory {
@@ -116,11 +124,6 @@
 
 #custom-screen_toggle {
   border-radius: 5px 0px 0px 5px;
-  color: #babbf1;
-}
-
-#idle_inhibitor {
-  border-radius: 0px 0px 0px 0px;
   color: #babbf1;
 }
 

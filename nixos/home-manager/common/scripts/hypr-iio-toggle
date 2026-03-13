@@ -1,13 +1,30 @@
 #!/usr/bin/env bash
 
-if systemctl --user is-active hypr-iio-rotate.service >/dev/null 2>&1; then
+# Function to disable auto-rotation
+disable_rotation() {
   systemctl --user stop hypr-iio-rotate.service
   pkill iio-hyprland || true
   pkill hypr-iio-rotate || true
   # systemctl --user stop iio-sensor-proxy.service
   notify-send -u low -t 2000 "Auto-rotation" "Disabled 🔒"
-else
+}
+
+# Function to enable auto-rotation
+enable_rotation() {
   systemctl --user start hypr-iio-rotate.service
   # systemctl --user start iio-sensor-proxy.service
   notify-send -u low -t 2000 "Auto-rotation" "Enabled 🔄"
+}
+
+if [[ "$1" == "off" ]]; then
+  disable_rotation
+elif [[ "$1" == "on" ]]; then
+  enable_rotation
+else
+  # Toggle behavior
+  if systemctl --user is-active hypr-iio-rotate.service >/dev/null 2>&1; then
+    disable_rotation
+  else
+    enable_rotation
+  fi
 fi

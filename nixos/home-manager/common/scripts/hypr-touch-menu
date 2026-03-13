@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+
+# Main menu items
+choice=$(echo -e "🚀 Apps\n💻 Profiles\n🔄 Auto-rotate: $(systemctl --user is-active hypr-iio-rotate.service >/dev/null && echo "ON" || echo "OFF")\n📊 Waybar Toggle\n⌨️ Keyboard\n📶 Network\n Bluetooth\n💡 Brightness\n🔊 Volume\n🔒 Power" | \
+    fuzzel --dmenu --prompt "Touch Menu: ")
+
+case "$choice" in
+    "🚀 Apps")
+        nwg-drawer
+        ;;
+    "💻 Profiles")
+        hypr-profile
+        ;;
+    "🔄 Auto-rotate"*)
+        hypr-iio-toggle
+        ;;
+    "📊 Waybar Toggle")
+        hypr-waybar-toggle
+        ;;
+    "⌨️ Keyboard")
+        hypr-toggle-kb
+        ;;
+    "📶 Network")
+        iwmenu -l fuzzel
+        ;;
+    " Bluetooth")
+        bzmenu -l fuzzel
+        ;;
+    "💡 Brightness")
+        val=$(echo -e "100%\n80%\n60%\n40%\n20%\n5%" | fuzzel --dmenu --prompt "Brightness: ")
+        if [[ -n "$val" ]]; then
+            # Remove % for set-sync-brightness
+            clean_val="${val%%%}"
+            if command -v set-sync-brightness >/dev/null; then
+                set-sync-brightness "$clean_val"
+            else
+                brightnessctl set "$val"
+            fi
+        fi
+        ;;
+    "🔊 Volume")
+        val=$(echo -e "100%\n80%\n60%\n40%\n20%\n0%" | fuzzel --dmenu --prompt "Volume: ")
+        if [[ -n "$val" ]]; then
+             # Remove % for change-volume
+             clean_val="${val%%%}"
+             if command -v change-volume >/dev/null; then
+                change-volume "$clean_val"
+            else
+                pamixer --set-volume "$clean_val"
+            fi
+        fi
+        ;;
+    "🔒 Power")
+        wlogout
+        ;;
+esac

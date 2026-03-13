@@ -11,8 +11,8 @@
   "position": "top",
   "modules-left": [
     "hyprland/workspaces",
-    "custom/screen_toggle",
-    "idle_inhibitor",
+    "custom/touch_menu",
+    "idle_inhibitor"
   ],
   "modules-center": [
     "clock"
@@ -23,8 +23,7 @@
     "network",
     "cpu",
     "memory",
-    "tray",
-    "custom/lock"
+    "tray"
   ],
   "idle_inhibitor": {
     "format": "{icon}",
@@ -107,6 +106,11 @@
   },
   "later": {
     "format": "<span class='icon'>{icon}</span> <span class='text'>{text}</span>"
+  },
+  "custom/touch_menu": {
+    "tooltip": false,
+    "format": "󰀻",
+    "on-click": "hypr-touch-menu"
   },
   "custom/screen_toggle": {
     "format": "💻",

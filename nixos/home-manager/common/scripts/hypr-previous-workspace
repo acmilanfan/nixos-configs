@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+# If we are on a single monitor, 'previous_per_monitor' can be buggy
+# especially if workspaces were moved between monitors during profile changes.
+# We use 'workspace previous' if only one monitor is active.
+
+MON_COUNT=$(hyprctl monitors -j | jq '. | length')
+
+if [ "$MON_COUNT" -le 1 ]; then
+    hyprctl dispatch workspace previous
+else
+    hyprctl dispatch workspace previous_per_monitor
+fi

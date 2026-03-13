@@ -47,7 +47,7 @@
       fhs-shell = "nix develop ~/configs/nixos-configs/shell/fhs";
     } // pkgs.lib.optionalAttrs pkgs.stdenv.isLinux {
       # Linux-specific aliases
-      sup = "sudo nixos-rebuild switch --flake $HOME/configs/nixos-configs/#$NIX_SYSTEM --impure";
+      sup = "sudo nixos-rebuild switch --flake $HOME/configs/nixos-configs/#$NIX_SYSTEM --impure && hypr-reload-desktop";
       # sup = "sudo darwin-rebuild switch --flake $HOME/configs/nixos-configs/#$NIX_SYSTEM --impure";
     };
     initContent = ''

@@ -34,8 +34,19 @@ if [[ "$1" == "restore" && -f "$CACHE_FILE" ]]; then
 
     if [[ -z "$choice" ]]; then choice="Vertical (stacked)"; fi
 else
-    choice=$(echo -e "Vertical (stacked)\nBook Mode (Both)\nBook Mode (Single)\nSingle screen top\nSingle screen bottom\nRotate Active Screens (CW)\nSingle screen top (tablet)\nExternal Only (Strict)\nPower save: Vertical (stacked)\nPower save: Single screen top\nPower save: Single screen top (tablet)" | \
+    choice=$(echo -e "Vertical (stacked)\nBook Mode (Both)\nBook Mode (Single)\nSingle screen top\nSingle screen bottom\nRotate Active Screens (CW)\nSingle screen top (tablet)\nExternal Only (Strict)\nPower save..." | \
         fuzzel --dmenu --prompt "Display mode: ")
+fi
+
+if [[ "$choice" == "Power save..." ]]; then
+    choice=$(echo -e "Vertical (stacked)\nSingle screen top\nSingle screen top (tablet)" | \
+        fuzzel --dmenu --prompt "Power save mode: ")
+    case "$choice" in
+        "Vertical (stacked)") choice="Power save: Vertical (stacked)" ;;
+        "Single screen top") choice="Power save: Single screen top" ;;
+        "Single screen top (tablet)") choice="Power save: Single screen top (tablet)" ;;
+        *) exit 0 ;;
+    esac
 fi
 
 # Prevent "Rotate" action from overwriting the layout cache
@@ -224,6 +235,7 @@ case "$choice" in
     set_monitor "DP-2,3840x2160@120,0x0,2"
     set_monitor "DP-3,3840x2160@120,0x0,2"
     hypr-powersave-mode off
+    hypr-iio-toggle off
     ;;
 "Power save: Vertical (stacked)")
     t_top=$(resolve_transform "eDP-1" 0)

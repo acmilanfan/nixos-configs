@@ -15,6 +15,7 @@ let
   hypr-iio-rotate-script = (pkgs.writeShellScriptBin "hypr-iio-rotate" (lib.readFile ./scripts/hypr-iio-rotate));
 in
 {
+  imports = [ inputs.vicinae.homeManagerModules.default ];
 
   home.sessionVariables = {
     XDG_CURRENT_DESKTOP = "Hyprland";
@@ -193,6 +194,10 @@ in
     '';
   };
 
+  services.swaync = {
+    enable = true;
+  };
+
   services.hypridle = {
     enable = true;
     settings = {
@@ -206,7 +211,7 @@ in
         {
           timeout = 270;
           on-timeout = ''notify-send -u critical -t 30000 "Locking screen in 30 seconds"'';
-          on-resume = "dunstctl close";
+          on-resume = "swaync-client -C --close-latest";
         }
         {
           timeout = 300;
@@ -343,7 +348,7 @@ in
   home.packages = with pkgs; [
     hyprland
     waybar
-    dunst
+    swaynotificationcenter
     brightnessctl
     swww
     wl-clipboard
@@ -371,6 +376,9 @@ in
     wiremix
     yazi
     hypr-iio-rotate-script
+    (writeShellScriptBin "hypr-touch-menu" (lib.readFile ./scripts/hypr-touch-menu))
+    (writeShellScriptBin "hypr-reload-desktop" (lib.readFile ./scripts/hypr-reload-desktop))
+    (writeShellScriptBin "hypr-previous-workspace" (lib.readFile ./scripts/hypr-previous-workspace))
     (writeShellScriptBin "hypr-profile" (lib.readFile ./scripts/hypr-profile))
     (writeShellScriptBin "hypr-toggle-kb" (lib.readFile ./scripts/hypr-toggle-kb))
     (writeShellScriptBin "hypr-send-to-other-monitor" (

@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+# Only run if Hyprland is active
+if [ -z "$HYPRLAND_INSTANCE_SIGNATURE" ]; then
+    exit 0
+fi
+
+echo "🔄 Reloading desktop components..."
+
+# 1. Restart Waybar (all instances)
+# pkill -USR2 sometimes kills waybar if there are config issues,
+# so a full restart is more reliable for nixos-rebuild.
+hypr-waybar-toggle restart
+
+# 2. Reload SwayNC
+if command -v swaync-client >/dev/null; then
+    swaync-client -R 2>/dev/null || true
+    swaync-client -rs 2>/dev/null || true
+fi
+
+# 3. Reload Hyprland configuration
+hyprctl reload 2>/dev/null || true
+
+notify-send -u low -t 2000 "Desktop" "Components reloaded"

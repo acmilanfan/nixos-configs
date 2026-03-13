@@ -108,15 +108,15 @@
     #   ];
   };
 
-  # boot.kernelPatches = [{
-  #   name = "yoga-book-9i-fix";
-  #   patch = ./yogabook9i-hid.patch;
-  # }
+  boot.kernelPatches = [{
+    name = "yoga-book-9i-fix";
+    patch = ./yogabook9i-hid.patch;
+  }
   # {
   #   name = "yoga-book-9i-touch-fix";
   #   patch = ./yb9i-gen10-touch-fix2.patch;
   # }
-  # ];
+  ];
 
   hardware.enableRedistributableFirmware = true;
   hardware.enableAllFirmware = true;

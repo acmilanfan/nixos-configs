@@ -1,9 +1,38 @@
 #!/usr/bin/env bash
 
-if pgrep -x ".waybar-wrapped" > /dev/null; then
-    killall .waybar-wrapped
-else
-    waybar -c ~/.config/waybar/config-hypr-top -s ~/.config/waybar/style-hypr.css &
-    waybar -c ~/.config/waybar/config-hypr-bottom -s ~/.config/waybar/style-hypr.css &
-    waybar -c ~/.config/waybar/config-hypr-external -s ~/.config/waybar/style-hypr.css &
-fi
+# Function to kill waybar instances based on our specific configs
+kill_waybar() {
+    pkill -f "waybar -c .*config-hypr" 2>/dev/null
+    # Also kill any generic waybar just in case
+    killall .waybar-wrapped 2>/dev/null
+    killall waybar 2>/dev/null
+    sleep 0.2
+}
+
+# Function to start waybar
+start_waybar() {
+    kill_waybar
+    nohup waybar -c ~/.config/waybar/config-hypr-top -s ~/.config/waybar/style-hypr.css >/dev/null 2>&1 &
+    nohup waybar -c ~/.config/waybar/config-hypr-bottom -s ~/.config/waybar/style-hypr.css >/dev/null 2>&1 &
+    nohup waybar -c ~/.config/waybar/config-hypr-external -s ~/.config/waybar/style-hypr.css >/dev/null 2>&1 &
+}
+
+case "$1" in
+    on)
+        start_waybar
+        ;;
+    off)
+        kill_waybar
+        ;;
+    restart)
+        start_waybar
+        ;;
+    *)
+        # Toggle behavior
+        if pgrep -f "waybar -c .*config-hypr" >/dev/null; then
+            kill_waybar
+        else
+            start_waybar
+        fi
+        ;;
+esac
