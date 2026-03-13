@@ -57,17 +57,18 @@ end
 -- Initial trigger on config load
 triggerClockTick()
 
--- Sync with the start of the next minute
-local secondsUntilNextMinute = 60 - os.date("*t").sec
-if secondsUntilNextMinute <= 0 then secondsUntilNextMinute = 60 end
+-- Self-rescheduling function that always aligns to the next actual minute boundary
+local function scheduleNextTick()
+    local secondsUntilNextMinute = 60 - os.date("*t").sec
+    if secondsUntilNextMinute <= 0 then secondsUntilNextMinute = 60 end
+    if _G.sketchybarTimers.next then _G.sketchybarTimers.next:stop() end
+    _G.sketchybarTimers.next = hs.timer.doAfter(secondsUntilNextMinute, function()
+        triggerClockTick()
+        scheduleNextTick()
+    end)
+end
 
-if _G.sketchybarTimers.initial then _G.sketchybarTimers.initial:stop() end
-_G.sketchybarTimers.initial = hs.timer.doAfter(secondsUntilNextMinute, function()
-    triggerClockTick()
-    -- Start a repeating timer every 60 seconds from now
-    if _G.sketchybarTimers.repeating then _G.sketchybarTimers.repeating:stop() end
-    _G.sketchybarTimers.repeating = hs.timer.doEvery(60, triggerClockTick)
-end)
+scheduleNextTick()
 
 -- =============================================================================
 -- NanoWM - Tiling Window Manager
