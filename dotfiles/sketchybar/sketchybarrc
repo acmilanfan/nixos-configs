@@ -55,7 +55,7 @@ sketchybar --bar \
   sticky=on \
   topmost=window \
   padding_left=6 \
-  padding_right=6 \
+  padding_right=20 \
   shadow=on
 
 # ═══════════════════════════════════════════════════════════════════════════

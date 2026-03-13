@@ -252,4 +252,86 @@ function M.launchTask(cmd, args)
     end)
 end
 
+function M.openInAlacritty(command, sizeFactor)
+    -- Include common paths where wifitui or blueutil-tui might be located
+    -- Using -n to ensure a NEW window is opened even if Alacritty is already running
+    -- Using -e to run the command
+    local shellCmd = string.format("export PATH=$PATH:/opt/homebrew/bin:/usr/local/bin:/run/current-system/sw/bin; %s; zsh", command)
+    local fullCmd = string.format("/usr/bin/open -n -a Alacritty --args --title '%s' -e zsh -c \"%s\"", command, shellCmd)
+
+    if sizeFactor then
+        -- Watch for the specific window title we just set
+        local filter = hs.window.filter.new(false):setAppFilter("Alacritty", {allowTitles = command})
+        filter:subscribe(hs.window.filter.windowCreated, function(newWin)
+            filter:unsubscribe()
+            -- Give it a bit more time to fully initialize and be recognized by NanoWM
+            hs.timer.doAfter(0.8, function()
+                if newWin:isValid() then
+                    local screen = newWin:screen():frame()
+                    local newW = screen.w * sizeFactor
+                    local newH = screen.h * sizeFactor
+                    local newX = screen.x + (screen.w - newW) / 2
+                    local newY = screen.y + (screen.h - newH) / 2
+                    newWin:setFrame({ x = newX, y = newY, w = newW, h = newH })
+                    newWin:raise()
+                    newWin:focus()
+                end
+            end)
+        end)
+    end
+
+    hs.task.new("/bin/zsh", nil, { "-c", fullCmd }):start()
+end
+
+function M.toggleFineTune()
+    -- FineTune is a menu-bar app. We'll try multiple ways to trigger it.
+    local app = hs.application.get("FineTune")
+    if app then
+        app:activate()
+
+        -- Try clicking the status item (menu bar 2) by name or index
+        -- If the menu bar is hidden, we might need to be more aggressive
+        local script = [[
+            tell application "System Events"
+                tell process "FineTune"
+                    -- Try to find the status item in menu bar 2
+                    try
+                        -- Method 1: Click the first item in the status area (menu bar 2)
+                        click menu bar item 1 of menu bar 2
+                    on error
+                        try
+                            -- Method 2: If menu bar 2 fails, try menu bar 1 (sometimes apps behave differently)
+                            click menu bar item 1 of menu bar 1
+                        end try
+                    end try
+                end tell
+            end tell
+        ]]
+        hs.osascript.applescript(script)
+
+        -- Fallback: If it has windows now, center them
+        hs.timer.doAfter(0.5, function()
+            local wins = app:allWindows()
+            if #wins > 0 then
+                local win = wins[1]
+                win:raise()
+                win:focus()
+                if M.isFloating(win) then
+                    local screen = win:screen():frame()
+                    local frame = win:frame()
+                    win:setFrame({
+                        x = screen.x + (screen.w - frame.w) / 2,
+                        y = screen.y + (screen.h - frame.h) / 2,
+                        w = frame.w,
+                        h = frame.h
+                    })
+                end
+            end
+        end)
+    else
+        -- If not running, launch it
+        hs.application.launchOrFocus("FineTune")
+    end
+end
+
 return M

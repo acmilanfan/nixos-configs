@@ -29,12 +29,15 @@ local cmdAltShiftCtrl = config.modifiers.cmdAltShiftCtrl
 -- =============================================================================
 
 function M.setup()
+    local home = os.getenv("HOME") or "/Users/" .. (os.getenv("USER") or "gentooway")
+
     -- =========================================================================
     -- MENUS
     -- =========================================================================
     hs.hotkey.bind(alt, "m", menus.triggerMenuPalette)
     hs.hotkey.bind(alt, "p", function() menus.openMenu("commands") end)
     hs.hotkey.bind(alt, "i", function() menus.openMenu("windows") end)
+    hs.hotkey.bind(alt, "n", menus.openControlMenu)
     hs.hotkey.bind(alt, "/", menus.showKeybindMenu)
 
     -- AI Agents: chooser (Alt+A) and SketchyBar popup toggle (Ctrl+Alt+A)
@@ -253,8 +256,8 @@ function M.setup()
     hs.hotkey.bind(altShift, "o", function()
         focusOrCreateApp(
             "ORGINDEX-AGENDA",
-            '"/Users/andreishumailov/Applications/Home Manager Apps/Alacritty.app/Contents/MacOS/alacritty" -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-AGENDA" -e zsh -c "nvim --cmd \\"cd ~/org/life\\" -c \\"lua require(\\\\\\"orgmode.api.agenda\\\\\\").agenda({span = 1})\\""',
-            nil,
+            string.format('open -n -a Alacritty --args -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-AGENDA" -e zsh -c "nvim --cmd \\"cd %s/org/life\\" -c \\"lua require(\\\\\\"orgmode.api.agenda\\\\\\").agenda({span = 1})\\""', home),
+            0.6,
             "Alacritty"
         )
     end)
@@ -262,8 +265,8 @@ function M.setup()
     hs.hotkey.bind(altShift, "w", function()
         focusOrCreateApp(
             "ORGINDEX-WORK",
-            '"/Users/andreishumailov/Applications/Home Manager Apps/Alacritty.app/Contents/MacOS/alacritty" -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-WORK" -e zsh -c "cd ~/org/life && vim ~/org/life/work/work.org"',
-            nil,
+            string.format('open -n -a Alacritty --args -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-WORK" -e zsh -c "cd %s/org/life && vim %s/org/life/work/work.org"', home, home),
+            0.6,
             "Alacritty"
         )
     end)
@@ -271,8 +274,8 @@ function M.setup()
     hs.hotkey.bind(altShift, "d", function()
         focusOrCreateApp(
             "ORGINDEX-DUMP",
-            '"/Users/andreishumailov/Applications/Home Manager Apps/Alacritty.app/Contents/MacOS/alacritty" -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-DUMP" -e zsh -c "cd ~/org/life && vim ~/org/life/dump.org"',
-            nil,
+            string.format('open -n -a Alacritty --args -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-DUMP" -e zsh -c "cd %s/org/life && vim %s/org/life/dump.org"', home, home),
+            0.6,
             "Alacritty"
         )
     end)
@@ -280,8 +283,8 @@ function M.setup()
     hs.hotkey.bind(altShift, "y", function()
         focusOrCreateApp(
             "ORGINDEX-YOUTUBE",
-            '"/Users/andreishumailov/Applications/Home Manager Apps/Alacritty.app/Contents/MacOS/alacritty" -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-YOUTUBE" -e zsh -c "cd ~/org/consume && vim ~/org/consume/youtube/youtube1.org"',
-            nil,
+            string.format('open -n -a Alacritty --args -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-YOUTUBE" -e zsh -c "cd %s/org/consume && vim %s/org/consume/youtube/youtube1.org"', home, home),
+            0.6,
             "Alacritty"
         )
     end)
@@ -374,16 +377,18 @@ function M.setup()
     local leader = hs.hotkey.modal.new(alt, ",")
     local appsModal = hs.hotkey.modal.new()
     local systemModal = hs.hotkey.modal.new()
+    local controlModal = hs.hotkey.modal.new()
     local leaderActive = false
 
     local function exitAll()
         appsModal:exit()
         systemModal:exit()
+        controlModal:exit()
         leader:exit()
     end
 
     function leader:entered()
-        hs.alert.show("Leader: [a]pps [s]ystem [r]eload [c]onsole [v]im", 999999)
+        hs.alert.show("Leader: [a]pps [s]ystem [c]ontrol [r]eload [v]im [k] console", 999999)
         leaderActive = true
         tags.updateBorder()
     end
@@ -398,10 +403,30 @@ function M.setup()
     leader:bind("", "escape", exitAll)
     leader:bind("", "q", exitAll)
     leader:bind("", "r", function() hs.reload(); exitAll() end)
-    leader:bind("", "c", function() hs.toggleConsole(); exitAll() end)
-    leader:bind("", "v", function() 
+    leader:bind("", "k", function() hs.toggleConsole(); exitAll() end)
+    leader:bind("", "v", function()
         if _G.vim then _G.vim:enter() end
-        exitAll() 
+        exitAll()
+    end)
+
+    -- [c]ontrol Sub-modal
+    leader:bind("", "c", function()
+        hs.alert.closeAll()
+        hs.alert.show("Control: [m] Mixer [a] FineTune [w] WiFi [b] Bluetooth", 999999)
+        controlModal:enter()
+    end)
+
+    controlModal:bind("", "escape", exitAll)
+    controlModal:bind("", "q", exitAll)
+    controlModal:bind("", "m", function() menus.openAudioMenu(); exitAll() end)
+    controlModal:bind("", "a", function() core.toggleFineTune(); exitAll() end)
+    controlModal:bind("", "w", function()
+        core.openInAlacritty("wifitui", 0.5)
+        exitAll()
+    end)
+    controlModal:bind("", "b", function()
+        core.openInAlacritty("btui", 0.5)
+        exitAll()
     end)
 
     -- [a]pps Sub-modal

@@ -344,6 +344,7 @@ function M.showKeybindMenu()
                 { key = "Alt+M", desc = "App menu palette", fn = M.triggerMenuPalette },
                 { key = "Alt+P", desc = "Commands menu", fn = function() M.openMenu("commands") end },
                 { key = "Alt+I", desc = "Windows menu", fn = function() M.openMenu("windows") end },
+                { key = "Alt+N", desc = "Control Center (Audio/WiFi/BT)", fn = function() M.openControlMenu() end },
                 { key = "Alt+/", desc = "This keybind menu", fn = M.showKeybindMenu },
             },
         },
@@ -368,8 +369,9 @@ function M.showKeybindMenu()
                 { key = "a -> t/f/s", desc = "Apps: Term / Firefox / Slack", fn = function() end },
                 { key = "s -> p/g/o", desc = "System: Power / Bar / Borders", fn = function() end },
                 { key = "s -> k/l",   desc = "System: Kanata / Lock", fn = function() end },
+                { key = "c -> m/a/w/b", desc = "Control: Mixer / Audio / WiFi / BT", fn = function() end },
                 { key = "v",         desc = "Enter Vim Mode", fn = function() end },
-                { key = "c",         desc = "Toggle HS Console", fn = function() end },
+                { key = "k",         desc = "Toggle HS Console", fn = function() end },
                 { key = "r",         desc = "Reload Hammerspoon", fn = function() end },
                 { key = "q / Esc",   desc = "Exit leader mode", fn = function() end },
             },
@@ -431,6 +433,158 @@ function M.showKeybindMenu()
     chooser:placeholderText("Search keybinds (press Enter to execute)...")
     chooser:searchSubText(true)
     chooser:show()
+end
+
+-- =============================================================================
+-- Control Center
+-- =============================================================================
+
+function M.openControlMenu()
+    state.actionsCache = {}
+    local choices = {
+        {
+            text = "Audio Center (Keyboard)",
+            subText = "Switch devices and set volume via keyboard",
+            uuid = "audio_center",
+        },
+        {
+            text = "Audio Mixer (FineTune)",
+            subText = "Launch/Toggle FineTune GUI (Per-app volume)",
+            uuid = "audio_gui",
+        },
+        {
+            text = "WiFi Control (wifitui)",
+            subText = "Open TUI for WiFi management in Alacritty",
+            uuid = "wifi",
+        },
+        {
+            text = "Bluetooth Control (btui)",
+            subText = "Open TUI for Bluetooth management in Alacritty",
+            uuid = "bluetooth",
+        },
+    }
+
+    local controlChooser = hs.chooser.new(function(choice)
+        if not choice then return end
+
+        if choice.uuid == "audio_center" then
+            M.openAudioMenu()
+        elseif choice.uuid == "audio_gui" then
+            core.toggleFineTune()
+        elseif choice.uuid == "wifi" then
+            core.openInAlacritty("wifitui", 0.5)
+        elseif choice.uuid == "bluetooth" then
+            core.openInAlacritty("btui", 0.5)
+        end
+    end)
+
+    controlChooser:width(30)
+    controlChooser:bgDark(true)
+    controlChooser:choices(choices)
+    controlChooser:placeholderText("Control Center")
+    controlChooser:show()
+end
+
+function M.openAudioMenu()
+    state.actionsCache = {}
+    local choices = {}
+
+    -- Current Status Header
+    local defaultOut = hs.audiodevice.defaultOutputDevice()
+    if defaultOut then
+        local curOut = defaultOut:name() or "Unknown"
+        local curVol = math.floor(defaultOut:volume() or 0)
+        local isMuted = defaultOut:muted()
+
+        table.insert(choices, {
+            text = "Current: " .. curOut,
+            subText = string.format("Volume: %d%% %s", curVol, isMuted and "[MUTED]" or ""),
+            uuid = "header",
+            image = hs.image.imageFromName(isMuted and "NSStatusPartiallyAvailable" or "NSStatusAvailable")
+        })
+    else
+        table.insert(choices, {
+            text = "No default output device found",
+            uuid = "header"
+        })
+    end
+
+    -- Volume Controls
+    local vols = {0, 25, 50, 75, 100}
+    for _, v in ipairs(vols) do
+        table.insert(choices, {
+            text = "Set Volume: " .. v .. "%",
+            subText = "Adjust system output volume",
+            uuid = "vol_" .. v
+        })
+    end
+
+    table.insert(choices, {
+        text = "Toggle Mute",
+        subText = "Toggle current output mute state",
+        uuid = "toggle_mute"
+    })
+
+    -- All Devices
+    local allDevices = hs.audiodevice.allDevices()
+
+    -- Output Devices
+    table.insert(choices, { text = "━━━ Output Devices ━━━", uuid = "sep_out" })
+    for _, dev in ipairs(allDevices) do
+        if dev:isOutputDevice() then
+            table.insert(choices, {
+                text = dev:name(),
+                subText = "Switch output to " .. dev:name(),
+                uuid = "out_" .. dev:uid()
+            })
+        end
+    end
+
+    -- Input Devices
+    table.insert(choices, { text = "━━━ Input Devices ━━━", uuid = "sep_in" })
+    for _, dev in ipairs(allDevices) do
+        if dev:isInputDevice() then
+            table.insert(choices, {
+                text = dev:name(),
+                subText = "Switch input to " .. dev:name(),
+                uuid = "in_" .. dev:uid()
+            })
+        end
+    end
+
+    local audioChooser = hs.chooser.new(function(choice)
+        if not choice or choice.uuid:match("^sep_") or choice.uuid == "header" then return end
+
+        local outDev = hs.audiodevice.defaultOutputDevice()
+        if choice.uuid:match("^vol_") and outDev then
+            local v = tonumber(choice.uuid:match("vol_(%d+)"))
+            outDev:setVolume(v)
+            hs.alert.show("Volume set to " .. v .. "%")
+        elseif choice.uuid == "toggle_mute" and outDev then
+            outDev:setMuted(not outDev:muted())
+            hs.alert.show(outDev:muted() and "Muted" or "Unmuted")
+        elseif choice.uuid:match("^out_") then
+            local uid = choice.uuid:sub(5)
+            local dev = hs.audiodevice.findDeviceByUID(uid)
+            if dev then
+                dev:setDefaultOutputDevice()
+                hs.alert.show("Output: " .. dev:name())
+            end
+        elseif choice.uuid:match("^in_") then
+            local uid = choice.uuid:sub(4)
+            local dev = hs.audiodevice.findDeviceByUID(uid)
+            if dev then
+                dev:setDefaultInputDevice()
+                hs.alert.show("Input: " .. dev:name())
+            end
+        end
+    end)
+
+    audioChooser:width(35)
+    audioChooser:bgDark(true)
+    audioChooser:choices(choices)
+    audioChooser:placeholderText("Audio Center")
+    audioChooser:show()
 end
 
 return M

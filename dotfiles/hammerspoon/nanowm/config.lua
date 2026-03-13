@@ -45,6 +45,9 @@ M.floatingApps = {
 -- Window titles that should float
 M.floatingTitles = {
     "ORGINDEX",
+    "wifitui",
+    "btui",
+    "FineTune",
     "Picture-in-Picture",
     "Copy",
     "Move",

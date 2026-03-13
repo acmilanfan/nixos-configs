@@ -41,6 +41,7 @@ in
       shortcat
       macmon
       blueutil
+      switchaudio-osx
 
       jankyborders
       # Scripts need to be handled. They were in ./scripts/ relative to mac-work/home.nix.

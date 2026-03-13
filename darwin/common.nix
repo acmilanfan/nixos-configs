@@ -89,6 +89,7 @@ let
   '';
 
   warpd = pkgs.callPackage ../nixos/common/pkgs/warpd.nix { };
+  blueutil-tui = pkgs.callPackage ../nixos/common/pkgs/blueutil-tui.nix { };
 in
 {
   ## TODO things to fix
@@ -110,6 +111,7 @@ in
     unstable.aerospace
     startupScript
     warpd
+    blueutil-tui
   ];
 
   launchd.daemons.kanata = {
@@ -246,6 +248,7 @@ in
       "balenaetcher"
       "middleclick"
       "cursorcerer"
+      "finetune"
     ];
 
     # Homebrew formulae (CLI tools)
@@ -258,6 +261,7 @@ in
       "devsunb/tap/kanata-vk-agent"
       "docker" # Docker CLI (works with colima)
       "docker-compose" # Docker Compose
+      "wifitui"
     ];
 
     # Homebrew taps
@@ -401,9 +405,9 @@ in
   # System preferences
   system.defaults = {
     # Custom system preferences using defaults
-    universalaccess = {
-      reduceTransparency = true;
-    };
+    # universalaccess = {
+    #   reduceTransparency = true;
+    # };
     CustomUserPreferences = {
       "com.apple.HIToolbox" = {
         AppleCurrentKeyboardLayoutInputSourceID = "com.apple.keylayout.US";
