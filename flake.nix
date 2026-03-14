@@ -86,12 +86,17 @@
         linux-enable-ir-emitter = inputs.nixpkgs-howdy.legacyPackages.${prev.stdenv.hostPlatform.system}.linux-enable-ir-emitter;
       };
 
+      overlay-custom = import ./nixos/common/overlays.nix;
+
       pkgsFor =
         system:
         import inputs.nixpkgs {
           inherit system;
           config.allowUnfree = true;
-          overlays = [ overlay-howdy ];
+          overlays = [
+            overlay-howdy
+            overlay-custom
+          ];
         };
 
       unstableFor =
@@ -99,7 +104,10 @@
         import inputs.unstable-nixpkgs {
           inherit system;
           config.allowUnfree = true;
-          overlays = [ overlay-howdy ];
+          overlays = [
+            overlay-howdy
+            overlay-custom
+          ];
         };
 
       overlay-davinci-resolve = _: prev: {

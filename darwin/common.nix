@@ -87,9 +87,6 @@ let
 
     echo "Startup script completed."
   '';
-
-  warpd = pkgs.callPackage ../nixos/common/pkgs/warpd.nix { };
-  blueutil-tui = pkgs.callPackage ../nixos/common/pkgs/blueutil-tui.nix { };
 in
 {
   ## TODO things to fix
@@ -110,8 +107,12 @@ in
     httpie
     unstable.aerospace
     startupScript
-    warpd
-    blueutil-tui
+    pkgs.warpd
+    pkgs.blueutil-tui
+  ];
+
+  nixpkgs.overlays = [
+    (import ../nixos/common/overlays.nix)
   ];
 
   launchd.daemons.kanata = {
@@ -381,7 +382,7 @@ in
     # Setup warpd stable path for Accessibility permissions
     echo "Ensuring warpd stable binary path for Accessibility permissions..."
     mkdir -p /usr/local/bin
-    cp -f ${warpd}/bin/warpd /usr/local/bin/warpd-nix
+    cp -f ${pkgs.warpd}/bin/warpd /usr/local/bin/warpd-nix
     chmod 755 /usr/local/bin/warpd-nix
     pkill -x warpd || true
   '';
