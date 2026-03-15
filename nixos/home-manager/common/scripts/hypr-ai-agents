@@ -1,0 +1,109 @@
+#!/usr/bin/env bash
+
+# Convert to Bash logic
+get_agents() {
+  # 1. Get explicit states from tmux environment
+  AGENT_ENV=$(tmux show-environment -g 2>/dev/null | grep '^TMUX_AGENT_PANE_')
+  ALL_PANES=$(tmux list-panes -a -F '#{pane_id}|#{pane_pid}|#{pane_tty}|#{pane_current_path}' 2>/dev/null)
+
+  # Logic to process and output JSON (simplified version of the Python logic)
+  # For Waybar, we need to output a single JSON object.
+
+  if [ -z "$AGENT_ENV" ] && [ -z "$ALL_PANES" ]; then
+    echo '{"text": "", "class": "none"}'
+    return
+  fi
+
+  # Basic aggregate logic
+  MAX_PRIO=0
+  STATUS="idle"
+  C_COUNT=0
+  G_COUNT=0
+
+  # Detect based on env
+  PANE_IDS=$(echo "$AGENT_ENV" | grep -o '%[0-9]*' | sort -u)
+  for pid in $PANE_IDS; do
+    s=$(echo "$AGENT_ENV" | grep "TMUX_AGENT_PANE_${pid}_STATE=" | cut -d= -f2)
+    t=$(echo "$AGENT_ENV" | grep "TMUX_AGENT_PANE_${pid}_AGENT=" | cut -d= -f2)
+
+    [[ "$s" == "off" ]] && continue
+
+    [[ "$t" == *"Claude"* ]] && ((C_COUNT++))
+    [[ "$t" == *"Gemini"* ]] && ((G_COUNT++))
+
+    case "$s" in
+      needs-input) [[ $MAX_PRIO -lt 3 ]] && MAX_PRIO=3 && STATUS="needs-input" ;;
+      running)     [[ $MAX_PRIO -lt 2 ]] && MAX_PRIO=2 && STATUS="running" ;;
+      done)        [[ $MAX_PRIO -lt 1 ]] && MAX_PRIO=1 && STATUS="recent" ;;
+    esac
+  done
+
+  # Fallback process detection
+  while IFS='|' read -r pane_id p_pid tty cwd; do
+    [[ "$PANE_IDS" =~ "$pane_id" ]] && continue
+    tty_short=$(basename "$tty")
+    ps_full=$(ps -t "$tty_short" -o command= 2>/dev/null)
+
+    agent=""
+    [[ "$ps_full" == *"claude"* ]] && agent="Claude"
+    [[ "$ps_full" == *"gemini"* ]] && agent="Gemini"
+
+    if [ -n "$agent" ]; then
+      [[ "$agent" == "Claude" ]] && ((C_COUNT++))
+      [[ "$agent" == "Gemini" ]] && ((G_COUNT++))
+
+      cpu=$(ps -t "$tty_short" -o %cpu= 2>/dev/null | awk '{s+=$1}END{print s}')
+      if (( $(echo "$cpu > 1.0" | bc -l) )); then
+        [[ $MAX_PRIO -lt 2 ]] && MAX_PRIO=2 && STATUS="running"
+      fi
+    fi
+  done <<< "$ALL_PANES"
+
+  if [ "$C_COUNT" -eq 0 ] && [ "$G_COUNT" -eq 0 ]; then
+    echo '{"text": "", "class": "none"}'
+    return
+  fi
+
+  LABEL=""
+  [ "$C_COUNT" -gt 0 ] && LABEL="C:${C_COUNT}"
+  [ "$G_COUNT" -gt 0 ] && LABEL="${LABEL:+$LABEL }G:${G_COUNT}"
+
+  ICON="󰧑"
+  [[ "$STATUS" == "needs-input" ]] && ICON="󰀦"
+  [[ "$STATUS" == "recent" ]] && ICON="󰄬"
+  [[ "$STATUS" == "idle" ]] && ICON="󰧒"
+
+  echo "{\"text\": \"$ICON $LABEL\", \"class\": \"$STATUS\"}"
+}
+
+focus_agent() {
+  pane_id="$1"
+  info=$(tmux list-panes -a -F '#{pane_id} #{session_name} #{window_index}' -f "#{m:#{pane_id},$pane_id}" 2>/dev/null)
+  read -r p_id session win_idx <<< "$info"
+  if [ -n "$p_id" ]; then
+    tmux switch-client -t "$session"
+    tmux select-window -t "$session:$win_idx"
+    tmux select-pane -t "$p_id"
+    client_pid=$(tmux list-clients -t "$session" -F '#{client_pid}' 2>/dev/null | head -1)
+    if [ -n "$client_pid" ]; then
+      hyprctl dispatch focuswindow pid:"$client_pid"
+    fi
+  fi
+}
+
+show_menu() {
+  # Simplified menu for bash
+  agents=$(tmux list-panes -a -F '#{pane_id}|#{pane_current_path}' 2>/dev/null)
+  # (Filtering logic would go here, for now use tmux list)
+  choice=$(tmux list-panes -a -F '#{session_name}:#{window_index}.#{pane_id} | #{pane_current_path}' | fuzzel -d --width 50)
+  if [ -n "$choice" ]; then
+    p_id=$(echo "$choice" | grep -o '%.*')
+    focus_agent "$p_id"
+  fi
+}
+
+case "$1" in
+  --focus) focus_agent "$2" ;;
+  --menu) show_menu ;;
+  *) get_agents ;;
+esac

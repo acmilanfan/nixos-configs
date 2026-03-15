@@ -3,12 +3,16 @@
     "position": "top",
     "height": 30,
     "modules-left": [
-        "hyprland/workspaces"
-    ],
-    "modules-center": [
+        "hyprland/workspaces",
         "hyprland/window"
     ],
+    "modules-center": [
+    ],
     "modules-right": [
+        "custom/layout",
+        "custom/power",
+        "custom/timer",
+        "custom/ai_agents",
         "custom/window_toggle",
         "custom/touch_toggle",
         "custom/screen_toggle",
@@ -20,6 +24,36 @@
         "tray",
         "clock"
     ],
+    "custom/layout": {
+        "format": "{}",
+        "interval": 2,
+        "return-type": "json",
+        "exec": "hypr-layout-status"
+    },
+    "custom/power": {
+        "format": "{}",
+        "interval": 30,
+        "return-type": "json",
+        "exec": "hypr-power-watts"
+    },
+    "custom/timer": {
+        "format": "{}",
+        "interval": 1,
+        "return-type": "json",
+        "exec": "hypr-timer output",
+        "on-click": "hypr-timer stop",
+        "on-click-right": "hypr-timer reset",
+        "on-click-middle": "hypr-timer start 25",
+        "tooltip": true
+    },
+    "custom/ai_agents": {
+        "format": "{}",
+        "interval": 10,
+        "return-type": "json",
+        "exec": "hypr-ai-agents",
+        "on-click": "hypr-ai-agents --menu",
+        "tooltip": true
+    },
     "hyprland/workspaces": {
         "format": "{id}",
         "persistent-workspaces": {

@@ -1,0 +1,17 @@
+#!/bin/bash
+
+# Fetch all windows using hyprctl
+WINDOWS=$(hyprctl clients -j | jq -r '.[] | "\(.class): \(.title) | \(.pid)"')
+
+if [ -z "$WINDOWS" ]; then
+  exit 0
+fi
+
+# Show menu
+CHOICE=$(echo "$WINDOWS" | fuzzel -d --width 60 --placeholder "Switch to window...")
+
+if [ -n "$CHOICE" ]; then
+  # Extract PID and focus
+  PID=$(echo "$CHOICE" | rev | cut -d ' ' -f 1 | rev)
+  hyprctl dispatch focuswindow pid:$PID
+fi

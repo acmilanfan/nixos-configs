@@ -1,0 +1,37 @@
+#!/bin/bash
+
+# Commands Menu (Searchable Actions)
+# Format: "Display Name | Command"
+
+COMMANDS=(
+  "Reload Hyprland Config | hyprctl reload"
+  "Reset Workspace Layout | hypr-reset-layout"
+  "Toggle Monocle/Tile | hypr-cycle-layout"
+  "Timer: Start 25m | hypr-timer start 25"
+  "Timer: Start 5m | hypr-timer start 5"
+  "Timer: Stop | hypr-timer stop"
+  "Timer: Reset | hypr-timer reset"
+  "Kanata: Standard | switch-kanata.sh default"
+  "Kanata: Home Row | switch-kanata.sh homerow"
+  "Kanata: Split | switch-kanata.sh split"
+  "Kanata: Angle | switch-kanata.sh angle"
+  "AI Agents Menu | hypr-ai-agents --menu"
+  "Switch Window | hypr-focus-window"
+  "Lock Screen | hyprlock"
+  "Caffeinate: Toggle | hypr-caffeinate-toggle"
+  "Borders: Toggle | hypr-borders-toggle"
+  "Battery Saver: Toggle | hypr-powersave-mode"
+  "Animations: Toggle | hypr-animations-toggle"
+)
+
+# Convert to newline separated string for fuzzel
+MENU_INPUT=$(printf "%s\n" "${COMMANDS[@]}")
+
+# Show menu and get choice
+CHOICE=$(echo "$MENU_INPUT" | fuzzel -d --width 50 --placeholder "Search Commands...")
+
+if [ -n "$CHOICE" ]; then
+  # Extract the command part after the pipe
+  CMD=$(echo "$CHOICE" | cut -d '|' -f 2 | xargs)
+  eval "$CMD"
+fi

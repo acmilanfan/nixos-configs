@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+# Battery path
+BAT_PATH="/sys/class/power_supply/BAT0"
+[ ! -d "$BAT_PATH" ] && BAT_PATH="/sys/class/power_supply/BAT1"
+
+if [ -d "$BAT_PATH" ]; then
+    current=$(cat "$BAT_PATH/current_now")
+    voltage=$(cat "$BAT_PATH/voltage_now")
+
+    # Calculate watts (micro-units to standard)
+    watts=$(echo "scale=2; ($current * $voltage) / 1000000000000" | bc -l)
+
+    status_class="low"
+    if (( $(echo "$watts > 30" | bc -l) )); then
+        status_class="high"
+    elif (( $(echo "$watts > 15" | bc -l) )); then
+        status_class="medium"
+    fi
+
+    printf '{"text": "󱐋 %.1fW", "class": "%s", "tooltip": "Usage: %.2f Watts"}\n' "$watts" "$status_class" "$watts"
+else
+    echo '{"text": "󱐋 --W", "class": "none"}'
+fi

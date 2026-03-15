@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+# Check fullscreen
+is_fullscreen=$(hyprctl activewindow -j | jq -r '.fullscreen // false')
+
+# Check monocle (1 window in workspace)
+win_count=$(hyprctl activeworkspace -j | jq -r '.windows // 0')
+
+if [ "$is_fullscreen" = "true" ]; then
+    echo '{"text": "󰊓 Full", "class": "fullscreen"}'
+elif [ "$win_count" -eq 1 ]; then
+    echo '{"text": "󰊓 Mono", "class": "monocle"}'
+else
+    echo '{"text": "", "class": "tiled"}'
+fi

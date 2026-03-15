@@ -389,6 +389,12 @@ in
     (writeShellScriptBin "hypr-float-center" (lib.readFile ./scripts/hypr-float-center))
     (writeShellScriptBin "hypr-powersave-mode" (lib.readFile ./scripts/hypr-powersave-mode))
     (writeShellScriptBin "hypr-animations-toggle" (lib.readFile ./scripts/hypr-animations-toggle))
+    (writeShellScriptBin "hypr-layout-status" (lib.readFile ./scripts/hypr-layout-status))
+    (writeShellScriptBin "hypr-power-watts" (lib.readFile ./scripts/hypr-power-watts))
+    (writeShellScriptBin "hypr-focus-window" (lib.readFile ./scripts/hypr-focus-window))
+    (writeShellScriptBin "hypr-timer" (lib.readFile ./scripts/hypr-timer))
+    (writeShellScriptBin "hypr-commands" (lib.readFile ./scripts/hypr-commands))
+    (writeShellScriptBin "hypr-ai-agents" (lib.readFile ./scripts/hypr-ai-agents))
     (writeShellScriptBin "hypr-expand-float" (lib.readFile ./scripts/hypr-expand-float))
     (writeShellScriptBin "hypr-expand-float-recover" (lib.readFile ./scripts/hypr-expand-float-recover))
     (writeShellScriptBin "hypr-iio-rotate" (lib.readFile ./scripts/hypr-iio-rotate))
@@ -398,6 +404,20 @@ in
     (writeShellScriptBin "hypr-waybar-toggle" (lib.readFile ./scripts/hypr-waybar-toggle))
     wtype
   ];
+
+  systemd.user.services.warpd = {
+    Unit = {
+      Description = "A modal keyboard-driven pointer manipulation tool";
+      After = [ "graphical-session.target" ];
+    };
+    Service = {
+      ExecStart = "${pkgs.warpd}/bin/warpd -f";
+      Restart = "always";
+    };
+    Install = {
+      WantedBy = [ "graphical-session.target" ];
+    };
+  };
 
   systemd.user.services.hyprlock-proximity = {
     Unit = {

@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+
+STATE_FILE="/tmp/hypr-timer.json"
+
+get_end_time() {
+    [ ! -f "$STATE_FILE" ] && echo 0 && return
+    jq -r '.end_time // 0' "$STATE_FILE"
+}
+
+is_running() {
+    [ ! -f "$STATE_FILE" ] && echo false && return
+    jq -r '.running // false' "$STATE_FILE"
+}
+
+start_timer() {
+    duration=$(( ${1:-25} * 60 ))
+    end_time=$(( $(date +%s) + duration ))
+    echo "{\"running\": true, \"end_time\": $end_time, \"duration\": $duration}" > "$STATE_FILE"
+}
+
+stop_timer() {
+    [ ! -f "$STATE_FILE" ] && return
+    tmp=$(mktemp)
+    jq '.running = false' "$STATE_FILE" > "$tmp" && mv "$tmp" "$STATE_FILE"
+}
+
+reset_timer() {
+    rm -f "$STATE_FILE"
+}
+
+get_output() {
+    running=$(is_running)
+    end_time=$(get_end_time)
+
+    if [ "$running" != "true" ] || [ "$end_time" -eq 0 ]; then
+        echo '{"text": "", "class": "stopped"}'
+        return
+    fi
+
+    remaining=$(( end_time - $(date +%s) ))
+
+    if [ "$remaining" -le 0 ]; then
+        echo '{"text": "󰔟 00:00", "class": "finished", "tooltip": "Timer finished!"}'
+        return
+    fi
+
+    mins=$(( remaining / 60 ))
+    secs=$(( remaining % 60 ))
+    printf '{"text": "󰔟 %02d:%02d", "class": "running", "tooltip": "Remaining: %02d:%02d"}\n' "$mins" "$secs" "$mins" "$secs"
+}
+
+case "$1" in
+    start) start_timer "$2" ;;
+    stop)  stop_timer ;;
+    reset) reset_timer ;;
+    output) get_output ;;
+    *) get_output ;;
+esac
