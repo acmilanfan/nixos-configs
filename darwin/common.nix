@@ -346,7 +346,9 @@ in
 
     # Setup firenvim native messaging host
     echo "Setting up firenvim native messaging host..."
-    sudo -u ${user} nvim --headless "+call firenvim#install(0)" +quit 2>/dev/null || true
+    if [ -d "/Applications/Firefox.app" ] || [ -d "/Users/${user}/Applications/Firefox.app" ]; then
+      sudo -u ${user} /bin/zsh -lc "nvim --headless '+call firenvim#install(0)' +quit" 2>/dev/null || true
+    fi
 
     # Run user-level startup tasks (apps, drivers)
     # We use kickstart to run the agent in the proper GUI session context

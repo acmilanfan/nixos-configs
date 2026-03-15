@@ -231,6 +231,14 @@ in
       executable = true;
       source = ../../dotfiles/sketchybar/sketchybarrc;
     };
+    ".config/sketchybar/colors.sh" = {
+      executable = true;
+      source = ../../dotfiles/sketchybar/colors.sh;
+    };
+    ".config/sketchybar/defaults.sh" = {
+      executable = true;
+      source = ../../dotfiles/sketchybar/defaults.sh;
+    };
 
     # --- SketchyBar Plugins ---
     ".config/sketchybar/plugins/space.sh" = {
