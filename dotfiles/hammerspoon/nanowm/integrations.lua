@@ -346,14 +346,21 @@ function M.reloadKanata()
         return
     end
 
-    print("[NanoWM] System event detected, reloading Kanata...")
-    hs.task.new("/bin/zsh", function(exitCode, stdOut, stdErr)
-        if exitCode == 0 then
-            print("[NanoWM] Kanata reloaded successfully")
-        else
-            print("[NanoWM] Kanata reload failed: " .. (stdErr or "unknown error"))
-        end
-    end, { "-c", "bash " .. script }):start()
+    print("[NanoWM] Re-triggering driver initialization...")
+    -- Run darwin-startup to ensure Karabiner drivers and HID environment is clean
+    hs.task.new("/bin/zsh", nil, { "-c", "launchctl kickstart -k gui/$(id -u)/local.darwin-startup" }):start()
+
+    -- Wait a moment for drivers to settle before reloading Kanata
+    hs.timer.doAfter(1.5, function()
+        print("[NanoWM] Reloading Kanata instances...")
+        hs.task.new("/bin/zsh", function(exitCode, stdOut, stdErr)
+            if exitCode == 0 then
+                print("[NanoWM] Kanata reloaded successfully")
+            else
+                print("[NanoWM] Kanata reload failed: " .. (stdErr or "unknown error"))
+            end
+        end, { "-c", "bash " .. script }):start()
+    end)
 end
 
 function M.setupSystemWatcher()
@@ -368,10 +375,11 @@ function M.setupSystemWatcher()
 
             -- With LaunchDaemons, Kanata should handle wake naturally, but often loses HID access.
             -- Check if Kanata is responsive before forcing a heavy reload.
-            hs.timer.doAfter(0.5, function()
+            -- Increase delay to 1.5s to ensure system is fully awake
+            hs.timer.doAfter(1.5, function()
                 hs.task.new("/usr/bin/nc", function(exitCode)
                     if exitCode ~= 0 then
-                        print("[NanoWM] Kanata not responsive after wake, reloading...")
+                        print("[NanoWM] Kanata not responsive after wake, triggering driver re-init and reload...")
                         M.reloadKanata()
                     else
                         print("[NanoWM] Kanata is responsive, skipping reload")
