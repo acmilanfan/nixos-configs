@@ -1,4 +1,4 @@
-{ pkgs, lib, ... }:
+{ pkgs, lib, unstable, ... }:
 
 let
   spoon =
@@ -12,11 +12,6 @@ in
   imports = [
     # Import common configurations with macOS guards
     ../home-manager/common/default.nix
-    # git.nix might need to be imported by the specific host or checked if it's common
-    # assuming git.nix is in ../mac-work/git.nix currently, we might need to move it or referencing it relatively from here is tricky if we don't move it.
-    # Let's assume we will move git.nix to common or just import it in the specific home.nix files if it differs.
-    # For now, I'll comment it out here and let the specific home.nix import it if needed, or better, keep it if I move it.
-    # checking file structure: nixos/mac-work/git.nix exists.
   ];
 
   # macOS-specific packages
@@ -28,7 +23,7 @@ in
       m-cli # Swiss Army Knife for macOS
 
       # Development tools that work well on macOS
-      colima # Container runtime for macOS
+      unstable.colima # Container runtime for macOS
       lazydocker # Terminal UI for docker
 
       # Additional macOS tools
