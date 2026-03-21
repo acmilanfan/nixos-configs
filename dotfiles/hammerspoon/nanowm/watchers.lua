@@ -26,7 +26,13 @@ local resizeWatcher = hs.timer.delayed.new(0.3, function()
 end)
 
 function M.getManagedWindows()
-    return filter:getWindows()
+    local wins = {}
+    for _, win in ipairs(filter:getWindows()) do
+        if win:id() and win:id() > 0 then
+            table.insert(wins, win)
+        end
+    end
+    return wins
 end
 
 function M.setup()
@@ -34,7 +40,7 @@ function M.setup()
     -- WINDOW CREATED
     -- =========================================================================
     filter:subscribe(hs.window.filter.windowCreated, function(win)
-        if not win then return end
+        if not win or not win:id() or win:id() == 0 then return end
         core.registerWindow(win)
         layout.tile()
     end)
@@ -46,7 +52,7 @@ function M.setup()
         if not win then return end
 
         local id = win:id()
-        if not id then return end
+        if not id or id == 0 then return end
 
         local idStr = tostring(id)
         local tag = state.tags[id]
@@ -121,7 +127,7 @@ function M.setup()
     -- WINDOW FOCUSED
     -- =========================================================================
     filter:subscribe(hs.window.filter.windowFocused, function(win)
-        if not win then return end
+        if not win or not win:id() or win:id() == 0 then return end
         if state.launching then return end
 
         local id = win:id()
@@ -189,7 +195,7 @@ function M.setup()
     -- WINDOW MOVED (for resize detection)
     -- =========================================================================
     filter:subscribe(hs.window.filter.windowMoved, function(win)
-        if not win then return end
+        if not win or not win:id() or win:id() == 0 then return end
 
         local tag = state.special.active and state.special.tag or state.currentTag
         if not core.isFloating(win) and not state.isTagFree(tag) then

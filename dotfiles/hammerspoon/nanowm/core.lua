@@ -16,6 +16,7 @@ function M.isFloating(win)
     if not win then return false end
 
     local id = win:id()
+    if not id or id == 0 then return true end
 
     -- Special case for weekenduo
     if state.weekenduoWinId == id then
