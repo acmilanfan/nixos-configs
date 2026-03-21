@@ -119,6 +119,20 @@ function M.registerWindow(win)
             if not found then
                 table.insert(state.stacks[targetTag], 1, id)
             end
+
+            if not state.tagCreationOrder[targetTag] then
+                state.tagCreationOrder[targetTag] = {}
+            end
+            local foundInCreation = false
+            for _, existingId in ipairs(state.tagCreationOrder[targetTag]) do
+                if existingId == id then
+                    foundInCreation = true
+                    break
+                end
+            end
+            if not foundInCreation then
+                table.insert(state.tagCreationOrder[targetTag], id)
+            end
         end
 
         state.triggerSave()
@@ -129,10 +143,11 @@ end
 -- Window Queries
 -- =============================================================================
 
-function M.getTiledWindows(tag)
+function M.getTiledWindows(tag, allWins)
     local stackIds = state.stacks[tag] or {}
     local windows = {}
     local cleanStack = {}
+    local seenIds = {}
 
     for _, id in ipairs(stackIds) do
         local win = hs.window.get(id)
@@ -140,32 +155,61 @@ function M.getTiledWindows(tag)
             if not M.isFloating(win) then
                 table.insert(windows, win)
                 table.insert(cleanStack, id)
+                seenIds[id] = true
             end
         elseif hs.window.get(id) and state.tags[id] == tag then
             table.insert(cleanStack, id)
         end
     end
 
-    local allWins = hs.window.filter.default:getWindows()
+    allWins = allWins or hs.window.filter.default:getWindows()
     for _, win in ipairs(allWins) do
         local id = win:id()
-        if state.tags[id] == tag and not M.isFloating(win) then
-            local inStack = false
-            for _, sid in ipairs(cleanStack) do
-                if sid == id then
-                    inStack = true
-                    break
-                end
-            end
-            if not inStack then
-                table.insert(windows, 1, win)
-                table.insert(cleanStack, 1, id)
-            end
+        if state.tags[id] == tag and not M.isFloating(win) and not seenIds[id] then
+            table.insert(windows, 1, win)
+            table.insert(cleanStack, 1, id)
         end
     end
 
     if #cleanStack ~= #stackIds then
         state.stacks[tag] = cleanStack
+        state.triggerSave()
+    end
+
+    return windows
+end
+
+function M.getWindowsInCreationOrder(tag, allWins)
+    local orderIds = state.tagCreationOrder[tag] or {}
+    local windows = {}
+    local cleanOrder = {}
+    local seenIds = {}
+
+    for _, id in ipairs(orderIds) do
+        local win = hs.window.get(id)
+        if win and win:isVisible() and state.tags[id] == tag then
+            if not M.isFloating(win) then
+                table.insert(windows, win)
+                table.insert(cleanOrder, id)
+                seenIds[id] = true
+            end
+        elseif hs.window.get(id) and state.tags[id] == tag then
+            table.insert(cleanOrder, id)
+        end
+    end
+
+    -- Check for missing windows in creation order that should be there
+    allWins = allWins or hs.window.filter.default:getWindows()
+    for _, win in ipairs(allWins) do
+        local id = win:id()
+        if state.tags[id] == tag and not M.isFloating(win) and not seenIds[id] then
+            table.insert(windows, win)
+            table.insert(cleanOrder, id)
+        end
+    end
+
+    if #cleanOrder ~= #orderIds then
+        state.tagCreationOrder[tag] = cleanOrder
         state.triggerSave()
     end
 

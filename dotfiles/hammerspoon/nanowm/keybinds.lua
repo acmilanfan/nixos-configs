@@ -57,19 +57,8 @@ function M.setup()
     hs.hotkey.bind(alt, "j", function() actions.cycleFocus(1) end)
     hs.hotkey.bind(alt, "k", function() actions.cycleFocus(-1) end)
 
-    hs.hotkey.bind(alt, "h", function()
-        local tag = state.special.active and state.special.tag or state.currentTag
-        local currentWidth = state.getMasterWidth(tag)
-        state.setMasterWidth(tag, math.max(0.1, currentWidth - 0.05))
-        layout.tile()
-    end)
-
-    hs.hotkey.bind(alt, "l", function()
-        local tag = state.special.active and state.special.tag or state.currentTag
-        local currentWidth = state.getMasterWidth(tag)
-        state.setMasterWidth(tag, math.min(0.9, currentWidth + 0.05))
-        layout.tile()
-    end)
+    hs.hotkey.bind(alt, "h", function() actions.adjustTiledSize("narrower") end)
+    hs.hotkey.bind(alt, "l", function() actions.adjustTiledSize("wider") end)
 
     -- =========================================================================
     -- TAGS
@@ -106,6 +95,8 @@ function M.setup()
     hs.hotkey.bind(altShift, "space", actions.toggleFloat)
     hs.hotkey.bind(altShift, "q", actions.closeWindow)
     hs.hotkey.bind(ctrlAlt, "f", tags.toggleFreeMode)
+
+    hs.hotkey.bind(altShift, "r", actions.cycleWindowSize)
 
     -- Combined swap/resize keybinds (context-aware)
     hs.hotkey.bind(altShift, "h", function()

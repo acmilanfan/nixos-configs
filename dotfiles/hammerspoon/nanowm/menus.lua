@@ -36,10 +36,9 @@ function M.openMenu(mode)
             { t = "Reload Config", fn = hs.reload },
             { t = "Reset Layout", fn = layout.tile },
             {
-                t = "Toggle Monocle/Tile",
+                t = "Cycle Layout",
                 fn = function()
-                    state.layout = (state.layout == "tile") and "monocle" or "tile"
-                    layout.tile()
+                    actions.toggleLayout()
                 end,
             },
             { t = "Toggle Free Mode (current tag)", fn = tags.toggleFreeMode },
@@ -284,31 +283,16 @@ function M.showKeybindMenu()
             binds = {
                 { key = "Alt+J", desc = "Focus next window", fn = function() actions.cycleFocus(1) end },
                 { key = "Alt+K", desc = "Focus previous window", fn = function() actions.cycleFocus(-1) end },
-                {
-                    key = "Alt+H",
-                    desc = "Decrease master width",
-                    fn = function()
-                        local tag = state.special.active and state.special.tag or state.currentTag
-                        state.setMasterWidth(tag, math.max(0.1, state.getMasterWidth(tag) - 0.05))
-                        layout.tile()
-                    end,
-                },
-                {
-                    key = "Alt+L",
-                    desc = "Increase master width",
-                    fn = function()
-                        local tag = state.special.active and state.special.tag or state.currentTag
-                        state.setMasterWidth(tag, math.min(0.9, state.getMasterWidth(tag) + 0.05))
-                        layout.tile()
-                    end,
-                },
+                { key = "Alt+H", desc = "Decrease window/master size", fn = function() actions.adjustTiledSize("narrower") end },
+                { key = "Alt+L", desc = "Increase window/master size", fn = function() actions.adjustTiledSize("wider") end },
             },
         },
         {
             category = "Window Management",
             binds = {
-                { key = "Alt+Shift+J", desc = "Swap window down", fn = function() actions.swapWindow(1) end },
-                { key = "Alt+Shift+K", desc = "Swap window up", fn = function() actions.swapWindow(-1) end },
+                { key = "Alt+Shift+J/K", desc = "Swap tiled window", fn = nil },
+                { key = "Alt+Shift+H/L/J/K", desc = "Resize floating window", fn = nil },
+                { key = "Alt+Shift+R", desc = "Cycle window size (scrolling layout)", fn = actions.cycleWindowSize },
                 { key = "Alt+F", desc = "Toggle fullscreen", fn = actions.toggleFullscreen },
                 { key = "Alt+C", desc = "Center window", fn = actions.centerWindow },
                 { key = "Alt+Shift+C", desc = "Resize floating to 60%", fn = actions.resizeFloatingTo60 },
@@ -333,7 +317,7 @@ function M.showKeybindMenu()
         {
             category = "Layout & Display",
             binds = {
-                { key = "Cmd+Space", desc = "Toggle layout (tile/monocle)", fn = actions.toggleLayout },
+                { key = "Cmd+Space", desc = "Cycle layout (vertical/horizontal/mono/scrolling)", fn = actions.toggleLayout },
                 { key = "Alt+G", desc = "Toggle gaps", fn = actions.toggleGaps },
                 { key = "Ctrl+Alt+F", desc = "Toggle free mode", fn = tags.toggleFreeMode },
             },

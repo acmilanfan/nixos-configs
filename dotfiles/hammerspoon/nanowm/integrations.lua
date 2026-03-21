@@ -44,7 +44,7 @@ local function doUpdateSketchybar()
     local tag = state.special.active and "S" or tostring(state.currentTag)
     local currentTagValue = state.special.active and state.special.tag or state.currentTag
     local windowCount = getTagWindowCount(currentTagValue)
-    local layout = state.layout
+    local layout = state.getLayout(currentTagValue)
     local isFullscreen = state.isFullscreen and "1" or "0"
 
     -- Get occupied tags
@@ -170,8 +170,9 @@ function M.updateBordersVisibility()
     local tag = state.special.active and state.special.tag or state.currentTag
     local windows = core.getTiledWindows(tag)
     local windowCount = #windows
+    local currentLayout = state.getLayout(tag)
 
-    local shouldHide = (state.layout == "monocle") or state.isFullscreen or (windowCount <= 1)
+    local shouldHide = (currentLayout == "mono") or state.isFullscreen or (windowCount <= 1)
 
     if shouldHide and state.bordersCurrentlyShowing then
         M.stopBorders()

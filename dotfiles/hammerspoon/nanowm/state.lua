@@ -17,6 +17,9 @@ M.sizeCache = {}
 M.fullscreenCache = {}
 M.windowState = {}
 M.masterWidths = {}
+M.windowWidths = {}
+M.tagLayouts = {}
+M.tagCreationOrder = {}
 M.tagFullscreenState = {}
 M.tagLastFocused = {}
 M.appTagMemory = {}
@@ -31,6 +34,7 @@ M.currentTag = 1
 M.prevTag = 1
 M.isFullscreen = false
 M.layout = config.layout
+M.availableLayouts = { "vertical", "horizontal", "mono", "scrolling" }
 M.gap = config.gap
 M.caffeinateActive = false
 M.weekenduoWinId = nil
@@ -104,6 +108,9 @@ function M.load()
     M.sizeCache = hs.settings.get("nanoWM_sizeCache") or {}
     M.fullscreenCache = hs.settings.get("nanoWM_fullscreenCache") or {}
     M.masterWidths = clean(hs.settings.get("nanoWM_masterWidths")) or {}
+    M.windowWidths = clean(hs.settings.get("nanoWM_windowWidths")) or {}
+    M.tagLayouts = clean(hs.settings.get("nanoWM_tagLayouts")) or {}
+    M.tagCreationOrder = clean(hs.settings.get("nanoWM_tagCreationOrder")) or {}
     M.tagFullscreenState = clean(hs.settings.get("nanoWM_tagFullscreenState")) or {}
     M.tagLastFocused = clean(hs.settings.get("nanoWM_tagLastFocused")) or {}
     M.appTagMemory = hs.settings.get("nanoWM_appTagMemory") or {}
@@ -111,6 +118,7 @@ function M.load()
 
     M.currentTag = hs.settings.get("nanoWM_currentTag") or 1
     M.prevTag = hs.settings.get("nanoWM_prevTag") or 1
+    M.layout = hs.settings.get("nanoWM_globalLayout") or config.layout
     M.sketchybarEnabled = hs.settings.get("nanoWM_sketchybarEnabled") or false
     M.bordersEnabled = hs.settings.get("nanoWM_bordersEnabled") or false
     M.kanataMode = hs.settings.get("nanoWM_kanataMode") or "homerow"
@@ -125,10 +133,14 @@ function M.save()
     hs.settings.set("nanoWM_sizeCache", M.sizeCache)
     hs.settings.set("nanoWM_fullscreenCache", M.fullscreenCache)
     hs.settings.set("nanoWM_masterWidths", serialize(M.masterWidths))
+    hs.settings.set("nanoWM_windowWidths", serialize(M.windowWidths))
+    hs.settings.set("nanoWM_tagLayouts", serialize(M.tagLayouts))
+    hs.settings.set("nanoWM_tagCreationOrder", serialize(M.tagCreationOrder))
     hs.settings.set("nanoWM_tagFullscreenState", serialize(M.tagFullscreenState))
     hs.settings.set("nanoWM_tagLastFocused", serialize(M.tagLastFocused))
     hs.settings.set("nanoWM_currentTag", M.currentTag)
     hs.settings.set("nanoWM_prevTag", M.prevTag)
+    hs.settings.set("nanoWM_globalLayout", M.layout)
     hs.settings.set("nanoWM_appTagMemory", M.appTagMemory)
     hs.settings.set("nanoWM_sketchybarEnabled", M.sketchybarEnabled)
     hs.settings.set("nanoWM_bordersEnabled", M.bordersEnabled)
@@ -138,6 +150,21 @@ end
 
 function M.triggerSave()
     saveTimer:start()
+end
+
+-- =============================================================================
+-- Layout Helpers
+-- =============================================================================
+
+function M.getLayout(tag)
+    tag = tag or M.currentTag
+    return M.tagLayouts[tag] or M.layout
+end
+
+function M.setLayout(tag, layoutName)
+    tag = tag or M.currentTag
+    M.tagLayouts[tag] = layoutName
+    M.triggerSave()
 end
 
 -- =============================================================================

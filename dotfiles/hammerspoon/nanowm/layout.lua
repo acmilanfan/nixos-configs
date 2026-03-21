@@ -16,7 +16,8 @@ M.onTileComplete = nil -- Set by integrations module
 -- Debounced Tile Timer
 -- =============================================================================
 
-local tileTimer = hs.timer.delayed.new(0.15, function()
+-- local tileTimer = hs.timer.delayed.new(0.15, function()
+local tileTimer = hs.timer.delayed.new(0.08, function()
     M.performTile()
 end)
 
@@ -87,21 +88,22 @@ function M.performTile()
 
     if state.sketchybarEnabled then
         local name = screen:name()
-        -- Adjust for SketchyBar on external monitors (assuming non-built-in are external)
-        -- Common built-in names: "Built-in Retina Display", "Color LCD"
         if name ~= "Built-in Retina Display" and name ~= "Color LCD" then
             frame.y = frame.y + config.sketchybarHeight
             frame.h = frame.h - config.sketchybarHeight
         end
     end
 
+    local allWins = hs.window.filter.default:getWindows()
     local toHide = {}
     local toFloat = {}
 
     -- PHASE 1: CLASSIFICATION
-    for _, win in ipairs(hs.window.filter.default:getWindows()) do
+    for _, win in ipairs(allWins) do
         local id = win:id()
-        core.registerWindow(win)
+        if not state.tags[id] then
+            core.registerWindow(win)
+        end
 
         local winTag = state.tags[id]
         local isSticky = state.sticky[id]
@@ -159,9 +161,9 @@ function M.performTile()
     end
 
     -- PHASE 3: TILE BACKGROUND
-    local backgroundWindows = core.getTiledWindows(state.currentTag)
+    local backgroundWindows = core.getTiledWindows(state.currentTag, allWins)
     if not state.isTagFree(state.currentTag) then
-        M.applyLayout(backgroundWindows, frame, false, state.currentTag)
+        M.applyLayout(backgroundWindows, frame, false, state.currentTag, allWins)
     else
         for _, win in ipairs(backgroundWindows) do
             local id = win:id()
@@ -179,7 +181,7 @@ function M.performTile()
 
     -- PHASE 3.5: TILE SPECIAL TAG
     if state.special.active then
-        local specialWindows = core.getTiledWindows(state.special.tag)
+        local specialWindows = core.getTiledWindows(state.special.tag, allWins)
         if not state.isTagFree(state.special.tag) then
             local pad = config.specialPadding
             local specialFrame = {
@@ -188,7 +190,7 @@ function M.performTile()
                 w = frame.w - (pad * 2),
                 h = frame.h - (pad * 2),
             }
-            M.applyLayout(specialWindows, specialFrame, true, state.special.tag)
+            M.applyLayout(specialWindows, specialFrame, true, state.special.tag, allWins)
         else
             for _, win in ipairs(specialWindows) do
                 local id = win:id()
@@ -249,16 +251,17 @@ end
 -- Apply Layout
 -- =============================================================================
 
-function M.applyLayout(windows, area, isSpecial, tag)
+function M.applyLayout(windows, area, isSpecial, tag, allWins)
     local count = #windows
     if count == 0 then
         return
     end
 
+    local currentLayout = state.getLayout(tag)
     local innerGap = state.gap
     local screenGap = 0
     -- Only add screen gaps if borders are enabled and we are in a tiled layout with multiple windows
-    if state.bordersEnabled and not state.isFullscreen and state.layout ~= "monocle" and count > 1 then
+    if state.bordersEnabled and not state.isFullscreen and currentLayout ~= "mono" and count > 1 then
         screenGap = config.borderWidth
     end
 
@@ -289,8 +292,8 @@ function M.applyLayout(windows, area, isSpecial, tag)
         return
     end
 
-    -- Monocle layout
-    if state.layout == "monocle" then
+    -- Mono (formerly monocle)
+    if currentLayout == "mono" then
         for _, win in ipairs(windows) do
             setFrameSmart(win, {
                 x = workArea.x,
@@ -302,7 +305,57 @@ function M.applyLayout(windows, area, isSpecial, tag)
         return
     end
 
-    -- Tile layout
+    -- Scrolling (Niri-style horizontal ribbon)
+    if currentLayout == "scrolling" then
+        -- For scrolling, we use creation order for stability
+        local windowsInOrder = core.getWindowsInCreationOrder(tag, allWins)
+        if #windowsInOrder == 0 then return end
+
+        local focused = hs.window.focusedWindow()
+        local focusedId = focused and focused:id()
+        local lastFocusedId = state.tagLastFocused[tag]
+
+        local targetIdx = 1
+        for i, win in ipairs(windowsInOrder) do
+            local wid = win:id()
+            if wid == focusedId then
+                targetIdx = i
+                break
+            elseif wid == lastFocusedId then
+                targetIdx = i
+            end
+        end
+
+        -- Calculate total width of windows to the left of targetIdx
+        local leftWidth = 0
+        for i = 1, targetIdx - 1 do
+            local winWidthRatio = state.windowWidths[windowsInOrder[i]:id()] or 0.7
+            leftWidth = leftWidth + (workArea.w * winWidthRatio) + innerGap
+        end
+
+        -- Center the target window
+        local targetWinWidthRatio = state.windowWidths[windowsInOrder[targetIdx]:id()] or 0.7
+        local targetWinWidth = workArea.w * targetWinWidthRatio
+        local targetX = workArea.x + (workArea.w - targetWinWidth) / 2
+
+        -- Starting X for the very first window
+        local currentX = targetX - leftWidth
+
+        for i, win in ipairs(windowsInOrder) do
+            local winWidthRatio = state.windowWidths[win:id()] or 0.7
+            local winWidth = workArea.w * winWidthRatio
+            setFrameSmart(win, {
+                x = currentX,
+                y = workArea.y,
+                w = winWidth,
+                h = workArea.h,
+            })
+            currentX = currentX + winWidth + innerGap
+        end
+        return
+    end
+
+    -- Tiling layouts (Vertical/Horizontal)
     local masterWin = windows[1]
     if count == 1 then
         setFrameSmart(masterWin, {
@@ -311,7 +364,42 @@ function M.applyLayout(windows, area, isSpecial, tag)
             w = workArea.w,
             h = workArea.h,
         })
-    else
+    elseif currentLayout == "horizontal" then
+        local masterHeight = state.getMasterWidth(tag) -- Reusing masterWidth for height in horizontal
+        local availH = workArea.h - innerGap
+        local mh = math.floor(availH * masterHeight)
+
+        setFrameSmart(masterWin, {
+            x = workArea.x,
+            y = workArea.y,
+            w = workArea.w,
+            h = mh,
+        })
+
+        local sy = workArea.y + mh + innerGap
+        local sh = availH - mh
+
+        local stackWindows = count - 1
+        local stackTotalWidth = workArea.w - ((stackWindows - 1) * innerGap)
+        local sw = math.floor(stackTotalWidth / stackWindows)
+
+        for i = 2, count do
+            local stackIndex = i - 2
+            local xPos = workArea.x + (stackIndex * (sw + innerGap))
+            local wSize = sw
+
+            if i == count then
+                wSize = (workArea.x + workArea.w) - xPos
+            end
+
+            setFrameSmart(windows[i], {
+                x = xPos,
+                y = sy,
+                w = wSize,
+                h = sh,
+            })
+        end
+    else -- Default to Vertical (formerly tile)
         local masterWidth = state.getMasterWidth(tag)
         local availW = workArea.w - innerGap
         local mw = math.floor(availW * masterWidth)
@@ -335,7 +423,6 @@ function M.applyLayout(windows, area, isSpecial, tag)
             local yPos = workArea.y + (stackIndex * (sh + innerGap))
             local hSize = sh
 
-            -- Adjust last window to fill remaining space
             if i == count then
                 hSize = (workArea.y + workArea.h) - yPos
             end
@@ -355,35 +442,68 @@ end
 -- =============================================================================
 
 function M.handleManualResize()
-    if state.isFullscreen or state.layout == "monocle" then
+    local tag = state.special.active and state.special.tag or state.currentTag
+    local currentLayout = state.getLayout(tag)
+
+    if state.isFullscreen or currentLayout == "mono" then
         return
     end
-
-    local tag = state.special.active and state.special.tag or state.currentTag
 
     if state.isTagFree(tag) then
         return
     end
 
     local windows = core.getTiledWindows(tag)
-    if #windows < 2 then
+    if #windows == 0 then
         return
     end
 
     local screen = hs.screen.mainScreen():frame()
-    local masterWin = windows[1]
-    local masterFrame = masterWin:frame()
 
-    if math.abs(masterFrame.w - screen.w) < 10 then
+    if currentLayout == "scrolling" then
+        local focused = hs.window.focusedWindow()
+        if not focused or core.isFloating(focused) then return end
+
+        local f = focused:frame()
+        local newWidthRatio = f.w / screen.w
+        newWidthRatio = math.max(0.1, math.min(1.0, newWidthRatio))
+
+        local currentRatio = state.windowWidths[focused:id()] or 0.7
+        if math.abs(newWidthRatio - currentRatio) > 0.02 then
+            state.windowWidths[focused:id()] = newWidthRatio
+            state.triggerSave()
+        end
         return
     end
 
-    local newMasterWidth = masterFrame.w / screen.w
-    newMasterWidth = math.max(0.1, math.min(0.9, newMasterWidth))
+    if #windows < 2 then return end
+    local masterWin = windows[1]
+    local masterFrame = masterWin:frame()
 
-    local currentWidth = state.getMasterWidth(tag)
-    if math.abs(newMasterWidth - currentWidth) > 0.02 then
-        state.setMasterWidth(tag, newMasterWidth)
+    if currentLayout == "horizontal" then
+        if math.abs(masterFrame.h - screen.h) < 10 then
+            return
+        end
+
+        local newMasterHeight = masterFrame.h / screen.h
+        newMasterHeight = math.max(0.1, math.min(0.9, newMasterHeight))
+
+        local currentHeight = state.getMasterWidth(tag)
+        if math.abs(newMasterHeight - currentHeight) > 0.02 then
+            state.setMasterWidth(tag, newMasterHeight)
+        end
+    else -- vertical
+        if math.abs(masterFrame.w - screen.w) < 10 then
+            return
+        end
+
+        local newMasterWidth = masterFrame.w / screen.w
+        newMasterWidth = math.max(0.1, math.min(0.9, newMasterWidth))
+
+        local currentWidth = state.getMasterWidth(tag)
+        if math.abs(newMasterWidth - currentWidth) > 0.02 then
+            state.setMasterWidth(tag, newMasterWidth)
+        end
     end
 
     M.tile()

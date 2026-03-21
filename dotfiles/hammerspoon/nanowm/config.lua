@@ -12,7 +12,7 @@ M.VERSION = "v40"
 M.defaultMasterWidth = 0.5
 M.gap = 0
 M.borderWidth = 4
-M.layout = "tile"  -- "tile" or "monocle"
+M.layout = "vertical"  -- "vertical", "horizontal", "mono", "scrolling"
 
 -- Timing
 M.destructionDelay = 0.5

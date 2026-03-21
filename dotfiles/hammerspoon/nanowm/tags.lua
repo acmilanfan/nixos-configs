@@ -278,10 +278,25 @@ function M.moveWindowToTag(destTag)
 
     state.tags[id] = destTag
 
+    -- Update stacks
     if not state.stacks[destTag] then
         state.stacks[destTag] = {}
     end
     table.insert(state.stacks[destTag], 1, id)
+
+    -- Update creation order
+    if currentTag and state.tagCreationOrder[currentTag] then
+        for i, vid in ipairs(state.tagCreationOrder[currentTag]) do
+            if vid == id then
+                table.remove(state.tagCreationOrder[currentTag], i)
+                break
+            end
+        end
+    end
+    if not state.tagCreationOrder[destTag] then
+        state.tagCreationOrder[destTag] = {}
+    end
+    table.insert(state.tagCreationOrder[destTag], id)
 
     if currentTag then
         core.resetMasterWidthIfNeeded(currentTag)
@@ -324,11 +339,25 @@ function M.undoLastMove()
             end
         end
 
+        if state.tagCreationOrder[toTag] then
+            for i, vid in ipairs(state.tagCreationOrder[toTag]) do
+                if vid == id then
+                    table.remove(state.tagCreationOrder[toTag], i)
+                    break
+                end
+            end
+        end
+
         state.tags[id] = fromTag
         if not state.stacks[fromTag] then
             state.stacks[fromTag] = {}
         end
         table.insert(state.stacks[fromTag], 1, id)
+
+        if not state.tagCreationOrder[fromTag] then
+            state.tagCreationOrder[fromTag] = {}
+        end
+        table.insert(state.tagCreationOrder[fromTag], id)
 
         core.resetMasterWidthIfNeeded(toTag)
         state.triggerSave()

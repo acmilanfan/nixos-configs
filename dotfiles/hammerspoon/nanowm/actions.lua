@@ -241,6 +241,26 @@ function M.swapWindow(dir)
 
     stack[idx], stack[targetIdx] = stack[targetIdx], stack[idx]
 
+    -- Also swap in creation order if it exists
+    local order = state.tagCreationOrder[tag]
+    if order then
+        local oIdx = 0
+        local otIdx = 0
+        local targetId = stack[idx] -- now it's swapped in stack, so this is the other one
+        local focusId = stack[targetIdx]
+
+        for i, id in ipairs(order) do
+            if id == fid then oIdx = i end
+        end
+
+        if oIdx > 0 then
+            local nextOIdx = oIdx + dir
+            if nextOIdx < 1 then nextOIdx = #order end
+            if nextOIdx > #order then nextOIdx = 1 end
+            order[oIdx], order[nextOIdx] = order[nextOIdx], order[oIdx]
+        end
+    end
+
     state.triggerSave()
     layout.tile()
 
@@ -281,10 +301,7 @@ end
 
 function M.resizeFloatingWindow(direction)
     local win = hs.window.focusedWindow()
-    if not win or not core.isFloating(win) then
-        hs.alert.show("Not a floating window")
-        return
-    end
+    if not win or not core.isFloating(win) then return end
 
     local frame = win:frame()
     local screen = win:screen():frame()
@@ -305,6 +322,62 @@ function M.resizeFloatingWindow(direction)
     end
 
     win:setFrame(frame)
+end
+
+function M.adjustTiledSize(direction)
+    local win = hs.window.focusedWindow()
+    if not win or core.isFloating(win) then return end
+
+    local tag = state.special.active and state.special.tag or state.currentTag
+    local currentLayout = state.getLayout(tag)
+
+    if currentLayout == "scrolling" then
+        local id = win:id()
+        local currentRatio = state.windowWidths[id] or 0.7
+        if direction == "wider" then
+            state.windowWidths[id] = math.min(1.0, currentRatio + 0.05)
+        elseif direction == "narrower" then
+            state.windowWidths[id] = math.max(0.1, currentRatio - 0.05)
+        end
+        state.triggerSave()
+        layout.tile()
+    else
+        -- Vertical/Horizontal master resizing
+        local currentMasterWidth = state.getMasterWidth(tag)
+        if direction == "wider" or direction == "taller" then
+            state.setMasterWidth(tag, math.min(0.9, currentMasterWidth + 0.05))
+        elseif direction == "narrower" or direction == "shorter" then
+            state.setMasterWidth(tag, math.max(0.1, currentMasterWidth - 0.05))
+        end
+        layout.tile()
+    end
+end
+
+function M.cycleWindowSize()
+    local win = hs.window.focusedWindow()
+    if not win or core.isFloating(win) then return end
+
+    local tag = state.special.active and state.special.tag or state.currentTag
+    local currentLayout = state.getLayout(tag)
+
+    if currentLayout == "scrolling" then
+        local id = win:id()
+        local currentRatio = state.windowWidths[id] or 0.7
+        local sizes = { 0.5, 0.7, 1.0 }
+        local nextRatio = sizes[1]
+
+        for i, s in ipairs(sizes) do
+            if math.abs(currentRatio - s) < 0.01 then
+                nextRatio = sizes[i + 1] or sizes[1]
+                break
+            end
+        end
+
+        state.windowWidths[id] = nextRatio
+        state.triggerSave()
+        layout.tile()
+        hs.alert.show("Window Width: " .. math.floor(nextRatio * 100) .. "%")
+    end
 end
 
 function M.moveFloatingWindow(direction)
@@ -357,8 +430,20 @@ end
 -- =============================================================================
 
 function M.toggleLayout()
-    state.layout = (state.layout == "tile") and "monocle" or "tile"
+    local tag = state.special.active and state.special.tag or state.currentTag
+    local currentLayout = state.getLayout(tag)
+    local nextLayout = state.availableLayouts[1]
+
+    for i, layoutName in ipairs(state.availableLayouts) do
+        if layoutName == currentLayout then
+            nextLayout = state.availableLayouts[i + 1] or state.availableLayouts[1]
+            break
+        end
+    end
+
+    state.setLayout(tag, nextLayout)
     layout.tile()
+    hs.alert.show("Layout: " .. nextLayout:upper())
 end
 
 -- =============================================================================

@@ -110,7 +110,23 @@ function M.setup()
         if not win then return end
         if state.launching then return end
 
-        -- Anti-jump protection
+        local id = win:id()
+        local tag = state.tags[id]
+
+        if tag then
+            state.tagLastFocused[tag] = id
+        end
+
+        -- If it's a window on the current tag (or special), and it's tiled, we might need to re-tile (for scrolling layout)
+        local currentContextTag = state.special.active and state.special.tag or state.currentTag
+        if tag == currentContextTag and not core.isFloating(win) then
+            if state.getLayout(tag) == "scrolling" then
+                layout.tile()
+            end
+            return
+        end
+
+        -- Anti-jump protection for cross-tag focus
         local timeSinceTile = hs.timer.secondsSinceEpoch() - state.lastTileTime
         if timeSinceTile < config.tileProtectionWindow then return end
 
@@ -121,9 +137,6 @@ function M.setup()
             win:raise()
             return
         end
-
-        local id = win:id()
-        local tag = state.tags[id]
 
         if not tag or tag == state.currentTag or tag == "special" then
             return
