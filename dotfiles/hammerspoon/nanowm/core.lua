@@ -151,15 +151,18 @@ function M.getTiledWindows(tag, allWins)
     local seenIds = {}
 
     for _, id in ipairs(stackIds) do
-        local win = hs.window.get(id)
-        if win and win:isVisible() and state.tags[id] == tag then
-            if not M.isFloating(win) then
-                table.insert(windows, win)
+        if not seenIds[id] then
+            local win = hs.window.get(id)
+            if win and win:isVisible() and state.tags[id] == tag then
+                if not M.isFloating(win) then
+                    table.insert(windows, win)
+                    table.insert(cleanStack, id)
+                    seenIds[id] = true
+                end
+            elseif hs.window.get(id) and state.tags[id] == tag then
                 table.insert(cleanStack, id)
                 seenIds[id] = true
             end
-        elseif hs.window.get(id) and state.tags[id] == tag then
-            table.insert(cleanStack, id)
         end
     end
 
@@ -187,15 +190,18 @@ function M.getWindowsInCreationOrder(tag, allWins)
     local seenIds = {}
 
     for _, id in ipairs(orderIds) do
-        local win = hs.window.get(id)
-        if win and win:isVisible() and state.tags[id] == tag then
-            if not M.isFloating(win) then
-                table.insert(windows, win)
+        if not seenIds[id] then
+            local win = hs.window.get(id)
+            if win and win:isVisible() and state.tags[id] == tag then
+                if not M.isFloating(win) then
+                    table.insert(windows, win)
+                    table.insert(cleanOrder, id)
+                    seenIds[id] = true
+                end
+            elseif hs.window.get(id) and state.tags[id] == tag then
                 table.insert(cleanOrder, id)
                 seenIds[id] = true
             end
-        elseif hs.window.get(id) and state.tags[id] == tag then
-            table.insert(cleanOrder, id)
         end
     end
 
