@@ -63,6 +63,19 @@ sketchybar --add item kanata.default popup.kanata \
                  label="Disabled" \
                  click_script="SENDER=kanata_switch_disabled $CONFIG_DIR/plugins/kanata.sh"
 
+# --- NanoWM Layout ---
+sketchybar --add item nanowm_layout left \
+           --set nanowm_layout \
+                 background.color=$ITEM_BG_COLOR \
+                 background.drawing=on \
+                 icon.color=$ACCENT_COLOR \
+                 icon.padding_left=8 \
+                 icon.padding_right=8 \
+                 label.drawing=off \
+                 drawing=on \
+                 script="$CONFIG_DIR/plugins/nanowm_layout.sh" \
+           --subscribe nanowm_layout nanowm_update
+
 # --- Workspace Items (1-10 + Special) ---
 for i in 1 2 3 4 5 6 7 8 9 10 S; do
   sketchybar --add item space.$i left \
@@ -132,17 +145,6 @@ sketchybar --add item caffeinate left \
                  drawing=off \
                  script="$CONFIG_DIR/plugins/caffeinate.sh" \
            --subscribe caffeinate nanowm_caffeinate
-
-# --- NanoWM Layout ---
-sketchybar --add item nanowm_layout left \
-           --set nanowm_layout \
-                 background.color=$ITEM_BG_COLOR \
-                 background.drawing=off \
-                 icon.color=$ACCENT_COLOR \
-                 label.drawing=on \
-                 drawing=off \
-                 script="$CONFIG_DIR/plugins/nanowm_layout.sh" \
-           --subscribe nanowm_layout nanowm_update
 
 # --- Front App ---
 sketchybar --add item front_app left \

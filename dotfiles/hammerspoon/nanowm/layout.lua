@@ -33,7 +33,7 @@ function M.raiseFloating()
     local tag = state.special.active and state.special.tag or state.currentTag
 
     local floatingWins = {}
-    for _, win in ipairs(hs.window.filter.default:getWindows()) do
+    for _, win in ipairs(require("nanowm.watchers").getManagedWindows()) do
         local id = win:id()
         local winTag = state.tags[id]
         local isSticky = state.sticky[id]
@@ -94,7 +94,7 @@ function M.performTile()
         end
     end
 
-    local allWins = hs.window.filter.default:getWindows()
+    local allWins = require("nanowm.watchers").getManagedWindows()
     local toHide = {}
     local toFloat = {}
 

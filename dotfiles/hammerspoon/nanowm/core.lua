@@ -162,7 +162,7 @@ function M.getTiledWindows(tag, allWins)
         end
     end
 
-    allWins = allWins or hs.window.filter.default:getWindows()
+    allWins = allWins or require("nanowm.watchers").getManagedWindows()
     for _, win in ipairs(allWins) do
         local id = win:id()
         if state.tags[id] == tag and not M.isFloating(win) and not seenIds[id] then
@@ -199,7 +199,7 @@ function M.getWindowsInCreationOrder(tag, allWins)
     end
 
     -- Check for missing windows in creation order that should be there
-    allWins = allWins or hs.window.filter.default:getWindows()
+    allWins = allWins or require("nanowm.watchers").getManagedWindows()
     for _, win in ipairs(allWins) do
         local id = win:id()
         if state.tags[id] == tag and not M.isFloating(win) and not seenIds[id] then
@@ -220,7 +220,7 @@ function M.getAllVisibleWindows()
     local tag = state.special.active and state.special.tag or state.currentTag
     local list = M.getTiledWindows(tag)
 
-    for _, win in ipairs(hs.window.filter.default:getWindows()) do
+    for _, win in ipairs(require("nanowm.watchers").getManagedWindows()) do
         local id = win:id()
         local isSticky = state.sticky[id]
         local isFloat = M.isFloating(win)

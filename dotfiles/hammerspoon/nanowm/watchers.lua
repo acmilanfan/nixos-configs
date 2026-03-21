@@ -25,6 +25,10 @@ local resizeWatcher = hs.timer.delayed.new(0.3, function()
     layout.handleManualResize()
 end)
 
+function M.getManagedWindows()
+    return filter:getWindows()
+end
+
 function M.setup()
     -- =========================================================================
     -- WINDOW CREATED
@@ -73,11 +77,18 @@ function M.setup()
             print("[NanoWM] Cleaning up destroyed window: " .. appName ..
                 " (id: " .. tostring(id) .. ") was on tag " .. tostring(tag))
 
-            -- Remove from ALL stacks
+            -- Remove from ALL stacks and creation orders
             for stackTag, stack in pairs(state.stacks) do
                 for i = #stack, 1, -1 do
                     if stack[i] == id then
                         table.remove(stack, i)
+                    end
+                end
+            end
+            for orderTag, order in pairs(state.tagCreationOrder or {}) do
+                for i = #order, 1, -1 do
+                    if order[i] == id then
+                        table.remove(order, i)
                     end
                 end
             end

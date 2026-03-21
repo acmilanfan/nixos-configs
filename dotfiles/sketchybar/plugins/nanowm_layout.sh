@@ -1,27 +1,24 @@
 #!/bin/bash
 
 if [ "$SENDER" = "nanowm_update" ]; then
-  LABEL=""
-  DRAWING="off"
+  DRAWING="on"
   ICON=""
-  BG_DRAWING="off"
+  BG_DRAWING="on"
 
   # Check Fullscreen first (highest priority)
   if [ "$FULLSCREEN" = "1" ]; then
-    LABEL="Full"
-    DRAWING="on"
-    BG_DRAWING="on"
     ICON="󰊓"
-  # Check Monocle
-  elif [ "$LAYOUT" = "monocle" ]; then
-    LABEL="Mono"
-    DRAWING="on"
-    BG_DRAWING="on"
-    ICON="󰊓"
+  elif [ "$LAYOUT" = "mono" ]; then
+    ICON="󰍉"
+  elif [ "$LAYOUT" = "horizontal" ]; then
+    ICON="󰗛"
+  elif [ "$LAYOUT" = "scrolling" ]; then
+    ICON="󰖲"
+  else # Default to vertical
+    ICON="󰗚"
   fi
 
   sketchybar --set $NAME drawing=$DRAWING \
                          background.drawing=$BG_DRAWING \
-                         label="$LABEL" \
                          icon="$ICON"
 fi

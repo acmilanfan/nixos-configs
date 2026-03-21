@@ -143,7 +143,7 @@ function M.cycleFocus(dir)
 
     if state.special.active then
         allVisible = core.getTiledWindows(state.special.tag)
-        for _, win in ipairs(hs.window.filter.default:getWindows()) do
+        for _, win in ipairs(require("nanowm.watchers").getManagedWindows()) do
             local id = win:id()
             if state.tags[id] == state.special.tag and core.isFloating(win) then
                 local seen = false

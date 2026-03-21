@@ -414,7 +414,7 @@ function M.saveAllWindowTags()
     local saved = 0
     local skipped = 0
 
-    for _, win in ipairs(hs.window.filter.default:getWindows()) do
+    for _, win in ipairs(require("nanowm.watchers").getManagedWindows()) do
         local app = win:application()
         if app then
             local appName = app:name()

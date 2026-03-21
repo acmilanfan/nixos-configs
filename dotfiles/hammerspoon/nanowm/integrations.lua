@@ -31,7 +31,7 @@ local function doUpdateSketchybar()
         local count = #wins
 
         -- Add floating utility windows that are on this tag
-        local allWins = hs.window.filter.default:getWindows()
+        local allWins = require("nanowm.watchers").getManagedWindows()
         for _, win in ipairs(allWins) do
             local id = win:id()
             if state.tags[id] == tag and core.isFloating(win) and isUtilityWindow(win) then
