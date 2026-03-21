@@ -55,6 +55,65 @@
           "browser.fullscreen.autohide" = false;
           "browser.search.region" = "DE";
           "browser.startup.page" = 3;
+
+          # --- Battery Saving Optimizations ---
+          # Reduce frequency of session saving (saves disk I/O and CPU)
+          "browser.sessionstore.interval" = 60000; # 60 seconds instead of 15s
+
+          # Enable strict tracking protection (blocks scripts that drain battery)
+          "privacy.trackingprotection.enabled" = true;
+          "privacy.trackingprotection.socialtracking.enabled" = true;
+
+          # Force GPU acceleration
+          "layers.acceleration.force-enabled" = true;
+          "gfx.webrender.all" = true;
+
+          # Disable cosmetic animations
+          "toolkit.cosmeticAnimations.enabled" = false;
+
+          # Tab unloading (automatically discard tabs when memory is low)
+          "browser.tabs.unloadOnLowMemory" = true;
+
+          # Reduce background tab activity
+          "dom.timeout.background_throttling_max_budget" = 50;
+          "dom.timeout.background_delay_ms" = 10000;
+
+          # --- UI & Feature Clean-up ---
+          # Disable AI Features & Chatbot
+          "browser.ml.chat.enabled" = false;
+          "browser.ml.chat.sidebar.enabled" = false;
+          "browser.ml.chat.shortcuts" = false;
+          "browser.ml.chat.page" = false;
+          "browser.ml.linkPreview.enabled" = false;
+
+          # Explicitly block all AI control points
+          "browser.ai.control.default" = "blocked";
+          "browser.ai.control.linkPreviewKeyPoints" = "blocked";
+          "browser.ai.control.pdfjsAltText" = "blocked";
+          "browser.ai.control.sidebarChatbot" = "blocked";
+          "browser.ai.control.smartTabGroups" = "blocked";
+          "browser.ai.control.translations" = "blocked";
+
+          # Disable Sidebar Revamp / Vertical Tabs
+          "sidebar.revamp" = false;
+          "sidebar.verticalTabs" = false;
+          "sidebar.visibility" = "hide-sidebar";
+
+          # New Tab Page Clean-up
+          "browser.newtabpage.activity-stream.feeds.topsites" = false;
+          "browser.newtabpage.activity-stream.showSponsoredTopSites" = false;
+          "browser.newtabpage.activity-stream.system.showWeatherOptIn" = false;
+          "browser.newtabpage.activity-stream.section.highlights.includePocket" = false;
+
+          # Disable Pocket
+          "extensions.pocket.enabled" = false;
+
+          # Disable Data Collection & Telemetry
+          "datareporting.healthreport.uploadEnabled" = false;
+          "datareporting.policy.dataSubmissionEnabled" = false;
+          "toolkit.telemetry.enabled" = false;
+          "toolkit.telemetry.unified" = false;
+          "toolkit.telemetry.archive.enabled" = false;
         };
       };
     };
