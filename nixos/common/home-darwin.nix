@@ -317,6 +317,10 @@ in
       executable = true;
       source = ../../dotfiles/sketchybar/plugins/ai_agents_focus.sh;
     };
+    ".config/sketchybar/plugins/system_info_daemon.sh" = {
+      executable = true;
+      source = ../../dotfiles/sketchybar/plugins/system_info_daemon.sh;
+    };
   };
 
   # macOS-specific environment variables

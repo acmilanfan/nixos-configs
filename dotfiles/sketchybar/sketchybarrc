@@ -13,6 +13,7 @@ sketchybar --add event nanowm_update
 sketchybar --add event nanowm_caffeinate
 sketchybar --add event kanata_changed
 sketchybar --add event clock_tick
+sketchybar --add event system_info_update
 
 # ═══════════════════════════════════════════════════════════════════════════
 # LEFT SIDE - Workspaces, Timer & App
@@ -207,8 +208,8 @@ sketchybar --add graph cpu_graph right 50 \
                  icon.color=$ACCENT_COLOR \
                  icon.padding_left=6 \
                  label.padding_right=6 \
-                 update_freq=15 \
-                 script="$CONFIG_DIR/plugins/cpu_graph.sh"
+                 script="$CONFIG_DIR/plugins/cpu_graph.sh" \
+           --subscribe cpu_graph system_info_update
 
 # --- Memory ---
 sketchybar --add item memory right \
@@ -217,8 +218,8 @@ sketchybar --add item memory right \
                  icon.color=$WARNING_COLOR \
                  background.color=$ITEM_BG_COLOR \
                  background.drawing=on \
-                 update_freq=60 \
-                 script="$CONFIG_DIR/plugins/memory.sh"
+                 script="$CONFIG_DIR/plugins/memory.sh" \
+           --subscribe memory system_info_update
 
 # --- Volume ---
 sketchybar --add item volume right \
@@ -236,8 +237,8 @@ sketchybar --add item power right \
                  icon.color=$WARNING_COLOR \
                  background.color=$ITEM_BG_COLOR \
                  background.drawing=on \
-                 update_freq=60 \
-                 script="$CONFIG_DIR/plugins/power.sh"
+                 script="$CONFIG_DIR/plugins/power.sh" \
+           --subscribe power system_info_update
 
 # --- Battery ---
 sketchybar --add item battery right \
@@ -309,4 +310,9 @@ sketchybar --add item help_menu right \
                  click_script="/opt/homebrew/bin/hs -c 'NanoWM.showKeybindMenu()'"
 
 sketchybar --update
+
+# --- Start Background Daemons ---
+pkill -f "system_info_daemon.sh"
+"$CONFIG_DIR/plugins/system_info_daemon.sh" 5000 &
+
 echo "SketchyBar config (modular) loaded."
