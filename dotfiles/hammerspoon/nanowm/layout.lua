@@ -16,7 +16,7 @@ M.onTileComplete = nil -- Set by integrations module
 -- Debounced Tile Timer
 -- =============================================================================
 
-local tileTimer = hs.timer.delayed.new(0.02, function()
+local tileTimer = hs.timer.delayed.new(0.15, function()
     M.performTile()
 end)
 

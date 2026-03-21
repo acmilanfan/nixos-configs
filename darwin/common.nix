@@ -234,7 +234,7 @@ in
 
       # Utilities
       "raycast"
-      "syncthing-app"
+      # "syncthing-app"
       "karabiner-elements"
       "cleanupbuddy"
       "nextcloud"
