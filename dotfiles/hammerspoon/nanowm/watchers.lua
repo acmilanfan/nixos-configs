@@ -15,7 +15,10 @@ local M = {}
 -- Window Filter Setup
 -- =============================================================================
 
-local filter = hs.window.filter.new(nil)
+-- Use 'true' to only track standard, visible windows, ignoring background noise
+local filter = hs.window.filter.new(true)
+filter:rejectApp("Hammerspoon")
+filter:rejectApp("Sketchybar")
 
 -- Resize watcher for manual mouse resizing
 local resizeWatcher = hs.timer.delayed.new(0.3, function()

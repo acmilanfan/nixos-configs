@@ -96,7 +96,7 @@ function M.setup()
     hs.hotkey.bind(altShift, "q", actions.closeWindow)
     hs.hotkey.bind(ctrlAlt, "f", tags.toggleFreeMode)
 
-    hs.hotkey.bind(altShift, "r", actions.cycleWindowSize)
+    hs.hotkey.bind(alt, "r", actions.cycleWindowSize)
 
     -- Combined swap/resize keybinds (context-aware)
     hs.hotkey.bind(altShift, "h", function()

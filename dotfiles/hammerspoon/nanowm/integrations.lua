@@ -102,7 +102,7 @@ function M.updateSketchybar()
         sketchybarUpdateTimer:stop()
     end
 
-    sketchybarUpdateTimer = hs.timer.doAfter(0.02, function()
+    sketchybarUpdateTimer = hs.timer.doAfter(0.15, function()
         doUpdateSketchybar()
     end)
 end

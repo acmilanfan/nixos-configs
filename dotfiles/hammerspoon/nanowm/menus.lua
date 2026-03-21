@@ -292,7 +292,7 @@ function M.showKeybindMenu()
             binds = {
                 { key = "Alt+Shift+J/K", desc = "Swap tiled window", fn = nil },
                 { key = "Alt+Shift+H/L/J/K", desc = "Resize floating window", fn = nil },
-                { key = "Alt+Shift+R", desc = "Cycle window size (scrolling layout)", fn = actions.cycleWindowSize },
+                { key = "Alt+R", desc = "Cycle window size (scrolling layout)", fn = actions.cycleWindowSize },
                 { key = "Alt+F", desc = "Toggle fullscreen", fn = actions.toggleFullscreen },
                 { key = "Alt+C", desc = "Center window", fn = actions.centerWindow },
                 { key = "Alt+Shift+C", desc = "Resize floating to 60%", fn = actions.resizeFloatingTo60 },

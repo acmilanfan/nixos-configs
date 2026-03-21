@@ -126,6 +126,9 @@ M.isTagFree = state.isTagFree
 -- =============================================================================
 
 function M.init()
+    -- Disable window animations for instant tiling and better performance
+    hs.window.animationDuration = 0
+
     -- Load persisted state
     state.load()
 
