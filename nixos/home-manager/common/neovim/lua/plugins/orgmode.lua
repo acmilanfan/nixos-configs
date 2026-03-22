@@ -58,75 +58,75 @@ local params = {
 
 orgmode.setup(params)
 
+-- Helper: Query Matcher
+local function matches_query(headline, query)
+  if query == "" then
+    return true
+  end
+  local conditions = vim.split(query, "+", { plain = true })
+  for _, cond in ipairs(conditions) do
+    local key, op, val = cond:match("^([%w_-]+)([<>=]+)(.+)$")
+    if key then
+      local prop_val = headline:get_property(key)
+      if not prop_val then
+        return false
+      end
+      local n_prop, n_val = tonumber(prop_val), tonumber(val)
+      if n_prop and n_val then
+        if op == "<" and not (n_prop < n_val) then
+          return false
+        end
+        if op == ">" and not (n_prop > n_val) then
+          return false
+        end
+        if op == "=" and not (n_prop == n_val) then
+          return false
+        end
+        if op == "<=" and not (n_prop <= n_val) then
+          return false
+        end
+        if op == ">=" and not (n_prop >= n_val) then
+          return false
+        end
+      elseif op == "=" and prop_val ~= val then
+        return false
+      end
+    end
+  end
+  return true
+end
+
+-- Helper: Inherited Tags
+local function has_youtube_tag(headline)
+  local current = headline
+  while current do
+    for _, tag in ipairs(current.tags or {}) do
+      if tag == "youtube" then
+        return true
+      end
+    end
+    current = current.parent
+  end
+  return false
+end
+
+-- Helper: Parse Date
+local function parse_date(date_str)
+  if not date_str then
+    return 0
+  end
+  local Y, M, D, h, m, s = date_str:match("(%d+)-(%d+)-(%d+)T(%d+):(%d+):(%d+)")
+  if not Y then
+    return 0
+  end
+  return os.time({ year = Y, month = M, day = D, hour = h, min = m, sec = s })
+end
+
 local function open_youtube_query(opts)
   local query_string = opts.args or ""
   local org_api = require("orgmode.api")
 
-  -- 1. Helper: Query Matcher
-  local function matches_query(headline, query)
-    if query == "" then
-      return true
-    end
-    local conditions = vim.split(query, "+", { plain = true })
-    for _, cond in ipairs(conditions) do
-      local key, op, val = cond:match("^([%w_-]+)([<>=]+)(.+)$")
-      if key then
-        local prop_val = headline:get_property(key)
-        if not prop_val then
-          return false
-        end
-        local n_prop, n_val = tonumber(prop_val), tonumber(val)
-        if n_prop and n_val then
-          if op == "<" and not (n_prop < n_val) then
-            return false
-          end
-          if op == ">" and not (n_prop > n_val) then
-            return false
-          end
-          if op == "=" and not (n_prop == n_val) then
-            return false
-          end
-          if op == "<=" and not (n_prop <= n_val) then
-            return false
-          end
-          if op == ">=" and not (n_prop >= n_val) then
-            return false
-          end
-        elseif op == "=" and prop_val ~= val then
-          return false
-        end
-      end
-    end
-    return true
-  end
-
-  -- 2. Helper: Inherited Tags
-  local function has_youtube_tag(headline)
-    local current = headline
-    while current do
-      for _, tag in ipairs(current.tags or {}) do
-        if tag == "youtube" then
-          return true
-        end
-      end
-      current = current.parent
-    end
-    return false
-  end
-
-  -- 3. Helper: Parse Date
-  local function parse_date(date_str)
-    if not date_str then
-      return 0
-    end
-    local Y, M, D, h, m, s = date_str:match("(%d+)-(%d+)-(%d+)T(%d+):(%d+):(%d+)")
-    if not Y then
-      return 0
-    end
-    return os.time({ year = Y, month = M, day = D, hour = h, min = m, sec = s })
-  end
-
-  -- 4. Load and Collect (Store Path Explicitly)
+  -- Load and Collect (Store Path Explicitly)
   local files = org_api.load()
   local items = {}
 
@@ -144,14 +144,14 @@ local function open_youtube_query(opts)
     end
   end
 
-  -- 5. Sort (Unwrap to access properties)
+  -- Sort (Unwrap to access properties)
   table.sort(items, function(a, b)
     local t_a = parse_date(a.headline:get_property("Published"))
     local t_b = parse_date(b.headline:get_property("Published"))
     return t_a < t_b
   end)
 
-  -- 6. Build Quickfix List
+  -- Build Quickfix List
   local qf = {}
   for _, item in ipairs(items) do
     local h = item.headline
@@ -194,19 +194,9 @@ local function open_youtube_query(opts)
   end
 end
 
-local function open_random_video()
+local function open_random_video(opts)
+  local query_string = opts.args or ""
   local org_api = require("orgmode.api")
-
-  local function has_youtube_tag(headline)
-    local current = headline
-    while current do
-      for _, tag in ipairs(current.tags or {}) do
-        if tag == "youtube" then return true end
-      end
-      current = current.parent
-    end
-    return false
-  end
 
   local files = org_api.load()
   local all_items = {}
@@ -214,13 +204,15 @@ local function open_random_video()
     local file_path = file.filename
     for _, h in ipairs(file.headlines) do
       if h.todo_type == "TODO" and has_youtube_tag(h) then
-        table.insert(all_items, { headline = h, path = file_path })
+        if matches_query(h, query_string) then
+          table.insert(all_items, { headline = h, path = file_path })
+        end
       end
     end
   end
 
   if #all_items == 0 then
-    print("No YouTube videos found.")
+    print("No YouTube videos found matching: " .. (query_string == "" and "All" or query_string))
     return
   end
 
@@ -245,11 +237,11 @@ local function open_random_video()
 
   vim.fn.setqflist(qf, "r")
   vim.cmd("copen")
-  print(string.format("Selected %d random videos.", #qf))
+  print(string.format("Selected %d random videos matching: %s", #qf, query_string == "" and "All" or query_string))
 end
 
 vim.api.nvim_create_user_command("OrgYoutube", open_youtube_query, { nargs = "?" })
-vim.api.nvim_create_user_command("OrgYoutubeRandom", open_random_video, {})
+vim.api.nvim_create_user_command("OrgYoutubeRandom", open_random_video, { nargs = "?" })
 
 vim.api.nvim_create_autocmd("FileType", {
   pattern = "org",
@@ -261,5 +253,6 @@ vim.api.nvim_create_autocmd("FileType", {
     vim.keymap.set("n", "<leader>oys", ":OrgYoutube Duration<600<CR>", { desc = "YouTube Short" })
     vim.keymap.set("n", "<leader>oyi", ":OrgYoutube Importance=5<CR>", { desc = "YouTube Important" })
     vim.keymap.set("n", "<leader>oyr", ":OrgYoutubeRandom<CR>", { desc = "YouTube Random" })
+    vim.keymap.set("n", "<leader>oyR", ":OrgYoutubeRandom Duration<600", { desc = "YouTube Random Query" })
   end,
 })
