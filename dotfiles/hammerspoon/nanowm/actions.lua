@@ -139,34 +139,13 @@ end
 -- =============================================================================
 
 function M.cycleFocus(dir)
-    local allVisible
-
-    if state.special.active then
-        allVisible = core.getTiledWindows(state.special.tag)
-        for _, win in ipairs(require("nanowm.watchers").getManagedWindows()) do
-            local id = win:id()
-            if state.tags[id] == state.special.tag and core.isFloating(win) then
-                local seen = false
-                for _, w in ipairs(allVisible) do
-                    if w:id() == id then
-                        seen = true
-                        break
-                    end
-                end
-                if not seen then
-                    table.insert(allVisible, win)
-                end
-            end
-        end
-    else
-        allVisible = core.getAllVisibleWindows()
-    end
+    local focused = hs.window.focusedWindow()
+    local allVisible = core.getAllVisibleWindows()
 
     if #allVisible == 0 then
         return
     end
 
-    local focused = hs.window.focusedWindow()
     local idx = 0
     if focused then
         for i, win in ipairs(allVisible) do
@@ -178,7 +157,12 @@ function M.cycleFocus(dir)
     end
 
     if idx == 0 then
-        idx = 1
+        -- Default to the first or last depending on direction
+        if dir > 0 then
+            idx = 0 -- idx + 1 will be 1
+        else
+            idx = #allVisible + 1 -- idx - 1 will be #allVisible
+        end
     end
 
     local newIdx = idx + dir

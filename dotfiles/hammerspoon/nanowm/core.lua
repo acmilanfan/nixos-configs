@@ -150,18 +150,33 @@ function M.getTiledWindows(tag, allWins)
     local cleanStack = {}
     local seenIds = {}
 
+    -- Bulk retrieve all windows to avoid repeated hs.window.get(id) calls
+    -- We map them by ID for fast lookup
+    local allHammerspoonWindows = hs.window.allWindows()
+    local winMap = {}
+    for _, win in ipairs(allHammerspoonWindows) do
+        winMap[win:id()] = win
+    end
+
     for _, id in ipairs(stackIds) do
         if not seenIds[id] then
-            local win = hs.window.get(id)
-            if win and win:isVisible() and state.tags[id] == tag then
-                if not M.isFloating(win) then
-                    table.insert(windows, win)
+            local win = winMap[id]
+            if win and state.tags[id] == tag then
+                local isVisible = win:isVisible()
+                local isCurrentOrSpecial = (tag == state.currentTag or tag == state.special.tag)
+
+                -- Include if visible OR if it's on the current/special tag and not minimized
+                if isVisible or (isCurrentOrSpecial and not win:isMinimized()) then
+                    if not M.isFloating(win) then
+                        table.insert(windows, win)
+                        table.insert(cleanStack, id)
+                        seenIds[id] = true
+                    end
+                else
+                    -- Still on tag but not visible/minimized and not current tag
                     table.insert(cleanStack, id)
                     seenIds[id] = true
                 end
-            elseif hs.window.get(id) and state.tags[id] == tag then
-                table.insert(cleanStack, id)
-                seenIds[id] = true
             end
         end
     end
@@ -189,18 +204,31 @@ function M.getWindowsInCreationOrder(tag, allWins)
     local cleanOrder = {}
     local seenIds = {}
 
+    -- Bulk retrieve all windows to avoid repeated hs.window.get(id) calls
+    local allHammerspoonWindows = hs.window.allWindows()
+    local winMap = {}
+    for _, win in ipairs(allHammerspoonWindows) do
+        winMap[win:id()] = win
+    end
+
     for _, id in ipairs(orderIds) do
         if not seenIds[id] then
-            local win = hs.window.get(id)
-            if win and win:isVisible() and state.tags[id] == tag then
-                if not M.isFloating(win) then
-                    table.insert(windows, win)
+            local win = winMap[id]
+            if win and state.tags[id] == tag then
+                local isVisible = win:isVisible()
+                local isCurrentOrSpecial = (tag == state.currentTag or tag == state.special.tag)
+
+                if isVisible or (isCurrentOrSpecial and not win:isMinimized()) then
+                    if not M.isFloating(win) then
+                        table.insert(windows, win)
+                        table.insert(cleanOrder, id)
+                        seenIds[id] = true
+                    end
+                else
+                    -- Still on tag but not visible/minimized and not current tag
                     table.insert(cleanOrder, id)
                     seenIds[id] = true
                 end
-            elseif hs.window.get(id) and state.tags[id] == tag then
-                table.insert(cleanOrder, id)
-                seenIds[id] = true
             end
         end
     end
@@ -226,24 +254,23 @@ end
 function M.getAllVisibleWindows()
     local tag = state.special.active and state.special.tag or state.currentTag
     local list = M.getTiledWindows(tag)
+    local seenIds = {}
+    for _, win in ipairs(list) do
+        seenIds[win:id()] = true
+    end
 
+    -- Add floating windows on this tag, and sticky windows
+    -- Using getManagedWindows() is faster because it's based on hs.window.filter
     for _, win in ipairs(require("nanowm.watchers").getManagedWindows()) do
         local id = win:id()
-        local isSticky = state.sticky[id]
-        local isFloat = M.isFloating(win)
-        local onTag = (state.tags[id] == tag)
-        local isPip = (win:title() == "Picture-in-Picture")
+        if not seenIds[id] then
+            local isSticky = state.sticky[id]
+            local onTag = (state.tags[id] == tag)
+            local isPip = (win:title() == "Picture-in-Picture")
 
-        if not isPip and ((isFloat and onTag) or isSticky) then
-            local seen = false
-            for _, w in ipairs(list) do
-                if w:id() == id then
-                    seen = true
-                    break
-                end
-            end
-            if not seen then
+            if not isPip and ((M.isFloating(win) and onTag) or isSticky) then
                 table.insert(list, win)
+                seenIds[id] = true
             end
         end
     end

@@ -84,7 +84,10 @@ function M.performTile()
     state.lastTileTime = hs.timer.secondsSinceEpoch()
 
     local screen = hs.screen.mainScreen()
+    if not screen then return end
+
     local frame = screen:frame()
+    if not frame or frame.w <= 0 or frame.h <= 0 then return end
 
     if state.sketchybarEnabled then
         local name = screen:name()
@@ -187,8 +190,8 @@ function M.performTile()
             local specialFrame = {
                 x = frame.x + pad,
                 y = frame.y + pad,
-                w = frame.w - (pad * 2),
-                h = frame.h - (pad * 2),
+                w = math.max(100, frame.w - (pad * 2)),
+                h = math.max(100, frame.h - (pad * 2)),
             }
             M.applyLayout(specialWindows, specialFrame, true, state.special.tag, allWins)
         else
@@ -273,6 +276,10 @@ function M.applyLayout(windows, area, isSpecial, tag, allWins)
     }
 
     local function setFrameSmart(win, newFrame)
+        if not newFrame or newFrame.w <= 0 or newFrame.h <= 0 then
+            return
+        end
+
         local f = win:frame()
         if
             math.abs(f.x - newFrame.x) > 1
