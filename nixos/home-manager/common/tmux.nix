@@ -58,7 +58,22 @@ in
   home.packages = [
     tmuxUpdateEnv
     (pkgs.writeShellScriptBin "agent-state" ''
-      exec "${tmux-agent-indicator}/share/tmux-plugins/agent-indicator/scripts/agent-state.sh" "$@"
+      "${tmux-agent-indicator}/share/tmux-plugins/agent-indicator/scripts/agent-state.sh" "$@"
+
+      # Notify Hammerspoon of agent state changes for hs.alert notifications
+      AGENT="" STATE=""
+      while [ $# -gt 0 ]; do
+        case "$1" in
+          --agent) AGENT="$2"; shift 2 ;;
+          --state) STATE="$2"; shift 2 ;;
+          *) shift ;;
+        esac
+      done
+      if [ -n "$AGENT" ] && [ -n "$STATE" ]; then
+        ${lib.optionalString pkgs.stdenv.isDarwin ''
+          hs -c "require('nanowm.agents').onAgentStateChange('$STATE', '$AGENT')" 2>/dev/null &
+        ''}
+      fi
     '')
   ];
 
