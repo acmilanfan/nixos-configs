@@ -93,8 +93,12 @@ end
 function modal:entered()
   createOverlay()
   overlay:show()
+  gResetTap:start()
 end
 function modal:exited()
+  gResetTap:stop()
+  gPending = false
+  if gTimer then gTimer:stop(); gTimer = nil end
   if overlay then overlay:hide() end
   if mode == "visual" then
     local pos = mouse.absolutePosition()
@@ -384,7 +388,6 @@ local gResetTap = eventtap.new({ eventtap.event.types.keyDown }, function(e)
   end
   return false
 end)
-gResetTap:start()
 -- Modal entry/exit
 hs.hotkey.bind({"ctrl","alt","cmd"}, "space", function() modal:enter() end)
 -- hs.hotkey.bind({}, "f12", function() modal:enter() end)

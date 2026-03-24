@@ -262,7 +262,7 @@ sketchybar --add item ai_agents right \
                  background.color=$ITEM_BG_COLOR \
                  background.drawing=on \
                  drawing=off \
-                 update_freq=60 \
+                 update_freq=0 \
                  script="$CONFIG_DIR/plugins/ai_agents.sh" \
                  click_script="$CONFIG_DIR/plugins/ai_agents_click.sh" \
                  popup.background.color=$ITEM_BG_COLOR \
@@ -315,6 +315,6 @@ sketchybar --update
 
 # --- Start Background Daemons ---
 pkill -f "system_info_daemon.sh"
-"$CONFIG_DIR/plugins/system_info_daemon.sh" 5000 &
+"$CONFIG_DIR/plugins/system_info_daemon.sh" 10000 &
 
 echo "SketchyBar config (modular) loaded."

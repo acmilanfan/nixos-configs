@@ -8,19 +8,20 @@ INTERVAL=${1:-2000}
 
 # Start macmon pipe
 macmon pipe --interval "$INTERVAL" | while read -r line; do
-  # Extract metrics using jq
-  CPU_P=$(echo "$line" | jq -r '.pcpu_usage[1] // 0')
-  CPU_E=$(echo "$line" | jq -r '.ecpu_usage[1] // 0')
-  # Simple sum of percentages (normalized to 0-100)
-  # Note: On some systems this might exceed 100 if not normalized,
-  # but macmon percentages are usually 0.0 to 1.0.
-  CPU=$(echo "($CPU_P + CPU_E) * 100" | bc)
+  # Single jq call extracts CPU and power, does the math internally
+  read -r CPU POWER <<< $(echo "$line" | jq -r '
+    [((.pcpu_usage[1] // 0) + (.ecpu_usage[1] // 0)) * 100, .sys_power // 0]
+    | map(tostring) | join(" ")
+  ')
 
-  # Get memory pressure (more accurate on macOS than raw used RAM)
-  MEM=$(memory_pressure 2>/dev/null | grep "System-wide memory free percentage" | awk '{print 100 - $5}' | tr -d '%')
+  # Use vm_stat instead of memory_pressure (much lighter)
+  MEM=$(vm_stat 2>/dev/null | awk '/Pages active/ {active=$3} /Pages wired/ {wired=$4} /Pages free/ {free=$3} /Pages speculative/ {spec=$3} END {
+    gsub(/\./,"",active); gsub(/\./,"",wired); gsub(/\./,"",free); gsub(/\./,"",spec)
+    used = (active + wired) * 4096
+    total = (active + wired + free + spec) * 4096
+    if (total > 0) printf "%.0f", (used / total) * 100
+  }')
 
-  POWER=$(echo "$line" | jq -r '.sys_power // 0')
-  # Trigger sketchybar event with variables
   sketchybar --trigger system_info_update \
              CPU="$CPU" \
              MEM="$MEM" \
