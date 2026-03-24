@@ -148,18 +148,20 @@ function M.performTile()
 
         if not state.windowState[id].isHidden and core.isFloating(win) then
             local f = win:frame()
-            if f.x < 10000 then
+            if f.x < 10000 and f.w > 0 and f.h > 0 then
                 state.floatingCache[idStr] = { x = f.x, y = f.y, w = f.w, h = f.h }
             end
         end
 
         local f = win:frame()
-        if f.x < 90000 then
+        if f.x < 90000 and f.w > 0 and f.h > 0 then
             local screenFrame = hs.screen.mainScreen():frame()
-            f.x = screenFrame.x + screenFrame.w - 5
-            f.y = screenFrame.y + screenFrame.h - 5
-            win:setFrame(f)
-            state.windowState[id].isHidden = true
+            if screenFrame and screenFrame.w > 0 and screenFrame.h > 0 then
+                f.x = screenFrame.x + screenFrame.w - 5
+                f.y = screenFrame.y + screenFrame.h - 5
+                win:setFrame(f)
+                state.windowState[id].isHidden = true
+            end
         end
     end
 
@@ -222,7 +224,7 @@ function M.performTile()
 
         if state.windowState[id].isHidden or win:frame().x >= 90000 then
             local saved = state.floatingCache[idStr]
-            if saved and saved.x < 10000 then
+            if saved and saved.x < 10000 and saved.w > 0 and saved.h > 0 then
                 win:setFrame(saved)
             else
                 win:centerOnScreen()
