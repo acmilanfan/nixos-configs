@@ -215,16 +215,16 @@ alt-shift-v = 'exec-and-forget open "raycast://extensions/raycast/clipboard-hist
 
 # Org-mode file shortcuts (matching AwesomeWM setup)
 # Open orgmode agenda in floating terminal
-alt-shift-o = 'exec-and-forget "/Users/andreishumailov/Applications/Home Manager Apps/Alacritty.app/Contents/MacOS/alacritty" -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-AGENDA" -e zsh -c "nvim --cmd \"cd ~/org/life\" -c \"lua require(\\\"orgmode.api.agenda\\\").agenda({span = 1})\" -c \"autocmd VimEnter * ++once lua vim.defer_fn(function() for _, buf in ipairs(vim.api.nvim_list_bufs()) do if vim.api.nvim_buf_get_option(buf, \\\"filetype\\\") ~= \\\"orgagenda\\\" then vim.api.nvim_buf_delete(buf, {force = true}) end end end, 200)\""'
+alt-shift-o = 'exec-and-forget "$HOME/Applications/Home Manager Apps/Alacritty.app/Contents/MacOS/alacritty" -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-AGENDA" -e zsh -c "nvim --cmd \"cd ~/org/life\" -c \"lua require(\\\"orgmode.api.agenda\\\").agenda({span = 1})\" -c \"autocmd VimEnter * ++once lua vim.defer_fn(function() for _, buf in ipairs(vim.api.nvim_list_bufs()) do if vim.api.nvim_buf_get_option(buf, \\\"filetype\\\") ~= \\\"orgagenda\\\" then vim.api.nvim_buf_delete(buf, {force = true}) end end end, 200)\""'
 
 # Open work.org in floating terminal
-alt-shift-w = 'exec-and-forget "/Users/andreishumailov/Applications/Home Manager Apps/Alacritty.app/Contents/MacOS/alacritty" -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-WORK" -e zsh -c "cd ~/org/life && vim ~/org/life/work/work.org"'
+alt-shift-w = 'exec-and-forget "$HOME/Applications/Home Manager Apps/Alacritty.app/Contents/MacOS/alacritty" -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-WORK" -e zsh -c "cd ~/org/life && vim ~/org/life/work/work.org"'
 
 # Open dump.org in floating terminal
-alt-shift-d = 'exec-and-forget "/Users/andreishumailov/Applications/Home Manager Apps/Alacritty.app/Contents/MacOS/alacritty" -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-DUMP" -e zsh -c "cd ~/org/life && vim ~/org/life/dump.org"'
+alt-shift-d = 'exec-and-forget "$HOME/Applications/Home Manager Apps/Alacritty.app/Contents/MacOS/alacritty" -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-DUMP" -e zsh -c "cd ~/org/life && vim ~/org/life/dump.org"'
 
 # Open youtube1.org in floating terminal
-alt-shift-y = 'exec-and-forget "/Users/andreishumailov/Applications/Home Manager Apps/Alacritty.app/Contents/MacOS/alacritty" -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-YOUTUBE" -e zsh -c "cd ~/org/consume && vim ~/org/consume/youtube/youtube1.org"'
+alt-shift-y = 'exec-and-forget "$HOME/Applications/Home Manager Apps/Alacritty.app/Contents/MacOS/alacritty" -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-YOUTUBE" -e zsh -c "cd ~/org/consume && vim ~/org/consume/youtube/youtube1.org"'
 
 # Service management commands
 alt-shift-ctrl-r = 'reload-config'

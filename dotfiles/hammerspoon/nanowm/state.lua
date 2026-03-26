@@ -116,6 +116,7 @@ function M.load()
     M.tagLastFocused = clean(hs.settings.get("nanoWM_tagLastFocused")) or {}
     M.appTagMemory = hs.settings.get("nanoWM_appTagMemory") or {}
     M.freeTags = clean(hs.settings.get("nanoWM_freeTags")) or {}
+    M.freeTagPositions = hs.settings.get("nanoWM_freeTagPositions") or {}
 
     M.currentTag = hs.settings.get("nanoWM_currentTag") or 1
     M.prevTag = hs.settings.get("nanoWM_prevTag") or 1
@@ -148,6 +149,7 @@ function M.save()
     hs.settings.set("nanoWM_sketchybarEnabled", M.sketchybarEnabled)
     hs.settings.set("nanoWM_bordersEnabled", M.bordersEnabled)
     hs.settings.set("nanoWM_freeTags", serialize(M.freeTags))
+    hs.settings.set("nanoWM_freeTagPositions", M.freeTagPositions)
     hs.settings.set("nanoWM_kanataMode", M.kanataMode)
 end
 

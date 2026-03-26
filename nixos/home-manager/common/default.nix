@@ -35,7 +35,6 @@
     ./greenclip.nix
     ./gpg.nix
     ./rofi.nix
-    ./greenclip.nix
     ./hyprland.nix
   ];
 

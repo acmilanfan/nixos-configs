@@ -14,13 +14,8 @@ macmon pipe --interval "$INTERVAL" | while read -r line; do
     | map(tostring) | join(" ")
   ')
 
-  # Use vm_stat instead of memory_pressure (much lighter)
-  MEM=$(vm_stat 2>/dev/null | awk '/Pages active/ {active=$3} /Pages wired/ {wired=$4} /Pages free/ {free=$3} /Pages speculative/ {spec=$3} END {
-    gsub(/\./,"",active); gsub(/\./,"",wired); gsub(/\./,"",free); gsub(/\./,"",spec)
-    used = (active + wired) * 4096
-    total = (active + wired + free + spec) * 4096
-    if (total > 0) printf "%.0f", (used / total) * 100
-  }')
+  # Use memory_pressure command (same kernel source as the standalone memory.sh plugin)
+  MEM=$(memory_pressure 2>/dev/null | awk '/System-wide memory free percentage/ {printf "%.0f", 100 - $5}')
 
   sketchybar --trigger system_info_update \
              CPU="$CPU" \

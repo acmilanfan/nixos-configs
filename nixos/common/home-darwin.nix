@@ -29,6 +29,8 @@ in
       # Additional macOS tools
       duti # Default application handler
 
+      gh
+
       # Window management
       sketchybar # Status bar
       nowplaying-cli # Media info for sketchybar
@@ -62,6 +64,7 @@ in
 
       # Docker/Colima shortcuts - optimized for testcontainers
       docker-start = "colima start --cpu 4 --memory 8 --disk 60 --network-address";
+      colima-light = "colima start --cpu 2 --memory 4 --disk 30 --network-address";
       docker-stop = "colima stop";
       docker-status = "colima status";
       docker-env = "colima-testcontainers-env";

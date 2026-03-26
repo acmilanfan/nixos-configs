@@ -95,16 +95,10 @@ in
 
   environment.systemPackages = with pkgs; [
     vim
-    git
     curl
     wget
-    htop
     tree
-    jq
-    nixfmt-classic
     zsh
-    bat
-    httpie
     unstable.aerospace
     startupScript
     pkgs.warpd
@@ -203,46 +197,19 @@ in
     global.autoUpdate = false;
     onActivation = {
       cleanup = "zap";
-      # autoUpdate = true;
       autoUpdate = false;
-      # upgrade = true;
       upgrade = false;
     };
 
-    # Homebrew casks (GUI applications)
     casks = [
-      # Browsers
       "google-chrome"
       "firefox"
-
-      # Development
-      # "visual-studio-code"
-      # "postman"
-
-      # Communication
       "slack"
-      # "discord"
-      # "zoom"
-
-      # Productivity
-      # "notion"
-      # "obsidian"
-
-      # Media
-      # "vlc"
-      # "spotify"
-
-      # Utilities
       "raycast"
-      # "syncthing-app"
       "karabiner-elements"
       "cleanupbuddy"
       "nextcloud"
-
-      # Terminal
       "kitty"
-
-      # Usability improvements
       "dimentium/autoraise/autoraiseapp"
       "scroll-reverser"
       "hammerspoon"
@@ -252,32 +219,22 @@ in
       "finetune"
     ];
 
-    # Homebrew formulae (CLI tools)
     brews = [
-      # Tools that work better via homebrew
-      "mas" # Mac App Store CLI
-      "scrcpy" # Android screen mirroring
+      "mas"
+      "scrcpy"
       "kanata"
       "firefoxpwa"
       "devsunb/tap/kanata-vk-agent"
-      "docker" # Docker CLI (works with colima)
-      "docker-compose" # Docker Compose
+      "docker"
+      "docker-compose"
       "wifitui"
     ];
 
-    # Homebrew taps
     taps = [
       "FelixKratz/formulae"
       "dimentium/autoraise"
       "devsunb/tap"
     ];
-
-    # Mac App Store apps
-    masApps = {
-      # "Weekenduo" = 6757489903;
-      # "Xcode" = 497799835;
-      # "TestFlight" = 899247664;
-    };
   };
 
   # Fonts
@@ -302,7 +259,13 @@ in
   nix = {
     enable = true;
     package = pkgs.nix;
-    optimise.automatic = true;
+    optimise = {
+      automatic = true;
+      interval = {
+        Hour = 3;
+        Minute = 30;
+      };
+    };
     settings = {
       # Enable flakes and new command-line interface
       experimental-features = [
@@ -601,32 +564,10 @@ in
     };
   };
 
-  # Keyboard settings
+  # Keyboard settings (remapping handled by Kanata)
   system.keyboard = {
     enableKeyMapping = true;
     remapCapsLockToEscape = false;
-    userKeyMapping = [
-      # Left Control ↔ Left Command
-      # {
-      #   HIDKeyboardModifierMappingSrc = 30064771296; # Left Control
-      #   HIDKeyboardModifierMappingDst = 30064771299; # Left Command
-      # }
-      # {
-      #   HIDKeyboardModifierMappingSrc = 30064771299; # Left Command
-      #   HIDKeyboardModifierMappingDst = 30064771296; # Left Control
-      # }
-
-      # # Right Control ↔ Right Command
-      # {
-      #   HIDKeyboardModifierMappingSrc = 30064771300; # Right Control
-      #   HIDKeyboardModifierMappingDst = 30064771303; # Right Command
-      # }
-      # {
-      #   HIDKeyboardModifierMappingSrc = 30064771303; # Right Command
-      #   HIDKeyboardModifierMappingDst = 30064771300; # Right Control
-      # }
-    ];
-    # swapLeftCommandAndLeftAlt = true;
   };
 
   # Security settings

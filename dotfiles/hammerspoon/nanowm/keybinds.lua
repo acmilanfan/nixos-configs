@@ -29,7 +29,7 @@ local cmdAltShiftCtrl = config.modifiers.cmdAltShiftCtrl
 -- =============================================================================
 
 function M.setup()
-    local home = os.getenv("HOME") or "/Users/" .. (os.getenv("USER") or "gentooway")
+    local home = os.getenv("HOME") or ("/Users/" .. (os.getenv("USER") or "gentooway"))
 
     -- =========================================================================
     -- MENUS

@@ -2,9 +2,6 @@
 
   home.packages = with pkgs;
     [
-      (writeShellScriptBin "ssh-askpass" ''
-        ${pkgs.zenity}/bin/zenity --password --title="SSH Password"
-      '')
       (writeShellScriptBin "ssh-add-login" (lib.readFile ./scripts/ssh-add-login.sh))
       (writeShellScriptBin "ns" (lib.readFile ./scripts/nixpkgs))
       git
@@ -21,6 +18,9 @@
       qmk
       bat
     ] ++ lib.optionals pkgs.stdenv.isLinux [
+      (writeShellScriptBin "ssh-askpass" ''
+        ${pkgs.zenity}/bin/zenity --password --title="SSH Password"
+      '')
       (writeShellScriptBin "screen-toggle"
         (lib.readFile ./scripts/screen-toggle))
       (writeShellScriptBin "touch-toggle" (lib.readFile ./scripts/touch-toggle))
@@ -52,12 +52,9 @@
       winetricks
       thinkfan
       lm_sensors
-      thinkfan
       protonvpn-gui
       zenity
       onboard
-      # TODO move Linux specific stuff
-      # ...
     ] ++ lib.optionals pkgs.stdenv.isDarwin [
 
     ];

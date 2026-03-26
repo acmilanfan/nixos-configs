@@ -49,8 +49,8 @@ function M.isFloating(win)
         end
     end
 
-    -- Picture-in-Picture always floats
-    if title == "Picture-in-Picture" then
+    -- Picture-in-Picture always floats (non-standard window, caught below)
+    if title == "picture-in-picture" then
         return true
     end
 

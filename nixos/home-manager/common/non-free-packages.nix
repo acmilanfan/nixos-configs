@@ -12,8 +12,9 @@
     "electron"
   ];
 
-  home.packages = with pkgs; [
-    slack
-    # zoom-us
-  ];
+  home.packages = with pkgs;
+    lib.optionals pkgs.stdenv.isLinux [
+      slack
+      # zoom-us
+    ];
 }

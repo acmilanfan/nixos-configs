@@ -3,7 +3,7 @@
     enable = true;
     settings = {
       window = {
-        decorations = "Buttonless";
+        decorations = if pkgs.stdenv.isDarwin then "Buttonless" else "Full";
       };
       font = {
         size = if pkgs.stdenv.isDarwin then 16 else 13;

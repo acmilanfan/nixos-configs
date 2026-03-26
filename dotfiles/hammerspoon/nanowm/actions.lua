@@ -229,9 +229,6 @@ function M.swapWindow(dir)
     local order = state.tagCreationOrder[tag]
     if order then
         local oIdx = 0
-        local otIdx = 0
-        local targetId = stack[idx] -- now it's swapped in stack, so this is the other one
-        local focusId = stack[targetIdx]
 
         for i, id in ipairs(order) do
             if id == fid then oIdx = i end
@@ -292,17 +289,21 @@ function M.resizeFloatingWindow(direction)
     local delta = 0.05
 
     if direction == "wider" then
+        local oldW = frame.w
         frame.w = math.min(frame.w * (1 + delta), screen.w)
-        frame.x = frame.x - (frame.w * delta) / 2
+        frame.x = frame.x - (frame.w - oldW) / 2
     elseif direction == "narrower" then
+        local oldW = frame.w
         frame.w = math.max(frame.w * (1 - delta), 200)
-        frame.x = frame.x + (frame.w * delta) / 2
+        frame.x = frame.x + (oldW - frame.w) / 2
     elseif direction == "taller" then
+        local oldH = frame.h
         frame.h = math.min(frame.h * (1 + delta), screen.h)
-        frame.y = frame.y - (frame.h * delta) / 2
+        frame.y = frame.y - (frame.h - oldH) / 2
     elseif direction == "shorter" then
+        local oldH = frame.h
         frame.h = math.max(frame.h * (1 - delta), 200)
-        frame.y = frame.y + (frame.h * delta) / 2
+        frame.y = frame.y + (oldH - frame.h) / 2
     end
 
     win:setFrame(frame)

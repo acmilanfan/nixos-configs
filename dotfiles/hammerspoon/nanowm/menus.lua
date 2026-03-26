@@ -38,7 +38,7 @@ function M.openMenu(mode)
             {
                 t = "Cycle Layout",
                 fn = function()
-                    actions.toggleLayout()
+                    require("nanowm.actions").toggleLayout()
                 end,
             },
             { t = "Toggle Free Mode (current tag)", fn = tags.toggleFreeMode },
