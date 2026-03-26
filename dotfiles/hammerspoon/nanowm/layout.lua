@@ -149,25 +149,27 @@ function M.performTile()
     end
 
     -- PHASE 2: HIDE
+    -- Hoist screen frame lookup out of the loop (same for all windows)
+    local hideScreenFrame = screen:frame()
     for _, win in ipairs(toHide) do
         local id = win:id()
-        local idStr = tostring(id)
 
-        if not state.windowState[id].isHidden and core.isFloating(win) then
+        -- Already parked off-screen: skip both frame reads entirely
+        if not state.windowState[id].isHidden then
+            local idStr = tostring(id)
             local f = win:frame()
-            if f.x < 10000 and f.w > 0 and f.h > 0 then
-                state.floatingCache[idStr] = { x = f.x, y = f.y, w = f.w, h = f.h }
-            end
-        end
-
-        local f = win:frame()
-        if f.x < 90000 and f.w > 0 and f.h > 0 then
-            local screenFrame = hs.screen.mainScreen():frame()
-            if screenFrame and screenFrame.w > 0 and screenFrame.h > 0 then
-                f.x = screenFrame.x + screenFrame.w - 5
-                f.y = screenFrame.y + screenFrame.h - 5
-                win:setFrame(f)
-                state.windowState[id].isHidden = true
+            if f.w > 0 and f.h > 0 then
+                -- Save floating position before hiding (only if visibly on-screen)
+                if core.isFloating(win) and f.x < 10000 then
+                    state.floatingCache[idStr] = { x = f.x, y = f.y, w = f.w, h = f.h }
+                end
+                -- Park off-screen (single setFrame call instead of two frame reads)
+                if f.x < 90000 then
+                    f.x = hideScreenFrame.x + hideScreenFrame.w - 5
+                    f.y = hideScreenFrame.y + hideScreenFrame.h - 5
+                    win:setFrame(f)
+                    state.windowState[id].isHidden = true
+                end
             end
         end
     end

@@ -31,6 +31,22 @@ local function getWinMap()
 end
 
 -- =============================================================================
+-- isFloating Result Cache
+-- win:application(), app:name(), win:title(), and win:isStandard() are all
+-- Accessibility API calls. For most windows these results never change during
+-- a session, so we cache them per window ID.
+-- Volatile checks (weekenduoWinId, floatingOverrides, sticky) are evaluated
+-- before the cache and bypass it, so no invalidation is needed for those.
+-- Invalidate on: window destroyed, window title changed (title-based floats).
+-- =============================================================================
+
+local isFloatingResultCache = {}
+
+function M.invalidateFloatingCache(id)
+    isFloatingResultCache[id] = nil
+end
+
+-- =============================================================================
 -- Floating Detection
 -- =============================================================================
 
@@ -55,28 +71,37 @@ function M.isFloating(win)
         return true
     end
 
+    -- Check cached result for the expensive Accessibility calls below
+    local cached = isFloatingResultCache[id]
+    if cached ~= nil then return cached end
+
     -- Check app-based floating
     local app = win:application()
-    if not app then return false end
-
-    if config.floatingApps[app:name()] then
-        return true
+    if not app then
+        isFloatingResultCache[id] = false
+        return false
     end
 
-    -- Check title-based floating
-    local title = (win:title() or ""):lower()
-    for _, str in ipairs(config.floatingTitles) do
-        if string.find(title, str:lower(), 1, true) then
-            return true
+    local result
+    if config.floatingApps[app:name()] then
+        result = true
+    else
+        -- Check title-based floating
+        local title = (win:title() or ""):lower()
+        result = false
+        for _, str in ipairs(config.floatingTitles) do
+            if string.find(title, str:lower(), 1, true) then
+                result = true
+                break
+            end
+        end
+        if not result then
+            result = (title == "picture-in-picture") or (win:isStandard() == false)
         end
     end
 
-    -- Picture-in-Picture always floats (non-standard window, caught below)
-    if title == "picture-in-picture" then
-        return true
-    end
-
-    return win:isStandard() == false
+    isFloatingResultCache[id] = result
+    return result
 end
 
 -- =============================================================================
@@ -210,6 +235,7 @@ function M.getTiledWindows(tag, allWins)
         if state.tags[id] == tag and not M.isFloating(win) and not seenIds[id] then
             table.insert(windows, 1, win)
             table.insert(cleanStack, 1, id)
+            seenIds[id] = true
         end
     end
 
@@ -258,6 +284,7 @@ function M.getWindowsInCreationOrder(tag, allWins)
         if state.tags[id] == tag and not M.isFloating(win) and not seenIds[id] then
             table.insert(windows, win)
             table.insert(cleanOrder, id)
+            seenIds[id] = true
         end
     end
 
@@ -277,8 +304,14 @@ function M.getAllVisibleWindows()
         seenIds[win:id()] = true
     end
 
-    -- Add floating windows on this tag, and sticky windows
-    -- Using getManagedWindows() is faster because it's based on hs.window.filter
+    -- Add floating windows on this tag, and sticky windows.
+    -- Collect them first, then sort by window ID for a stable cycle order.
+    -- getManagedWindows() returns windows in z-order (recently focused first),
+    -- so without sorting, focusing a floater shifts its list position on the next
+    -- call, trapping cycleFocus in a loop between the two floaters.
+    -- We also exclude windows parked off-screen (x>=90000) so hidden floating
+    -- windows don't appear as silent cycle stops.
+    local toAdd = {}
     for _, win in ipairs(require("nanowm.watchers").getManagedWindows()) do
         local id = win:id()
         if not seenIds[id] then
@@ -287,10 +320,17 @@ function M.getAllVisibleWindows()
             local isPip = (win:title() == "Picture-in-Picture")
 
             if not isPip and ((M.isFloating(win) and onTag) or isSticky) then
-                table.insert(list, win)
-                seenIds[id] = true
+                local f = win:frame()
+                if f.x < 90000 then
+                    table.insert(toAdd, win)
+                    seenIds[id] = true
+                end
             end
         end
+    end
+    table.sort(toAdd, function(a, b) return a:id() < b:id() end)
+    for _, win in ipairs(toAdd) do
+        table.insert(list, win)
     end
 
     return list

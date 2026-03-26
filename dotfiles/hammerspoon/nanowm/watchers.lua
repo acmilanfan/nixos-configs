@@ -50,6 +50,8 @@ function M.setup()
     -- =========================================================================
     filter:subscribe(hs.window.filter.windowTitleChanged, function(win)
         if not win or not win:id() or win:id() == 0 then return end
+        -- Title change may affect title-based float detection; clear cached result
+        core.invalidateFloatingCache(win:id())
         -- Skip already-registered windows unless we're hunting for the weekenduo title change
         if state.tags[win:id()] and not state.markNextWeekenduo then return end
         core.registerWindow(win)
@@ -122,6 +124,7 @@ function M.setup()
             if state.floatingCache then state.floatingCache[idStr] = nil end
             if state.fullscreenCache then state.fullscreenCache[idStr] = nil end
             if state.sizeCache then state.sizeCache[idStr] = nil end
+            core.invalidateFloatingCache(id)
 
             if tag then
                 core.resetMasterWidthIfNeeded(tag)

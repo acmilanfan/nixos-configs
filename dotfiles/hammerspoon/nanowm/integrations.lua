@@ -26,8 +26,8 @@ local function doUpdateSketchybar()
     local managedWins = require("nanowm.watchers").getManagedWindows()
 
     local function getTagWindowCount(tag)
-        -- Start with tiled windows
-        local wins = core.getTiledWindows(tag)
+        -- Pass managedWins to avoid re-enumerating the filter window list per tag
+        local wins = core.getTiledWindows(tag, managedWins)
         local count = #wins
 
         -- Add floating utility windows that are on this tag
