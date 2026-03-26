@@ -50,8 +50,8 @@ function M.setup()
     -- =========================================================================
     filter:subscribe(hs.window.filter.windowTitleChanged, function(win)
         if not win or not win:id() or win:id() == 0 then return end
-        -- Skip windows already assigned to a tag (browser tabs fire this constantly)
-        if state.tags[win:id()] then return end
+        -- Skip already-registered windows unless we're hunting for the weekenduo title change
+        if state.tags[win:id()] and not state.markNextWeekenduo then return end
         core.registerWindow(win)
     end)
 

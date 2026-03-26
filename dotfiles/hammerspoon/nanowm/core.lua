@@ -9,6 +9,28 @@ local state = require("nanowm.state")
 local M = {}
 
 -- =============================================================================
+-- Window Map Cache
+-- hs.window.allWindows() hits the Accessibility API and is expensive.
+-- Cache the result for 100ms so multiple getTiledWindows calls in the same
+-- tile cycle (layout + sketchybar update) share one enumeration.
+-- =============================================================================
+
+local winMapCache = nil
+local winMapCacheTime = 0
+
+local function getWinMap()
+    local now = hs.timer.secondsSinceEpoch()
+    if not winMapCache or (now - winMapCacheTime) > 0.1 then
+        winMapCache = {}
+        winMapCacheTime = now
+        for _, win in ipairs(hs.window.allWindows()) do
+            winMapCache[win:id()] = win
+        end
+    end
+    return winMapCache
+end
+
+-- =============================================================================
 -- Floating Detection
 -- =============================================================================
 
@@ -157,13 +179,7 @@ function M.getTiledWindows(tag, allWins)
     local cleanStack = {}
     local seenIds = {}
 
-    -- Bulk retrieve all windows to avoid repeated hs.window.get(id) calls
-    -- We map them by ID for fast lookup
-    local allHammerspoonWindows = hs.window.allWindows()
-    local winMap = {}
-    for _, win in ipairs(allHammerspoonWindows) do
-        winMap[win:id()] = win
-    end
+    local winMap = getWinMap()
 
     for _, id in ipairs(stackIds) do
         if not seenIds[id] then
@@ -211,12 +227,7 @@ function M.getWindowsInCreationOrder(tag, allWins)
     local cleanOrder = {}
     local seenIds = {}
 
-    -- Bulk retrieve all windows to avoid repeated hs.window.get(id) calls
-    local allHammerspoonWindows = hs.window.allWindows()
-    local winMap = {}
-    for _, win in ipairs(allHammerspoonWindows) do
-        winMap[win:id()] = win
-    end
+    local winMap = getWinMap()
 
     for _, id in ipairs(orderIds) do
         if not seenIds[id] then

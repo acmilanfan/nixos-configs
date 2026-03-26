@@ -3,7 +3,6 @@
 -- Sketchybar, JankyBorders, battery saver, and timer functionality
 -- =============================================================================
 
-local config = require("nanowm.config")
 local state = require("nanowm.state")
 local core = require("nanowm.core")
 
@@ -110,7 +109,7 @@ function M.updateSketchybarNow()
 end
 
 function M.toggleSketchybar()
-    hs.task.new("/bin/zsh", function(exitCode, stdOut, stdErr)
+    hs.task.new("/bin/zsh", function(exitCode)
         if exitCode ~= 0 then
             os.execute("/bin/zsh -l -c 'sketchybar &' &")
             state.sketchybarEnabled = true
@@ -297,7 +296,7 @@ function M.switchKanata(mode)
     local script = os.getenv("HOME") .. "/.config/kanata/switch-kanata.sh"
     hs.alert.show("Switching Kanata to: " .. mode .. "...")
 
-    hs.task.new("/bin/zsh", function(exitCode, stdOut, stdErr)
+    hs.task.new("/bin/zsh", function(exitCode, _, stdErr)
         if exitCode == 0 then
             state.kanataMode = mode
             state.triggerSave()
@@ -351,7 +350,7 @@ function M.reloadKanata()
     -- Wait a moment for drivers to settle before reloading Kanata
     hs.timer.doAfter(1.5, function()
         print("[NanoWM] Reloading Kanata instances...")
-        hs.task.new("/bin/zsh", function(exitCode, stdOut, stdErr)
+        hs.task.new("/bin/zsh", function(exitCode, _, stdErr)
             if exitCode == 0 then
                 print("[NanoWM] Kanata reloaded successfully")
             else
@@ -422,7 +421,7 @@ function M.init()
     end
 
     -- Restart sketchybar if needed, or kill it if it should be hidden
-    hs.task.new("/bin/zsh", function(exitCode, stdOut, stdErr)
+    hs.task.new("/bin/zsh", function(exitCode)
         if exitCode == 0 then
             -- It's running. Check if it's supposed to be.
             if state.sketchybarEnabled then

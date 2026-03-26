@@ -83,10 +83,7 @@ function M.gotoUrgent()
 end
 
 function M.hasUrgentTags()
-    for _, _ in pairs(state.urgentTags) do
-        return true
-    end
-    return false
+    return next(state.urgentTags) ~= nil
 end
 
 -- =============================================================================

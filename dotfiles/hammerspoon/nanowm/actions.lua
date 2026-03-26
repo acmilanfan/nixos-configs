@@ -37,6 +37,18 @@ function M.toggleFloat()
             state.stacks[tag] = {}
         end
         table.insert(state.stacks[tag], 1, id)
+
+        -- Also add to creation order so scrolling layout includes this window
+        if not state.tagCreationOrder[tag] then
+            state.tagCreationOrder[tag] = {}
+        end
+        local foundInOrder = false
+        for _, existingId in ipairs(state.tagCreationOrder[tag]) do
+            if existingId == id then foundInOrder = true; break end
+        end
+        if not foundInOrder then
+            table.insert(state.tagCreationOrder[tag], id)
+        end
     else
         -- Tile -> Float
         if state.stacks[tag] then
