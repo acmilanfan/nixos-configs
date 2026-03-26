@@ -143,13 +143,14 @@ let
       "check-setup@${workMarketplaceName}" = true;
       "coding-java@${workMarketplaceName}" = true;
       "jdtls-java@${workMarketplaceName}" = true;
+      "global-skills@${workMarketplaceName}" = true;
     } else {});
 
     extraKnownMarketplaces = if isWork && workMarketplaceName != "" then {
       "${workMarketplaceName}" = {
         source = {
-          source = "github";
-          repo = workMarketplaceRepo;
+          source = "git";
+          url = "git@github-work:${workMarketplaceRepo}.git";
         };
       };
     } else {};

@@ -1,17 +1,19 @@
 { pkgs, ... }: {
 
+  programs.delta = {
+    enable = true;
+    enableGitIntegration = true;
+    options = {
+      navigate = true;
+      side-by-side = true;
+      line-numbers = true;
+    };
+  };
+
   programs.git = {
     enable = true;
-    userName = "Andrei Shumailov";
-    delta = {
-      enable = true;
-      options = {
-        navigate = true;
-        side-by-side = true;
-        line-numbers = true;
-      };
-    };
-    extraConfig = {
+    settings = {
+      user.name = "Andrei Shumailov";
       pull.rebase = true;
       push.autoSetupRemote = true;
       init.defaultBranch = "main";
