@@ -316,7 +316,7 @@ function M.undoLastMove()
     local fromTag = state.lastMove.fromTag
     local toTag = state.lastMove.toTag
 
-    local win = hs.window.get(id)
+    local win = hs.window(id)
     if not win then
         hs.alert.show("Window not found")
         state.lastMove = nil

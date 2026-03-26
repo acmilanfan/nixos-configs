@@ -64,17 +64,24 @@ end
 function M.registerWindow(win)
     local id = win:id()
     local title = (win:title() or ""):lower()
+    local app = win:application()
+    local appName = app and app:name() or "Unknown"
 
-    if state.markNextWeekenduo and string.find(title, "weekenduo", 1, true) then
+    -- Mark the weekenduo window only if we are explicitly looking for it (triggered by keybind)
+    local isWeekenduoTitle = string.find(title, "weekenduo", 1, true)
+
+    if state.markNextWeekenduo and isWeekenduoTitle then
         state.weekenduoWinId = id
         state.markNextWeekenduo = false
-        print("[NanoWM] Marked weekenduo window ID: " .. tostring(id))
+        state.weekenduoLaunching = false -- Reset launching flag when window is found
+        state.triggerSave()
+        print("[NanoWM] Weekenduo window marked: " .. tostring(id))
+    elseif isWeekenduoTitle and state.weekenduoLaunching and appName == "Firefox" then
+        -- Also reset flag if we find a matching window while launching, even if not perfect
+        state.weekenduoLaunching = false
     end
 
     if not state.tags[id] then
-        local app = win:application()
-        local appName = app and app:name() or "Unknown"
-
         local rememberedTag = state.getRememberedTag(win)
         local targetTag
 

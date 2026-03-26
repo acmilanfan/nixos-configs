@@ -38,6 +38,7 @@ M.availableLayouts = { "vertical", "horizontal", "mono", "scrolling" }
 M.gap = config.gap
 M.caffeinateActive = false
 M.weekenduoWinId = nil
+M.weekenduoLaunching = false
 M.markNextWeekenduo = false
 
 -- Special tag state
@@ -119,6 +120,7 @@ function M.load()
     M.currentTag = hs.settings.get("nanoWM_currentTag") or 1
     M.prevTag = hs.settings.get("nanoWM_prevTag") or 1
     M.layout = hs.settings.get("nanoWM_globalLayout") or config.layout
+    M.weekenduoWinId = hs.settings.get("nanoWM_weekenduoWinId")
     M.sketchybarEnabled = hs.settings.get("nanoWM_sketchybarEnabled") or false
     M.bordersEnabled = hs.settings.get("nanoWM_bordersEnabled") or false
     M.kanataMode = hs.settings.get("nanoWM_kanataMode") or "homerow"
@@ -141,6 +143,7 @@ function M.save()
     hs.settings.set("nanoWM_currentTag", M.currentTag)
     hs.settings.set("nanoWM_prevTag", M.prevTag)
     hs.settings.set("nanoWM_globalLayout", M.layout)
+    hs.settings.set("nanoWM_weekenduoWinId", M.weekenduoWinId)
     hs.settings.set("nanoWM_appTagMemory", M.appTagMemory)
     hs.settings.set("nanoWM_sketchybarEnabled", M.sketchybarEnabled)
     hs.settings.set("nanoWM_bordersEnabled", M.bordersEnabled)

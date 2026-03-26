@@ -46,6 +46,14 @@ function M.setup()
     end)
 
     -- =========================================================================
+    -- WINDOW TITLE CHANGED
+    -- =========================================================================
+    filter:subscribe(hs.window.filter.windowTitleChanged, function(win)
+        if not win or not win:id() or win:id() == 0 then return end
+        core.registerWindow(win)
+    end)
+
+    -- =========================================================================
     -- WINDOW DESTROYED
     -- =========================================================================
     filter:subscribe(hs.window.filter.windowDestroyed, function(win)
@@ -73,7 +81,7 @@ function M.setup()
 
         -- Delay the actual cleanup
         state.pendingDestruction[id].timer = hs.timer.doAfter(config.destructionDelay, function()
-            local stillExists = hs.window.get(id)
+            local stillExists = hs.window(id)
             if stillExists then
                 print("[NanoWM] Window " .. tostring(id) .. " reappeared, not cleaning up")
                 state.pendingDestruction[id] = nil

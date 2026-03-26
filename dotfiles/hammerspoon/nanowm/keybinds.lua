@@ -281,8 +281,38 @@ function M.setup()
     end)
 
     hs.hotkey.bind(altShift, "z", function()
-        local existingWin = state.weekenduoWinId and hs.window.get(state.weekenduoWinId)
+        -- 1. Try to find existing window by stored ID
+        local existingWin = state.weekenduoWinId and hs.window(state.weekenduoWinId)
+        if existingWin and (not existingWin:application() or not hs.window(state.weekenduoWinId)) then
+            existingWin = nil
+            state.weekenduoWinId = nil
+        end
+
+        -- 2. If ID is missing, try to find by title pattern among all windows (even if launching)
+        -- This helps if the marking was missed or we are spaming the keybind
+        if not existingWin then
+            local allWins = hs.window.allWindows()
+            for _, win in ipairs(allWins) do
+                local title = (win:title() or ""):lower()
+                local app = win:application()
+                local appName = app and app:name() or ""
+
+                -- Match Firefox windows that specifically have 'weekenduo' in the title
+                if appName == "Firefox" and string.find(title, "weekenduo", 1, true) then
+                    existingWin = win
+                    state.weekenduoWinId = win:id()
+                    state.weekenduoLaunching = false
+                    state.markNextWeekenduo = false
+                    state.triggerSave()
+                    print("[NanoWM] Found weekenduo window among existing windows")
+                    break
+                end
+            end
+        end
+
+        -- 3. If found, focus it
         if existingWin then
+            state.weekenduoLaunching = false -- Reset flag if we found the window
             local id = existingWin:id()
             local currentTag = state.tags[id]
             local targetTag = state.special.active and state.special.tag or state.currentTag
@@ -322,6 +352,13 @@ function M.setup()
             return
         end
 
+        -- 4. If not found and not already launching, launch a new one
+        if state.weekenduoLaunching then
+            print("[NanoWM] Already launching weekenduo, please wait...")
+            return
+        end
+
+        state.weekenduoLaunching = true
         state.markNextWeekenduo = true
         local sizeFactor = 0.8
         local appName = "Firefox"
@@ -329,10 +366,12 @@ function M.setup()
         local launchCmd = '/Applications/Firefox.app/Contents/MacOS/firefox --new-window "https://weekenduo.app"'
 
         local filter = hs.window.filter.new(false):setAppFilter(appName, {allowTitles = titlePattern})
-        filter:subscribe(hs.window.filter.windowCreated, function(newWin)
+        -- Use windowAllowed instead of windowCreated to catch when title changes during load
+        filter:subscribe(hs.window.filter.windowAllowed, function(newWin)
             filter:unsubscribe()
+            state.weekenduoLaunching = false -- Reset launching flag
             hs.timer.doAfter(1.0, function()
-                if newWin:isValid() then
+                if newWin:isValid() and newWin:application() then
                     local screen = newWin:screen():frame()
                     local newW = screen.w * sizeFactor
                     local newH = screen.h * sizeFactor
@@ -344,6 +383,14 @@ function M.setup()
                     layout.tile()
                 end
             end)
+        end)
+
+        -- Safety timer: reset launching flag if window doesn't appear after 5s
+        hs.timer.doAfter(5, function()
+            if state.weekenduoLaunching then
+                state.weekenduoLaunching = false
+                print("[NanoWM] Weekenduo launch timed out")
+            end
         end)
 
         core.launchTask("/bin/zsh", { "-c", launchCmd })
