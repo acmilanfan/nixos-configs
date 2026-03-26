@@ -50,6 +50,8 @@ function M.setup()
     -- =========================================================================
     filter:subscribe(hs.window.filter.windowTitleChanged, function(win)
         if not win or not win:id() or win:id() == 0 then return end
+        -- Skip windows already assigned to a tag (browser tabs fire this constantly)
+        if state.tags[win:id()] then return end
         core.registerWindow(win)
     end)
 
@@ -92,14 +94,14 @@ function M.setup()
                 " (id: " .. tostring(id) .. ") was on tag " .. tostring(tag))
 
             -- Remove from ALL stacks and creation orders
-            for stackTag, stack in pairs(state.stacks) do
+            for _, stack in pairs(state.stacks) do
                 for i = #stack, 1, -1 do
                     if stack[i] == id then
                         table.remove(stack, i)
                     end
                 end
             end
-            for orderTag, order in pairs(state.tagCreationOrder or {}) do
+            for _, order in pairs(state.tagCreationOrder or {}) do
                 for i = #order, 1, -1 do
                     if order[i] == id then
                         table.remove(order, i)

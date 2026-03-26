@@ -21,6 +21,15 @@ local tileTimer = hs.timer.delayed.new(0.08, function()
     M.performTile()
 end)
 
+-- Reusable timer for raising special-tag windows after tile settles
+local specialRaiseTimer -- forward-declared so the callback can close over it
+specialRaiseTimer = hs.timer.delayed.new(0.05, function()
+    local specialWins = core.getTiledWindows(state.special.tag)
+    for _, win in ipairs(specialWins) do
+        if win:frame().x < 90000 then win:raise() end
+    end
+end)
+
 function M.tile()
     tileTimer:start()
 end
@@ -30,8 +39,6 @@ end
 -- =============================================================================
 
 function M.raiseFloating()
-    local tag = state.special.active and state.special.tag or state.currentTag
-
     local floatingWins = {}
     for _, win in ipairs(require("nanowm.watchers").getManagedWindows()) do
         local id = win:id()
@@ -236,14 +243,7 @@ function M.performTile()
 
     -- PHASE 5: ENSURE SPECIAL WINDOWS ON TOP
     if state.special.active then
-        hs.timer.doAfter(0.05, function()
-            local specialWins = core.getTiledWindows(state.special.tag)
-            for _, win in ipairs(specialWins) do
-                if win:frame().x < 90000 then
-                    win:raise()
-                end
-            end
-        end)
+        specialRaiseTimer:start()
     end
 
     -- Call integration callbacks
@@ -350,7 +350,7 @@ function M.applyLayout(windows, area, isSpecial, tag, allWins)
         -- Starting X for the very first window
         local currentX = targetX - leftWidth
 
-        for i, win in ipairs(windowsInOrder) do
+        for _, win in ipairs(windowsInOrder) do
             local winWidthRatio = state.windowWidths[win:id()] or 0.7
             local winWidth = workArea.w * winWidthRatio
             setFrameSmart(win, {

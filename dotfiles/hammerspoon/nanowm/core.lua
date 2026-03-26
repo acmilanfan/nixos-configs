@@ -302,15 +302,19 @@ end
 -- Dock Detection
 -- =============================================================================
 
+-- Cache dock orientation — it changes only when the user moves the dock
+local cachedDockPos = nil
+
 function M.isMouseInDockArea()
     local mousePos = hs.mouse.absolutePosition()
     local screen = hs.screen.mainScreen()
     local screenFrame = screen:frame()
 
-    local dockPos = hs.execute("defaults read com.apple.dock orientation 2>/dev/null"):gsub("%s+", "")
-    if dockPos == "" then
-        dockPos = "bottom"
+    if not cachedDockPos then
+        cachedDockPos = hs.execute("defaults read com.apple.dock orientation 2>/dev/null"):gsub("%s+", "")
+        if cachedDockPos == "" then cachedDockPos = "bottom" end
     end
+    local dockPos = cachedDockPos
 
     local dockThreshold = 90
 

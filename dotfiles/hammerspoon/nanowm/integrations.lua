@@ -13,8 +13,6 @@ local M = {}
 -- Sketchybar Integration
 -- =============================================================================
 
-local sketchybarUpdateTimer = nil
-
 local function doUpdateSketchybar()
     -- These floating windows should contribute to tag "occupancy"
     local function isUtilityWindow(win)
@@ -25,14 +23,16 @@ local function doUpdateSketchybar()
                string.find(title, "orgindex", 1, true)
     end
 
+    -- Collect managed windows once; reused by all getTagWindowCount calls below
+    local managedWins = require("nanowm.watchers").getManagedWindows()
+
     local function getTagWindowCount(tag)
         -- Start with tiled windows
         local wins = core.getTiledWindows(tag)
         local count = #wins
 
         -- Add floating utility windows that are on this tag
-        local allWins = require("nanowm.watchers").getManagedWindows()
-        for _, win in ipairs(allWins) do
+        for _, win in ipairs(managedWins) do
             local id = win:id()
             if state.tags[id] == tag and core.isFloating(win) and isUtilityWindow(win) then
                 count = count + 1
@@ -95,16 +95,13 @@ local function doUpdateSketchybar()
     hs.task.new("/bin/zsh", nil, { "-c", cmd }):start()
 end
 
+local sketchybarUpdateTimer = hs.timer.delayed.new(0.15, function()
+    doUpdateSketchybar()
+end)
+
 function M.updateSketchybar()
     if not state.sketchybarEnabled then return end
-
-    if sketchybarUpdateTimer then
-        sketchybarUpdateTimer:stop()
-    end
-
-    sketchybarUpdateTimer = hs.timer.doAfter(0.15, function()
-        doUpdateSketchybar()
-    end)
+    sketchybarUpdateTimer:start()
 end
 
 function M.updateSketchybarNow()
