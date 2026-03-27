@@ -74,18 +74,7 @@ let
         ];
       }
     ];
-    AfterAgent = [
-      {
-        matcher = "*";
-        hooks = [
-          {
-            type = "command";
-            command = "agent-state --agent gemini --state done";
-          }
-        ];
-      }
-    ];
-    AfterTool = [
+    Stop = [
       {
         matcher = "*";
         hooks = [
