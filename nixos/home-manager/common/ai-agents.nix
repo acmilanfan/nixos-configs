@@ -133,6 +133,7 @@ let
       "coding-java@${workMarketplaceName}" = true;
       "jdtls-java@${workMarketplaceName}" = true;
       "global-skills@${workMarketplaceName}" = true;
+      "scorecard@${workMarketplaceName}" = true;
     } else {});
 
     extraKnownMarketplaces = if isWork && workMarketplaceName != "" then {
