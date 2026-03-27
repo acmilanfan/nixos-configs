@@ -62,6 +62,12 @@ in pkgs.mkShell {
           export DOCKER_HOST="unix://$HOME/.colima/default/docker.sock"
           export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE="/var/run/docker.sock"
           export TESTCONTAINERS_RYUK_DISABLED="false"
+
+          # Attempt to get colima IP for host override
+          COLIMA_IP=$(colima ip 2>/dev/null || colima ls -j 2>/dev/null | jq -r 'select(.name=="default") | .address // empty')
+          if [ -n "$COLIMA_IP" ]; then
+            export TESTCONTAINERS_HOST_OVERRIDE="$COLIMA_IP"
+          fi
         fi
         echo "Docker is configured with colima"
       else
