@@ -23,7 +23,7 @@ local function getWinMap()
     if not winMapCache or (now - winMapCacheTime) > 0.1 then
         winMapCache = {}
         winMapCacheTime = now
-        for _, win in ipairs(hs.window.allWindows()) do
+        for _, win in ipairs(require("nanowm.watchers").getManagedWindows()) do
             winMapCache[win:id()] = win
         end
     end
