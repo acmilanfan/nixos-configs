@@ -284,6 +284,11 @@ function M.applyLayout(windows, area, isSpecial, tag, allWins)
             return
         end
 
+        local id = win:id()
+        if state.windowState[id] then
+            state.windowState[id].isHidden = false
+        end
+
         local f = win:frame()
         if
             math.abs(f.x - newFrame.x) > 1
