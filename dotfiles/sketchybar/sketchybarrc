@@ -315,6 +315,6 @@ sketchybar --update
 
 # --- Start Background Daemons ---
 pkill -f "system_info_daemon.sh"
-"$CONFIG_DIR/plugins/system_info_daemon.sh" 30000 &
+"$CONFIG_DIR/plugins/system_info_daemon.sh" 10000 &
 
 echo "SketchyBar config (modular) loaded."
