@@ -23,11 +23,23 @@ end)
 
 -- Reusable timer for raising special-tag windows after tile settles
 local specialRaiseTimer -- forward-declared so the callback can close over it
-specialRaiseTimer = hs.timer.delayed.new(0.05, function()
-    local specialWins = core.getTiledWindows(state.special.tag)
-    for _, win in ipairs(specialWins) do
-        if win:frame().x < 90000 then win:raise() end
+specialRaiseTimer = hs.timer.delayed.new(0.1, function()
+    -- Get all windows assigned to the special tag
+    local function raiseAll()
+        for _, win in ipairs(require("nanowm.watchers").getManagedWindows()) do
+            local id = win:id()
+            local onSpecial = (state.tags[id] == state.special.tag)
+            local isSummoned = (state.lastIntendedFocusId == id)
+
+            if onSpecial or isSummoned then
+                if win:frame().x < 90000 then win:raise() end
+            end
+        end
     end
+
+    raiseAll()
+    -- Second pass to ensure they stay on top of any late-activations
+    hs.timer.doAfter(0.1, raiseAll)
 end)
 
 function M.tile()
@@ -153,25 +165,24 @@ function M.performTile()
     local hideScreenFrame = screen:frame()
     for _, win in ipairs(toHide) do
         local id = win:id()
+        local idStr = tostring(id)
+        local f = win:frame()
 
-        -- Already parked off-screen: skip both frame reads entirely
-        if not state.windowState[id].isHidden then
-            local idStr = tostring(id)
-            local f = win:frame()
+        -- If it's on-screen but shouldn't be: hide it
+        if f.x < 90000 then
             if f.w > 0 and f.h > 0 then
                 -- Save floating position before hiding (only if visibly on-screen)
                 if core.isFloating(win) and f.x < 10000 then
                     state.floatingCache[idStr] = { x = f.x, y = f.y, w = f.w, h = f.h }
                 end
-                -- Park off-screen (single setFrame call instead of two frame reads)
-                if f.x < 90000 then
-                    f.x = hideScreenFrame.x + hideScreenFrame.w - 5
-                    f.y = hideScreenFrame.y + hideScreenFrame.h - 5
-                    win:setFrame(f)
-                    state.windowState[id].isHidden = true
-                end
+
+                -- Park off-screen
+                f.x = hideScreenFrame.x + hideScreenFrame.w - 5
+                f.y = hideScreenFrame.y + hideScreenFrame.h - 5
+                win:setFrame(f)
             end
         end
+        state.windowState[id].isHidden = true
     end
 
     -- PHASE 3: TILE BACKGROUND
@@ -230,13 +241,17 @@ function M.performTile()
     for _, win in ipairs(toFloat) do
         local id = win:id()
         local idStr = tostring(id)
+        local onSpecial = (state.tags[id] == state.special.tag)
+        local shouldRaise = state.windowState[id].isHidden or win:frame().x >= 90000 or (state.lastIntendedFocusId == id) or onSpecial
 
-        if state.windowState[id].isHidden or win:frame().x >= 90000 then
-            local saved = state.floatingCache[idStr]
-            if saved and saved.x < 10000 and saved.w > 0 and saved.h > 0 then
-                win:setFrame(saved)
-            else
-                win:centerOnScreen()
+        if shouldRaise then
+            if state.windowState[id].isHidden or win:frame().x >= 90000 then
+                local saved = state.floatingCache[idStr]
+                if saved and saved.x < 10000 and saved.w > 0 and saved.h > 0 then
+                    win:setFrame(saved)
+                else
+                    win:centerOnScreen()
+                end
             end
             state.windowState[id].isHidden = false
             win:raise()

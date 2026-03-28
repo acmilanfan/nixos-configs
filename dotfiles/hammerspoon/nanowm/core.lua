@@ -327,11 +327,11 @@ function M.getAllVisibleWindows()
             local isPip = (win:title() == "Picture-in-Picture")
 
             if not isPip and ((M.isFloating(win) and onTag) or isSticky) then
-                local f = win:frame()
-                if f.x < 90000 then
-                    table.insert(toAdd, win)
-                    seenIds[id] = true
-                end
+                -- Only include in focus list if it actually belongs to the current context.
+                -- This prevents "leaking" windows from other tags into the cycle if they
+                -- haven't been parked off-screen yet or were manually moved.
+                table.insert(toAdd, win)
+                seenIds[id] = true
             end
         end
     end

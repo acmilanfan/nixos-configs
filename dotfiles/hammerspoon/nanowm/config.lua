@@ -49,6 +49,7 @@ M.floatingTitles = {
     "btui",
     "FineTune",
     "Picture-in-Picture",
+    "weekenduo",
     "Copy",
     "Move",
     "Info",

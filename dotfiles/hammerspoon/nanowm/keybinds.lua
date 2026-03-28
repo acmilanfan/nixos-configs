@@ -183,40 +183,7 @@ function M.setup()
         end
 
         if targetWin then
-            local id = targetWin:id()
-            local currentTag = state.tags[id]
-            local targetTag = state.special.active and state.special.tag or state.currentTag
-
-            if currentTag ~= targetTag then
-                if currentTag and state.stacks[currentTag] then
-                    for i, vid in ipairs(state.stacks[currentTag]) do
-                        if vid == id then
-                            table.remove(state.stacks[currentTag], i)
-                            break
-                        end
-                    end
-                end
-                state.tags[id] = targetTag
-                if not state.stacks[targetTag] then
-                    state.stacks[targetTag] = {}
-                end
-                table.insert(state.stacks[targetTag], 1, id)
-                state.triggerSave()
-            end
-
-            targetWin:raise()
-            targetWin:focus()
-
-            if sizeFactor and core.isFloating(targetWin) then
-                local screen = targetWin:screen():frame()
-                local newW = screen.w * sizeFactor
-                local newH = screen.h * sizeFactor
-                local newX = screen.x + (screen.w - newW) / 2
-                local newY = screen.y + (screen.h - newH) / 2
-                targetWin:setFrame({ x = newX, y = newY, w = newW, h = newH })
-            end
-
-            layout.tile()
+            actions.bringWindowToCurrentContext(targetWin, sizeFactor)
             return
         end
 
@@ -313,42 +280,7 @@ function M.setup()
         -- 3. If found, focus it
         if existingWin then
             state.weekenduoLaunching = false -- Reset flag if we found the window
-            local id = existingWin:id()
-            local currentTag = state.tags[id]
-            local targetTag = state.special.active and state.special.tag or state.currentTag
-
-            if currentTag ~= targetTag then
-                if currentTag and state.stacks[currentTag] then
-                    for i, vid in ipairs(state.stacks[currentTag]) do
-                        if vid == id then
-                            table.remove(state.stacks[currentTag], i)
-                            break
-                        end
-                    end
-                end
-                state.tags[id] = targetTag
-                if not state.stacks[targetTag] then
-                    state.stacks[targetTag] = {}
-                end
-                table.insert(state.stacks[targetTag], 1, id)
-                state.triggerSave()
-            end
-
-            existingWin:raise()
-            existingWin:focus()
-
-            -- Ensure it's sized correctly if it's floating
-            if core.isFloating(existingWin) then
-                local screen = existingWin:screen():frame()
-                local sizeFactor = 0.8
-                local newW = screen.w * sizeFactor
-                local newH = screen.h * sizeFactor
-                local newX = screen.x + (screen.w - newW) / 2
-                local newY = screen.y + (screen.h - newH) / 2
-                existingWin:setFrame({ x = newX, y = newY, w = newW, h = newH })
-            end
-
-            layout.tile()
+            actions.bringWindowToCurrentContext(existingWin, 0.8)
             return
         end
 

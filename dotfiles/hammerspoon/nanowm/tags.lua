@@ -155,7 +155,7 @@ function M.gotoTag(i)
 
     local wins = core.getTiledWindows(i)
     if #wins > 0 then
-        hs.timer.doAfter(0.01, function()
+        hs.timer.doAfter(0.15, function()
             local lastFocusedId = state.tagLastFocused[i]
             local targetWin = nil
 
@@ -173,6 +173,11 @@ function M.gotoTag(i)
             else
                 wins[1]:focus()
             end
+        end)
+    else
+        -- If tag is empty, focus Finder to ensure no old window stays frontmost
+        hs.timer.doAfter(0.15, function()
+            hs.application.launchOrFocus("Finder")
         end)
     end
 end
@@ -224,7 +229,7 @@ function M.toggleSpecial()
             end
         end
 
-        hs.timer.doAfter(0.01, function()
+        hs.timer.doAfter(0.15, function()
             local lastFocusedId = state.tagLastFocused[newContextTag]
             local targetWin = nil
 
@@ -243,6 +248,11 @@ function M.toggleSpecial()
                 wins[1]:focus()
             end
         end)
+    else
+        -- If special tag is empty, focus Finder to ensure no old window stays frontmost
+        hs.timer.doAfter(0.15, function()
+            hs.application.launchOrFocus("Finder")
+        end)
     end
 end
 
@@ -250,8 +260,8 @@ end
 -- Move Window to Tag
 -- =============================================================================
 
-function M.moveWindowToTag(destTag)
-    local win = hs.window.focusedWindow()
+function M.moveWindowToTag(destTag, win)
+    win = win or hs.window.focusedWindow()
     if not win then
         return
     end
@@ -301,6 +311,27 @@ function M.moveWindowToTag(destTag)
 
     state.triggerSave()
     layout.tile()
+
+    -- Focus management: Always handle if moving into view or away from view
+    local activeTag = state.special.active and state.special.tag or state.currentTag
+    state.lastIntendedFocusId = id
+
+    hs.timer.doAfter(0.15, function()
+        if destTag == activeTag then
+            -- Window moved INTO our view: ensure it's frontmost
+            win:focus()
+            -- Extra raise AFTER focus to defeat macOS app-stacking
+            hs.timer.doAfter(0.01, function() win:raise() end)
+        elseif currentTag == activeTag and destTag ~= activeTag then
+            -- Window moved AWAY from our view: find something else to focus
+            local remaining = core.getTiledWindows(currentTag)
+            if #remaining > 0 then
+                remaining[1]:focus()
+            else
+                hs.application.launchOrFocus("Finder")
+            end
+        end
+    end)
 end
 
 function M.undoLastMove()

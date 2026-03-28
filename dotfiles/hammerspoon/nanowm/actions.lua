@@ -146,6 +146,38 @@ function M.toggleFullscreen()
     state.triggerSave()
 end
 
+function M.bringWindowToCurrentContext(win, sizeFactor)
+    if not win then return end
+    local id = win:id()
+    local targetTag = state.special.active and state.special.tag or state.currentTag
+
+    -- Initialize state to prevent layout engine interference or "restoring" to old hidden position
+    state.windowState[id] = state.windowState[id] or {}
+    state.windowState[id].isHidden = false
+    state.lastIntendedFocusId = id
+
+    if sizeFactor then
+        state.floatingOverrides[id] = true
+    end
+
+    -- Use the centralized move method
+    local tags = require("nanowm.tags")
+    tags.moveWindowToTag(targetTag, win)
+
+    -- Handle sizing if floating
+    if sizeFactor and core.isFloating(win) then
+        local screen = hs.screen.mainScreen():frame()
+        local newW = screen.w * sizeFactor
+        local newH = screen.h * sizeFactor
+        local newX = screen.x + (screen.w - newW) / 2
+        local newY = screen.y + (screen.h - newH) / 2
+        win:setFrame({ x = newX, y = newY, w = newW, h = newH })
+    end
+
+    -- Explicit raise to be extra safe
+    win:raise()
+end
+
 -- =============================================================================
 -- Focus Cycling
 -- =============================================================================
@@ -281,7 +313,18 @@ end
 function M.centerWindow()
     local win = hs.window.focusedWindow()
     if win then
-        win:centerOnScreen()
+        local f = win:frame()
+        if f.x >= 90000 then
+            -- Window is hidden, pull it back first
+            local screen = win:screen():frame()
+            local w, h = screen.w * 0.7, screen.h * 0.7
+            local x = screen.x + (screen.w - w) / 2
+            local y = screen.y + (screen.h - h) / 2
+            win:setFrame({ x = x, y = y, w = w, h = h })
+        else
+            win:centerOnScreen()
+        end
+        win:raise()
     end
 end
 
