@@ -40,6 +40,7 @@ M.caffeinateActive = false
 M.weekenduoWinId = nil
 M.weekenduoLaunching = false
 M.markNextWeekenduo = false
+M.lastIntendedFocusId = nil
 
 -- Special tag state
 M.special = {

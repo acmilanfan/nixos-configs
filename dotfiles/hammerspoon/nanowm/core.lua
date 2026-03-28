@@ -225,6 +225,11 @@ function M.getTiledWindows(tag, allWins)
                     table.insert(cleanStack, id)
                     seenIds[id] = true
                 end
+            elseif state.tags[id] == tag then
+                -- Window not in winMap (maybe temporarily missing from filter), but assigned to this tag.
+                -- Keep it in the stack to preserve order!
+                table.insert(cleanStack, id)
+                seenIds[id] = true
             end
         end
     end
@@ -233,8 +238,10 @@ function M.getTiledWindows(tag, allWins)
     for _, win in ipairs(allWins) do
         local id = win:id()
         if state.tags[id] == tag and not M.isFloating(win) and not seenIds[id] then
-            table.insert(windows, 1, win)
-            table.insert(cleanStack, 1, id)
+            -- Use APPEND instead of PREPEND (insert at end)
+            -- This keeps new windows at the end of the stack, preserving order of existing windows.
+            table.insert(windows, win)
+            table.insert(cleanStack, id)
             seenIds[id] = true
         end
     end

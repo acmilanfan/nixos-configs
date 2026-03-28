@@ -160,8 +160,19 @@ function M.cycleFocus(dir)
 
     local idx = 0
     if focused then
+        local fid = focused:id()
         for i, win in ipairs(allVisible) do
-            if win:id() == focused:id() then
+            if win:id() == fid then
+                idx = i
+                break
+            end
+        end
+    end
+
+    -- If not found, try the last intended focus ID (robustness against stale focus)
+    if idx == 0 and state.lastIntendedFocusId then
+        for i, win in ipairs(allVisible) do
+            if win:id() == state.lastIntendedFocusId then
                 idx = i
                 break
             end
@@ -186,6 +197,7 @@ function M.cycleFocus(dir)
     end
 
     local targetWin = allVisible[newIdx]
+    state.lastIntendedFocusId = targetWin:id()
     targetWin:focus()
 
     if core.isFloating(targetWin) then
