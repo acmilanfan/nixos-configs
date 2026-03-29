@@ -57,11 +57,12 @@ let
       "AutoRaise"
       "Syncthing"
       "Warpd"
+      "FineTune"
     )
 
     for app in "''${ensure_apps[@]}"; do
       if ! pgrep -x "$app" >/dev/null; then
-        if [ -d "/Applications/$app.app" ] || [ -d "$USER_HOME/Applications/$app.app" ]; then
+        if [ -d "/Applications/$app.app" ] || [ -d "$USER_HOME/Applications/$app.app" ] || [ -d "$USER_HOME/Applications/Home Manager Apps/$app.app" ]; then
           echo "Starting $app (was not running)..."
 
           # If we are starting Hammerspoon, we might want a clean sketchybar
@@ -311,7 +312,7 @@ in
 
     # Setup firenvim native messaging host
     echo "Setting up firenvim native messaging host..."
-    if [ -d "/Applications/Firefox.app" ] || [ -d "/Users/${user}/Applications/Firefox.app" ]; then
+    if [ -d "/Applications/Firefox.app" ] || [ -d "/Users/${user}/Applications/Firefox.app" ] || [ -d "/Users/${user}/Applications/Home Manager Apps/Firefox.app" ]; then
       sudo -u ${user} /bin/zsh -lc "nvim --headless '+call firenvim#install(0)' +quit" 2>/dev/null || true
     fi
 
