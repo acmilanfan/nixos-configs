@@ -470,6 +470,9 @@ in
         "idleHide" = 5.0;
         "enabled" = true;
       };
+      "com.apple.universalaccess" = {
+        "liquidGlassStyle" = 1; # 1 = Tinted Glass, 0 = Clear
+      };
     };
 
     # Dock settings
