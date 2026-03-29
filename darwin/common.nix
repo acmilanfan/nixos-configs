@@ -198,7 +198,9 @@ in
     onActivation = {
       cleanup = "zap";
       autoUpdate = false;
+      # autoUpdate = true;
       upgrade = false;
+      # upgrade = true;
     };
 
     casks = [
