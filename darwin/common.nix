@@ -62,7 +62,7 @@ let
 
     for app in "''${ensure_apps[@]}"; do
       if ! pgrep -x "$app" >/dev/null; then
-        if [ -d "/Applications/$app.app" ] || [ -d "$USER_HOME/Applications/$app.app" ] || [ -d "$USER_HOME/Applications/Home Manager Apps/$app.app" ]; then
+        if [ -d "/Applications/$app.app" ] || [ -d "/Applications/Nix Apps/$app.app" ] || [ -d "$USER_HOME/Applications/$app.app" ] || [ -d "$USER_HOME/Applications/Home Manager Apps/$app.app" ]; then
           echo "Starting $app (was not running)..."
 
           # If we are starting Hammerspoon, we might want a clean sketchybar
@@ -323,10 +323,14 @@ in
     sudo -u ${user} launchctl kickstart -k "gui/$USER_ID/local.darwin-startup" || sudo -u ${user} "${startupScript}/bin/darwin-startup"
 
     # Safely set cursor settings via defaults write as the user
-    echo "Setting cursor size and colors..."
+    echo "Setting cursor size, colors, and other universal access settings..."
     sudo -u ${user} bash -c '
-      defaults write com.apple.universalaccess mouseDriverCursorSize -float 1.5
+      export PATH=$PATH:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/opt/homebrew/bin
       defaults write com.apple.universalaccess cursorIsCustomized -bool true
+
+      # Fix for macOS Tahoe/Sequoia menu bar and glass style
+      defaults write -g NSGlassDiffusionSetting -bool true
+      defaults write -g SLSMenuBarUseBlurredAppearance -bool true
 
       # Set cursor fill (Black)
       defaults write com.apple.universalaccess cursorFill -dict \
@@ -345,7 +349,7 @@ in
 
     # Following line should allow us to avoid a logout/login cycle when changing settings
     sudo -u ${user} /System/Library/PrivateFrameworks/SystemAdministration.framework/Resources/activateSettings -u
-    sudo -u ${user} killall universalaccessd
+    sudo -u ${user} killall universalaccessd SystemUIServer Dock WindowManager 2>/dev/null || true
 
     # Setup warpd stable path for Accessibility permissions
     echo "Ensuring warpd stable binary path for Accessibility permissions..."
@@ -373,11 +377,15 @@ in
 
   # System preferences
   system.defaults = {
-    # Custom system preferences using defaults
-    # universalaccess = {
-    #   reduceTransparency = true;
-    # };
+    universalaccess = {
+      # reduceTransparency = true;
+      mouseDriverCursorSize = 1.5;
+    };
     CustomUserPreferences = {
+      "NSGlobalDomain" = {
+        NSGlassDiffusionSetting = true;
+        SLSMenuBarUseBlurredAppearance = true;
+      };
       "com.apple.HIToolbox" = {
         AppleCurrentKeyboardLayoutInputSourceID = "com.apple.keylayout.US";
         AppleDictationAutoEnable = 1;
@@ -469,9 +477,6 @@ in
       "com.doomlaser.cursorcerer" = {
         "idleHide" = 5.0;
         "enabled" = true;
-      };
-      "com.apple.universalaccess" = {
-        "liquidGlassStyle" = 1; # 1 = Tinted Glass, 0 = Clear
       };
     };
 
