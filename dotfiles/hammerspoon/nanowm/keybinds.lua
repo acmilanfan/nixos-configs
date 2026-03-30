@@ -191,7 +191,7 @@ function M.setup()
         if sizeFactor then
             local filter = hs.window.filter.new(false):setAppFilter(appName or "Firefox", {allowTitles = titlePattern})
             filter:subscribe(hs.window.filter.windowCreated, function(newWin)
-                filter:unsubscribe()
+                filter:unsubscribe(hs.window.filter.windowCreated)
                 hs.timer.doAfter(1.0, function()
                     if newWin:isValid() then
                         local screen = newWin:screen():frame()

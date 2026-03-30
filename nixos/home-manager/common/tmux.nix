@@ -71,7 +71,11 @@ in
       done
       if [ -n "$AGENT" ] && [ -n "$STATE" ]; then
         ${lib.optionalString pkgs.stdenv.isDarwin ''
-          hs -c "require('nanowm.agents').onAgentStateChange('$STATE', '$AGENT')" 2>/dev/null &
+          if pgrep -x "Hammerspoon" > /dev/null; then
+            # Use URL scheme to avoid Raycast "Hammerspoon is not running" alerts
+            CODE="require('nanowm.agents').onAgentStateChange('$STATE', '$AGENT')"
+            open -g "hammerspoon://execute?code=$CODE" 2>/dev/null &
+          fi
         ''}
       fi
     '')

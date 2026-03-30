@@ -410,7 +410,7 @@ function M.openInAlacritty(command, sizeFactor)
         -- Watch for the specific window title we just set
         local filter = hs.window.filter.new(false):setAppFilter("Alacritty", {allowTitles = command})
         filter:subscribe(hs.window.filter.windowCreated, function(newWin)
-            filter:unsubscribe()
+            filter:unsubscribe(hs.window.filter.windowCreated)
             -- Give it a bit more time to fully initialize and be recognized by NanoWM
             hs.timer.doAfter(0.8, function()
                 if newWin:isValid() then
