@@ -175,9 +175,20 @@ function M.gotoTag(i)
             end
         end)
     else
-        -- If tag is empty, focus Finder to ensure no old window stays frontmost
+        -- If tag is empty, focus preferred app to ensure no old window stays frontmost
         hs.timer.doAfter(0.15, function()
-            hs.application.launchOrFocus("Finder")
+            if config.emptyTagFocusApp then
+                local app = hs.application.get(config.emptyTagFocusApp)
+                if app then
+                    -- Only activate if it already has windows to avoid opening new ones
+                    local appWins = app:allWindows()
+                    if #appWins > 0 then
+                        app:activate()
+                    end
+                else
+                    -- If app isn't running, don't force launch it
+                end
+            end
         end)
     end
 end
@@ -249,9 +260,18 @@ function M.toggleSpecial()
             end
         end)
     else
-        -- If special tag is empty, focus Finder to ensure no old window stays frontmost
+        -- If special tag is empty, focus preferred app to ensure no old window stays frontmost
         hs.timer.doAfter(0.15, function()
-            hs.application.launchOrFocus("Finder")
+            if config.emptyTagFocusApp then
+                local app = hs.application.get(config.emptyTagFocusApp)
+                if app then
+                    -- Only activate if it already has windows to avoid opening new ones
+                    local appWins = app:allWindows()
+                    if #appWins > 0 then
+                        app:activate()
+                    end
+                end
+            end
         end)
     end
 end
@@ -328,7 +348,16 @@ function M.moveWindowToTag(destTag, win)
             if #remaining > 0 then
                 remaining[1]:focus()
             else
-                hs.application.launchOrFocus("Finder")
+                if config.emptyTagFocusApp then
+                    local app = hs.application.get(config.emptyTagFocusApp)
+                    if app then
+                        -- Only activate if it already has windows to avoid opening new ones
+                        local appWins = app:allWindows()
+                        if #appWins > 0 then
+                            app:activate()
+                        end
+                    end
+                end
             end
         end
     end)

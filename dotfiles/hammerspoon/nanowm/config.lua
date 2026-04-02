@@ -19,6 +19,10 @@ M.destructionDelay = 0.5
 M.tagSwitchCooldown = 1.0
 M.tileProtectionWindow = 0.5
 
+-- Focus management
+-- Set to nil or false to disable automatic focus on empty tags
+M.emptyTagFocusApp = "Finder"
+
 -- Apps that should always float
 M.floatingApps = {
     ["System Settings"] = true,
