@@ -231,12 +231,14 @@ in
       "docker"
       "docker-compose"
       "wifitui"
+      "k06a/tap/macpow"
     ];
 
     taps = [
       "FelixKratz/formulae"
       "dimentium/autoraise"
       "devsunb/tap"
+      "k06a/tap"
     ];
   };
 

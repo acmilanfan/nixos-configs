@@ -42,6 +42,7 @@ in
 
       jankyborders
       syncthing-macos
+      yazi
       # Scripts need to be handled. They were in ./scripts/ relative to mac-work/home.nix.
       # We need to make sure they are accessible.
       # (writeShellScriptBin "pip-pop" (lib.readFile ./scripts/pip-pop))
