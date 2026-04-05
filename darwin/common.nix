@@ -86,6 +86,24 @@ let
       open -a "$CURSORCERER_USER"
     fi
 
+    # 5. File Associations
+    echo "Updating file associations with duti..."
+    APP_BUNDLE_ID="com.gentooway.nvim-opener"
+    # Register the application
+    for app_path in "/Applications/Nix Apps/NvimOpener.app" "/Applications/NvimOpener.app" "$USER_HOME/Applications/Home Manager Apps/NvimOpener.app"; do
+      if [ -d "$app_path" ]; then
+        /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$app_path"
+      fi
+    done
+
+    # Set associations
+    if command -v duti >/dev/null; then
+      duti -s $APP_BUNDLE_ID .org all
+      duti -s $APP_BUNDLE_ID .txt all
+      duti -s $APP_BUNDLE_ID .md all
+      duti -s $APP_BUNDLE_ID .nix all
+    fi
+
     echo "Startup script completed."
   '';
 in
@@ -104,6 +122,7 @@ in
     startupScript
     pkgs.warpd
     pkgs.blueutil-tui
+    pkgs.nvim-opener
   ];
 
   nixpkgs.overlays = [
