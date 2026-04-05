@@ -107,7 +107,7 @@ function M.openMenu(mode)
         menu:placeholderText("NanoWM Commands")
 
     elseif mode == "windows" then
-        local wins = hs.window.allWindows()
+        local wins = require("nanowm.watchers").getManagedWindows()
         for _, win in ipairs(wins) do
             if win and win:application() and win:isVisible() then
                 local appName = win:application():name() or "?"

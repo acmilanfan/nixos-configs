@@ -78,6 +78,7 @@ M.resizeFloatingWindow = actions.resizeFloatingWindow
 M.moveFloatingWindow = actions.moveFloatingWindow
 M.toggleGaps = actions.toggleGaps
 M.toggleCaffeinate = actions.toggleCaffeinate
+M.toggleQuakeTerminal = actions.toggleQuakeTerminal
 
 -- Tag functions
 M.gotoTag = tags.gotoTag

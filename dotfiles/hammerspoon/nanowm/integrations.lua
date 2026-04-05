@@ -13,7 +13,6 @@ local M = {}
 -- =============================================================================
 
 local function doUpdateSketchybar()
-    -- These floating windows should contribute to tag "occupancy"
     local function isUtilityWindow(win)
         if not win then return false end
         local id = win:id()
@@ -22,43 +21,43 @@ local function doUpdateSketchybar()
                string.find(title, "orgindex", 1, true)
     end
 
-    -- Collect managed windows once; reused by all getTagWindowCount calls below
     local managedWins = require("nanowm.watchers").getManagedWindows()
 
-    local function getTagWindowCount(tag)
-        -- Pass managedWins to avoid re-enumerating the filter window list per tag
-        local wins = core.getTiledWindows(tag, managedWins)
-        local count = #wins
+    local tagCounts = {}
+    for i = 1, 20 do tagCounts[tostring(i)] = 0 end
+    tagCounts["S"] = 0
+    tagCounts["special"] = 0
 
-        -- Add floating utility windows that are on this tag
-        for _, win in ipairs(managedWins) do
-            local id = win:id()
-            if state.tags[id] == tag and core.isFloating(win) and isUtilityWindow(win) then
-                count = count + 1
+    for _, win in ipairs(managedWins) do
+        local id = win:id()
+        local winTag = state.tags[id]
+        if winTag then
+            if not core.isFloating(win) or isUtilityWindow(win) then
+                local tStr = tostring(winTag)
+                if tagCounts[tStr] ~= nil then
+                    tagCounts[tStr] = tagCounts[tStr] + 1
+                end
             end
         end
-        return count
     end
 
     local tag = state.special.active and "S" or tostring(state.currentTag)
     local currentTagValue = state.special.active and state.special.tag or state.currentTag
-    local windowCount = getTagWindowCount(currentTagValue)
+    local windowCount = tagCounts[tostring(currentTagValue)] or 0
     local layout = state.getLayout(currentTagValue)
     local isFullscreen = state.isFullscreen and "1" or "0"
 
-    -- Get occupied tags
     local occupiedTags = {}
-    for i = 1, 10 do
-        if getTagWindowCount(i) > 0 then
+    for i = 1, 20 do
+        if tagCounts[tostring(i)] > 0 then
             table.insert(occupiedTags, tostring(i))
         end
     end
-    if getTagWindowCount("special") > 0 then
+    if tagCounts["special"] > 0 then
         table.insert(occupiedTags, "S")
     end
     local occupied = table.concat(occupiedTags, " ")
 
-    -- Timer info
     local timerRemaining = ""
     if state.timerEndTime then
         local remaining = state.timerEndTime - os.time()
@@ -136,26 +135,31 @@ function M.toggleSketchybar()
 end
 
 -- =============================================================================
--- JankyBorders Integration
+-- Native Canvas Borders Integration
 -- =============================================================================
 
+M.borderCanvases = {}
+
 function M.startBorders()
-    os.execute("/bin/zsh -l -c '$HOME/.config/borders/bordersrc &' &")
+    state.bordersCurrentlyShowing = true
+    M.drawBorders()
 end
 
 function M.stopBorders()
-    os.execute("pkill -x borders 2>/dev/null")
+    state.bordersCurrentlyShowing = false
+    for _, canvas in pairs(M.borderCanvases) do
+        canvas:hide()
+    end
 end
 
 function M.toggleBorders()
     state.bordersEnabled = not state.bordersEnabled
     if state.bordersEnabled then
-        hs.alert.show("Borders: ON (smart mode)")
+        hs.alert.show("Borders: ON (Native)")
         M.updateBordersVisibility()
     else
         hs.alert.show("Borders: OFF")
         M.stopBorders()
-        state.bordersCurrentlyShowing = false
     end
     state.triggerSave()
 end
@@ -163,19 +167,106 @@ end
 function M.updateBordersVisibility()
     if not state.bordersEnabled then return end
 
-    local tag = state.special.active and state.special.tag or state.currentTag
-    local windows = core.getTiledWindows(tag)
-    local windowCount = #windows
-    local currentLayout = state.getLayout(tag)
-
-    local shouldHide = (currentLayout == "mono") or state.isFullscreen or (windowCount <= 1)
+    local shouldHide = state.isFullscreen
 
     if shouldHide and state.bordersCurrentlyShowing then
         M.stopBorders()
-        state.bordersCurrentlyShowing = false
-    elseif not shouldHide and not state.bordersCurrentlyShowing then
-        M.startBorders()
+    elseif not shouldHide then
         state.bordersCurrentlyShowing = true
+        M.drawBorders()
+    end
+end
+
+function M.drawBorders()
+    if not state.bordersEnabled or not state.bordersCurrentlyShowing then
+        M.stopBorders()
+        return
+    end
+
+    local activeWins = {}
+    local focusedWin = hs.window.focusedWindow()
+    local focusedId = focusedWin and focusedWin:id() or nil
+
+    -- We need to know which windows to draw borders around.
+    -- We can ask core.lua for visible tiled windows on all active tags.
+    for i, tag in ipairs(state.activeTags) do
+        -- Only draw borders if layout is not mono and count > 1
+        local currentLayout = state.getLayout(tag)
+        local wins = require("nanowm.core").getTiledWindows(tag)
+        if currentLayout ~= "mono" and #wins > 1 then
+            for _, win in ipairs(wins) do
+                table.insert(activeWins, win)
+            end
+        end
+    end
+
+    -- Add special tag windows if active
+    if state.special.active then
+        local specialWins = require("nanowm.core").getTiledWindows(state.special.tag)
+        local currentLayout = state.getLayout(state.special.tag)
+        if currentLayout ~= "mono" and #specialWins > 1 then
+            for _, win in ipairs(specialWins) do
+                table.insert(activeWins, win)
+            end
+        end
+    end
+
+    -- Create or update canvases per screen
+    local screens = hs.screen.allScreens()
+    local usedScreens = {}
+
+    for _, s in ipairs(screens) do
+        local sid = s:id()
+        usedScreens[sid] = true
+
+        if not M.borderCanvases[sid] then
+            M.borderCanvases[sid] = hs.canvas.new(s:fullFrame())
+            M.borderCanvases[sid]:level(hs.canvas.windowLevels.overlay)
+        else
+            M.borderCanvases[sid]:frame(s:fullFrame())
+        end
+
+        local c = M.borderCanvases[sid]
+        c:replaceElements() -- clear
+
+        -- Draw borders for windows on this screen
+        local sFrame = s:fullFrame()
+        for _, win in ipairs(activeWins) do
+            local wf = win:frame()
+            -- Check if window is on this screen (rough intersection)
+            if wf.x < sFrame.x + sFrame.w and wf.x + wf.w > sFrame.x and
+               wf.y < sFrame.y + sFrame.h and wf.y + wf.h > sFrame.y then
+
+                local isFocused = (win:id() == focusedId)
+                local color = isFocused and {hex="#734899", alpha=1.0} or {hex="#444444", alpha=0.8}
+
+                -- Convert global coordinates to canvas-local coordinates
+                local localFrame = {
+                    x = wf.x - sFrame.x,
+                    y = wf.y - sFrame.y,
+                    w = wf.w,
+                    h = wf.h
+                }
+
+                c:appendElements({
+                    type = "rectangle",
+                    action = "stroke",
+                    strokeColor = color,
+                    strokeWidth = 4,
+                    frame = localFrame,
+                    roundedRectRadii = {xRadius = 6, yRadius = 6}
+                })
+            end
+        end
+        c:show()
+    end
+
+    -- Cleanup old canvases for disconnected screens
+    for sid, canvas in pairs(M.borderCanvases) do
+        if not usedScreens[sid] then
+            canvas:delete()
+            M.borderCanvases[sid] = nil
+        end
     end
 end
 
@@ -348,7 +439,7 @@ function M.reloadKanata()
     hs.task.new("/bin/zsh", nil, { "-c", "launchctl kickstart -k gui/$(id -u)/local.darwin-startup" }):start()
 
     -- Wait a moment for drivers to settle before reloading Kanata
-    hs.timer.doAfter(1.5, function()
+    hs.timer.doAfter(0.8, function()
         print("[NanoWM] Reloading Kanata instances...")
         hs.task.new("/bin/zsh", function(exitCode, _, stdErr)
             if exitCode == 0 then
@@ -367,21 +458,34 @@ function M.setupSystemWatcher()
         if event == hs.caffeinate.watcher.systemDidWake or
            event == hs.caffeinate.watcher.screensDidUnlock or
            event == hs.caffeinate.watcher.screensDidWake then
+            -- Proactively kill karabiner_grabber on wake to prevent it from stealing HID access
+            -- This is safe because we have NOPASSWD for killall in sudoers
+            hs.task.new("/usr/bin/sudo", nil, { "-n", "/usr/bin/killall", "-9", "karabiner_grabber" }):start()
+
             -- Force clock update immediately on wake
             hs.task.new("/bin/zsh", nil, { "-c", "sketchybar --trigger clock_tick" }):start()
 
             -- With LaunchDaemons, Kanata should handle wake naturally, but often loses HID access.
-            -- Check if Kanata is responsive before forcing a heavy reload.
-            -- Increase delay to 1.5s to ensure system is fully awake
-            hs.timer.doAfter(1.5, function()
-                hs.task.new("/usr/bin/nc", function(exitCode)
-                    if exitCode ~= 0 then
-                        print("[NanoWM] Kanata not responsive after wake, triggering driver re-init and reload...")
+            -- Check if Kanata is responsive AND if it has lost access to HID (often indicated by karabiner_grabber taking over)
+            -- Increase delay to 2.0s to ensure system is fully awake and drivers settled
+            hs.timer.doAfter(2.0, function()
+                -- Check if Karabiner grabber re-appeared; if it did, Kanata likely failed to re-acquire HID
+                hs.task.new("/usr/bin/pgrep", function(pgrepExitCode)
+                    if pgrepExitCode == 0 then
+                        print("[NanoWM] Karabiner grabber detected after wake, forcing Kanata reload...")
                         M.reloadKanata()
                     else
-                        print("[NanoWM] Kanata is responsive, skipping reload")
+                        -- Check if Kanata is actually responsive on its TCP port
+                        hs.task.new("/usr/bin/nc", function(ncExitCode)
+                            if ncExitCode ~= 0 then
+                                print("[NanoWM] Kanata not responsive after wake, triggering reload...")
+                                M.reloadKanata()
+                            else
+                                print("[NanoWM] Kanata is responsive, skipping reload")
+                            end
+                        end, { "-z", "-w", "1", "localhost", "5829" }):start()
                     end
-                end, { "-z", "-w", "1", "localhost", "5829" }):start()
+                end, { "-x", "karabiner_grabber" }):start()
             end)
         end
     end)

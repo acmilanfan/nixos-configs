@@ -109,10 +109,44 @@ end
 -- =============================================================================
 
 function M.registerWindow(win)
+    if not win then return end
     local id = win:id()
-    local title = (win:title() or ""):lower()
+    if not id then return end
+
     local app = win:application()
-    local appName = app and app:name() or "Unknown"
+    local appName = app and app:name()
+    local title = win:title()
+
+    if not appName or title == nil then
+        hs.timer.doAfter(0.1, function()
+            if win and win:id() then M.registerWindow(win) end
+        end)
+        return
+    end
+
+    title = title:lower()
+
+    local ruleMatch = nil
+    if config.rules then
+        for _, rule in ipairs(config.rules) do
+            local appMatch = true
+            local titleMatch = true
+            if rule.app then
+                appMatch = string.match(appName:lower(), rule.app:lower()) ~= nil
+            end
+            if rule.title then
+                titleMatch = string.match(title, rule.title:lower()) ~= nil
+            end
+            if appMatch and titleMatch then
+                ruleMatch = rule
+                break
+            end
+        end
+    end
+
+    if ruleMatch and ruleMatch.float ~= nil then
+        state.floatingOverrides[id] = ruleMatch.float
+    end
 
     -- Mark the weekenduo window only if we are explicitly looking for it (triggered by keybind)
     local isWeekenduoTitle = string.find(title, "weekenduo", 1, true)
@@ -132,7 +166,10 @@ function M.registerWindow(win)
         local rememberedTag = state.getRememberedTag(win)
         local targetTag
 
-        if rememberedTag then
+        if ruleMatch and ruleMatch.tag then
+            targetTag = ruleMatch.tag
+            print("[NanoWM] Window opened via rule to tag: " .. tostring(targetTag))
+        elseif rememberedTag then
             targetTag = rememberedTag
             print("[NanoWM] Window opened with remembered tag: " .. tostring(rememberedTag))
         else

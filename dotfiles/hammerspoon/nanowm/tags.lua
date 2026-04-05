@@ -120,8 +120,64 @@ end
 -- Tag Navigation
 -- =============================================================================
 
+function M.focusNextMonitor()
+    local screens = hs.screen.allScreens()
+    if #screens <= 1 then return end
+
+    local focusedWin = hs.window.focusedWindow()
+    local currentScreen = focusedWin and focusedWin:screen() or hs.screen.mainScreen()
+    local nextScreen = screens[1]
+
+    for i, s in ipairs(screens) do
+        if s == currentScreen then
+            nextScreen = screens[i + 1] or screens[1]
+            break
+        end
+    end
+
+    local monitorIdx = 1
+    for i, s in ipairs(screens) do
+        if s == nextScreen then monitorIdx = i break end
+    end
+
+    local targetTag = state.activeTags[monitorIdx]
+    M.gotoTag(targetTag)
+end
+
+function M.moveWindowToNextMonitor(win)
+    win = win or hs.window.focusedWindow()
+    if not win then return end
+
+    local screens = hs.screen.allScreens()
+    if #screens <= 1 then return end
+
+    local currentScreen = win:screen()
+    local nextScreen = screens[1]
+
+    for i, s in ipairs(screens) do
+        if s == currentScreen then
+            nextScreen = screens[i + 1] or screens[1]
+            break
+        end
+    end
+
+    local monitorIdx = 1
+    for i, s in ipairs(screens) do
+        if s == nextScreen then monitorIdx = i break end
+    end
+
+    local targetTag = state.activeTags[monitorIdx]
+    M.moveWindowToTag(targetTag, win)
+end
+
 function M.gotoTag(i)
-    if i == state.currentTag and not state.special.active then
+    local numTag = tonumber(i)
+    local monitorIdx = 1
+    if numTag then
+        monitorIdx = math.floor((numTag - 1) / 10) + 1
+    end
+
+    if i == state.currentTag and i == state.activeTags[monitorIdx] and not state.special.active then
         return
     end
 
@@ -136,6 +192,7 @@ function M.gotoTag(i)
 
     state.prevTag = state.currentTag
     state.currentTag = i
+    state.activeTags[monitorIdx] = i
     state.special.active = false
 
     -- Restore new tag state

@@ -25,11 +25,13 @@ M.tagLastFocused = {}
 M.appTagMemory = {}
 M.freeTags = {}
 M.freeTagPositions = {}
+M.screenFrames = {}
 
 -- Pending destruction tracking
 M.pendingDestruction = {}
 
 -- Current state
+M.activeTags = { 1, 11, 21, 31 } -- Active tag per monitor index
 M.currentTag = 1
 M.prevTag = 1
 M.isFullscreen = false
@@ -41,6 +43,25 @@ M.weekenduoWinId = nil
 M.weekenduoLaunching = false
 M.markNextWeekenduo = false
 M.lastIntendedFocusId = nil
+
+-- Pruning function to prevent memory leaks
+M.pruneTimer = hs.timer.new(3600, function()
+    local validIds = {}
+    for _, win in ipairs(require("nanowm.watchers").getManagedWindows()) do
+        validIds[tostring(win:id())] = true
+    end
+    for idStr, _ in pairs(M.floatingCache) do
+        if not validIds[idStr] then M.floatingCache[idStr] = nil end
+    end
+    for idStr, _ in pairs(M.sizeCache) do
+        if not validIds[idStr] then M.sizeCache[idStr] = nil end
+    end
+    local tagMemCount = 0
+    for _ in pairs(M.appTagMemory) do tagMemCount = tagMemCount + 1 end
+    if tagMemCount > 1000 then M.appTagMemory = {} end
+    M.triggerSave()
+end)
+M.pruneTimer:start()
 
 -- Special tag state
 M.special = {
@@ -119,6 +140,7 @@ function M.load()
     M.freeTags = clean(hs.settings.get("nanoWM_freeTags")) or {}
     M.freeTagPositions = hs.settings.get("nanoWM_freeTagPositions") or {}
 
+    M.activeTags = clean(hs.settings.get("nanoWM_activeTags")) or { 1, 11, 21, 31 }
     M.currentTag = hs.settings.get("nanoWM_currentTag") or 1
     M.prevTag = hs.settings.get("nanoWM_prevTag") or 1
     M.layout = hs.settings.get("nanoWM_globalLayout") or config.layout
@@ -142,6 +164,7 @@ function M.save()
     hs.settings.set("nanoWM_tagCreationOrder", serialize(M.tagCreationOrder))
     hs.settings.set("nanoWM_tagFullscreenState", serialize(M.tagFullscreenState))
     hs.settings.set("nanoWM_tagLastFocused", serialize(M.tagLastFocused))
+    hs.settings.set("nanoWM_activeTags", serialize(M.activeTags))
     hs.settings.set("nanoWM_currentTag", M.currentTag)
     hs.settings.set("nanoWM_prevTag", M.prevTag)
     hs.settings.set("nanoWM_globalLayout", M.layout)
@@ -250,6 +273,23 @@ end
 function M.isTagFree(tag)
     tag = tag or (M.special.active and M.special.tag or M.currentTag)
     return M.freeTags[tag] == true
+end
+
+function M.getScreenForTag(tag)
+    -- Tags 1-10 on primary, Tags 11-20 on secondary, etc.
+    local screens = hs.screen.allScreens()
+    if #screens == 0 then return nil end
+
+    if tag == M.special.tag then return screens[1] end
+
+    local numTag = tonumber(tag)
+    if numTag then
+        local monitorIdx = math.floor((numTag - 1) / 10) + 1
+        if monitorIdx <= #screens then
+            return screens[monitorIdx]
+        end
+    end
+    return screens[1]
 end
 
 -- =============================================================================

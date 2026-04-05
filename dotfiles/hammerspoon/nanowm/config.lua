@@ -74,6 +74,12 @@ M.urgentApps = {
     ["Zoom"] = true,
 }
 
+-- Window Rules Engine (Pattern matching)
+M.rules = {
+    -- Example: { app = "Firefox", title = "YouTube", tag = 4, float = false }
+    -- { app = "System Settings", float = true }
+}
+
 -- Apps excluded from tag memory
 M.excludedFromTagMemory = {
     ["Alacritty"] = true,

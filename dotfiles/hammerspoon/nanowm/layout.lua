@@ -52,6 +52,12 @@ end
 
 function M.raiseFloating()
     local floatingWins = {}
+
+    local visibleTags = {}
+    for _, tag in ipairs(state.activeTags) do
+        visibleTags[tag] = true
+    end
+
     for _, win in ipairs(require("nanowm.watchers").getManagedWindows()) do
         local id = win:id()
         local winTag = state.tags[id]
@@ -60,7 +66,7 @@ function M.raiseFloating()
         local isFloat = core.isFloating(win)
 
         local isVisible = false
-        if winTag == state.currentTag then
+        if visibleTags[winTag] then
             isVisible = true
         end
         if state.special.active and winTag == state.special.tag then
@@ -70,7 +76,7 @@ function M.raiseFloating()
             isVisible = true
         end
 
-        if isFloat and not isSticky and not isPip and winTag ~= state.currentTag and winTag ~= state.special.tag then
+        if isFloat and not isSticky and not isPip and not visibleTags[winTag] and winTag ~= state.special.tag then
             isVisible = false
         end
 
@@ -102,23 +108,43 @@ end
 function M.performTile()
     state.lastTileTime = hs.timer.secondsSinceEpoch()
 
-    local screen = hs.screen.mainScreen()
-    if not screen then return end
-
-    local frame = screen:frame()
-    if not frame or frame.w <= 0 or frame.h <= 0 then return end
-
-    if state.sketchybarEnabled then
-        local name = screen:name()
-        if name ~= "Built-in Retina Display" and name ~= "Color LCD" then
-            frame.y = frame.y + config.sketchybarHeight
-            frame.h = frame.h - config.sketchybarHeight
-        end
-    end
-
     local allWins = require("nanowm.watchers").getManagedWindows()
     local toHide = {}
     local toFloat = {}
+
+    local visibleTags = {}
+    local screens = hs.screen.allScreens()
+    local primaryScreen = screens[1]
+    local primaryFrame = primaryScreen and primaryScreen:frame() or {x=0,y=0,w=1920,h=1080}
+
+    if state.sketchybarEnabled and primaryScreen then
+        local name = primaryScreen:name()
+        if name ~= "Built-in Retina Display" and name ~= "Color LCD" then
+            primaryFrame.y = primaryFrame.y + config.sketchybarHeight
+            primaryFrame.h = primaryFrame.h - config.sketchybarHeight
+        end
+    end
+
+    for i, tag in ipairs(state.activeTags) do
+        local s = screens[i]
+        if s then
+            local f = s:frame()
+            if state.sketchybarEnabled then
+                local name = s:name()
+                if name ~= "Built-in Retina Display" and name ~= "Color LCD" then
+                    f.y = f.y + config.sketchybarHeight
+                    f.h = f.h - config.sketchybarHeight
+                end
+            end
+            visibleTags[tag] = f
+        else
+            visibleTags[tag] = primaryFrame
+        end
+    end
+
+    if state.special.active then
+        visibleTags[state.special.tag] = primaryFrame
+    end
 
     -- PHASE 1: CLASSIFICATION
     for _, win in ipairs(allWins) do
@@ -133,17 +159,14 @@ function M.performTile()
         local isFloat = core.isFloating(win)
 
         local isVisible = false
-        if winTag == state.currentTag then
-            isVisible = true
-        end
-        if state.special.active and winTag == state.special.tag then
+        if visibleTags[winTag] then
             isVisible = true
         end
         if isSticky or isPip then
             isVisible = true
         end
 
-        if isFloat and not isSticky and not isPip and winTag ~= state.currentTag and winTag ~= state.special.tag then
+        if isFloat and not isSticky and not isPip and not visibleTags[winTag] then
             isVisible = false
         end
 
@@ -161,22 +184,18 @@ function M.performTile()
     end
 
     -- PHASE 2: HIDE
-    -- Hoist screen frame lookup out of the loop (same for all windows)
-    local hideScreenFrame = screen:frame()
+    local hideScreenFrame = primaryFrame
     for _, win in ipairs(toHide) do
         local id = win:id()
         local idStr = tostring(id)
         local f = win:frame()
 
-        -- If it's on-screen but shouldn't be: hide it
         if f.x < 90000 then
             if f.w > 0 and f.h > 0 then
-                -- Save floating position before hiding (only if visibly on-screen)
                 if core.isFloating(win) and f.x < 10000 then
                     state.floatingCache[idStr] = { x = f.x, y = f.y, w = f.w, h = f.h }
                 end
 
-                -- Park off-screen
                 f.x = hideScreenFrame.x + hideScreenFrame.w - 5
                 f.y = hideScreenFrame.y + hideScreenFrame.h - 5
                 win:setFrame(f)
@@ -186,26 +205,35 @@ function M.performTile()
     end
 
     -- PHASE 3: TILE BACKGROUND
-    local backgroundWindows = core.getTiledWindows(state.currentTag, allWins)
-    if not state.isTagFree(state.currentTag) then
-        M.applyLayout(backgroundWindows, frame, false, state.currentTag, allWins)
-    else
-        for _, win in ipairs(backgroundWindows) do
-            local id = win:id()
-            if state.windowState[id] and state.windowState[id].isHidden then
-                local cached = state.freeTagPositions[state.currentTag] and state.freeTagPositions[state.currentTag][id]
-                if cached then
-                    win:setFrame(cached)
-                else
-                    win:centerOnScreen()
+    for tag, frame in pairs(visibleTags) do
+        if tag ~= state.special.tag then
+            local backgroundWindows = core.getTiledWindows(tag, allWins)
+            if not state.isTagFree(tag) then
+                M.applyLayout(backgroundWindows, frame, false, tag, allWins)
+            else
+                for _, win in ipairs(backgroundWindows) do
+                    local id = win:id()
+                    if state.windowState[id] and state.windowState[id].isHidden then
+                        local cached = state.freeTagPositions[tag] and state.freeTagPositions[tag][id]
+                        if cached then
+                            win:setFrame(cached)
+                        else
+                            win:setFrame({
+                                x = frame.x + (frame.w - frame.w*0.7)/2,
+                                y = frame.y + (frame.h - frame.h*0.7)/2,
+                                w = frame.w*0.7, h = frame.h*0.7
+                            })
+                        end
+                        state.windowState[id].isHidden = false
+                    end
                 end
-                state.windowState[id].isHidden = false
             end
         end
     end
 
     -- PHASE 3.5: TILE SPECIAL TAG
     if state.special.active then
+        local frame = visibleTags[state.special.tag]
         local specialWindows = core.getTiledWindows(state.special.tag, allWins)
         if not state.isTagFree(state.special.tag) then
             local pad = config.specialPadding
@@ -225,7 +253,11 @@ function M.performTile()
                     if cached then
                         win:setFrame(cached)
                     else
-                        win:centerOnScreen()
+                        win:setFrame({
+                            x = frame.x + (frame.w - frame.w*0.7)/2,
+                            y = frame.y + (frame.h - frame.h*0.7)/2,
+                            w = frame.w*0.7, h = frame.h*0.7
+                        })
                     end
                     state.windowState[id].isHidden = false
                 end
@@ -247,10 +279,24 @@ function M.performTile()
         if shouldRaise then
             if state.windowState[id].isHidden or win:frame().x >= 90000 then
                 local saved = state.floatingCache[idStr]
+                local winTag = state.tags[id]
+                local targetFrame = visibleTags[winTag] or primaryFrame
+
                 if saved and saved.x < 10000 and saved.w > 0 and saved.h > 0 then
-                    win:setFrame(saved)
+                    win:setFrame({
+                        x = targetFrame.x + (targetFrame.w - saved.w) / 2,
+                        y = targetFrame.y + (targetFrame.h - saved.h) / 2,
+                        w = saved.w,
+                        h = saved.h
+                    })
                 else
-                    win:centerOnScreen()
+                    local w, h = targetFrame.w * 0.7, targetFrame.h * 0.7
+                    win:setFrame({
+                        x = targetFrame.x + (targetFrame.w - w) / 2,
+                        y = targetFrame.y + (targetFrame.h - h) / 2,
+                        w = w,
+                        h = h
+                    })
                 end
             end
             state.windowState[id].isHidden = false

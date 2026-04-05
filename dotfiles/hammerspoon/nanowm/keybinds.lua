@@ -66,9 +66,16 @@ function M.setup()
     for i = 1, 9 do
         hs.hotkey.bind(alt, tostring(i), function() tags.gotoTag(i) end)
         hs.hotkey.bind(altShift, tostring(i), function() tags.moveWindowToTag(i) end)
+        hs.hotkey.bind(ctrlAlt, tostring(i), function() tags.gotoTag(10 + i) end)
+        hs.hotkey.bind(ctrlAltShift, tostring(i), function() tags.moveWindowToTag(10 + i) end)
     end
     hs.hotkey.bind(alt, "0", function() tags.gotoTag(10) end)
     hs.hotkey.bind(altShift, "0", function() tags.moveWindowToTag(10) end)
+    hs.hotkey.bind(ctrlAlt, "0", function() tags.gotoTag(20) end)
+    hs.hotkey.bind(ctrlAltShift, "0", function() tags.moveWindowToTag(20) end)
+
+    hs.hotkey.bind(alt, "o", function() tags.focusNextMonitor() end)
+    hs.hotkey.bind(ctrlAlt, "o", function() tags.moveWindowToNextMonitor() end)
 
     hs.hotkey.bind(alt, "escape", tags.togglePrevTag)
     hs.hotkey.bind(alt, "s", tags.toggleSpecial)
@@ -97,6 +104,7 @@ function M.setup()
     hs.hotkey.bind(ctrlAlt, "f", tags.toggleFreeMode)
 
     hs.hotkey.bind(alt, "r", actions.cycleWindowSize)
+    hs.hotkey.bind(altShift, "return", actions.toggleQuakeTerminal)
 
     -- Combined swap/resize keybinds (context-aware)
     hs.hotkey.bind(altShift, "h", function()
@@ -147,9 +155,6 @@ function M.setup()
     hs.hotkey.bind(alt, "return", function()
         core.launchTask("/usr/bin/open", { "-n", "-a", "Alacritty" })
     end)
-    hs.hotkey.bind(altShift, "return", function()
-        hs.application.launchOrFocus("Alacritty")
-    end)
     hs.hotkey.bind(alt, "b", function()
         core.launchTask("/usr/bin/open", { "-n", "-a", "Firefox" })
     end)
@@ -167,7 +172,7 @@ function M.setup()
     -- APP WINDOWS (Focus or Create)
     -- =========================================================================
     local function focusOrCreateApp(titlePattern, launchCmd, sizeFactor, appName)
-        local allWins = hs.window.allWindows()
+        local allWins = require("nanowm.watchers").getManagedWindows()
         local targetWin = nil
         local lowerPattern = titlePattern:lower()
 
@@ -258,7 +263,7 @@ function M.setup()
         -- 2. If ID is missing, try to find by title pattern among all windows (even if launching)
         -- This helps if the marking was missed or we are spaming the keybind
         if not existingWin then
-            local allWins = hs.window.allWindows()
+            local allWins = require("nanowm.watchers").getManagedWindows()
             for _, win in ipairs(allWins) do
                 local title = (win:title() or ""):lower()
                 local app = win:application()

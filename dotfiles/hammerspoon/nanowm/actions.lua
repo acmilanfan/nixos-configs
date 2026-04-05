@@ -512,4 +512,86 @@ function M.toggleCaffeinate()
     hs.task.new("/bin/zsh", nil, { "-c", "sketchybar --trigger nanowm_caffeinate STATE=" .. status }):start()
 end
 
+-- =============================================================================
+-- Quake Terminal
+-- =============================================================================
+
+function M.toggleQuakeTerminal()
+    local appName = "Alacritty"
+    local titlePattern = "quake-term"
+    local sizeFactor = 0.8
+    local win = nil
+
+    for _, w in ipairs(core.getAllVisibleWindows()) do
+        local title = (w:title() or ""):lower()
+        if string.find(title, titlePattern, 1, true) then
+            win = w
+            break
+        end
+    end
+
+    if not win then
+        for _, w in ipairs(require("nanowm.watchers").getManagedWindows()) do
+            local title = (w:title() or ""):lower()
+            if string.find(title, titlePattern, 1, true) then
+                win = w
+                break
+            end
+        end
+    end
+
+    if win then
+        local id = win:id()
+        if state.windowState[id] and not state.windowState[id].isHidden and win:frame().y > 0 and win:frame().x < 90000 then
+            -- It's visible, hide it
+            local f = win:frame()
+            state.floatingCache[tostring(id)] = { x = f.x, y = f.y, w = f.w, h = f.h }
+            f.x = 90000
+            win:setFrame(f)
+            state.windowState[id].isHidden = true
+            layout.tile()
+        else
+            -- It's hidden, show it at the top
+            local screen = hs.screen.mainScreen():frame()
+            local newW = screen.w * sizeFactor
+            local newH = screen.h * 0.4
+            local newX = screen.x + (screen.w - newW) / 2
+            local newY = screen.y + 10 -- slide down slightly
+
+            state.floatingOverrides[id] = true
+            win:setFrame({ x = newX, y = newY, w = newW, h = newH })
+            win:raise()
+            win:focus()
+
+            if not state.windowState[id] then state.windowState[id] = {} end
+            state.windowState[id].isHidden = false
+        end
+    else
+        -- Launch it
+        local home = os.getenv("HOME") or "/Users/gentooway"
+        local launchCmd = '/usr/bin/open -n -a Alacritty --args --title "quake-term"'
+        core.launchTask("/bin/zsh", { "-c", launchCmd })
+
+        -- Watch for it to appear
+        local filter = hs.window.filter.new(false):setAppFilter("Alacritty", {allowTitles = "quake-term"})
+        filter:subscribe(hs.window.filter.windowCreated, function(newWin)
+            filter:unsubscribe(hs.window.filter.windowCreated)
+            hs.timer.doAfter(0.5, function()
+                if newWin:isValid() then
+                    state.floatingOverrides[newWin:id()] = true
+                    local screen = hs.screen.mainScreen():frame()
+                    local newW = screen.w * sizeFactor
+                    local newH = screen.h * 0.4
+                    local newX = screen.x + (screen.w - newW) / 2
+                    local newY = screen.y + 10
+                    newWin:setFrame({ x = newX, y = newY, w = newW, h = newH })
+                    newWin:raise()
+                    newWin:focus()
+                    layout.tile()
+                end
+            end)
+        end)
+    end
+end
+
 return M

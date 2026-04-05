@@ -20,6 +20,23 @@ local filter = hs.window.filter.new(true)
 filter:rejectApp("Hammerspoon")
 filter:rejectApp("Sketchybar")
 
+-- Screen and geometry watcher
+local screenWatcher = nil
+function M.updateScreenFrames()
+    state.screenFrames = {}
+    for _, s in ipairs(hs.screen.allScreens()) do
+        local f = s:frame()
+        if state.sketchybarEnabled then
+            local name = s:name()
+            if name ~= "Built-in Retina Display" and name ~= "Color LCD" then
+                f.y = f.y + config.sketchybarHeight
+                f.h = f.h - config.sketchybarHeight
+            end
+        end
+        state.screenFrames[s:id()] = { f = f, screen = s }
+    end
+end
+
 -- Resize watcher for manual mouse resizing
 local resizeWatcher = hs.timer.delayed.new(0.3, function()
     layout.handleManualResize()
@@ -36,6 +53,13 @@ function M.getManagedWindows()
 end
 
 function M.setup()
+    M.updateScreenFrames()
+    screenWatcher = hs.screen.watcher.new(function()
+        M.updateScreenFrames()
+        layout.tile()
+    end)
+    screenWatcher:start()
+
     -- =========================================================================
     -- WINDOW CREATED
     -- =========================================================================
