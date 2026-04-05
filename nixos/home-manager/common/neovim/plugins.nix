@@ -7,8 +7,8 @@
     src = fetchFromGitHub {
       owner = "nvim-orgmode";
       repo = "telescope-orgmode.nvim";
-      rev = "bc9bf4f90d364ed5123fca1a3ee78242bcaa121d";
-      sha256 = "sha256-dTCsYNfxtm0hMgn/JcNMyL4YFP4+p0oBkAOywtXGbeI=";
+      rev = "0a9872f7932bcf4d08a8278b1493119ffcdc83c6";
+      sha256 = "sha256-LXz6+9F9PAp2qNtRywxtdQSxO/lMcUHjwS4SASRTSVQ=";
     };
   };
 
@@ -18,8 +18,8 @@
     src = fetchFromGitHub {
       owner = "nvim-orgmode";
       repo = "org-bullets.nvim";
-      rev = "21437cfa99c70f2c18977bffd423f912a7b832ea";
-      sha256 = "0zfic6isqvbycn4zq1jsrr6g4yksmvgxzavknzlswg2jymz0hpzy";
+      rev = "503fe053550879cc202086a40454e46a87c41ddb";
+      sha256 = "sha256-Tgeqr/Zd1hJXXaln4XWGS5aZqypnpfNxgO/+pQVk7jg=";
     };
   };
 
