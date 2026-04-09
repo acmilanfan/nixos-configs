@@ -160,6 +160,45 @@ vim.keymap.set("n", "<C-j>", "<cmd>cnext<CR>zz")
 vim.keymap.set("n", "<C-k>", "<cmd>cprev<CR>zz")
 
 vim.keymap.set("n", "<C-f>", "<cmd>silent !tmux neww tmux-sessionizer<CR>")
+vim.keymap.set("n", "<C-w>t", function()
+  local pickers = require("telescope.pickers")
+  local finders = require("telescope.finders")
+  local sorters = require("telescope.sorters")
+  local actions = require("telescope.actions")
+  local action_state = require("telescope.actions.state")
+
+  local handle = io.popen("git worktree list --porcelain 2>/dev/null")
+  if not handle then return end
+  local output = handle:read("*a")
+  handle:close()
+
+  local worktrees = {}
+  for path in output:gmatch("worktree (%S+)") do
+    table.insert(worktrees, path)
+  end
+
+  if #worktrees == 0 then
+    vim.notify("No git worktrees found", vim.log.levels.WARN)
+    return
+  end
+
+  pickers.new({}, {
+    prompt_title = "Git Worktrees",
+    finder = finders.new_table({ results = worktrees }),
+    sorter = sorters.get_generic_fuzzy_sorter(),
+    attach_mappings = function(prompt_bufnr, _)
+      actions.select_default:replace(function()
+        local sel = action_state.get_selected_entry()
+        actions.close(prompt_bufnr)
+        if sel then
+          vim.cmd("cd " .. vim.fn.fnameescape(sel[1]))
+          vim.notify("cwd → " .. sel[1])
+        end
+      end)
+      return true
+    end,
+  }):find()
+end, { desc = "Switch git worktree (cd)" })
 
 vim.keymap.set("n", "<leader>zf", ":tab split<CR>", { silent = true })
 vim.keymap.set("n", "<leader>zk", ":tab close<CR>", { silent = true })

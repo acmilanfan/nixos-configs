@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Fuzzy-pick a git worktree to remove.
+# Skips the main worktree (HEAD).
+# Passes --force if the worktree has uncommitted changes.
+
+# Collect all worktrees except the primary one
+mapfile -t all < <(git worktree list --porcelain 2>/dev/null | awk '/^worktree / {print $2}')
+if [[ ${#all[@]} -lt 2 ]]; then
+  echo "No linked worktrees to remove." >&2
+  exit 0
+fi
+
+# The first entry is always the main worktree — skip it
+worktrees=("${all[@]:1}")
+
+selected=$(printf '%s\n' "${worktrees[@]}" \
+  | fzf --prompt="Remove worktree > " \
+        --preview="git -C {} log --oneline --color=always -10 2>/dev/null; echo; ls {}" \
+        --height=50%)
+
+[[ -z "$selected" ]] && exit 0
+
+# Check for uncommitted changes
+if ! git -C "$selected" diff --quiet 2>/dev/null || \
+   ! git -C "$selected" diff --cached --quiet 2>/dev/null; then
+  read -r -p "Worktree has uncommitted changes. Remove anyway? [y/N] " confirm
+  [[ "$confirm" != [yY] ]] && exit 0
+  force="--force"
+fi
+
+git worktree remove $force "$selected"
+echo "Removed: $selected"
+
+# Kill the associated tmux session if it exists
+session_name=$(basename "$selected" | tr '.' '_')
+if tmux has-session -t="$session_name" 2>/dev/null; then
+  read -r -p "Kill tmux session '$session_name'? [y/N] " kill_session
+  [[ "$kill_session" == [yY] ]] && tmux kill-session -t "$session_name"
+fi

@@ -134,6 +134,54 @@
 
       # Rebind fzf cd widget to Ctrl+G (Alt+C conflicts with Hammerspoon)
       bindkey '^g' fzf-cd-widget
+
+      # Worktree switch: Ctrl+X w → fzf-pick a worktree and cd into it
+      wt-sw() {
+        local selected
+        selected=$(worktree-switch 2>/dev/null)
+        [[ -n "$selected" ]] && cd "$selected"
+      }
+      bindkey -s '^xw' 'wt-sw\n'
+
+      # Worktree new: Ctrl+X n → prompt for branch, create worktree sibling, optionally open agent
+      wt-new() {
+        local branch git_root parent_dir repo_name worktree_path agent session_name
+        git_root=$(git rev-parse --show-toplevel 2>/dev/null)
+        if [[ -z "$git_root" ]]; then
+          echo "Not in a git repository" >&2
+          return 1
+        fi
+        read "branch?Branch name: "
+        [[ -z "$branch" ]] && return
+        repo_name=$(basename "$git_root")
+        parent_dir=$(dirname "$git_root")
+        # Sibling pattern: <parent>/<repo>-<branch>
+        worktree_path="$parent_dir/$repo_name-$branch"
+        if git -C "$git_root" show-ref --verify --quiet "refs/heads/$branch" 2>/dev/null; then
+          git -C "$git_root" worktree add "$worktree_path" "$branch" || return 1
+        else
+          git -C "$git_root" worktree add "$worktree_path" -b "$branch" || return 1
+        fi
+        echo "Created: $worktree_path"
+        agent=$(printf "shell\nclaude\ngemini" | fzf --prompt="Open with > " --height=5)
+        [[ -z "$agent" ]] && return
+        session_name=$(echo "$repo_name-$branch" | tr '.' '_' | tr '/' '-')
+        if ! tmux has-session -t="$session_name" 2>/dev/null; then
+          tmux new-session -ds "$session_name" -c "$worktree_path"
+        fi
+        tmux switch-client -t "$session_name"
+        case "$agent" in
+          claude) tmux send-keys -t "$session_name" "claude" Enter ;;
+          gemini) tmux send-keys -t "$session_name" "gemini" Enter ;;
+        esac
+      }
+      bindkey -s '^xn' 'wt-new\n'
+
+      # Worktree remove: Ctrl+X d → fzf-pick a linked worktree and remove it
+      wt-rm() {
+        worktree-remove
+      }
+      bindkey -s '^xd' 'wt-rm\n'
     '';
   };
 

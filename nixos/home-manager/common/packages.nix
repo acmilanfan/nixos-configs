@@ -4,6 +4,8 @@
     [
       (writeShellScriptBin "ssh-add-login" (lib.readFile ./scripts/ssh-add-login.sh))
       (writeShellScriptBin "ns" (lib.readFile ./scripts/nixpkgs))
+      (writeShellScriptBin "worktree-switch" (lib.readFile ./scripts/worktree-switch))
+      (writeShellScriptBin "worktree-remove" (lib.readFile ./scripts/worktree-remove))
       git
       httpie
       kitty
