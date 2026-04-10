@@ -1,4 +1,4 @@
-{ config, secrets, pkgs, inputs, ... }:
+{ config, secrets, pkgs, inputs, lib, ... }:
 let
   isWork = config.home.username == "andreishumailov";
 
@@ -157,6 +157,15 @@ let
     };
     hooks = geminiHooks;
   };
+
+  # List of extensions to ensure are installed
+  geminiExtensions = [
+    "https://github.com/samber/cc-skills-golang"
+    "https://github.com/obra/superpowers"
+    "https://github.com/mvanhorn/last30days-skill"
+    "https://github.com/gemini-cli-extensions/security"
+    "https://github.com/gemini-cli-extensions/code-review"
+  ];
 in
 {
   home.file.".claude/settings.json".text = builtins.toJSON claudeSettings;
@@ -166,6 +175,16 @@ in
       inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.claude-code
       inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.gemini-cli
       inputs.mcp-nixos.packages.${pkgs.stdenv.hostPlatform.system}.default
+      pkgs.python3 # Required for some extensions like last30days-skill
   ];
+
+  # Automate extension installation on activation
+  home.activation.installGeminiExtensions = lib.hm.dag.entryAfter ["writeBoundary"] ''
+    $DRY_RUN_CMD ${inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.gemini-cli}/bin/gemini extensions list > /dev/null 2>&1 || true
+    ${builtins.concatStringsSep "\n" (map (ext: ''
+      echo "Ensuring Gemini extension is installed: ${ext}"
+      $DRY_RUN_CMD ${inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.gemini-cli}/bin/gemini extensions install "${ext}" --consent --skip-settings || true
+    '') geminiExtensions)}
+  '';
 }
 
