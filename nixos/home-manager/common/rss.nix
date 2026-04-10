@@ -32,6 +32,7 @@
       bind-key k up
       bind-key l open
       bind-key h quit
+      bind-key ^A open-all-unread-in-browser-and-mark-read
     '';
   };
 
