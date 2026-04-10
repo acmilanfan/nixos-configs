@@ -49,6 +49,11 @@
     nixpkgs-howdy = {
       url = "github:fufexan/nixpkgs/howdy";
     };
+
+    mcp-nixos = {
+      url = "github:utensils/mcp-nixos";
+      inputs.nixpkgs.follows = "unstable-nixpkgs";
+    };
   };
 
   outputs =

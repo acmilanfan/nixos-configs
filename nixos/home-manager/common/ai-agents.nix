@@ -150,6 +150,11 @@ let
         enabled = true;
       };
     };
+    mcpServers = {
+      nixos = {
+        command = "${inputs.mcp-nixos.packages.${pkgs.stdenv.hostPlatform.system}.default}/bin/mcp-nixos";
+      };
+    };
     hooks = geminiHooks;
   };
 in
@@ -160,6 +165,7 @@ in
   home.packages = [
       inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.claude-code
       inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.gemini-cli
+      inputs.mcp-nixos.packages.${pkgs.stdenv.hostPlatform.system}.default
   ];
 }
 
