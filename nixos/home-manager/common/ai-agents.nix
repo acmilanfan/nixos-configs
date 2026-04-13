@@ -158,14 +158,15 @@ let
     hooks = geminiHooks;
   };
 
-  # List of extensions to ensure are installed
+  # List of { url, dir } pairs — dir is the actual directory name under ~/.gemini/extensions/
   geminiExtensions = [
-    "https://github.com/samber/cc-skills-golang"
-    "https://github.com/obra/superpowers"
-    "https://github.com/mvanhorn/last30days-skill"
-    "https://github.com/gemini-cli-extensions/security"
-    "https://github.com/gemini-cli-extensions/code-review"
+    { url = "https://github.com/samber/cc-skills-golang";           dir = "cc-skills-golang"; }
+    { url = "https://github.com/obra/superpowers";                  dir = "superpowers"; }
+    { url = "https://github.com/gemini-cli-extensions/security";    dir = "gemini-cli-security"; }
+    { url = "https://github.com/gemini-cli-extensions/code-review"; dir = "code-review"; }
   ];
+
+  gemini = "${inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.gemini-cli}/bin/gemini";
 in
 {
   home.file.".claude/settings.json".text = builtins.toJSON claudeSettings;
@@ -175,15 +176,30 @@ in
       inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.claude-code
       inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.gemini-cli
       inputs.mcp-nixos.packages.${pkgs.stdenv.hostPlatform.system}.default
-      pkgs.python3 # Required for some extensions like last30days-skill
   ];
 
   # Automate extension installation on activation
   home.activation.installGeminiExtensions = lib.hm.dag.entryAfter ["writeBoundary"] ''
-    $DRY_RUN_CMD ${inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.gemini-cli}/bin/gemini extensions list > /dev/null 2>&1 || true
+    # Prepend git but keep /usr/bin at the END so nix tools take priority
+    export PATH="${pkgs.git}/bin:$PATH:/usr/bin"
+    # Use system SSH so ~/.ssh/config macOS options (UseKeychain) are supported
+    export GIT_SSH_COMMAND="/usr/bin/ssh"
+
+    # Uninstall broken last30days-skill if still present on disk
+    if [ -d "${config.home.homeDirectory}/.gemini/extensions/last30days-skill" ]; then
+      echo "Removing last30days-skill extension..."
+      ${gemini} extensions uninstall last30days-skill 2>/dev/null || \
+        rm -rf "${config.home.homeDirectory}/.gemini/extensions/last30days-skill"
+    fi
+
+    # Install extensions if not already present — check by directory existence
     ${builtins.concatStringsSep "\n" (map (ext: ''
-      echo "Ensuring Gemini extension is installed: ${ext}"
-      $DRY_RUN_CMD ${inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.gemini-cli}/bin/gemini extensions install "${ext}" --consent --skip-settings || true
+      if [ -d "$HOME/.gemini/extensions/${ext.dir}" ]; then
+        echo "Gemini extension already installed: ${ext.dir}"
+      else
+        echo "Installing Gemini extension: ${ext.url}"
+        $DRY_RUN_CMD ${gemini} extensions install "${ext.url}" --consent --skip-settings || true
+      fi
     '') geminiExtensions)}
   '';
 }
