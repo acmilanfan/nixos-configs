@@ -465,26 +465,18 @@ function M.setupSystemWatcher()
             -- Force clock update immediately on wake
             hs.task.new("/bin/zsh", nil, { "-c", "sketchybar --trigger clock_tick" }):start()
 
-            -- With LaunchDaemons, Kanata should handle wake naturally, but often loses HID access.
-            -- Check if Kanata is responsive AND if it has lost access to HID (often indicated by karabiner_grabber taking over)
-            -- Increase delay to 2.0s to ensure system is fully awake and drivers settled
+            -- Always reload Kanata on wake: both instances race to grab the Apple Internal Keyboard
+            -- via IOKit exclusive access. The loser stays running (so TCP port checks pass) but
+            -- silently drops all keyboard input. The only reliable fix is an unconditional reload.
             hs.timer.doAfter(2.0, function()
-                -- Check if Karabiner grabber re-appeared; if it did, Kanata likely failed to re-acquire HID
+                -- Kill karabiner_grabber if it reappeared before reloading
                 hs.task.new("/usr/bin/pgrep", function(pgrepExitCode)
                     if pgrepExitCode == 0 then
-                        print("[NanoWM] Karabiner grabber detected after wake, forcing Kanata reload...")
-                        M.reloadKanata()
-                    else
-                        -- Check if Kanata is actually responsive on its TCP port
-                        hs.task.new("/usr/bin/nc", function(ncExitCode)
-                            if ncExitCode ~= 0 then
-                                print("[NanoWM] Kanata not responsive after wake, triggering reload...")
-                                M.reloadKanata()
-                            else
-                                print("[NanoWM] Kanata is responsive, skipping reload")
-                            end
-                        end, { "-z", "-w", "1", "localhost", "5829" }):start()
+                        print("[NanoWM] Karabiner grabber detected after wake, killing before reload...")
+                        hs.task.new("/usr/bin/sudo", nil, { "-n", "/usr/bin/killall", "-9", "karabiner_grabber" }):start()
                     end
+                    print("[NanoWM] Reloading Kanata after wake...")
+                    M.reloadKanata()
                 end, { "-x", "karabiner_grabber" }):start()
             end)
         end
