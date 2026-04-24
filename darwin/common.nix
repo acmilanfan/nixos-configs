@@ -130,7 +130,7 @@ in
   ];
 
   launchd.daemons.kanata = {
-    command = "/bin/bash -c 'sleep 1; exec /opt/homebrew/bin/kanata -n --cfg /Users/${user}/.config/kanata/active_config.kbd --port 5829'";
+    command = "/bin/bash -c 'sleep 1; /bin/launchctl kill SIGTERM system/local.kanata-charibdis 2>/dev/null || true; exec /opt/homebrew/bin/kanata -n --cfg /Users/${user}/.config/kanata/active_config.kbd --port 5829'";
 
     serviceConfig = {
       Label = "local.kanata";
@@ -146,7 +146,7 @@ in
   };
 
   launchd.daemons.kanata-charibdis = {
-    command = "/bin/bash -c 'sleep 1; exec /opt/homebrew/bin/kanata -n --cfg /Users/${user}/.config/kanata/kanata-charibdis-browser.kbd --port 5830'";
+    command = "/bin/bash -c 'sleep 4; exec /opt/homebrew/bin/kanata -n --cfg /Users/${user}/.config/kanata/kanata-charibdis-browser.kbd --port 5830'";
 
     serviceConfig = {
       Label = "local.kanata-charibdis";

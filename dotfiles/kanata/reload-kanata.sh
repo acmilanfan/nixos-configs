@@ -51,11 +51,15 @@ reload_instance() {
 
     print_status "--- Reloading $KANATA_LABEL and $AGENT_LABEL (Port $PORT) ---"
 
-    # Stop karabiner_grabber quickly if it's running
-    if pgrep -x "karabiner_grabber" >/dev/null; then
-        print_status "Stopping karabiner_grabber..."
-        sudo -n killall -9 karabiner_grabber 2>/dev/null || true
-    fi
+    # Boot out Karabiner services that interfere with kanata's HID exclusive access.
+    # killall/pkill is not enough — launchd KeepAlive restarts them within milliseconds.
+    # bootout removes them from the current launchd session entirely until next reboot.
+    # Order matters: bootout session_monitor first so it can't restart grabber.
+    print_status "Booting out Karabiner services..."
+    launchctl bootout "gui/$USER_ID" org.pqrs.service.agent.karabiner_session_monitor 2>/dev/null || true
+    launchctl bootout "gui/$USER_ID" org.pqrs.service.agent.karabiner_console_user_server 2>/dev/null || true
+    launchctl bootout "gui/$USER_ID" org.pqrs.service.agent.karabiner_grabber 2>/dev/null || true
+    sudo -n launchctl bootout system org.pqrs.service.daemon.karabiner_grabber 2>/dev/null || true
 
     # Restart Kanata (System domain)
     restart_service "system" "$KANATA_LABEL" "/Library/LaunchDaemons/${KANATA_LABEL}.plist" "sudo"
@@ -63,10 +67,12 @@ reload_instance() {
     # Restart Agent (User domain)
     restart_service "gui/$USER_ID" "$AGENT_LABEL" "/Library/LaunchAgents/${AGENT_LABEL}.plist" ""
 
-    # Fast verification loop
+    # Wait for the actual kanata binary to be running.
+    # Must match the binary path (not the bash wrapper whose argv contains the path as a string).
+    # pgrep -f without anchoring matches the bash wrapper immediately — which is the bug.
     local SUCCESS=false
-    for i in {1..10}; do
-        if pgrep -f "kanata.*--port $PORT" >/dev/null && pgrep -f "kanata-vk-agent.*-p $PORT" >/dev/null; then
+    for i in {1..20}; do
+        if pgrep -f "^/opt/homebrew/bin/kanata.*--port $PORT" >/dev/null; then
             SUCCESS=true
             break
         fi
@@ -86,7 +92,19 @@ print_status "Starting Optimized Kanata reload..."
 
 EXIT_CODE=0
 
-# Reload Main Instance
+# Boot out Charybdis BEFORE starting Main so Main wins the IOKit exclusive-access race.
+# Both instances seize ALL HID devices (including Apple Internal Keyboard) regardless of
+# macos-dev-names-include. If Charybdis is alive when Main tries to start, Main loses the
+# race and never intercepts keyboard events — home row mods silently break.
+if sudo launchctl list "local.kanata-charibdis" >/dev/null 2>&1; then
+    print_status "Booting out Charybdis first (prevents keyboard race)..."
+    # Try bootout first; on some macOS versions it fails with EIO — fall back to unload.
+    if ! sudo launchctl bootout system "local.kanata-charibdis" 2>/dev/null; then
+        sudo launchctl unload /Library/LaunchDaemons/local.kanata-charibdis.plist 2>/dev/null || true
+    fi
+fi
+
+# Reload Main Instance (now has uncontested access to Apple Internal Keyboard)
 reload_instance "local.kanata" "local.kanata-vk-agent" "5829" || EXIT_CODE=1
 
 # Reload Charybdis Instance (only if needed/configured)
