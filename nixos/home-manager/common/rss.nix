@@ -1,7 +1,9 @@
 { pkgs, ... }: {
 
-  programs.newsboat = {
+programs.newsboat = {
     enable = true;
+    browser = "xdg-open %u & sleep 0.5";
+
     extraConfig = ''
       # Newsboat Nightfox theme (approximate with 256-color codes)
       # color background          color81   default
