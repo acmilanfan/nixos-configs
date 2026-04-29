@@ -2,9 +2,11 @@
 
 programs.newsboat = {
     enable = true;
-    browser = "xdg-open %u & sleep 0.5";
 
     extraConfig = ''
+      # Cross-platform browser command: uses xdg-open on Linux and falls back to open on macOS.
+      browser "(command -v xdg-open >/dev/null 2>&1 && xdg-open '%u' || open '%u') & sleep 0.2"
+
       # Newsboat Nightfox theme (approximate with 256-color codes)
       # color background          color81   default
       color listnormal          color243  default
