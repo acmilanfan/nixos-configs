@@ -25,9 +25,9 @@ telescope.setup({
 	},
 })
 
-require("telescope").load_extension("orgmode")
-require("telescope").load_extension("harpoon")
-require("telescope").load_extension("ui-select")
-require("telescope").load_extension("refactoring")
-require("telescope").load_extension("rest")
-pcall(require("telescope").load_extension, "fzf")
+pcall(telescope.load_extension, "orgmode")
+pcall(telescope.load_extension, "harpoon")
+pcall(telescope.load_extension, "ui-select")
+pcall(telescope.load_extension, "refactoring")
+pcall(telescope.load_extension, "rest")
+pcall(telescope.load_extension, "fzf")

@@ -170,7 +170,7 @@ in
       nvim-autopairs
       highlight-undo-nvim
       nvim-surround
-      refactoring-nvim
+      pkgs.vimPlugins.refactoring-nvim
       rest-nvim
       # windsurf-nvim
       barbecue-nvim
