@@ -20,6 +20,9 @@ local filter = hs.window.filter.new(true)
 filter:rejectApp("Hammerspoon")
 filter:rejectApp("Sketchybar")
 
+-- Apps excluded from window enumeration (same as filter rejections above)
+local managedExcluded = { Hammerspoon = true, Sketchybar = true }
+
 -- Screen and geometry watcher
 local screenWatcher = nil
 function M.updateScreenFrames()
@@ -42,11 +45,20 @@ local resizeWatcher = hs.timer.delayed.new(0.3, function()
     layout.handleManualResize()
 end)
 
+-- Use hs.window.allWindows() instead of filter:getWindows() to avoid the
+-- hs.window.filter cache going stale after sleep/wake or Accessibility API reconnects,
+-- which caused getManagedWindows() to return only a fraction of live windows and made
+-- sketchybar show all tags as empty (OCCUPIED="1 10" instead of all occupied tags).
 function M.getManagedWindows()
     local wins = {}
-    for _, win in ipairs(filter:getWindows()) do
-        if win:id() and win:id() > 0 then
-            table.insert(wins, win)
+    for _, win in ipairs(hs.window.allWindows()) do
+        local id = win:id()
+        if id and id > 0 and win:isStandard() and not win:isMinimized() then
+            local app = win:application()
+            local appName = app and app:name() or ""
+            if not managedExcluded[appName] then
+                table.insert(wins, win)
+            end
         end
     end
     return wins
