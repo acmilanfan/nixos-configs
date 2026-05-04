@@ -148,24 +148,11 @@ function M.registerWindow(win)
         state.floatingOverrides[id] = ruleMatch.float
     end
 
-    -- Mark the weekenduo window only if we are explicitly looking for it (triggered by keybind)
-    local isWeekenduoTitle = string.find(title, "weekenduo", 1, true)
+    local currentTag = state.tags[id]
+    local targetTag = currentTag
 
-    if state.markNextWeekenduo and isWeekenduoTitle then
-        state.weekenduoWinId = id
-        state.markNextWeekenduo = false
-        state.weekenduoLaunching = false -- Reset launching flag when window is found
-        state.triggerSave()
-        print("[NanoWM] Weekenduo window marked: " .. tostring(id))
-    elseif isWeekenduoTitle and state.weekenduoLaunching and appName == "Firefox" then
-        -- Also reset flag if we find a matching window while launching, even if not perfect
-        state.weekenduoLaunching = false
-    end
-
-    if not state.tags[id] then
+    if not currentTag then
         local rememberedTag = state.getRememberedTag(win)
-        local targetTag
-
         if ruleMatch and ruleMatch.tag then
             targetTag = ruleMatch.tag
             print("[NanoWM] Window opened via rule to tag: " .. tostring(targetTag))
@@ -180,53 +167,41 @@ function M.registerWindow(win)
                 if info.appName == appName and info.tag and (now - info.time) < 2.0 then
                     recoveryTag = info.tag
                     print("[NanoWM] Crash recovery: " .. appName .. " was on tag " .. tostring(recoveryTag))
-                    if info.timer then
-                        info.timer:stop()
-                    end
+                    if info.timer then info.timer:stop() end
                     state.pendingDestruction[oldId] = nil
                     break
                 end
             end
+            targetTag = recoveryTag or (state.special.active and state.special.tag or state.currentTag)
+        end
+    elseif ruleMatch and ruleMatch.tag and currentTag ~= ruleMatch.tag then
+        -- Rule change (e.g. title changed to match a rule)
+        targetTag = ruleMatch.tag
+        print("[NanoWM] Window tag changed via rule to: " .. tostring(targetTag))
+    end
 
-            if recoveryTag then
-                targetTag = recoveryTag
-            else
-                targetTag = state.special.active and state.special.tag or state.currentTag
+    if targetTag ~= currentTag then
+        -- Remove from old stack
+        if currentTag and state.stacks[currentTag] then
+            for i, vid in ipairs(state.stacks[currentTag]) do
+                if vid == id then table.remove(state.stacks[currentTag], i); break end
+            end
+        end
+        if currentTag and state.tagCreationOrder[currentTag] then
+            for i, vid in ipairs(state.tagCreationOrder[currentTag]) do
+                if vid == id then table.remove(state.tagCreationOrder[currentTag], i); break end
             end
         end
 
         state.tags[id] = targetTag
 
         if not M.isFloating(win) then
-            if not state.stacks[targetTag] then
-                state.stacks[targetTag] = {}
-            end
-            local found = false
-            for _, existingId in ipairs(state.stacks[targetTag]) do
-                if existingId == id then
-                    found = true
-                    break
-                end
-            end
-            if not found then
-                table.insert(state.stacks[targetTag], 1, id)
-            end
+            if not state.stacks[targetTag] then state.stacks[targetTag] = {} end
+            table.insert(state.stacks[targetTag], 1, id)
 
-            if not state.tagCreationOrder[targetTag] then
-                state.tagCreationOrder[targetTag] = {}
-            end
-            local foundInCreation = false
-            for _, existingId in ipairs(state.tagCreationOrder[targetTag]) do
-                if existingId == id then
-                    foundInCreation = true
-                    break
-                end
-            end
-            if not foundInCreation then
-                table.insert(state.tagCreationOrder[targetTag], id)
-            end
+            if not state.tagCreationOrder[targetTag] then state.tagCreationOrder[targetTag] = {} end
+            table.insert(state.tagCreationOrder[targetTag], id)
         end
-
         state.triggerSave()
     end
 end
@@ -248,9 +223,13 @@ function M.getTiledWindows(tag, allWins)
             local win = winMap[id]
             if win and state.tags[id] == tag then
                 local isVisible = win:isVisible()
-                local isCurrentOrSpecial = (tag == state.currentTag or tag == state.special.tag)
+                local isCurrentOrSpecial = false
+                for _, t in ipairs(state.activeTags) do
+                    if tag == t then isCurrentOrSpecial = true; break end
+                end
+                if tag == state.special.tag then isCurrentOrSpecial = true end
 
-                -- Include if visible OR if it's on the current/special tag and not minimized
+                -- Include if visible OR if it's on an active/special tag and not minimized
                 if isVisible or (isCurrentOrSpecial and not win:isMinimized()) then
                     if not M.isFloating(win) then
                         table.insert(windows, win)
@@ -304,7 +283,11 @@ function M.getWindowsInCreationOrder(tag, allWins)
             local win = winMap[id]
             if win and state.tags[id] == tag then
                 local isVisible = win:isVisible()
-                local isCurrentOrSpecial = (tag == state.currentTag or tag == state.special.tag)
+                local isCurrentOrSpecial = false
+                for _, t in ipairs(state.activeTags) do
+                    if tag == t then isCurrentOrSpecial = true; break end
+                end
+                if tag == state.special.tag then isCurrentOrSpecial = true end
 
                 if isVisible or (isCurrentOrSpecial and not win:isMinimized()) then
                     if not M.isFloating(win) then

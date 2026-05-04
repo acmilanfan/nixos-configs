@@ -76,8 +76,6 @@ function M.setup()
         if not win or not win:id() or win:id() == 0 then return end
         -- Title change may affect title-based float detection; clear cached result
         core.invalidateFloatingCache(win:id())
-        -- Skip already-registered windows unless we're hunting for the weekenduo title change
-        if state.tags[win:id()] and not state.markNextWeekenduo then return end
         core.registerWindow(win)
     end)
 

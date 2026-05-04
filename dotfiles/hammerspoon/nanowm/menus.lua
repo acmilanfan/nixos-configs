@@ -351,8 +351,7 @@ function M.showKeybindMenu()
             category = "Leader Mode (Alt + ,)",
             binds = {
                 { key = "a -> t/f/s", desc = "Apps: Term / Firefox / Slack", fn = function() end },
-                { key = "s -> p/g/o", desc = "System: Power / Bar / Borders", fn = function() end },
-                { key = "s -> k/l",   desc = "System: Kanata / Lock", fn = function() end },
+                { key = "s -> p/g/k/l", desc = "System: Power / Bar / Kanata / Lock", fn = function() end },
                 { key = "c -> m/a/w/b", desc = "Control: Mixer / Audio / WiFi / BT", fn = function() end },
                 { key = "v",         desc = "Enter Vim Mode", fn = function() end },
                 { key = "k",         desc = "Toggle HS Console", fn = function() end },
@@ -364,7 +363,6 @@ function M.showKeybindMenu()
             category = "Integrations",
             binds = {
                 { key = "Alt+Shift+G", desc = "Toggle sketchybar", fn = integrations.toggleSketchybar },
-                { key = "Ctrl+Alt+B", desc = "Toggle borders", fn = integrations.toggleBorders },
                 { key = "Ctrl+Alt+P", desc = "Toggle battery saver", fn = integrations.toggleBatterySaver },
                 { key = "Ctrl+Alt+Shift+K", desc = "Kanata mode menu", fn = M.openKanataMenu },
             },

@@ -39,7 +39,6 @@ local agents = require("nanowm.agents")
 -- Layout completion triggers integration updates
 layout.onTileComplete = function()
     integrations.updateSketchybar()
-    integrations.updateBordersVisibility()
 end
 
 -- Tag changes trigger integration updates
@@ -78,7 +77,6 @@ M.resizeFloatingWindow = actions.resizeFloatingWindow
 M.moveFloatingWindow = actions.moveFloatingWindow
 M.toggleGaps = actions.toggleGaps
 M.toggleCaffeinate = actions.toggleCaffeinate
-M.toggleQuakeTerminal = actions.toggleQuakeTerminal
 
 -- Tag functions
 M.gotoTag = tags.gotoTag
@@ -105,7 +103,6 @@ M.focusAgent    = agents.focusAgent
 -- Integration functions
 M.updateSketchybar = integrations.updateSketchybar
 M.toggleSketchybar = integrations.toggleSketchybar
-M.toggleBorders = integrations.toggleBorders
 M.toggleBatterySaver = integrations.toggleBatterySaver
 M.startTimer = integrations.startTimer
 M.showTimerRemaining = integrations.showTimerRemaining

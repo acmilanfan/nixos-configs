@@ -104,7 +104,6 @@ function M.setup()
     hs.hotkey.bind(ctrlAlt, "f", tags.toggleFreeMode)
 
     hs.hotkey.bind(alt, "r", actions.cycleWindowSize)
-    hs.hotkey.bind(altShift, "return", actions.toggleQuakeTerminal)
 
     -- Combined swap/resize keybinds (context-aware)
     hs.hotkey.bind(altShift, "h", function()
@@ -430,7 +429,6 @@ function M.setup()
     systemModal:bind("", "q", exitAll)
     systemModal:bind("", "p", function() integrations.toggleBatterySaver(); exitAll() end)
     systemModal:bind("", "g", function() integrations.toggleSketchybar(); exitAll() end)
-    systemModal:bind("", "o", function() integrations.toggleBorders(); exitAll() end)
     systemModal:bind("", "k", function() integrations.toggleKanata(); exitAll() end)
     systemModal:bind("", "l", function() hs.caffeinate.lockScreen(); exitAll() end)
 
@@ -438,7 +436,6 @@ function M.setup()
     -- INTEGRATIONS
     -- =========================================================================
     hs.hotkey.bind(altShift, "g", integrations.toggleSketchybar)
-    hs.hotkey.bind(ctrlAlt, "b", integrations.toggleBorders)
     hs.hotkey.bind(ctrlAlt, "p", integrations.toggleBatterySaver)
     hs.hotkey.bind(ctrlAltShift, "k", menus.openKanataMenu)
 

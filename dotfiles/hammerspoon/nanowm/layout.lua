@@ -114,6 +114,7 @@ function M.performTile()
 
     local visibleTags = {}
     local screens = hs.screen.allScreens()
+    local screenCount = #screens
     local primaryScreen = screens[1]
     local primaryFrame = primaryScreen and primaryScreen:frame() or {x=0,y=0,w=1920,h=1080}
 
@@ -125,27 +126,46 @@ function M.performTile()
         end
     end
 
-    for i, tag in ipairs(state.activeTags) do
-        local s = screens[i]
-        if s then
-            local f = s:frame()
+    -- Determine which tags should be visible on which screen frame
+    for _, tag in ipairs(state.activeTags) do
+        local targetScreen = state.getScreenForTag(tag)
+        if targetScreen then
+            local f = targetScreen:frame()
             if state.sketchybarEnabled then
-                local name = s:name()
+                local name = targetScreen:name()
                 if name ~= "Built-in Retina Display" and name ~= "Color LCD" then
                     f.y = f.y + config.sketchybarHeight
                     f.h = f.h - config.sketchybarHeight
                 end
             end
-            visibleTags[tag] = f
-        else
-            visibleTags[tag] = primaryFrame
+            -- If multiple tags map to same screen (e.g. 1 screen setup), 
+            -- prioritize the global currentTag or the one that appears first in activeTags
+            if not visibleTags[tag] then
+                -- Check if another tag already occupies this screen's space
+                local screenOccupied = false
+                for _, existingFrame in pairs(visibleTags) do
+                    if existingFrame.x == f.x and existingFrame.y == f.y then
+                        screenOccupied = true; break
+                    end
+                end
+
+                -- Special logic: if it's the global currentTag, it MUST be visible
+                if tag == state.currentTag or not screenOccupied then
+                    -- If it's the currentTag, it kicks out whatever was on that screen
+                    if tag == state.currentTag then
+                        for t2, f2 in pairs(visibleTags) do
+                            if f2.x == f.x and f2.y == f.y then visibleTags[t2] = nil end
+                        end
+                    end
+                    visibleTags[tag] = f
+                end
+            end
         end
     end
 
     if state.special.active then
         visibleTags[state.special.tag] = primaryFrame
     end
-
     -- PHASE 1: CLASSIFICATION
     for _, win in ipairs(allWins) do
         local id = win:id()
@@ -196,8 +216,9 @@ function M.performTile()
                     state.floatingCache[idStr] = { x = f.x, y = f.y, w = f.w, h = f.h }
                 end
 
-                f.x = hideScreenFrame.x + hideScreenFrame.w - 5
-                f.y = hideScreenFrame.y + hideScreenFrame.h - 5
+                -- Park far off-screen
+                f.x = 100000
+                f.y = 100000
                 win:setFrame(f)
             end
         end

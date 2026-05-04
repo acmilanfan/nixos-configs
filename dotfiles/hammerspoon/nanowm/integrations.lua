@@ -41,6 +41,10 @@ local function doUpdateSketchybar()
         end
     end
 
+    local activeTagsList = {}
+    for _, t in ipairs(state.activeTags) do table.insert(activeTagsList, tostring(t)) end
+    local activeTagsStr = table.concat(activeTagsList, " ")
+
     local tag = state.special.active and "S" or tostring(state.currentTag)
     local currentTagValue = state.special.active and state.special.tag or state.currentTag
     local windowCount = tagCounts[tostring(currentTagValue)] or 0
@@ -87,10 +91,15 @@ local function doUpdateSketchybar()
     local urgent = table.concat(urgentList, " ")
 
     local cmd = string.format(
-        'sketchybar --trigger nanowm_update TAG="%s" WINDOWS="%d" LAYOUT="%s" FULLSCREEN="%s" TIMER="%s" APP="%s" OCCUPIED="%s" URGENT="%s" 2>/dev/null',
-        tag, windowCount, layout, isFullscreen, timerRemaining, focusedApp, occupied, urgent
+        'sketchybar --trigger nanowm_update TAG="%s" ACTIVE_TAGS="%s" WINDOWS="%d" LAYOUT="%s" FULLSCREEN="%s" TIMER="%s" APP="%s" OCCUPIED="%s" URGENT="%s" 2>/dev/null',
+        tag, activeTagsStr, windowCount, layout, isFullscreen, timerRemaining, focusedApp, occupied, urgent
     )
-    hs.task.new("/bin/zsh", nil, { "-c", cmd }):start()
+
+    hs.task.new("/bin/zsh", nil, { "-lc", cmd }):start()
+
+    -- Secondary instance trigger
+    local cmdSecondary = cmd:gsub("nanowm_update", "nanowm_update_secondary")
+    hs.task.new("/bin/zsh", nil, { "-lc", cmdSecondary }):start()
 end
 
 local sketchybarUpdateTimer = hs.timer.delayed.new(0.15, function()
@@ -135,142 +144,6 @@ function M.toggleSketchybar()
 end
 
 -- =============================================================================
--- Native Canvas Borders Integration
--- =============================================================================
-
-M.borderCanvases = {}
-
-function M.startBorders()
-    state.bordersCurrentlyShowing = true
-    M.drawBorders()
-end
-
-function M.stopBorders()
-    state.bordersCurrentlyShowing = false
-    for _, canvas in pairs(M.borderCanvases) do
-        canvas:hide()
-    end
-end
-
-function M.toggleBorders()
-    state.bordersEnabled = not state.bordersEnabled
-    if state.bordersEnabled then
-        hs.alert.show("Borders: ON (Native)")
-        M.updateBordersVisibility()
-    else
-        hs.alert.show("Borders: OFF")
-        M.stopBorders()
-    end
-    state.triggerSave()
-end
-
-function M.updateBordersVisibility()
-    if not state.bordersEnabled then return end
-
-    local shouldHide = state.isFullscreen
-
-    if shouldHide and state.bordersCurrentlyShowing then
-        M.stopBorders()
-    elseif not shouldHide then
-        state.bordersCurrentlyShowing = true
-        M.drawBorders()
-    end
-end
-
-function M.drawBorders()
-    if not state.bordersEnabled or not state.bordersCurrentlyShowing then
-        M.stopBorders()
-        return
-    end
-
-    local activeWins = {}
-    local focusedWin = hs.window.focusedWindow()
-    local focusedId = focusedWin and focusedWin:id() or nil
-
-    -- We need to know which windows to draw borders around.
-    -- We can ask core.lua for visible tiled windows on all active tags.
-    for i, tag in ipairs(state.activeTags) do
-        -- Only draw borders if layout is not mono and count > 1
-        local currentLayout = state.getLayout(tag)
-        local wins = require("nanowm.core").getTiledWindows(tag)
-        if currentLayout ~= "mono" and #wins > 1 then
-            for _, win in ipairs(wins) do
-                table.insert(activeWins, win)
-            end
-        end
-    end
-
-    -- Add special tag windows if active
-    if state.special.active then
-        local specialWins = require("nanowm.core").getTiledWindows(state.special.tag)
-        local currentLayout = state.getLayout(state.special.tag)
-        if currentLayout ~= "mono" and #specialWins > 1 then
-            for _, win in ipairs(specialWins) do
-                table.insert(activeWins, win)
-            end
-        end
-    end
-
-    -- Create or update canvases per screen
-    local screens = hs.screen.allScreens()
-    local usedScreens = {}
-
-    for _, s in ipairs(screens) do
-        local sid = s:id()
-        usedScreens[sid] = true
-
-        if not M.borderCanvases[sid] then
-            M.borderCanvases[sid] = hs.canvas.new(s:fullFrame())
-            M.borderCanvases[sid]:level(hs.canvas.windowLevels.overlay)
-        else
-            M.borderCanvases[sid]:frame(s:fullFrame())
-        end
-
-        local c = M.borderCanvases[sid]
-        c:replaceElements() -- clear
-
-        -- Draw borders for windows on this screen
-        local sFrame = s:fullFrame()
-        for _, win in ipairs(activeWins) do
-            local wf = win:frame()
-            -- Check if window is on this screen (rough intersection)
-            if wf.x < sFrame.x + sFrame.w and wf.x + wf.w > sFrame.x and
-               wf.y < sFrame.y + sFrame.h and wf.y + wf.h > sFrame.y then
-
-                local isFocused = (win:id() == focusedId)
-                local color = isFocused and {hex="#734899", alpha=1.0} or {hex="#444444", alpha=0.8}
-
-                -- Convert global coordinates to canvas-local coordinates
-                local localFrame = {
-                    x = wf.x - sFrame.x,
-                    y = wf.y - sFrame.y,
-                    w = wf.w,
-                    h = wf.h
-                }
-
-                c:appendElements({
-                    type = "rectangle",
-                    action = "stroke",
-                    strokeColor = color,
-                    strokeWidth = 4,
-                    frame = localFrame,
-                    roundedRectRadii = {xRadius = 6, yRadius = 6}
-                })
-            end
-        end
-        c:show()
-    end
-
-    -- Cleanup old canvases for disconnected screens
-    for sid, canvas in pairs(M.borderCanvases) do
-        if not usedScreens[sid] then
-            canvas:delete()
-            M.borderCanvases[sid] = nil
-        end
-    end
-end
-
--- =============================================================================
 -- Battery Saver Mode
 -- =============================================================================
 
@@ -279,16 +152,11 @@ function M.toggleBatterySaver()
 
     if state.batterySaverEnabled then
         state.batterySaverPreviousState.sketchybar = state.sketchybarEnabled
-        state.batterySaverPreviousState.borders = state.bordersEnabled
 
         os.execute("pkill -x sketchybar 2>/dev/null")
         state.sketchybarEnabled = false
 
-        M.stopBorders()
-        state.bordersEnabled = false
-        state.bordersCurrentlyShowing = false
-
-        hs.alert.show("🔋 Battery Saver: ON\nSketchybar & Borders disabled", 2)
+        hs.alert.show("🔋 Battery Saver: ON\nSketchybar disabled", 2)
     else
         if state.batterySaverPreviousState.sketchybar then
             os.execute("/bin/zsh -l -c 'sketchybar &' &")
@@ -296,11 +164,6 @@ function M.toggleBatterySaver()
             hs.timer.doAfter(1, function()
                 M.updateSketchybar()
             end)
-        end
-
-        if state.batterySaverPreviousState.borders then
-            state.bordersEnabled = true
-            M.updateBordersVisibility()
         end
 
         hs.alert.show("⚡ Battery Saver: OFF\nFeatures restored", 2)
@@ -518,13 +381,6 @@ function M.init()
 
     -- Setup system watcher for wake/unlock events
     M.setupSystemWatcher()
-
-    -- Restore borders state
-    if state.bordersEnabled then
-        scheduleInit(2, function()
-            M.updateBordersVisibility()
-        end)
-    end
 
     -- Restart sketchybar if needed, or kill it if it should be hidden
     hs.task.new("/bin/zsh", function(exitCode)

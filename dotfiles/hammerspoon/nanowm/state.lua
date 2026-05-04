@@ -46,19 +46,35 @@ M.lastIntendedFocusId = nil
 
 -- Pruning function to prevent memory leaks
 M.pruneTimer = hs.timer.new(3600, function()
+    -- Only prune if we have managed windows tracked, otherwise it might be a weird state
+    local managed = require("nanowm.watchers").getManagedWindows()
+    if #managed == 0 then return end
+
     local validIds = {}
-    for _, win in ipairs(require("nanowm.watchers").getManagedWindows()) do
+    for _, win in ipairs(managed) do
         validIds[tostring(win:id())] = true
     end
+
+    -- Also include all windows currently on tags to be extra safe
+    for id, _ in pairs(M.tags) do
+        local w = hs.window(id)
+        if w and w:id() then validIds[tostring(id)] = true end
+    end
+
     for idStr, _ in pairs(M.floatingCache) do
         if not validIds[idStr] then M.floatingCache[idStr] = nil end
     end
     for idStr, _ in pairs(M.sizeCache) do
         if not validIds[idStr] then M.sizeCache[idStr] = nil end
     end
-    local tagMemCount = 0
-    for _ in pairs(M.appTagMemory) do tagMemCount = tagMemCount + 1 end
-    if tagMemCount > 1000 then M.appTagMemory = {} end
+
+    -- Caps for tag memory
+    local keys = {}
+    for k, _ in pairs(M.appTagMemory) do table.insert(keys, k) end
+    if #keys > 1000 then
+        -- Simple clear if too large
+        M.appTagMemory = {}
+    end
     M.triggerSave()
 end)
 M.pruneTimer:start()
@@ -67,7 +83,6 @@ M.pruneTimer:start()
 M.special = {
     active = false,
     tag = config.specialTag,
-    border = nil,
     raiseTimer = nil,
 }
 
@@ -92,8 +107,6 @@ M.actionsCache = {}
 
 -- Integration state
 M.sketchybarEnabled = false
-M.bordersEnabled = false
-M.bordersCurrentlyShowing = false
 M.batterySaverEnabled = false
 M.batterySaverPreviousState = {}
 M.kanataMode = "homerow"
@@ -276,14 +289,19 @@ function M.isTagFree(tag)
 end
 
 function M.getScreenForTag(tag)
-    -- Tags 1-10 on primary, Tags 11-20 on secondary, etc.
     local screens = hs.screen.allScreens()
     if #screens == 0 then return nil end
 
     if tag == M.special.tag then return screens[1] end
 
     local numTag = tonumber(tag)
-    if numTag then
+    if not numTag then return screens[1] end
+
+    if #screens == 1 then
+        -- All tags on primary if only 1 screen
+        return screens[1]
+    else
+        -- AwesomeWM style: fixed mapping if 2+ screens
         local monitorIdx = math.floor((numTag - 1) / 10) + 1
         if monitorIdx <= #screens then
             return screens[monitorIdx]

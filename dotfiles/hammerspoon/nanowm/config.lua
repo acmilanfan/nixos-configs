@@ -10,7 +10,7 @@ M.VERSION = "v40"
 
 -- Layout defaults
 M.defaultMasterWidth = 0.5
-M.gap = 0
+M.gap = 4
 M.borderWidth = 4
 M.layout = "vertical"  -- "vertical", "horizontal", "mono", "scrolling"
 
