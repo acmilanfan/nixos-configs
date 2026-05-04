@@ -289,6 +289,7 @@ end
 -- =============================================================================
 
 local systemWatcher = nil
+local pendingWakeReload = nil
 
 function M.reloadKanata()
     local script = os.getenv("HOME") .. "/.config/kanata/reload-kanata.sh"
@@ -328,29 +329,26 @@ function M.setupSystemWatcher()
             -- Force clock update immediately on wake
             hs.task.new("/bin/zsh", nil, { "-c", "sketchybar --trigger clock_tick" }):start()
 
-            -- Always reload Kanata on wake: both instances race to grab the Apple Internal Keyboard
-            -- via IOKit exclusive access. The loser stays running (so TCP port checks pass) but
-            -- silently drops all keyboard input. The only reliable fix is an unconditional reload.
-            -- Delay of 1.0s: enough for launchd to fire its KeepAlive restarts (both have sleep 1
-            -- in their startup command, so they're opening HID devices right at t=1). We skip the
-            -- darwin-startup kickstart here to avoid the extra 0.8s wait — it's not needed on wake.
-            hs.timer.doAfter(1.0, function()
-                -- Kill karabiner_grabber if it reappeared before reloading
-                hs.task.new("/usr/bin/pgrep", function(pgrepExitCode)
-                    if pgrepExitCode == 0 then
-                        print("[NanoWM] Karabiner grabber detected after wake, killing before reload...")
-                        hs.task.new("/usr/bin/sudo", nil, { "-n", "/usr/bin/killall", "-9", "karabiner_grabber" }):start()
+            -- Debounce: systemDidWake, screensDidWake, and screensDidUnlock all fire within
+            -- milliseconds of each other. Without debouncing, three parallel reload-kanata.sh
+            -- instances race against each other — each one kills what the previous one just
+            -- started — producing failures and a 30-60s delay before mods work.
+            -- Cancel any pending timer and restart it so only one reload fires per wake cycle.
+            if pendingWakeReload then
+                pendingWakeReload:stop()
+                pendingWakeReload = nil
+            end
+            pendingWakeReload = hs.timer.doAfter(1.0, function()
+                pendingWakeReload = nil
+                local script = os.getenv("HOME") .. "/.config/kanata/reload-kanata.sh"
+                print("[NanoWM] Reloading Kanata after wake...")
+                hs.task.new("/bin/zsh", function(exitCode, _, stdErr)
+                    if exitCode == 0 then
+                        print("[NanoWM] Kanata reloaded successfully after wake")
+                    else
+                        print("[NanoWM] Kanata reload failed after wake: " .. (stdErr or "unknown"))
                     end
-                    local script = os.getenv("HOME") .. "/.config/kanata/reload-kanata.sh"
-                    print("[NanoWM] Reloading Kanata after wake (direct)...")
-                    hs.task.new("/bin/zsh", function(exitCode, _, stdErr)
-                        if exitCode == 0 then
-                            print("[NanoWM] Kanata reloaded successfully after wake")
-                        else
-                            print("[NanoWM] Kanata reload failed after wake: " .. (stdErr or "unknown"))
-                        end
-                    end, { "-c", "bash " .. script }):start()
-                end, { "-x", "karabiner_grabber" }):start()
+                end, { "-c", "bash " .. script }):start()
             end)
         end
     end)
