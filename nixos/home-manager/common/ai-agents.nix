@@ -80,7 +80,7 @@ let
         hooks = [
           {
             type = "command";
-            command = "agent-state --agent gemini --state off";
+            command = "agent-state --agent gemini --state done";
           }
         ];
       }
