@@ -12,7 +12,6 @@ let
   };
   jdtlsWrapped = pkgs.writeShellScriptBin "jdtls" ''
     ${unstable.jdt-language-server}/bin/jdtls \
-      -data $HOME/.cache/jdtls/$PWD \
       --jvm-arg=-javaagent:${unstable.lombok}/share/java/lombok.jar
   '';
 in
@@ -147,7 +146,6 @@ in
       lualine-nvim
       orgmode
       nvim-cmp
-      nvim-tree-lua
       nightfox-nvim
       nvim-web-devicons
       hop-nvim

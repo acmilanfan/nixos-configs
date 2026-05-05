@@ -19,7 +19,7 @@ vim.o.softtabstop = 4
 vim.o.shiftwidth = 4
 vim.o.conceallevel = 2
 vim.o.scrolloff = 8
-vim.o.updatetime = 50
+vim.o.updatetime = 200
 vim.o.colorcolumn = "120"
 vim.o.wrap = false
 vim.wo.number = true
@@ -42,7 +42,10 @@ local bufwritegroup = vim.api.nvim_create_augroup("BufWriteGroup", {})
 vim.api.nvim_create_autocmd({ "BufWritePre" }, {
   group = bufwritegroup,
   pattern = "*",
-  command = [[%s/\s\+$//e]],
+  callback = function()
+    if vim.bo.filetype == "markdown" then return end
+    vim.cmd([[%s/\s\+$//e]])
+  end,
 })
 
 local builtin = require("telescope.builtin")
@@ -350,10 +353,13 @@ vim.api.nvim_create_autocmd("FileType", {
 vim.api.nvim_create_autocmd("FileType", {
   pattern = { "java" },
   callback = function()
+    local root_dir = vim.fs.dirname(vim.fs.find({ ".git", "pom.xml", "mvnw", "gradlew" }, { upward = true })[1])
+    local workspace_dir = vim.fn.expand("~/.cache/jdtls/") .. vim.fn.fnamemodify(root_dir, ":t")
     local config = {
       cmd = { "jdtls" },
       capabilities = capabilities,
-      root_dir = vim.fs.dirname(vim.fs.find({ ".git", "pom.xml", "mvnw", "gradlew" }, { upward = true })[1]),
+      root_dir = root_dir,
+      data = workspace_dir,
       settings = {
         java = {
           format = {
@@ -473,28 +479,14 @@ vim.lsp.config("yamlls", {
   },
 })
 
-local lemminx_home = vim.env["LEMMINX_HOME"]
-if lemminx_home then
-  local lemminx_jars = {}
-  for _, bundle in ipairs(vim.split(vim.fn.glob(lemminx_home .. "/*.jar"), "\n")) do
-    table.insert(lemminx_jars, bundle)
-  end
-
-  local lemminxStr = vim.fn.join(lemminx_jars, ":")
-  cmd = {
-    "java",
-    "-cp",
-    lemminxStr,
-    "org.eclipse.lemminx.XMLServerLauncher",
-  }
-end
 vim.lsp.config("lemminx", {
   capabilities = capabilities,
-  cmd = cmd,
+  cmd = { "lemminx" },
+  filetypes = { "xml", "xsd", "xsl", "xslt", "svg" },
 })
 
 vim.lsp.enable("nil_ls")
-vim.lsp.enable("lemmnix")
+vim.lsp.enable("lemminx")
 vim.lsp.enable("lua_ls")
 vim.lsp.enable("vue_ls")
 vim.lsp.enable("ts_ls")

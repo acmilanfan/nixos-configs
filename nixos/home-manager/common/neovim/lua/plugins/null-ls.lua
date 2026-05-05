@@ -1,5 +1,6 @@
 local null_ls = require("null-ls")
 null_ls.setup({
+    debounce = 300,
     sources = {
         null_ls.builtins.formatting.stylua,
         null_ls.builtins.formatting.gofmt,
@@ -13,6 +14,7 @@ null_ls.setup({
         -- null_ls.builtins.diagnostics.eslint,
         null_ls.builtins.diagnostics.yamllint,
         null_ls.builtins.diagnostics.checkstyle.with({
+            method = null_ls.methods.DIAGNOSTICS_ON_SAVE,
             extra_args = {
                 "-c",
                 vim.fn.expand("~/configs/nixos-configs/nixos/home-manager/common/neovim/java/checkstyle.xml"),

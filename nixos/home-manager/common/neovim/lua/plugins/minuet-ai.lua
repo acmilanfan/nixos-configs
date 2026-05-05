@@ -1,6 +1,6 @@
 require("minuet").setup({
   cmp = {
-    enable_auto_complete = true,
+    enable_auto_complete = false,
   },
   provider = "codestral",
   provider_options = {

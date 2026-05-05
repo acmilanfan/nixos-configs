@@ -77,7 +77,6 @@ cmp.setup({
         ["<A-Space>"] = require("minuet").make_cmp_map(),
     }),
     sources = {
-        { name = "minuet" },
         { name = "nvim_lsp" },
         { name = "luasnip" },
         { name = "nvim_lua" },
@@ -85,6 +84,7 @@ cmp.setup({
         { name = "tmux" },
         { name = "emoji" },
         { name = "orgmode" },
+        { name = "minuet" },
     },
     performance = {
         fetching_timeout = 2000,
