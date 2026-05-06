@@ -356,10 +356,9 @@ vim.api.nvim_create_autocmd("FileType", {
     local root_dir = vim.fs.dirname(vim.fs.find({ ".git", "pom.xml", "mvnw", "gradlew" }, { upward = true })[1])
     local workspace_dir = vim.fn.expand("~/.cache/jdtls/") .. vim.fn.fnamemodify(root_dir, ":t")
     local config = {
-      cmd = { "jdtls" },
+      cmd = { "jdtls", "--data", workspace_dir },
       capabilities = capabilities,
       root_dir = root_dir,
-      data = workspace_dir,
       settings = {
         java = {
           format = {
