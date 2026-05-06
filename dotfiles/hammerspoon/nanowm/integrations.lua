@@ -290,6 +290,7 @@ end
 
 local systemWatcher = nil
 local pendingWakeReload = nil
+local pendingWakeSketchybar = nil
 
 function M.reloadKanata()
     local script = os.getenv("HOME") .. "/.config/kanata/reload-kanata.sh"
@@ -349,6 +350,18 @@ function M.setupSystemWatcher()
                         print("[NanoWM] Kanata reload failed after wake: " .. (stdErr or "unknown"))
                     end
                 end, { "-c", "bash " .. script }):start()
+            end)
+
+            -- Refresh sketchybar state after wake. Sketchybar can re-initialize its items
+            -- to drawing=off on wake, and the Accessibility API needs time to settle before
+            -- allWindows() returns the full window list. 2.5s gives both enough time.
+            if pendingWakeSketchybar then
+                pendingWakeSketchybar:stop()
+                pendingWakeSketchybar = nil
+            end
+            pendingWakeSketchybar = hs.timer.doAfter(2.5, function()
+                pendingWakeSketchybar = nil
+                M.updateSketchybar()
             end)
         end
     end)
