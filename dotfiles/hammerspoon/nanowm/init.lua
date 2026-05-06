@@ -130,6 +130,13 @@ function M.init()
     -- Load persisted state
     state.load()
 
+    -- Restore caffeinate state
+    if state.caffeinateActive then
+        hs.caffeinate.set("displayIdle", true, true)
+        local status = "on"
+        hs.task.new("/bin/zsh", nil, { "-c", "sketchybar --trigger nanowm_caffeinate STATE=" .. status }):start()
+    end
+
     -- Setup window watchers
     watchers.setup()
 

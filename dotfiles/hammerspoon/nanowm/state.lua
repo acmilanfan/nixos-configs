@@ -161,6 +161,7 @@ function M.load()
     M.sketchybarEnabled = hs.settings.get("nanoWM_sketchybarEnabled") or false
     M.bordersEnabled = hs.settings.get("nanoWM_bordersEnabled") or false
     M.kanataMode = hs.settings.get("nanoWM_kanataMode") or "homerow"
+    M.caffeinateActive = hs.settings.get("nanoWM_caffeinateActive") or false
 end
 
 function M.save()
@@ -188,6 +189,7 @@ function M.save()
     hs.settings.set("nanoWM_freeTags", serialize(M.freeTags))
     hs.settings.set("nanoWM_freeTagPositions", M.freeTagPositions)
     hs.settings.set("nanoWM_kanataMode", M.kanataMode)
+    hs.settings.set("nanoWM_caffeinateActive", M.caffeinateActive)
 end
 
 function M.triggerSave()
