@@ -353,6 +353,9 @@ in
       defaults write -g NSGlassDiffusionSetting -bool true
       defaults write -g SLSMenuBarUseBlurredAppearance -bool true
 
+      # Battery charge threshold (macOS 26.4+)
+      defaults write com.apple.batteryui.charging.mac com.apple.batteryui.charging.mac.prior.limit -float 80.0
+
       # Set cursor fill (Black)
       defaults write com.apple.universalaccess cursorFill -dict \
         red -float 0 \
@@ -370,7 +373,11 @@ in
 
     # Following line should allow us to avoid a logout/login cycle when changing settings
     sudo -u ${user} /System/Library/PrivateFrameworks/SystemAdministration.framework/Resources/activateSettings -u
-    sudo -u ${user} killall universalaccessd SystemUIServer Dock WindowManager 2>/dev/null || true
+    sudo -u ${user} killall universalaccessd SystemUIServer Dock WindowManager batteryui 2>/dev/null || true
+
+    # Clear quarantine attribute for Hammerspoon to prevent IPC hook prompts
+    echo "Clearing quarantine attributes for Hammerspoon..."
+    xattr -r -d com.apple.quarantine /Applications/Hammerspoon.app 2>/dev/null || true
 
     # Setup warpd stable path for Accessibility permissions
     echo "Ensuring warpd stable binary path for Accessibility permissions..."
@@ -406,6 +413,16 @@ in
       "NSGlobalDomain" = {
         NSGlassDiffusionSetting = true;
         SLSMenuBarUseBlurredAppearance = true;
+        AppleHighlightColor = "0.968627 0.831373 1.000000 Purple";
+        AppleLanguages = [
+          "en-US"
+          "de-DE"
+          "ru-DE"
+        ];
+        AppleLocale = "en_US@rg=dezzzz";
+      };
+      "com.apple.batteryui.charging.mac" = {
+        "com.apple.batteryui.charging.mac.prior.limit" = 80.0;
       };
       "com.apple.HIToolbox" = {
         AppleCurrentKeyboardLayoutInputSourceID = "com.apple.keylayout.US";
@@ -431,15 +448,6 @@ in
           }
         ];
         AppleFnUsageType = 1;
-      };
-      "NSGlobalDomain" = {
-        AppleHighlightColor = "0.968627 0.831373 1.000000 Purple";
-        AppleLanguages = [
-          "en-US"
-          "de-DE"
-          "ru-DE"
-        ];
-        AppleLocale = "en_US@rg=dezzzz";
       };
       "com.apple.symbolichotkeys" = {
         AppleSymbolicHotKeys = {
