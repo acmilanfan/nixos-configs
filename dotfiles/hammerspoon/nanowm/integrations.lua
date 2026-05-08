@@ -291,6 +291,7 @@ end
 local systemWatcher = nil
 local pendingWakeReload = nil
 local pendingWakeSketchybar = nil
+local wakeReloadRunning = false
 
 function M.reloadKanata()
     local script = os.getenv("HOME") .. "/.config/kanata/reload-kanata.sh"
@@ -335,15 +336,22 @@ function M.setupSystemWatcher()
             -- instances race against each other — each one kills what the previous one just
             -- started — producing failures and a 30-60s delay before mods work.
             -- Cancel any pending timer and restart it so only one reload fires per wake cycle.
+            -- wakeReloadRunning guards against screensDidUnlock firing after the debounce
+            -- window already fired (e.g. slow password entry), which would start a second
+            -- parallel reload while the first is still running.
+            if wakeReloadRunning then return end
             if pendingWakeReload then
                 pendingWakeReload:stop()
                 pendingWakeReload = nil
             end
             pendingWakeReload = hs.timer.doAfter(1.0, function()
                 pendingWakeReload = nil
+                if wakeReloadRunning then return end
+                wakeReloadRunning = true
                 local script = os.getenv("HOME") .. "/.config/kanata/reload-kanata.sh"
                 print("[NanoWM] Reloading Kanata after wake...")
                 hs.task.new("/bin/zsh", function(exitCode, _, stdErr)
+                    wakeReloadRunning = false
                     if exitCode == 0 then
                         print("[NanoWM] Kanata reloaded successfully after wake")
                     else
