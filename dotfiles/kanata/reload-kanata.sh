@@ -31,7 +31,10 @@ restart_service() {
             sudo launchctl kickstart -k "$DOMAIN"/"$LABEL"
         elif [[ -f "$PLIST" ]]; then
             print_status "Bootstrapping $LABEL ($DOMAIN)..."
-            sudo launchctl bootstrap "$DOMAIN" "$PLIST"
+            # bootstrap fails with EIO on some macOS versions; fall back to load
+            if ! sudo launchctl bootstrap "$DOMAIN" "$PLIST" 2>/dev/null; then
+                sudo launchctl load "$PLIST" 2>/dev/null || true
+            fi
         fi
     else
         if launchctl list "$LABEL" >/dev/null 2>&1; then
@@ -39,7 +42,9 @@ restart_service() {
             launchctl kickstart -k "$DOMAIN"/"$LABEL"
         elif [[ -f "$PLIST" ]]; then
             print_status "Bootstrapping $LABEL ($DOMAIN)..."
-            launchctl bootstrap "$DOMAIN" "$PLIST"
+            if ! launchctl bootstrap "$DOMAIN" "$PLIST" 2>/dev/null; then
+                launchctl load "$PLIST" 2>/dev/null || true
+            fi
         fi
     fi
 }
@@ -91,6 +96,14 @@ reload_instance() {
 print_status "Starting Optimized Kanata reload..."
 
 EXIT_CODE=0
+
+# Force-kill all running kanata binaries first.
+# kickstart -k sends SIGTERM, but kanata's IOKit HID event loop can block signal
+# delivery, leaving the old process holding the TCP port. The new launchd instance
+# then crashes immediately with EADDRINUSE, entering a restart loop.
+print_status "Force-killing any running kanata binaries..."
+sudo pkill -9 -f "/opt/homebrew/bin/kanata " 2>/dev/null || true
+sleep 0.3
 
 # Boot out Charybdis BEFORE starting Main so Main wins the IOKit exclusive-access race.
 # Both instances seize ALL HID devices (including Apple Internal Keyboard) regardless of
