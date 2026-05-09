@@ -352,12 +352,11 @@ function M.resizeFloatingWindow(direction)
     if not win or not core.isFloating(win) then return end
 
     local frame = win:frame()
-    local screen = win:screen():frame()
     local delta = 0.05
 
     if direction == "wider" then
         local oldW = frame.w
-        frame.w = math.min(frame.w * (1 + delta), screen.w)
+        frame.w = frame.w * (1 + delta)
         frame.x = frame.x - (frame.w - oldW) / 2
     elseif direction == "narrower" then
         local oldW = frame.w
@@ -365,7 +364,7 @@ function M.resizeFloatingWindow(direction)
         frame.x = frame.x + (oldW - frame.w) / 2
     elseif direction == "taller" then
         local oldH = frame.h
-        frame.h = math.min(frame.h * (1 + delta), screen.h)
+        frame.h = frame.h * (1 + delta)
         frame.y = frame.y - (frame.h - oldH) / 2
     elseif direction == "shorter" then
         local oldH = frame.h
@@ -440,17 +439,16 @@ function M.moveFloatingWindow(direction)
     end
 
     local frame = win:frame()
-    local screen = win:screen():frame()
     local step = 50
 
     if direction == "left" then
-        frame.x = math.max(frame.x - step, screen.x)
+        frame.x = frame.x - step
     elseif direction == "right" then
-        frame.x = math.min(frame.x + step, screen.x + screen.w - frame.w)
+        frame.x = frame.x + step
     elseif direction == "up" then
-        frame.y = math.max(frame.y - step, screen.y)
+        frame.y = frame.y - step
     elseif direction == "down" then
-        frame.y = math.min(frame.y + step, screen.y + screen.h - frame.h)
+        frame.y = frame.y + step
     end
 
     win:setFrame(frame)
