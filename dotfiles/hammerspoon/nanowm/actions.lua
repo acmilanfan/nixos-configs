@@ -238,6 +238,24 @@ function M.cycleFocus(dir)
 end
 
 -- =============================================================================
+-- Picture-in-Picture Focus
+-- =============================================================================
+
+function M.focusPip()
+    local wins = hs.window.allWindows()
+    for _, win in ipairs(wins) do
+        local title = win:title()
+        if title == "Picture-in-Picture" or title == "Picture in Picture" then
+            win:focus()
+            win:raise()
+            hs.alert.show("Focused PiP", 0.5)
+            return
+        end
+    end
+    hs.alert.show("No PiP window found", 0.5)
+end
+
+-- =============================================================================
 -- Window Swapping
 -- =============================================================================
 
@@ -352,24 +370,48 @@ function M.resizeFloatingWindow(direction)
     if not win or not core.isFloating(win) then return end
 
     local frame = win:frame()
+    local title = win:title()
+    local isPip = (title == "Picture-in-Picture" or title == "Picture in Picture")
     local delta = 0.05
+    local aspect = frame.w / frame.h
 
     if direction == "wider" then
         local oldW = frame.w
         frame.w = frame.w * (1 + delta)
-        frame.x = frame.x - (frame.w - oldW) / 2
+        if isPip then
+            frame.h = frame.w / aspect
+            -- For PiP, enlarging from center often fails; try resizing from bottom-left anchor
+            frame.y = frame.y - (frame.h - (oldW / aspect))
+        else
+            frame.x = frame.x - (frame.w - oldW) / 2
+        end
     elseif direction == "narrower" then
         local oldW = frame.w
         frame.w = math.max(frame.w * (1 - delta), 200)
-        frame.x = frame.x + (oldW - frame.w) / 2
+        if isPip then
+            frame.h = frame.w / aspect
+            frame.y = frame.y + ((oldW / aspect) - frame.h)
+        else
+            frame.x = frame.x + (oldW - frame.w) / 2
+        end
     elseif direction == "taller" then
         local oldH = frame.h
         frame.h = frame.h * (1 + delta)
-        frame.y = frame.y - (frame.h - oldH) / 2
+        if isPip then
+            frame.w = frame.h * aspect
+            frame.x = frame.x - (frame.w - (oldH * aspect))
+        else
+            frame.y = frame.y - (frame.h - oldH) / 2
+        end
     elseif direction == "shorter" then
         local oldH = frame.h
         frame.h = math.max(frame.h * (1 - delta), 200)
-        frame.y = frame.y + (oldH - frame.h) / 2
+        if isPip then
+            frame.w = frame.h * aspect
+            frame.x = frame.x + ((oldH * aspect) - frame.w)
+        else
+            frame.y = frame.y + (oldH - frame.h) / 2
+        end
     end
 
     win:setFrame(frame)

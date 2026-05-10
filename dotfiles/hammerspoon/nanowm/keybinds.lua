@@ -56,6 +56,7 @@ function M.setup()
     -- =========================================================================
     hs.hotkey.bind(alt, "j", function() actions.cycleFocus(1) end)
     hs.hotkey.bind(alt, "k", function() actions.cycleFocus(-1) end)
+    hs.hotkey.bind(alt, "v", actions.focusPip)
 
     hs.hotkey.bind(alt, "h", function() actions.adjustTiledSize("narrower") end)
     hs.hotkey.bind(alt, "l", function() actions.adjustTiledSize("wider") end)

@@ -435,7 +435,3 @@ function M.init()
 end
 
 return M
-rep -x sketchybar" }):start()
-end
-
-return M
