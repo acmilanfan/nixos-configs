@@ -267,6 +267,10 @@ function M.switchKanata(mode)
     end, { "-c", script .. " " .. mode }):start()
 end
 
+function M.reloadKanataManual()
+    M.reloadKanata(true)
+end
+
 function M.toggleKanata()
     local nextMode = (state.kanataMode == "homerow") and "default" or "homerow"
     M.switchKanata(nextMode)
@@ -293,28 +297,28 @@ local pendingWakeReload = nil
 local pendingWakeSketchybar = nil
 local wakeReloadRunning = false
 
-function M.reloadKanata()
+function M.reloadKanata(callback)
     local script = os.getenv("HOME") .. "/.config/kanata/reload-kanata.sh"
     if not hs.fs.attributes(script) then
         print("[NanoWM] Kanata reload script not found: " .. script)
+        if callback then callback(false) end
         return
     end
 
-    print("[NanoWM] Re-triggering driver initialization...")
-    -- Run darwin-startup to ensure Karabiner drivers and HID environment is clean
-    hs.task.new("/bin/zsh", nil, { "-c", "launchctl kickstart -k gui/$(id -u)/local.darwin-startup" }):start()
-
-    -- Wait a moment for drivers to settle before reloading Kanata
-    hs.timer.doAfter(0.8, function()
-        print("[NanoWM] Reloading Kanata instances...")
-        hs.task.new("/bin/zsh", function(exitCode, _, stdErr)
-            if exitCode == 0 then
-                print("[NanoWM] Kanata reloaded successfully")
-            else
-                print("[NanoWM] Kanata reload failed: " .. (stdErr or "unknown error"))
-            end
-        end, { "-c", "bash " .. script }):start()
-    end)
+    print("[NanoWM] Triggering Kanata rapid restart...")
+    -- We no longer call launchctl kickstart here because reload-kanata.sh
+    -- now uses pkill -9 which relies on launchd's KeepAlive=true.
+    -- This is much faster and doesn't block.
+    hs.task.new("/bin/zsh", function(exitCode, _, stdErr)
+        wakeReloadRunning = false
+        if exitCode == 0 then
+            print("[NanoWM] Kanata restart triggered successfully")
+            if callback then callback(true) end
+        else
+            print("[NanoWM] Kanata restart trigger failed: " .. (stdErr or "unknown error"))
+            if callback then callback(false) end
+        end
+    end, { "-c", "bash " .. script }):start()
 end
 
 function M.setupSystemWatcher()
@@ -344,20 +348,14 @@ function M.setupSystemWatcher()
                 pendingWakeReload:stop()
                 pendingWakeReload = nil
             end
-            pendingWakeReload = hs.timer.doAfter(1.0, function()
+            pendingWakeReload = hs.timer.doAfter(0.4, function()
                 pendingWakeReload = nil
                 if wakeReloadRunning then return end
                 wakeReloadRunning = true
-                local script = os.getenv("HOME") .. "/.config/kanata/reload-kanata.sh"
-                print("[NanoWM] Reloading Kanata after wake...")
-                hs.task.new("/bin/zsh", function(exitCode, _, stdErr)
-                    wakeReloadRunning = false
-                    if exitCode == 0 then
-                        print("[NanoWM] Kanata reloaded successfully after wake")
-                    else
-                        print("[NanoWM] Kanata reload failed after wake: " .. (stdErr or "unknown"))
-                    end
-                end, { "-c", "bash " .. script }):start()
+                print("[NanoWM] Smart health check for Kanata after wake...")
+                M.reloadKanata(false)
+                -- Reset the flag after a short delay since reloadKanata is async
+                hs.timer.doAfter(3.0, function() wakeReloadRunning = false end)
             end)
 
             -- Refresh sketchybar state after wake. Sketchybar can re-initialize its items
@@ -434,6 +432,10 @@ function M.init()
             end
         end
     end, { "-c", "pgrep -x sketchybar" }):start()
+end
+
+return M
+rep -x sketchybar" }):start()
 end
 
 return M

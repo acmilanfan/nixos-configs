@@ -130,14 +130,11 @@ in
   ];
 
   launchd.daemons.kanata = {
-    command = "/bin/bash -c 'sleep 1; /bin/launchctl kill SIGTERM system/local.kanata-charibdis 2>/dev/null || true; exec /opt/homebrew/bin/kanata -n --cfg /Users/${user}/.config/kanata/active_config.kbd --port 5829'";
+    command = "/bin/bash -c 'exec /opt/homebrew/bin/kanata -n --cfg /Users/${user}/.config/kanata/active_config.kbd --port 5829'";
 
     serviceConfig = {
       Label = "local.kanata";
-      KeepAlive = {
-        Crashed = true;
-        SuccessfulExit = false;
-      };
+      KeepAlive = true;
       RunAtLoad = true;
       ProcessType = "Interactive";
       StandardOutPath = "/tmp/kanata.log";
@@ -146,14 +143,11 @@ in
   };
 
   launchd.daemons.kanata-charibdis = {
-    command = "/bin/bash -c 'sleep 4; exec /opt/homebrew/bin/kanata -n --cfg /Users/${user}/.config/kanata/kanata-charibdis-browser.kbd --port 5830'";
+    command = "/bin/bash -c 'for i in {1..50}; do pgrep -f \"^/opt/homebrew/bin/kanata.*--port 5829\" >/dev/null && break; sleep 0.1; done; sleep 0.5; exec /opt/homebrew/bin/kanata -n --cfg /Users/${user}/.config/kanata/kanata-charibdis-browser.kbd --port 5830'";
 
     serviceConfig = {
       Label = "local.kanata-charibdis";
-      KeepAlive = {
-        Crashed = true;
-        SuccessfulExit = false;
-      };
+      KeepAlive = true;
       RunAtLoad = true;
       ProcessType = "Interactive";
       StandardOutPath = "/tmp/kanata-charibdis.log";
@@ -169,13 +163,10 @@ in
   '';
 
   launchd.agents.kanata-vk-agent = {
-    command = "/bin/bash -c 'sleep 5; exec /opt/homebrew/bin/kanata-vk-agent -p 5829 -b com.apple.Safari,org.mozilla.firefox,com.google.Chrome,arc.browser -i com.apple.keylayout.ABC'";
+    command = "/bin/bash -c 'for i in {1..50}; do pgrep -f \"^/opt/homebrew/bin/kanata.*--port 5829\" >/dev/null && break; sleep 0.1; done; sleep 0.2; exec /opt/homebrew/bin/kanata-vk-agent -p 5829 -b com.apple.Safari,org.mozilla.firefox,com.google.Chrome,arc.browser -i com.apple.keylayout.ABC'";
     serviceConfig = {
       Label = "local.kanata-vk-agent";
-      KeepAlive = {
-        Crashed = true;
-        SuccessfulExit = false;
-      };
+      KeepAlive = true;
       RunAtLoad = true;
       LimitLoadToSessionType = "Aqua";
       StandardOutPath = "/tmp/kanata_vk_agent_stdout.log";
@@ -184,13 +175,10 @@ in
   };
 
   launchd.agents.kanata-vk-agent-charibdis = {
-    command = "/bin/bash -c 'sleep 5; exec /opt/homebrew/bin/kanata-vk-agent -p 5830 -b com.apple.Safari,org.mozilla.firefox,com.google.Chrome,arc.browser -i com.apple.keylayout.ABC'";
+    command = "/bin/bash -c 'for i in {1..50}; do pgrep -f \"^/opt/homebrew/bin/kanata.*--port 5830\" >/dev/null && break; sleep 0.1; done; sleep 0.2; exec /opt/homebrew/bin/kanata-vk-agent -p 5830 -b com.apple.Safari,org.mozilla.firefox,com.google.Chrome,arc.browser -i com.apple.keylayout.ABC'";
     serviceConfig = {
       Label = "local.kanata-vk-agent-charibdis";
-      KeepAlive = {
-        Crashed = true;
-        SuccessfulExit = false;
-      };
+      KeepAlive = true;
       RunAtLoad = true;
       LimitLoadToSessionType = "Aqua";
       StandardOutPath = "/tmp/kanata_vk_agent_charibdis_stdout.log";
