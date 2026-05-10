@@ -251,6 +251,15 @@ function M.setup()
         )
     end)
 
+    hs.hotkey.bind(alt, "y", function()
+        focusOrCreateApp(
+            "YAZI",
+            string.format('open -n -a Alacritty --args -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "YAZI" -e zsh -c "yazi"', home),
+            0.8,
+            "Alacritty"
+        )
+    end)
+
     hs.hotkey.bind(altShift, "z", function()
         -- 1. Try to find existing window by stored ID
         local existingWin = state.weekenduoWinId and hs.window(state.weekenduoWinId)
@@ -362,7 +371,7 @@ function M.setup()
     end
 
     function leader:entered()
-        hs.alert.show("Leader: [a]pps [s]ystem [c]ontrol [r]eload [v]im [k] console", 999999)
+        hs.alert.show("Leader: [a]pps [s]ystem [c]ontrol [r]eload [v]im [k] console [y] yazi", 999999)
         leaderActive = true
         tags.updateBorder()
     end
@@ -376,6 +385,15 @@ function M.setup()
     -- Root level shortcuts
     leader:bind("", "escape", exitAll)
     leader:bind("", "q", exitAll)
+    leader:bind("", "y", function()
+        focusOrCreateApp(
+            "YAZI",
+            string.format('open -n -a Alacritty --args -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "YAZI" -e zsh -c "yazi"', home),
+            0.8,
+            "Alacritty"
+        )
+        exitAll()
+    end)
     leader:bind("", "r", function() hs.reload(); exitAll() end)
     leader:bind("", "k", function() hs.toggleConsole(); exitAll() end)
     leader:bind("", "v", function()
@@ -406,12 +424,21 @@ function M.setup()
     -- [a]pps Sub-modal
     leader:bind("", "a", function()
         hs.alert.closeAll()
-        hs.alert.show("Apps: [t/a] Alacritty [f/b] Firefox [s] Slack", 999999)
+        hs.alert.show("Apps: [t/a] Alacritty [f/b] Firefox [s] Slack [y] Yazi", 999999)
         appsModal:enter()
     end)
 
     appsModal:bind("", "escape", exitAll)
     appsModal:bind("", "q", exitAll)
+    appsModal:bind("", "y", function()
+        focusOrCreateApp(
+            "YAZI",
+            string.format('open -n -a Alacritty --args -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "YAZI" -e zsh -c "yazi"', home),
+            0.8,
+            "Alacritty"
+        )
+        exitAll()
+    end)
     appsModal:bind("", "t", function() core.launchTask("/usr/bin/open", { "-n", "-a", "Alacritty" }); exitAll() end)
     appsModal:bind("", "a", function() core.launchTask("/usr/bin/open", { "-n", "-a", "Alacritty" }); exitAll() end)
     appsModal:bind("", "f", function() core.launchTask("/usr/bin/open", { "-n", "-a", "Firefox" }); exitAll() end)
