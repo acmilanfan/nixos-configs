@@ -23,6 +23,9 @@ end)
 -- External Modules
 -- =============================================================================
 
+-- Required for the `hs` CLI tool
+require("hs.ipc")
+
 -- macOS Vim Navigation
 require("macos-vim-navigation/init")
 
