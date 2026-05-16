@@ -27,6 +27,7 @@ local layout = require("nanowm.layout")
 local actions = require("nanowm.actions")
 local tags = require("nanowm.tags")
 local menus = require("nanowm.menus")
+local overview = require("nanowm.overview")
 local integrations = require("nanowm.integrations")
 local keybinds = require("nanowm.keybinds")
 local watchers = require("nanowm.watchers")
@@ -53,6 +54,7 @@ end
 -- Re-export commonly used functions
 M.config = config
 M.state = state
+M.overview = overview
 
 -- Core functions
 M.isFloating = core.isFloating
@@ -77,6 +79,15 @@ M.resizeFloatingWindow = actions.resizeFloatingWindow
 M.moveFloatingWindow = actions.moveFloatingWindow
 M.toggleGaps = actions.toggleGaps
 M.toggleCaffeinate = actions.toggleCaffeinate
+
+function M.toggleOverview()
+    if state.overviewActive then
+        overview.hide()
+    else
+        overview.show()
+    end
+end
+M.toggleOverview = M.toggleOverview
 
 -- Tag functions
 M.gotoTag = tags.gotoTag

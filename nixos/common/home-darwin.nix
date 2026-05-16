@@ -210,6 +210,7 @@ in
     ".hammerspoon/nanowm/actions.lua".source = ../../dotfiles/hammerspoon/nanowm/actions.lua;
     ".hammerspoon/nanowm/tags.lua".source = ../../dotfiles/hammerspoon/nanowm/tags.lua;
     ".hammerspoon/nanowm/menus.lua".source = ../../dotfiles/hammerspoon/nanowm/menus.lua;
+    ".hammerspoon/nanowm/overview.lua".source = ../../dotfiles/hammerspoon/nanowm/overview.lua;
     ".hammerspoon/nanowm/integrations.lua".source = ../../dotfiles/hammerspoon/nanowm/integrations.lua;
     ".hammerspoon/nanowm/keybinds.lua".source = ../../dotfiles/hammerspoon/nanowm/keybinds.lua;
     ".hammerspoon/nanowm/watchers.lua".source = ../../dotfiles/hammerspoon/nanowm/watchers.lua;

@@ -283,6 +283,7 @@ function M.showKeybindMenu()
             binds = {
                 { key = "Alt+J", desc = "Focus next window", fn = function() actions.cycleFocus(1) end },
                 { key = "Alt+K", desc = "Focus previous window", fn = function() actions.cycleFocus(-1) end },
+                { key = "Alt+Tab", desc = "Visual Overview (Grid)", fn = function() require("nanowm").toggleOverview() end },
                 { key = "Alt+V", desc = "Focus PiP video", fn = actions.focusPip },
                 { key = "Alt+H", desc = "Decrease window/master size", fn = function() actions.adjustTiledSize("narrower") end },
                 { key = "Alt+L", desc = "Increase window/master size", fn = function() actions.adjustTiledSize("wider") end },

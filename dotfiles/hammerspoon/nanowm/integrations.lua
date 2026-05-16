@@ -375,6 +375,40 @@ function M.setupSystemWatcher()
 end
 
 -- =============================================================================
+-- Edge Trigger (Gesture Proxy)
+-- =============================================================================
+
+local edgeTriggerTap = nil
+local lastTriggerTime = 0
+
+function M.setupEdgeTrigger()
+    if edgeTriggerTap then edgeTriggerTap:stop() end
+
+    edgeTriggerTap = hs.eventtap.new({ hs.eventtap.event.types.mouseMoved }, function(event)
+        local now = hs.timer.secondsSinceEpoch()
+        if now - lastTriggerTime < 1 then return false end
+
+        local screen = hs.screen.mainScreen()
+        if not screen then return false end
+        local frame = screen:fullFrame()
+        local pos = event:location()
+
+        -- Check bottom edge
+        if pos.y >= (frame.y + frame.h - 2) then
+            -- Check horizontal range in center
+            local centerX = frame.x + (frame.w / 2)
+            if pos.x >= (centerX - 150) and pos.x <= (centerX + 150) then
+                lastTriggerTime = now
+                require("nanowm").toggleOverview()
+            end
+        end
+
+        return false
+    end)
+    edgeTriggerTap:start()
+end
+
+-- =============================================================================
 -- Initialization
 -- =============================================================================
 
@@ -432,6 +466,9 @@ function M.init()
             end
         end
     end, { "-c", "pgrep -x sketchybar" }):start()
+
+    -- Setup gesture proxy (edge trigger)
+    M.setupEdgeTrigger()
 end
 
 return M

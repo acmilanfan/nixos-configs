@@ -26,6 +26,12 @@ M.appTagMemory = {}
 M.freeTags = {}
 M.freeTagPositions = {}
 M.screenFrames = {}
+M.tagSnapshots = {}
+M.overviewActive = false
+
+-- Initialize tag snapshots
+for i = 1, 20 do M.tagSnapshots[i] = nil end
+M.tagSnapshots["special"] = nil
 
 -- Pending destruction tracking
 M.pendingDestruction = {}

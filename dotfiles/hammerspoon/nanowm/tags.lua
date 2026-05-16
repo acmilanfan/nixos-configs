@@ -117,6 +117,29 @@ function M.toggleFreeMode()
 end
 
 -- =============================================================================
+-- Snapshot Capture
+-- =============================================================================
+
+function M.captureSnapshot(tag)
+    tag = tag or (state.special.active and state.special.tag or state.currentTag)
+
+    -- If the tag has no tiled windows, clear the snapshot so we show "Empty" in overview
+    local wins = core.getTiledWindows(tag)
+    if #wins == 0 then
+        state.tagSnapshots[tag] = nil
+        return
+    end
+
+    local screen = hs.screen.mainScreen()
+    if not screen then return end
+
+    local snapshot = screen:snapshot()
+    if snapshot then
+        state.tagSnapshots[tag] = snapshot
+    end
+end
+
+-- =============================================================================
 -- Tag Navigation
 -- =============================================================================
 
@@ -180,6 +203,8 @@ function M.gotoTag(i)
     if i == state.currentTag and i == state.activeTags[monitorIdx] and not state.special.active then
         return
     end
+
+    M.captureSnapshot()
 
     -- Save current tag state just in case
     state.tagFullscreenState[state.currentTag] = state.isFullscreen
@@ -268,6 +293,8 @@ function M.toggleSpecial()
     if focusedWin and state.tags[focusedWin:id()] == oldContextTag then
         state.tagLastFocused[oldContextTag] = focusedWin:id()
     end
+
+    M.captureSnapshot()
 
     state.special.active = not state.special.active
 
