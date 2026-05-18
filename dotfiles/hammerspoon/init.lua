@@ -148,3 +148,34 @@ local function cycleInputSource()
 end
 
 hs.hotkey.bind({ "ctrl", "shift" }, "space", cycleInputSource)
+
+-- =============================================================================
+-- Caps Lock Watcher for SketchyBar
+-- =============================================================================
+
+local lastCapsLockState = hs.hid.capslock.get()
+
+local function updateCapsLock(force)
+    local currentState = hs.hid.capslock.get()
+    if force or currentState ~= lastCapsLockState then
+        lastCapsLockState = currentState
+        local stateStr = currentState and "on" or "off"
+        -- Use absolute path for sketchybar to ensure it works regardless of PATH
+        local sketchybarPath = "/etc/profiles/per-user/gentooway/bin/sketchybar"
+        hs.task.new("/bin/zsh", nil, { "-c", sketchybarPath .. " --trigger caps_lock_update STATE=" .. stateStr }):start()
+    end
+end
+
+-- Cleanup existing tap on reload
+if _G.capsLockTap then
+    _G.capsLockTap:stop()
+end
+
+-- Watch for flagsChanged (modifier keys like Caps Lock, Shift, Cmd, etc.)
+_G.capsLockTap = hs.eventtap.new({ hs.eventtap.event.types.flagsChanged }, function(event)
+    updateCapsLock()
+    return false -- Don't block the event
+end):start()
+
+-- Initial sync
+updateCapsLock(true)

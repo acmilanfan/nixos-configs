@@ -308,6 +308,10 @@ in
       executable = true;
       source = ../../dotfiles/sketchybar/plugins/power_click.sh;
     };
+    ".config/sketchybar/plugins/caps_lock.sh" = {
+      executable = true;
+      source = ../../dotfiles/sketchybar/plugins/caps_lock.sh;
+    };
     ".config/sketchybar/plugins/kanata.sh" = {
       executable = true;
       source = ../../dotfiles/sketchybar/plugins/kanata.sh;
