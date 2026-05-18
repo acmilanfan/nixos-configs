@@ -14,6 +14,7 @@ sketchybar --add event nanowm_caffeinate
 sketchybar --add event kanata_changed
 sketchybar --add event clock_tick
 sketchybar --add event system_info_update
+sketchybar --add event caps_lock_update
 
 # ═══════════════════════════════════════════════════════════════════════════
 # LEFT SIDE - Workspaces, Timer & App
@@ -159,6 +160,20 @@ sketchybar --add item front_app left \
                  icon.padding_left=8 \
                  script="$CONFIG_DIR/plugins/front_app.sh" \
            --subscribe front_app front_app_switched
+
+# --- Caps Lock Indicator ---
+sketchybar --add item caps_lock left \
+           --set caps_lock \
+                 icon="󰬈" \
+                 label="CAPS" \
+                 icon.color=$WARNING_COLOR \
+                 label.color=$WARNING_COLOR \
+                 background.color=$ITEM_BG_COLOR \
+                 background.drawing=on \
+                 label.padding_right=8 \
+                 drawing=off \
+                 script="$CONFIG_DIR/plugins/caps_lock.sh" \
+           --subscribe caps_lock caps_lock_update
 
 # ═══════════════════════════════════════════════════════════════════════════
 # RIGHT SIDE - System Info
@@ -311,6 +326,7 @@ sketchybar --add item help_menu right \
                  padding_right=2 \
                  click_script="/opt/homebrew/bin/hs -c 'NanoWM.showKeybindMenu()'"
 
+sketchybar --trigger caps_lock_update
 sketchybar --update
 
 # --- Start Background Daemons ---
