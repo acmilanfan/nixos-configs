@@ -12,7 +12,7 @@ let
         hooks = [
           {
             type = "command";
-            command = "agent-state --agent ${agent} --state needs-input";
+            command = "agent-state --agent ${agent} --state needs-input &";
           }
         ];
       }
@@ -22,7 +22,7 @@ let
         hooks = [
           {
             type = "command";
-            command = "agent-state --agent ${agent} --state done";
+            command = "agent-state --agent ${agent} --state done &";
           }
         ];
       }
@@ -32,7 +32,7 @@ let
         hooks = [
           {
             type = "command";
-            command = "agent-state --agent ${agent} --state running";
+            command = "agent-state --agent ${agent} --state running &";
           }
         ];
       }
@@ -47,7 +47,7 @@ let
         hooks = [
           {
             type = "command";
-            command = "agent-state --agent gemini --state needs-input";
+            command = "agent-state --agent gemini --state needs-input &";
           }
         ];
       }
@@ -58,7 +58,7 @@ let
         hooks = [
           {
             type = "command";
-            command = "agent-state --agent gemini --state running";
+            command = "agent-state --agent gemini --state running &";
           }
         ];
       }
@@ -69,7 +69,7 @@ let
         hooks = [
           {
             type = "command";
-            command = "agent-state --agent gemini --state running";
+            command = "agent-state --agent gemini --state running &";
           }
         ];
       }
@@ -80,7 +80,7 @@ let
         hooks = [
           {
             type = "command";
-            command = "agent-state --agent gemini --state done";
+            command = "agent-state --agent gemini --state done &";
           }
         ];
       }
