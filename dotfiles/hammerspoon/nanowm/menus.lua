@@ -188,11 +188,20 @@ function M.openKanataMenu()
             subText = (state.kanataMode == "disabled") and "ACTIVE" or "Block all internal keyboard input",
             uuid = "disabled",
         },
+        {
+            text = "Force Reload All Instances",
+            subText = "Reset Main and Charybdis (Bypasses health check)",
+            uuid = "force_reload",
+        },
     }
 
     local kanataChooser = hs.chooser.new(function(choice)
         if not choice then return end
-        integrations.switchKanata(choice.uuid)
+        if choice.uuid == "force_reload" then
+            integrations.reloadKanataManual()
+        else
+            integrations.switchKanata(choice.uuid)
+        end
     end)
     kanataChooser:width(30)
     kanataChooser:bgDark(true)

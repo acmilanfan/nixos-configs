@@ -450,7 +450,7 @@ function M.setup()
     -- [s]ystem Sub-modal
     leader:bind("", "s", function()
         hs.alert.closeAll()
-        hs.alert.show("System: [p] Battery [g] Bar [o] Borders [k] Kanata [l] Lock", 999999)
+        hs.alert.show("System: [p] Battery [g] Bar [o] Borders [k/K] Kanata [l] Lock", 999999)
         systemModal:enter()
     end)
 
@@ -459,6 +459,7 @@ function M.setup()
     systemModal:bind("", "p", function() integrations.toggleBatterySaver(); exitAll() end)
     systemModal:bind("", "g", function() integrations.toggleSketchybar(); exitAll() end)
     systemModal:bind("", "k", function() integrations.toggleKanata(); exitAll() end)
+    systemModal:bind("shift", "k", function() integrations.reloadKanataManual(); exitAll() end)
     systemModal:bind("", "l", function() hs.caffeinate.lockScreen(); exitAll() end)
 
     -- =========================================================================
