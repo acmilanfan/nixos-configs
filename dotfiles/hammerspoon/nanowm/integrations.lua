@@ -90,16 +90,17 @@ local function doUpdateSketchybar()
     end
     local urgent = table.concat(urgentList, " ")
 
-    local cmd = string.format(
-        'sketchybar --trigger nanowm_update TAG="%s" ACTIVE_TAGS="%s" WINDOWS="%d" LAYOUT="%s" FULLSCREEN="%s" TIMER="%s" APP="%s" OCCUPIED="%s" URGENT="%s" 2>/dev/null',
+    local triggerArgs = string.format(
+        'TAG="%s" ACTIVE_TAGS="%s" WINDOWS="%d" LAYOUT="%s" FULLSCREEN="%s" TIMER="%s" APP="%s" OCCUPIED="%s" URGENT="%s"',
         tag, activeTagsStr, windowCount, layout, isFullscreen, timerRemaining, focusedApp, occupied, urgent
     )
 
-    hs.task.new("/bin/zsh", nil, { "-lc", cmd }):start()
-
-    -- Secondary instance trigger
-    local cmdSecondary = cmd:gsub("nanowm_update", "nanowm_update_secondary")
-    hs.task.new("/bin/zsh", nil, { "-lc", cmdSecondary }):start()
+    -- Single shell invocation for both triggers; -c avoids loading the full login profile
+    local cmd = string.format(
+        'sketchybar --trigger nanowm_update %s 2>/dev/null; sketchybar --trigger nanowm_update_secondary %s 2>/dev/null',
+        triggerArgs, triggerArgs
+    )
+    hs.task.new("/bin/zsh", nil, { "-c", cmd }):start()
 end
 
 local sketchybarUpdateTimer = hs.timer.delayed.new(0.15, function()
@@ -378,34 +379,29 @@ end
 -- Edge Trigger (Gesture Proxy)
 -- =============================================================================
 
-local edgeTriggerTap = nil
+-- Poll mouse position at 100ms intervals instead of tapping every mouseMoved
+-- event, which fires thousands of times/sec and stresses the Hammerspoon event loop.
+local edgeTriggerTimer = nil
 local lastTriggerTime = 0
 
 function M.setupEdgeTrigger()
-    if edgeTriggerTap then edgeTriggerTap:stop() end
+    if edgeTriggerTimer then edgeTriggerTimer:stop() end
 
-    edgeTriggerTap = hs.eventtap.new({ hs.eventtap.event.types.mouseMoved }, function(event)
+    edgeTriggerTimer = hs.timer.new(0.1, function()
         local now = hs.timer.secondsSinceEpoch()
-        if now - lastTriggerTime < 1 then return false end
+        if now - lastTriggerTime < 1 then return end
 
         local screen = hs.screen.mainScreen()
-        if not screen then return false end
+        if not screen then return end
         local frame = screen:fullFrame()
-        local pos = event:location()
+        local pos = hs.mouse.absolutePosition()
 
-        -- Check bottom edge
-        if pos.y >= (frame.y + frame.h - 2) then
-            -- Check horizontal range in center
-            local centerX = frame.x + (frame.w / 2)
-            if pos.x >= (centerX - 150) and pos.x <= (centerX + 150) then
-                lastTriggerTime = now
-                require("nanowm").toggleOverview()
-            end
+        if pos.x <= (frame.x + 2) and pos.y <= (frame.y + 2) then
+            lastTriggerTime = now
+            require("nanowm").toggleOverview()
         end
-
-        return false
     end)
-    edgeTriggerTap:start()
+    edgeTriggerTimer:start()
 end
 
 -- =============================================================================
