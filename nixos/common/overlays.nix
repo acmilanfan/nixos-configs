@@ -1,6 +1,4 @@
 final: prev: {
-  warpd = final.callPackage ./pkgs/warpd.nix { };
-  blueutil-tui = final.callPackage ./pkgs/blueutil-tui.nix { };
   nvim-opener = final.callPackage ./pkgs/nvim-opener.nix {
     inherit (final) apple-sdk_14;
   };
@@ -17,4 +15,10 @@ final: prev: {
     };
   };
   python3Packages = final.python3.pkgs;
+  warpd = if final.stdenv.hostPlatform.isDarwin
+    then final.callPackage ./pkgs/warpd.nix { }
+    else prev.warpd;
+  blueutil-tui = if final.stdenv.hostPlatform.isDarwin
+    then final.callPackage ./pkgs/blueutil-tui.nix { }
+    else prev.blueutil-tui or null;
 }
