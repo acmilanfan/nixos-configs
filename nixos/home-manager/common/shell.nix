@@ -16,6 +16,7 @@
 
   programs.zsh = {
     enable = true;
+    enableCompletion = false;
     autosuggestion.enable = true;
     syntaxHighlighting.enable = true;
     defaultKeymap = "viins";
@@ -60,7 +61,12 @@
 
       zstyle ':completion:*' menu select
       zmodload zsh/complist
-      compinit
+      autoload -Uz compinit
+      if [[ -n ''${ZDOTDIR:-$HOME}/.zcompdump(#qN.mh+24) ]]; then
+        compinit
+      else
+        compinit -C
+      fi
       _comp_options+=(globdots)
 
       export FZF_DEFAULT_OPTS="$FZF_DEFAULT_OPTS \

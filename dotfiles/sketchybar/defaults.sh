@@ -33,4 +33,4 @@ sketchybar --bar \
   topmost=window \
   padding_left=6 \
   padding_right=20 \
-  shadow=on
+  shadow=off

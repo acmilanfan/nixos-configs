@@ -387,7 +387,7 @@ local lastTriggerTime = 0
 function M.setupEdgeTrigger()
     if edgeTriggerTimer then edgeTriggerTimer:stop() end
 
-    edgeTriggerTimer = hs.timer.new(0.1, function()
+    edgeTriggerTimer = hs.timer.new(0.25, function()
         local now = hs.timer.secondsSinceEpoch()
         if now - lastTriggerTime < 1 then return end
 

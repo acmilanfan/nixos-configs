@@ -38,11 +38,12 @@ let
       pkill -x "karabiner_console_user_server" 2>/dev/null || true
       pkill -x "karabiner_session_monitor" 2>/dev/null || true
 
-      # Repeatedly kill grabber for a few seconds to ensure it stays down
-      for i in {1..5}; do
-        sudo killall karabiner_grabber 2>/dev/null || true
-        sleep 0.2
-      done
+      # Disable the grabber via launchctl so it stays down across restarts.
+      # Kanata holds HID devices exclusively; if the grabber restarts and grabs
+      # them after a kanata crash, all input is silently consumed until reboot.
+      sudo launchctl disable system/org.pqrs.service.daemon.karabiner_grabber 2>/dev/null || true
+      sudo launchctl stop system/org.pqrs.service.daemon.karabiner_grabber 2>/dev/null || true
+      sudo killall karabiner_grabber 2>/dev/null || true
     fi
 
     # 2. Start GUI Utilities
@@ -160,6 +161,7 @@ in
     %admin ALL=(ALL) NOPASSWD: /usr/bin/killall
     %admin ALL=(ALL) NOPASSWD: /bin/launchctl
     %admin ALL=(ALL) NOPASSWD: /usr/bin/pkill
+    %admin ALL=(ALL) NOPASSWD: /usr/bin/pmset
   '';
 
   launchd.agents.kanata-vk-agent = {
@@ -235,8 +237,6 @@ in
       "kanata"
       "firefoxpwa"
       "devsunb/tap/kanata-vk-agent"
-      "docker"
-      "docker-compose"
       "wifitui"
       "k06a/tap/macpow"
     ];
@@ -274,8 +274,9 @@ in
     optimise = {
       automatic = true;
       interval = {
-        Hour = 3;
-        Minute = 30;
+        Weekday = 0;
+        Hour = 4;
+        Minute = 0;
       };
     };
     settings = {
@@ -373,6 +374,19 @@ in
     cp -f ${pkgs.warpd}/bin/warpd /usr/local/bin/warpd-nix
     chmod 755 /usr/local/bin/warpd-nix
     pkill -x warpd || true
+
+    # Power management (balanced: powernap off, wake-on-LAN off, TCPKeepAlive off)
+    echo "Applying power management settings..."
+    sudo pmset -b displaysleep 3 disksleep 10 sleep 10 powernap 0 womp 0 || true
+    sudo pmset -c displaysleep 10 disksleep 30 sleep 30 powernap 0 womp 0 || true
+    sudo pmset -a hibernatemode 3 standby 1 standbydelaylow 600 standbydelayhigh 3600 || true
+
+    # Spotlight: exclude subdirectories by planting a .metadata_never_index marker.
+    # mdutil -i off only works on volumes; for subdirs mds respects this file.
+    echo "Excluding paths from Spotlight indexing..."
+    for p in "/Users/${user}/.cache" "/Users/${user}/.colima" "/Users/${user}/Library/Containers" "/nix"; do
+      [ -d "$p" ] && touch "$p/.metadata_never_index" 2>/dev/null || true
+    done
   '';
 
   # Create /etc/zshrc that loads the nix-darwin environment.
@@ -395,6 +409,7 @@ in
   system.defaults = {
     universalaccess = {
       # reduceTransparency = true;
+      reduceMotion = true;
       mouseDriverCursorSize = 1.5;
     };
     CustomUserPreferences = {
@@ -467,9 +482,15 @@ in
       };
       "com.apple.dock" = {
         enterMissionControlByTopWindowDrag = true;
+        launchanim = false;
+        "expose-animation-duration" = 0.1;
+        "springboard-show-duration" = 0;
+        "springboard-hide-duration" = 0;
+        "springboard-page-duration" = 0;
       };
       "com.apple.finder" = {
         FK_AppCentricShowSidebar = true;
+        AnimateWindowZoom = false;
       };
       "com.apple.desktopservices" = {
         DSDontWriteNetworkStores = true;
@@ -508,6 +529,7 @@ in
       tilesize = 48;
       expose-group-apps = true;
       mru-spaces = false;
+      mineffect = "scale";
       wvous-tl-corner = 1;
       wvous-br-corner = 1;
       persistent-apps = [ ];
@@ -572,6 +594,8 @@ in
 
       # Reduce visual effects that add to window decorations
       NSUseAnimatedFocusRing = false;
+      NSScrollAnimationEnabled = false;
+      NSDocumentSaveNewDocumentsToCloud = false;
 
       # Keyboard
       AppleKeyboardUIMode = 3;

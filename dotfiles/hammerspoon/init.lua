@@ -2,6 +2,7 @@
 -- Hammerspoon Configuration
 -- =============================================================================
 -- Emergency Rescue: CMD+ALT+CTRL+0 unhides all windows
+-- Emergency Kanata Restart: CMD+ALT+CTRL+K restarts kanata via launchd
 -- =============================================================================
 
 hs.hotkey.bind({ "cmd", "alt", "ctrl" }, "0", function()
@@ -19,23 +20,34 @@ hs.hotkey.bind({ "cmd", "alt", "ctrl" }, "0", function()
     end
 end)
 
+-- Emergency kanata restart (Cmd+Alt+Ctrl+K).
+-- Works even when kanata is unresponsive because Hammerspoon's event tap
+-- is independent of kanata. Launchd KeepAlive restarts kanata within ~1s.
+hs.hotkey.bind({ "cmd", "alt", "ctrl" }, "k", function()
+    hs.execute("sudo /usr/bin/pkill -x kanata 2>/dev/null; true")
+    hs.alert("Kanata restarting...")
+end)
+
 -- =============================================================================
 -- External Modules
 -- =============================================================================
 
 -- Required for the `hs` CLI tool
-require("hs.ipc")
+pcall(require, "hs.ipc")
 
 -- macOS Vim Navigation
-require("macos-vim-navigation/init")
+local ok, err = pcall(require, "macos-vim-navigation/init")
+if not ok then hs.notify.new({ title = "Hammerspoon", informativeText = "macos-vim-navigation: " .. tostring(err) }):send() end
 
 -- AClock Spoon
 local clock = hs.loadSpoon("AClock")
 
 -- VimMode Spoon
 local VimMode = hs.loadSpoon("VimMode")
-local vim = VimMode:new()
-vim:bindHotKeys({ enter = { { "alt" }, "e" } })
+if VimMode then
+    local vimMode = VimMode:new()
+    vimMode:bindHotKeys({ enter = { { "alt" }, "e" } })
+end
 
 -- =============================================================================
 -- Base Settings
@@ -51,9 +63,11 @@ hs.window.animationDuration = 0
 _G.sketchybarTimers = _G.sketchybarTimers or {}
 
 -- Precision clock trigger at the start of every minute
+local user = os.getenv("USER") or "gentooway"
+local sketchybarBin = "/etc/profiles/per-user/" .. user .. "/bin/sketchybar"
+
 local function triggerClockTick()
-    -- Use hs.task for non-blocking execution and better reliability
-    hs.task.new("/bin/zsh", nil, { "-c", "sketchybar --trigger clock_tick" }):start()
+    hs.task.new(sketchybarBin, nil, { "--trigger", "clock_tick" }):start()
 end
 
 -- Initial trigger on config load
@@ -76,8 +90,15 @@ scheduleNextTick()
 -- NanoWM - Tiling Window Manager
 -- =============================================================================
 
-local NanoWM = require("nanowm")
-NanoWM.init()
+local NanoWM
+local nmOk, nmResult = pcall(require, "nanowm")
+if nmOk then
+    NanoWM = nmResult
+    local initOk, initErr = pcall(function() NanoWM.init() end)
+    if not initOk then hs.notify.new({ title = "Hammerspoon", informativeText = "NanoWM.init: " .. tostring(initErr) }):send() end
+else
+    hs.notify.new({ title = "Hammerspoon", informativeText = "nanowm load failed: " .. tostring(nmResult) }):send()
+end
 
 -- Export NanoWM globally for console access and compatibility
 _G.NanoWM = NanoWM
@@ -160,9 +181,7 @@ local function updateCapsLock(force)
     if force or currentState ~= lastCapsLockState then
         lastCapsLockState = currentState
         local stateStr = currentState and "on" or "off"
-        -- Use absolute path for sketchybar to ensure it works regardless of PATH
-        local sketchybarPath = "/etc/profiles/per-user/gentooway/bin/sketchybar"
-        hs.task.new("/bin/zsh", nil, { "-c", sketchybarPath .. " --trigger caps_lock_update STATE=" .. stateStr }):start()
+            hs.task.new(sketchybarBin, nil, { "--trigger", "caps_lock_update", "STATE=" .. stateStr }):start()
     end
 end
 
@@ -172,9 +191,9 @@ if _G.capsLockTap then
 end
 
 -- Watch for flagsChanged (modifier keys like Caps Lock, Shift, Cmd, etc.)
-_G.capsLockTap = hs.eventtap.new({ hs.eventtap.event.types.flagsChanged }, function(event)
+_G.capsLockTap = hs.eventtap.new({ hs.eventtap.event.types.flagsChanged }, function(_)
     updateCapsLock()
-    return false -- Don't block the event
+    return false
 end):start()
 
 -- Initial sync

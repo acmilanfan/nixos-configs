@@ -4,7 +4,7 @@
 # Uses macmon pipe for efficient, event-driven updates on Apple Silicon
 
 # Default update interval in milliseconds (e.g., 2000ms = 2s)
-INTERVAL=${1:-2000}
+INTERVAL=${1:-4000}
 
 # Start macmon pipe
 macmon pipe --interval "$INTERVAL" | while read -r line; do
