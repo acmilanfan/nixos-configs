@@ -28,7 +28,7 @@ fi
 
 # 1. Check if Main instance is running
 if [ "$RELOAD_REQUIRED" = false ]; then
-    if ! pgrep -f "^/opt/homebrew/bin/kanata.*--port 5829" >/dev/null; then
+    if ! pgrep -f "^/usr/local/bin/kanata-nix.*--port 5829" >/dev/null; then
         RELOAD_REQUIRED=true
         REASON="Main Kanata instance is not running"
     fi
@@ -53,7 +53,7 @@ if ioreg -rn "Charybdis" >/dev/null 2>&1 || ioreg -rn "Aurora" >/dev/null 2>&1 |
 fi
 
 if [ "$RELOAD_REQUIRED" = false ] && [ "$EXTERNAL_CONNECTED" = true ]; then
-    if ! pgrep -f "^/opt/homebrew/bin/kanata.*--port 5830" >/dev/null; then
+    if ! pgrep -f "^/usr/local/bin/kanata-nix.*--port 5830" >/dev/null; then
         RELOAD_REQUIRED=true
         REASON="External keyboard detected but Charybdis instance is not running"
     fi
@@ -74,7 +74,7 @@ if [ "$RELOAD_REQUIRED" = true ]; then
     # 3. If forcing, we wait to ensure Main gets the HID grab before Charybdis
     if [ "$FORCE" = true ]; then
         for i in {1..20}; do
-            if pgrep -f "^/opt/homebrew/bin/kanata.*--port 5829" >/dev/null; then
+            if pgrep -f "^/usr/local/bin/kanata-nix.*--port 5829" >/dev/null; then
                 print_status "✓ Main instance ready."
                 break
             fi

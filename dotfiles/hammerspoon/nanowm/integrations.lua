@@ -298,7 +298,7 @@ local pendingWakeReload = nil
 local pendingWakeSketchybar = nil
 local wakeReloadRunning = false
 
-function M.reloadKanata(callback)
+function M.reloadKanata(force, callback)
     local script = os.getenv("HOME") .. "/.config/kanata/reload-kanata.sh"
     if not hs.fs.attributes(script) then
         print("[NanoWM] Kanata reload script not found: " .. script)
@@ -306,20 +306,22 @@ function M.reloadKanata(callback)
         return
     end
 
-    print("[NanoWM] Triggering Kanata rapid restart...")
-    -- We no longer call launchctl kickstart here because reload-kanata.sh
-    -- now uses pkill -9 which relies on launchd's KeepAlive=true.
-    -- This is much faster and doesn't block.
+    print("[NanoWM] Triggering Kanata restart (force=" .. tostring(force) .. ")...")
+    local cmd = "bash " .. script
+    if force then
+        cmd = cmd .. " --force"
+    end
+
     hs.task.new("/bin/zsh", function(exitCode, _, stdErr)
         wakeReloadRunning = false
         if exitCode == 0 then
             print("[NanoWM] Kanata restart triggered successfully")
-            if callback then callback(true) end
+            if type(callback) == "function" then callback(true) end
         else
             print("[NanoWM] Kanata restart trigger failed: " .. (stdErr or "unknown error"))
-            if callback then callback(false) end
+            if type(callback) == "function" then callback(false) end
         end
-    end, { "-c", "bash " .. script }):start()
+    end, { "-c", cmd }):start()
 end
 
 function M.setupSystemWatcher()
@@ -353,8 +355,8 @@ function M.setupSystemWatcher()
                 pendingWakeReload = nil
                 if wakeReloadRunning then return end
                 wakeReloadRunning = true
-                print("[NanoWM] Smart health check for Kanata after wake...")
-                M.reloadKanata(false)
+                print("[NanoWM] Forcing Kanata reload after wake...")
+                M.reloadKanata(true)
                 -- Reset the flag after a short delay since reloadKanata is async
                 hs.timer.doAfter(3.0, function() wakeReloadRunning = false end)
             end)

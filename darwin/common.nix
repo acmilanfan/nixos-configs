@@ -122,6 +122,7 @@ in
     unstable.aerospace
     startupScript
     pkgs.warpd
+    pkgs.kanata
     pkgs.blueutil-tui
     pkgs.nvim-opener
   ];
@@ -131,7 +132,7 @@ in
   ];
 
   launchd.daemons.kanata = {
-    command = "/bin/bash -c 'exec /opt/homebrew/bin/kanata -n --cfg /Users/${user}/.config/kanata/active_config.kbd --port 5829'";
+    command = "/bin/bash -c 'exec /usr/local/bin/kanata-nix -n --cfg /Users/${user}/.config/kanata/active_config.kbd --port 5829'";
 
     serviceConfig = {
       Label = "local.kanata";
@@ -144,7 +145,7 @@ in
   };
 
   launchd.daemons.kanata-charibdis = {
-    command = "/bin/bash -c 'for i in {1..50}; do pgrep -f \"^/opt/homebrew/bin/kanata.*--port 5829\" >/dev/null && break; sleep 0.1; done; sleep 0.5; exec /opt/homebrew/bin/kanata -n --cfg /Users/${user}/.config/kanata/kanata-charibdis-browser.kbd --port 5830'";
+    command = "/bin/bash -c 'for i in {1..50}; do pgrep -f \"^/usr/local/bin/kanata-nix.*--port 5829\" >/dev/null && break; sleep 0.1; done; sleep 0.5; exec /usr/local/bin/kanata-nix -n --cfg /Users/${user}/.config/kanata/kanata-charibdis-browser.kbd --port 5830'";
 
     serviceConfig = {
       Label = "local.kanata-charibdis";
@@ -374,6 +375,13 @@ in
     cp -f ${pkgs.warpd}/bin/warpd /usr/local/bin/warpd-nix
     chmod 755 /usr/local/bin/warpd-nix
     pkill -x warpd || true
+
+    # Setup kanata stable path for Input Monitoring permissions
+    echo "Ensuring kanata stable binary path for Input Monitoring permissions..."
+    mkdir -p /usr/local/bin
+    cp -f ${pkgs.kanata}/bin/kanata /usr/local/bin/kanata-nix
+    chmod 755 /usr/local/bin/kanata-nix
+    pkill -9 kanata || true
 
     # Power management (balanced: powernap off, wake-on-LAN off, TCPKeepAlive off)
     echo "Applying power management settings..."
