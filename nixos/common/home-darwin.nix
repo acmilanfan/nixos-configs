@@ -152,18 +152,9 @@ in
           exit 1
         fi
 
-        # Get colima VM IP address
-        # Try 'colima ip' first, then 'colima ls -j', then fallback to ssh
-        COLIMA_IP=$(colima ip 2>/dev/null)
-
-        if [ -z "$COLIMA_IP" ]; then
-          COLIMA_IP=$(colima ls -j 2>/dev/null | jq -r 'select(.name=="default") | .address // empty')
-        fi
-
-        if [ -z "$COLIMA_IP" ]; then
-          # Fallback: try to get IP from colima ssh
-          COLIMA_IP=$(colima ssh -- hostname -I 2>/dev/null | awk "{print \$1}")
-        fi
+        # We use 127.0.0.1 because Colima automatically forwards ports from the VM to localhost.
+        # Direct VM IP access (e.g. 192.168.64.x) often fails with "no route to host" on macOS.
+        COLIMA_IP="127.0.0.1"
 
         echo "export DOCKER_HOST=\"unix://$HOME/.colima/default/docker.sock\""
         echo "export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=\"/var/run/docker.sock\""
@@ -171,7 +162,7 @@ in
 
         if [ -n "$COLIMA_IP" ]; then
           echo "export TESTCONTAINERS_HOST_OVERRIDE=\"$COLIMA_IP\""
-          echo "# Colima IP: $COLIMA_IP" >&2
+          echo "# Testcontainers host: $COLIMA_IP" >&2
         fi
 
         echo "# Testcontainers environment configured for colima" >&2

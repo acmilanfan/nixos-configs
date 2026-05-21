@@ -62,12 +62,7 @@ in pkgs.mkShell {
           export DOCKER_HOST="unix://$HOME/.colima/default/docker.sock"
           export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE="/var/run/docker.sock"
           export TESTCONTAINERS_RYUK_DISABLED="false"
-
-          # Attempt to get colima IP for host override
-          COLIMA_IP=$(colima ip 2>/dev/null || colima ls -j 2>/dev/null | jq -r 'select(.name=="default") | .address // empty')
-          if [ -n "$COLIMA_IP" ]; then
-            export TESTCONTAINERS_HOST_OVERRIDE="$COLIMA_IP"
-          fi
+          export TESTCONTAINERS_HOST_OVERRIDE="127.0.0.1"
         fi
         echo "Docker is configured with colima"
       else
@@ -83,6 +78,9 @@ in pkgs.mkShell {
     echo "Java version: $(java -version 2>&1 | head -n 1)"
     echo "Maven version: $(mvn -version 2>&1 | head -n 1)"
     echo "Node.js version: $(node --version)"
+  '';
+}
+)"
 
     # Start zsh
     exec zsh

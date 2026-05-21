@@ -41,8 +41,8 @@
       # Development shells
       docker-shell = "nix develop ~/configs/nixos-configs/shell/java";
       java-shell = "nix develop ~/configs/nixos-configs/shell/java/pure";
-      java-darwin-shell = "nix develop ~/configs/nixos-configs/shell/java/darwin";
-      go-darwin-shell = "nix develop ~/configs/nixos-configs/shell/go-node/darwin";
+      java-darwin-shell = "nix develop ~/configs/nixos-configs/shell/java/darwin --command zsh";
+      go-darwin-shell = "nix develop ~/configs/nixos-configs/shell/go-node/darwin --command zsh";
       go-shell = "nix develop ~/configs/nixos-configs/shell/go-node";
       python-shell = "nix develop ~/configs/nixos-configs/shell/python";
       fhs-shell = "nix develop ~/configs/nixos-configs/shell/fhs";
@@ -123,6 +123,10 @@
       preexec() { echo -ne '\e[5 q' ;} # Use beam shape cursor for each new prompt.
 
       # Use lf to switch directories and bind it to ctrl-o
+      mkcd() {
+        mkdir -p "$@" && cd "$1"
+      }
+
       lfcd () {
           tmp="$(mktemp)"
           lf -last-dir-path="$tmp" "$@"
