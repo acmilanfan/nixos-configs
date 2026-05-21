@@ -43,12 +43,43 @@ local function setMousePosition(pos)
   end
   mouse.absolutePosition(pos)
 end
+
+-- =============================================================================
+-- Vim-style scroll (g / G) - Moved up to avoid nil errors in modal callbacks
+-- =============================================================================
+local gPending = false
+local gTimer = nil
+local gDoubleDelay = 0.3
+local function scrollToTop()
+  eventtap.event.newScrollEvent(norm({0, 1000000}), {}, "pixel"):post()
+end
+local function scrollToBottom()
+  eventtap.event.newScrollEvent(norm({0, -1000000}), {}, "pixel"):post()
+end
+local gResetTap = eventtap.new({ eventtap.event.types.keyDown }, function(e)
+  if gPending then
+    local chars = e:getCharacters() or ""
+    if chars:lower() ~= "g" then
+      gPending = false
+      if gTimer then gTimer:stop(); gTimer = nil end
+    end
+  end
+  return false
+end)
+
 -- Overlay
-local overlay = nil
+_G.vim_nav_overlay = _G.vim_nav_overlay or nil
+local function hideOverlay()
+  if _G.vim_nav_overlay then
+    _G.vim_nav_overlay:hide()
+    _G.vim_nav_overlay:delete()
+    _G.vim_nav_overlay = nil
+  end
+end
 local function createOverlay()
-  if overlay then overlay:delete() end
+  hideOverlay()
   local currentScr = mouse.getCurrentScreen():frame()
-  overlay = canvas.new({
+  _G.vim_nav_overlay = canvas.new({
     x = currentScr.x + currentScr.w - 210,
     y = currentScr.y + currentScr.h - 130,
     h = 30, w = 200
@@ -92,14 +123,14 @@ local function hideVisualIndicator()
 end
 function modal:entered()
   createOverlay()
-  overlay:show()
+  _G.vim_nav_overlay:show()
   gResetTap:start()
 end
 function modal:exited()
   gResetTap:stop()
   gPending = false
   if gTimer then gTimer:stop(); gTimer = nil end
-  if overlay then overlay:hide() end
+  hideOverlay()
   if mode == "visual" then
     local pos = mouse.absolutePosition()
     if dragging then
@@ -350,16 +381,8 @@ modal:bind({"shift"}, "m", function()
   local f = screen.mainScreen():frame()
   setMousePosition({ x = f.x + f.w/2, y = f.y + f.h/2 })
 end)
--- Vim-style scroll
-local gPending = false
-local gTimer = nil
-local gDoubleDelay = 0.3
-local function scrollToTop()
-  eventtap.event.newScrollEvent(norm({0, 1000000}), {}, "pixel"):post()
-end
-local function scrollToBottom()
-  eventtap.event.newScrollEvent(norm({0, -1000000}), {}, "pixel"):post()
-end
+
+-- Bindings for g / G
 modal:bind({}, "g", function()
   if gPending then
     if gTimer then gTimer:stop(); gTimer = nil end
@@ -378,16 +401,7 @@ modal:bind({"shift"}, "g", function()
   if gTimer then gTimer:stop(); gTimer = nil end
   scrollToBottom()
 end)
-local gResetTap = eventtap.new({ eventtap.event.types.keyDown }, function(e)
-  if gPending then
-    local chars = e:getCharacters() or ""
-    if chars:lower() ~= "g" then
-      gPending = false
-      if gTimer then gTimer:stop(); gTimer = nil end
-    end
-  end
-  return false
-end)
+
 -- Modal entry/exit
 hs.hotkey.bind({"ctrl","alt","cmd"}, "space", function() modal:enter() end)
 -- hs.hotkey.bind({}, "f12", function() modal:enter() end)
