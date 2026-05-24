@@ -38,6 +38,13 @@ in
     extraConfig = ''
       ${lib.readFile ./tmux/tmux.conf}
       set-hook -g client-attached 'run-shell "${tmuxUpdateEnv}/bin/tmux-update-env"'
+
+      ${lib.optionalString pkgs.stdenv.isDarwin ''
+        # Tmux Agent Indicator macOS integration
+        set -g @agent-indicator-notification-command "sketchybar --trigger ai_agent_update; /opt/homebrew/bin/hs -c \"require('nanowm.agents').onAgentStateChange('$AGENT_STATE','$AGENT_NAME')\" 2>/dev/null; case $AGENT_STATE in done|off) sleep 3 && sketchybar --trigger ai_agent_update;; esac"
+        # Trigger sketchybar refresh on pane exit (catches agent exits without SessionEnd hooks, e.g. Claude)
+        set-hook -g pane-exited "run-shell -b 'sketchybar --trigger ai_agent_update 2>/dev/null'"
+      ''}
     '';
     plugins = with pkgs.tmuxPlugins; [
       sensible
