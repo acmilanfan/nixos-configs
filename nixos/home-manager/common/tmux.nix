@@ -2,7 +2,7 @@
 let
   tmuxUpdateEnv = pkgs.writeShellScriptBin "tmux-update-env" ''
     SOCK=$(tmux show-environment -g SSH_AUTH_SOCK | cut -d= -f2)
-    if [ -n "$SOCK" ] && [ -S "$SOCK" ]; then
+    if [ -n "$SOCK" ] && [ "$SOCK" != "$HOME/.ssh/ssh_auth_sock" ] && [ -S "$SOCK" ]; then
         mkdir -p "$HOME/.ssh"
         ln -sf "$SOCK" "$HOME/.ssh/ssh_auth_sock"
     fi
