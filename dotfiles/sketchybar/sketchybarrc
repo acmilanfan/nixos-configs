@@ -62,7 +62,26 @@ sketchybar --add item kanata.default popup.kanata \
            --set kanata.disabled \
                  icon="󰅛" \
                  label="Disabled" \
-                 click_script="SENDER=kanata_switch_disabled $CONFIG_DIR/plugins/kanata.sh"
+                 click_script="SENDER=kanata_switch_disabled $CONFIG_DIR/plugins/kanata.sh" \
+           --add item kanata.sep popup.kanata \
+           --set kanata.sep \
+                 icon="—" \
+                 label.drawing=off \
+           --add item kanata.kill popup.kanata \
+           --set kanata.kill \
+                 icon="󰅙" \
+                 label="Emergency Kill" \
+                 click_script="SENDER=kanata_rescue_kill $CONFIG_DIR/plugins/kanata.sh" \
+           --add item kanata.reload popup.kanata \
+           --set kanata.reload \
+                 icon="󰑓" \
+                 label="Full Reload" \
+                 click_script="SENDER=kanata_rescue_reload $CONFIG_DIR/plugins/kanata.sh" \
+           --add item kanata.restore_hid popup.kanata \
+           --set kanata.restore_hid \
+                 icon="󰄬" \
+                 label="Restore Virtual HID" \
+                 click_script="SENDER=kanata_rescue_restore_hid $CONFIG_DIR/plugins/kanata.sh"
 
 # --- NanoWM Layout ---
 sketchybar --add item nanowm_layout left \

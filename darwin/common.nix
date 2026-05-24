@@ -27,23 +27,22 @@ let
       fi
 
       echo "Cleaning up Karabiner GUI components and grabber..."
-      # Quit the main app first to prevent it from restarting the grabber
-      osascript -e 'quit app "Karabiner-Elements"' 2>/dev/null || true
-      sleep 1
+      # Run cleanup in background where possible
+      (
+        osascript -e 'quit app "Karabiner-Elements"' 2>/dev/null || true
+        sudo launchctl disable system/org.pqrs.service.daemon.Karabiner-Core-Service 2>/dev/null || true
+        sudo launchctl bootout system/org.pqrs.service.daemon.Karabiner-Core-Service 2>/dev/null || true
+      ) &
 
-      # Kill all Karabiner related processes
+      # Kill all Karabiner related processes immediately
       pkill -x "Karabiner-Menu" 2>/dev/null || true
       pkill -x "Karabiner-NotificationWindow" 2>/dev/null || true
-      pkill -x "Karabiner-NotificationCenter" 2>/dev/null || true
       pkill -x "karabiner_console_user_server" 2>/dev/null || true
-      pkill -x "karabiner_session_monitor" 2>/dev/null || true
+      sudo killall Karabiner-Core-Service 2>/dev/null || true
+      sudo pkill -9 kanata 2>/dev/null || true
 
-      # Disable the grabber via launchctl so it stays down across restarts.
-      # Kanata holds HID devices exclusively; if the grabber restarts and grabs
-      # them after a kanata crash, all input is silently consumed until reboot.
-      sudo launchctl disable system/org.pqrs.service.daemon.karabiner_grabber 2>/dev/null || true
-      sudo launchctl stop system/org.pqrs.service.daemon.karabiner_grabber 2>/dev/null || true
-      sudo killall karabiner_grabber 2>/dev/null || true
+      # NOTE: We do NOT stop Karabiner-VirtualHIDDevice-Daemon because Kanata
+      # depends on it to emit keystrokes. Stopping it causes a total keyboard blackout.
     fi
 
     # 2. Start GUI Utilities
@@ -122,7 +121,7 @@ in
     unstable.aerospace
     startupScript
     pkgs.warpd
-    pkgs.kanata
+    unstable.kanata
     pkgs.blueutil-tui
     pkgs.nvim-opener
   ];
@@ -144,20 +143,8 @@ in
     };
   };
 
-  launchd.daemons.kanata-charibdis = {
-    command = "/bin/bash -c 'for i in {1..50}; do pgrep -f \"^/usr/local/bin/kanata-nix.*--port 5829\" >/dev/null && break; sleep 0.1; done; sleep 0.5; exec /usr/local/bin/kanata-nix -n --cfg /Users/${user}/.config/kanata/kanata-charibdis-browser.kbd --port 5830'";
-
-    serviceConfig = {
-      Label = "local.kanata-charibdis";
-      KeepAlive = true;
-      RunAtLoad = true;
-      ProcessType = "Interactive";
-      StandardOutPath = "/tmp/kanata-charibdis.log";
-      StandardErrorPath = "/tmp/kanata-charibdis.error.log";
-    };
-  };
-
   security.sudo.extraConfig = ''
+    %admin ALL=(ALL) NOPASSWD: /usr/local/bin/kanata-nix
     %admin ALL=(ALL) NOPASSWD: /opt/homebrew/bin/kanata
     %admin ALL=(ALL) NOPASSWD: /usr/bin/killall
     %admin ALL=(ALL) NOPASSWD: /bin/launchctl
@@ -166,7 +153,7 @@ in
   '';
 
   launchd.agents.kanata-vk-agent = {
-    command = "/bin/bash -c 'for i in {1..50}; do pgrep -f \"^/opt/homebrew/bin/kanata.*--port 5829\" >/dev/null && break; sleep 0.1; done; sleep 0.2; exec /opt/homebrew/bin/kanata-vk-agent -p 5829 -b com.apple.Safari,org.mozilla.firefox,com.google.Chrome,arc.browser -i com.apple.keylayout.ABC'";
+    command = "/opt/homebrew/bin/kanata-vk-agent -p 5829 -b com.apple.Safari,org.mozilla.firefox,com.google.Chrome,arc.browser -i com.apple.keylayout.ABC";
     serviceConfig = {
       Label = "local.kanata-vk-agent";
       KeepAlive = true;
@@ -177,19 +164,6 @@ in
     };
   };
 
-  launchd.agents.kanata-vk-agent-charibdis = {
-    command = "/bin/bash -c 'for i in {1..50}; do pgrep -f \"^/opt/homebrew/bin/kanata.*--port 5830\" >/dev/null && break; sleep 0.1; done; sleep 0.2; exec /opt/homebrew/bin/kanata-vk-agent -p 5830 -b com.apple.Safari,org.mozilla.firefox,com.google.Chrome,arc.browser -i com.apple.keylayout.ABC'";
-    serviceConfig = {
-      Label = "local.kanata-vk-agent-charibdis";
-      KeepAlive = true;
-      RunAtLoad = true;
-      LimitLoadToSessionType = "Aqua";
-      StandardOutPath = "/tmp/kanata_vk_agent_charibdis_stdout.log";
-      StandardErrorPath = "/tmp/kanata_vk_agent_charibdis_stderr.log";
-    };
-  };
-
-  # Main login agent that triggers the startup script
   launchd.agents.darwin-startup = {
     command = "${startupScript}/bin/darwin-startup";
     serviceConfig = {
@@ -369,19 +343,29 @@ in
     echo "Clearing quarantine attributes for Hammerspoon..."
     xattr -r -d com.apple.quarantine /Applications/Hammerspoon.app 2>/dev/null || true
 
-    # Setup warpd stable path for Accessibility permissions
-    echo "Ensuring warpd stable binary path for Accessibility permissions..."
+    # Setup warpd stable path for permissions
+    echo "Ensuring warpd stable binary path for permissions..."
     mkdir -p /usr/local/bin
-    cp -f ${pkgs.warpd}/bin/warpd /usr/local/bin/warpd-nix
-    chmod 755 /usr/local/bin/warpd-nix
-    pkill -x warpd || true
 
+    # Only copy if binary is different to avoid invalidating TCC permissions
+    if ! cmp -s ${pkgs.warpd}/bin/warpd /usr/local/bin/warpd-nix; then
+      echo "Updating warpd-nix binary..."
+      cp -f ${pkgs.warpd}/bin/warpd /usr/local/bin/warpd-nix
+      chmod 755 /usr/local/bin/warpd-nix
+      codesign --force -s - /usr/local/bin/warpd-nix 2>/dev/null || true
+    fi
+
+    pkill -x warpd || true
+    pkill -9 kanata || true
     # Setup kanata stable path for Input Monitoring permissions
     echo "Ensuring kanata stable binary path for Input Monitoring permissions..."
     mkdir -p /usr/local/bin
-    cp -f ${pkgs.kanata}/bin/kanata /usr/local/bin/kanata-nix
-    chmod 755 /usr/local/bin/kanata-nix
-    pkill -9 kanata || true
+    if ! cmp -s ${unstable.kanata}/bin/kanata /usr/local/bin/kanata-nix; then
+      echo "Updating kanata-nix binary..."
+      cp -f ${unstable.kanata}/bin/kanata /usr/local/bin/kanata-nix
+      chmod 755 /usr/local/bin/kanata-nix
+      codesign --force -s - /usr/local/bin/kanata-nix 2>/dev/null || true
+    fi
 
     # Power management (balanced: powernap off, wake-on-LAN off, TCPKeepAlive off)
     echo "Applying power management settings..."

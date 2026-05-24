@@ -34,67 +34,39 @@ if [ "$RELOAD_REQUIRED" = false ]; then
     fi
 fi
 
-# 2. Check if Karabiner Grabber is running (it shouldn't be, it steals HID access)
+# 2. Check if Karabiner Core is running (it shouldn't be, it steals HID access)
+# NOTE: We do NOT check for VirtualHIDDevice-Daemon as it is required for Kanata.
 if [ "$RELOAD_REQUIRED" = false ]; then
-    if pgrep -x "karabiner_grabber" >/dev/null; then
+    if pgrep -x "Karabiner-Core-Service" >/dev/null; then
         RELOAD_REQUIRED=true
-        REASON="Karabiner Grabber is active and might have stolen HID access"
-    fi
-fi
-
-# 3. Check for external keyboards
-# We check if an external keyboard is connected but no secondary kanata is running.
-EXTERNAL_CONNECTED=false
-if ioreg -rn "Charybdis" >/dev/null 2>&1 || ioreg -rn "Aurora" >/dev/null 2>&1 || ioreg -rn "Splinky" >/dev/null 2>&1 || ioreg -c IOHIDDevice | grep -qi "Keyboard"; then
-    # Filter out the Apple Internal Keyboard from the 'Keyboard' grep
-    if ioreg -c IOHIDDevice | grep -i "Product" | grep -v "Apple Internal" | grep -qi "Keyboard"; then
-        EXTERNAL_CONNECTED=true
-    fi
-fi
-
-if [ "$RELOAD_REQUIRED" = false ] && [ "$EXTERNAL_CONNECTED" = true ]; then
-    if ! pgrep -f "^/usr/local/bin/kanata-nix.*--port 5830" >/dev/null; then
-        RELOAD_REQUIRED=true
-        REASON="External keyboard detected but Charybdis instance is not running"
+        REASON="Karabiner Core Service is active and might have stolen HID access"
     fi
 fi
 
 if [ "$RELOAD_REQUIRED" = true ]; then
     print_warning "Reloading Kanata: $REASON"
-    
-    # 1. Aggressive kill of any interfering processes
-    sudo pkill -9 "karabiner_grabber" 2>/dev/null || true
-    sudo pkill -9 -f "kanata" 2>/dev/null || true
-    sleep 0.2
 
-    # 2. Restart Main Instance
-    print_status "Restarting Main Kanata (Port 5829)..."
-    sudo launchctl kickstart -k system/local.kanata
-    
-    # 3. If forcing, we wait to ensure Main gets the HID grab before Charybdis
-    if [ "$FORCE" = true ]; then
+    # 1. Immediate restart - kickstart -k handles killing and starting
+    # This is the fastest way to get the keyboard back.
+    sudo /bin/launchctl kickstart -k system/local.kanata
+
+    # 2. Parallel background cleanup of interfering processes
+    # We redirect everything to /dev/null so parent doesn't wait for pipes
+    (
+        sudo /bin/launchctl bootout system/org.pqrs.service.daemon.Karabiner-Core-Service 2>/dev/null || true
+        sudo /usr/bin/pkill -x "Karabiner-Core-Service" 2>/dev/null || true
+
+        # Fast Wait for readiness & restart agent
         for i in {1..20}; do
-            if pgrep -f "^/usr/local/bin/kanata-nix.*--port 5829" >/dev/null; then
-                print_status "✓ Main instance ready."
+            if /usr/sbin/lsof -nP -iTCP:5829 -sTCP:LISTEN >/dev/null 2>&1; then
+                /bin/launchctl kickstart -k "gui/$(id -u)/local.kanata-vk-agent" 2>/dev/null || true
                 break
             fi
-            sleep 0.2
+            sleep 0.05
         done
-    fi
+    ) >/dev/null 2>&1 &
 
-    # 4. Restart Charybdis Instance
-    if [[ -f "/Library/LaunchDaemons/local.kanata-charibdis.plist" ]]; then
-        print_status "Restarting Charybdis Kanata (Port 5830)..."
-        sudo launchctl kickstart -k system/local.kanata-charibdis
-    fi
-
-    # 5. Restart Agents
-    launchctl kickstart -k "gui/$(id -u)/local.kanata-vk-agent" 2>/dev/null || true
-    if [[ -f "/Library/LaunchAgents/local.kanata-vk-agent-charibdis.plist" ]]; then
-        launchctl kickstart -k "gui/$(id -u)/local.kanata-vk-agent-charibdis" 2>/dev/null || true
-    fi
-    
-    print_status "✓ Reload complete."
+    print_status "✓ Reload initiated (fast path)."
 else
     print_status "✓ Kanata is healthy. Skipping reload."
 fi

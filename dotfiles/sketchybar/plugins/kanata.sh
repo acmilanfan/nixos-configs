@@ -92,4 +92,16 @@ case "$SENDER" in
     "kanata_switch_disabled")
         switch_mode "disabled"
         ;;
+    "kanata_rescue_kill")
+        sketchybar --set kanata popup.drawing=off
+        sudo /usr/bin/pkill -9 kanata
+        ;;
+    "kanata_rescue_reload")
+        sketchybar --set kanata popup.drawing=off
+        bash "$SWITCH_SCRIPT" homerow --force
+        ;;
+    "kanata_rescue_restore_hid")
+        sketchybar --set kanata popup.drawing=off
+        sudo /bin/launchctl bootstrap system /Library/LaunchDaemons/org.pqrs.service.daemon.Karabiner-VirtualHIDDevice-Daemon.plist
+        ;;
 esac

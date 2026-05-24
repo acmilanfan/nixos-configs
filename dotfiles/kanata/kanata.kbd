@@ -1,9 +1,11 @@
 ;; Configuration for built-in Mac Keyboard
   (defcfg
-    process-unmapped-keys yes
+    process-unmapped-keys no
     concurrent-tap-hold yes
     macos-dev-names-include (
       "Apple Internal Keyboard / Trackpad"
+      "Aurora Sweep"
+      "Charybdis Nano (3x5) Splinky"
     )
   )
 

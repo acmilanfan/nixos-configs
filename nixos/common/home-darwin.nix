@@ -109,11 +109,11 @@ in
 
     ".config/aerospace/aerospace.toml".source = ../../dotfiles/aerospace/aerospace.toml;
 
-    # Maccy configuration
-    ".config/maccy/maccy-config.sh".source = ../../dotfiles/maccy/maccy-config.sh;
-
     # Karabiner-Elements configuration
-    ".config/karabiner/karabiner.json".source = ../../dotfiles/karabiner/karabiner.json;
+    ".config/karabiner/karabiner.json" = {
+      source = ../../dotfiles/karabiner/karabiner.json;
+      force = true;
+    };
 
     # Kanata configuration
     ".config/kanata/kanata-homerow.kbd".source = ../../dotfiles/kanata/kanata.kbd;

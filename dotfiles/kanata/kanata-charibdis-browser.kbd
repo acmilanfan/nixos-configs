@@ -2,7 +2,7 @@
 ;; Goal: Map rctl to lmet (Cmd) ONLY in browsers
 
 (defcfg
-  process-unmapped-keys yes
+  process-unmapped-keys no
   concurrent-tap-hold yes
   log-layer-changes yes
   macos-dev-names-include (

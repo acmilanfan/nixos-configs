@@ -312,16 +312,19 @@ function M.reloadKanata(force, callback)
         cmd = cmd .. " --force"
     end
 
-    hs.task.new("/bin/zsh", function(exitCode, _, stdErr)
+    -- Use os.execute with & to truly fire and forget, preventing hs.task from
+    -- waiting for backgrounded child processes in the script.
+    local ok = os.execute(cmd .. " &")
+
+    if ok then
+        print("[NanoWM] Kanata restart triggered successfully (async)")
         wakeReloadRunning = false
-        if exitCode == 0 then
-            print("[NanoWM] Kanata restart triggered successfully")
-            if type(callback) == "function" then callback(true) end
-        else
-            print("[NanoWM] Kanata restart trigger failed: " .. (stdErr or "unknown error"))
-            if type(callback) == "function" then callback(false) end
-        end
-    end, { "-c", cmd }):start()
+        if type(callback) == "function" then callback(true) end
+    else
+        print("[NanoWM] Kanata restart trigger failed to start")
+        wakeReloadRunning = false
+        if type(callback) == "function" then callback(false) end
+    end
 end
 
 function M.setupSystemWatcher()
@@ -331,21 +334,11 @@ function M.setupSystemWatcher()
         if event == hs.caffeinate.watcher.systemDidWake or
            event == hs.caffeinate.watcher.screensDidUnlock or
            event == hs.caffeinate.watcher.screensDidWake then
-            -- Proactively kill karabiner_grabber on wake to prevent it from stealing HID access
-            -- This is safe because we have NOPASSWD for killall in sudoers
-            hs.task.new("/usr/bin/sudo", nil, { "-n", "/usr/bin/killall", "-9", "karabiner_grabber" }):start()
 
             -- Force clock update immediately on wake
             hs.task.new("/bin/zsh", nil, { "-c", "sketchybar --trigger clock_tick" }):start()
 
-            -- Debounce: systemDidWake, screensDidWake, and screensDidUnlock all fire within
-            -- milliseconds of each other. Without debouncing, three parallel reload-kanata.sh
-            -- instances race against each other — each one kills what the previous one just
-            -- started — producing failures and a 30-60s delay before mods work.
-            -- Cancel any pending timer and restart it so only one reload fires per wake cycle.
-            -- wakeReloadRunning guards against screensDidUnlock firing after the debounce
-            -- window already fired (e.g. slow password entry), which would start a second
-            -- parallel reload while the first is still running.
+            -- Debounce and Trigger Kanata Reload
             if wakeReloadRunning then return end
             if pendingWakeReload then
                 pendingWakeReload:stop()
@@ -357,8 +350,9 @@ function M.setupSystemWatcher()
                 wakeReloadRunning = true
                 print("[NanoWM] Forcing Kanata reload after wake...")
                 M.reloadKanata(true)
-                -- Reset the flag after a short delay since reloadKanata is async
-                hs.timer.doAfter(3.0, function() wakeReloadRunning = false end)
+                -- Reset the flag after 10 seconds. This ensures only ONE reload
+                -- per wake/unlock cycle, even if unlocking is slow.
+                hs.timer.doAfter(10.0, function() wakeReloadRunning = false end)
             end)
 
             -- Refresh sketchybar state after wake. Sketchybar can re-initialize its items

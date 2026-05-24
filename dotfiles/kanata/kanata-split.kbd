@@ -8,6 +8,9 @@
     macos-dev-names-include (
       "Apple Internal Keyboard / Trackpad"
     )
+    macos-dev-names-exclude (
+      "Aurora Sweep"
+    )
   )
 
 (defchordsv2
