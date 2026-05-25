@@ -29,7 +29,9 @@ in
 
     # Whether to enable hyprland-session.target on hyprland startup
     systemd.enable = true;
-    plugins = with pkgs; [ hyprlandPlugins.hyprgrass ];
+    plugins = with pkgs; [
+      hyprlandPlugins.hyprgrass
+    ];
     extraConfig = lib.readFile ./../../../dotfiles/hypr/hyprland.conf;
   };
 
@@ -398,6 +400,7 @@ in
     (writeShellScriptBin "hypr-expand-float" (lib.readFile ./scripts/hypr-expand-float))
     (writeShellScriptBin "hypr-expand-float-recover" (lib.readFile ./scripts/hypr-expand-float-recover))
     (writeShellScriptBin "hypr-iio-rotate" (lib.readFile ./scripts/hypr-iio-rotate))
+    (writeShellScriptBin "hypr-focus-or-spawn" (lib.readFile ./scripts/hypr-focus-or-spawn))
     (writeShellScriptBin "hypr-reset-touch" (lib.readFile ./scripts/hypr-reset-touch))
     (writeShellScriptBin "hypr-iio-toggle" (lib.readFile ./scripts/hypr-iio-toggle))
     (writeShellScriptBin "hypr-touch-action" (lib.readFile ./scripts/hypr-touch-action))

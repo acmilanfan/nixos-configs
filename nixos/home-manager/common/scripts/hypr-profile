@@ -251,6 +251,7 @@ case "$choice" in
     t_top=$(resolve_transform "eDP-1" 0)
 
     set_monitor "eDP-1,2880x1800@60,0x0,1.6,transform,$t_top"
+    sleep 0.2
     set_monitor "eDP-2,disable"
     apply_transform "$TOUCH_TOP" "$t_top"
     hypr-powersave-mode on
@@ -260,6 +261,7 @@ case "$choice" in
     t_top=$(resolve_transform "eDP-1" 2)
 
     set_monitor "eDP-1,2880x1800@60,0x0,1.8,transform,$t_top"
+    sleep 0.2
     set_monitor "eDP-2,disable"
     apply_transform "$TOUCH_TOP" "$t_top"
     hypr-powersave-mode on

@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+
+# Usage: hypr-focus-or-spawn <class> <title_regex> <command...>
+CLASS=$1
+TITLE=$2
+shift 2
+CMD="$*"
+
+LOG_FILE="/tmp/hypr-focus-debug.log"
+echo "--- $(date) ---" >> $LOG_FILE
+echo "Args: CLASS='$CLASS' TITLE='$TITLE' CMD='$CMD'" >> $LOG_FILE
+
+# Escape title for jq
+ESCAPED_TITLE=$(echo "$TITLE" | sed 's/"/\\"/g')
+
+# Find window
+WINDOW=$(hyprctl clients -j | jq -r ".[] | select(.class == \"$CLASS\" and .mapped == true and (.title != null) and (.title | ascii_downcase | test(\"$ESCAPED_TITLE\" | ascii_downcase))) | .address" | head -n 1)
+
+if [ -n "$WINDOW" ] && [ "$WINDOW" != "null" ]; then
+    echo "Action: Bringing window $WINDOW to current workspace" >> $LOG_FILE
+
+    # 1. Get current workspace
+    CUR_WS=$(hyprctl activeworkspace -j | jq -r ".id")
+
+    # 2. Move window to current workspace
+    hyprctl dispatch movetoworkspace "$CUR_WS,address:$WINDOW"
+
+    # 3. Ensure it is floating (parity with NanoWM bringWindowToCurrentContext)
+    hyprctl dispatch setfloating "address:$WINDOW"
+
+    # 4. Focus it
+    hyprctl dispatch focuswindow "address:$WINDOW"
+
+    # 5. Center it
+    hyprctl dispatch centerwindow "address:$WINDOW"
+else
+    echo "Action: Spawning new instance" >> $LOG_FILE
+    hyprctl dispatch exec "$CMD"
+fi
