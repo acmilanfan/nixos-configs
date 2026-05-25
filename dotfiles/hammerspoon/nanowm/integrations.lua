@@ -318,11 +318,9 @@ function M.reloadKanata(force, callback)
 
     if ok then
         print("[NanoWM] Kanata restart triggered successfully (async)")
-        wakeReloadRunning = false
         if type(callback) == "function" then callback(true) end
     else
         print("[NanoWM] Kanata restart trigger failed to start")
-        wakeReloadRunning = false
         if type(callback) == "function" then callback(false) end
     end
 end
