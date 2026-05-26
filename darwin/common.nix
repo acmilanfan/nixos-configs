@@ -212,6 +212,7 @@ in
       "kanata"
       "firefoxpwa"
       "devsunb/tap/kanata-vk-agent"
+      "docker"
       "wifitui"
       "k06a/tap/macpow"
     ];

@@ -80,9 +80,3 @@ in pkgs.mkShell {
     echo "Node.js version: $(node --version)"
   '';
 }
-)"
-
-    # Start zsh
-    exec zsh
-  '';
-}
