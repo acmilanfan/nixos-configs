@@ -117,6 +117,7 @@ in
 
     # Kanata configuration
     ".config/kanata/kanata-homerow.kbd".source = ../../dotfiles/kanata/kanata.kbd;
+    ".config/kanata/kanata-sweep.kbd".source = ../../dotfiles/kanata/kanata-sweep.kbd;
     ".config/kanata/kanata-default.kbd".source = ../../dotfiles/kanata/kanata-default.kbd;
     ".config/kanata/kanata-split.kbd".source = ../../dotfiles/kanata/kanata-split.kbd;
     ".config/kanata/kanata-angle.kbd".source = ../../dotfiles/kanata/kanata-angle.kbd;

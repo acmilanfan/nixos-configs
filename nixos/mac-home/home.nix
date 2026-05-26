@@ -13,8 +13,8 @@
   home.username = "gentooway";
   home.homeDirectory = lib.mkForce "/Users/gentooway";
 
-  home.file.".config/kanata/kanata-homerow.kbd".source = lib.mkForce ../../dotfiles/kanata/kanata-iso.kbd;
-  home.file.".config/kanata/kanata-default.kbd".source = lib.mkForce ../../dotfiles/kanata/kanata-default-iso.kbd;
+   home.file.".config/kanata/kanata-homerow.kbd".source = lib.mkForce ../../dotfiles/kanata/kanata-iso.kbd;
+   home.file.".config/kanata/kanata-sweep.kbd".source = lib.mkForce ../../dotfiles/kanata/kanata-sweep.kbd;  home.file.".config/kanata/kanata-default.kbd".source = lib.mkForce ../../dotfiles/kanata/kanata-default-iso.kbd;
   home.file.".config/kanata/kanata-angle.kbd".source = lib.mkForce ../../dotfiles/kanata/kanata-angle-iso.kbd;
   home.file.".config/kanata/kanata-disabled.kbd".source = lib.mkForce ../../dotfiles/kanata/kanata-disabled.kbd;
 }

@@ -1,0 +1,45 @@
+;; Configuration specifically for Aurora Sweep to prevent mouse coordinate corruption
+;; This file is loaded in parallel with the main keyboard config
+
+(defcfg
+  process-unmapped-keys yes
+  concurrent-tap-hold yes
+  macos-dev-names-include (
+    "0x6D4541E53C898E10" ;; Aurora Sweep
+  )
+  ;; Fix for ZMK mouse keys: move interception to session level
+  ;; and prevent replaying of mouse reports that cause corner bug.
+  macos-interception-location session
+)
+
+;; Minimal defsrc to capture only the key we want to remap.
+(defsrc
+  rctl
+)
+
+(deflayer base
+  @rctl-smart
+)
+
+(platform (macos)
+  ;; Virtual keys for browser detection (shared across all configs)
+  (defvirtualkeys
+    com.apple.Safari nop0
+    org.mozilla.firefox nop0
+    com.google.Chrome nop0
+    arc.browser nop0
+  )
+)
+
+(platform (macos)
+  (defalias
+    ;; Smart Control: Becomes lmet (Cmd) in browsers, remains rctl otherwise
+    rctl-smart (switch
+      ((input virtual com.apple.Safari)) lmet break
+      ((input virtual org.mozilla.firefox)) lmet break
+      ((input virtual com.google.Chrome)) lmet break
+      ((input virtual arc.browser)) lmet break
+      () rctl break
+    )
+  )
+)

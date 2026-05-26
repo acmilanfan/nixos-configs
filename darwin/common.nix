@@ -143,6 +143,19 @@ in
     };
   };
 
+  launchd.daemons.kanata-sweep = {
+    command = "/bin/bash -c 'sleep 5 && exec /usr/local/bin/kanata-nix -n --cfg /Users/${user}/.config/kanata/kanata-sweep.kbd --port 5830'";
+
+    serviceConfig = {
+      Label = "local.kanata-sweep";
+      KeepAlive = true;
+      RunAtLoad = true;
+      ProcessType = "Interactive";
+      StandardOutPath = "/tmp/kanata-sweep.log";
+      StandardErrorPath = "/tmp/kanata-sweep.error.log";
+    };
+  };
+
   security.sudo.extraConfig = ''
     %admin ALL=(ALL) NOPASSWD: /usr/local/bin/kanata-nix
     %admin ALL=(ALL) NOPASSWD: /opt/homebrew/bin/kanata
@@ -161,6 +174,18 @@ in
       LimitLoadToSessionType = "Aqua";
       StandardOutPath = "/tmp/kanata_vk_agent_stdout.log";
       StandardErrorPath = "/tmp/kanata_vk_agent_stderr.log";
+    };
+  };
+
+  launchd.agents.kanata-vk-agent-sweep = {
+    command = "/opt/homebrew/bin/kanata-vk-agent -p 5830 -b com.apple.Safari,org.mozilla.firefox,com.google.Chrome,arc.browser -i com.apple.keylayout.ABC";
+    serviceConfig = {
+      Label = "local.kanata-vk-agent-sweep";
+      KeepAlive = true;
+      RunAtLoad = true;
+      LimitLoadToSessionType = "Aqua";
+      StandardOutPath = "/tmp/kanata_vk_agent_sweep_stdout.log";
+      StandardErrorPath = "/tmp/kanata_vk_agent_sweep_stderr.log";
     };
   };
 
