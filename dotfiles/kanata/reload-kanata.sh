@@ -37,9 +37,9 @@ fi
 # 2. Check if Karabiner Core is running (it shouldn't be, it steals HID access)
 # NOTE: We do NOT check for VirtualHIDDevice-Daemon as it is required for Kanata.
 if [ "$RELOAD_REQUIRED" = false ]; then
-    if pgrep -x "Karabiner-Core-Service" >/dev/null; then
+    if pgrep -x "Karabiner-Core-Service" >/dev/null || pgrep -x "karabiner_grabber" >/dev/null; then
         RELOAD_REQUIRED=true
-        REASON="Karabiner Core Service is active and might have stolen HID access"
+        REASON="Karabiner grabber/service is active and might have stolen HID access"
     fi
 fi
 
@@ -54,7 +54,9 @@ if [ "$RELOAD_REQUIRED" = true ]; then
     # We redirect everything to /dev/null so parent doesn't wait for pipes
     (
         sudo /bin/launchctl bootout system/org.pqrs.service.daemon.Karabiner-Core-Service 2>/dev/null || true
+        sudo /bin/launchctl bootout system/org.pqrs.service.daemon.karabiner_grabber 2>/dev/null || true
         sudo /usr/bin/pkill -x "Karabiner-Core-Service" 2>/dev/null || true
+        sudo /usr/bin/pkill -x "karabiner_grabber" 2>/dev/null || true
 
         # Fast Wait for readiness & restart agent
         for i in {1..20}; do

@@ -19,6 +19,16 @@ if [[ "$HOSTNAME" == *"mac-home"* ]]; then
     LAYOUT="iso"
 fi
 
+# Fallback layout check based on common patterns
+if [ "$LAYOUT" == "ansi" ]; then
+    if [ -f "$CONFIG_DIR/kanata-homerow.kbd" ]; then
+        # Check if the homerow config points to an ISO file
+        if ls -l "$CONFIG_DIR/kanata-homerow.kbd" | grep -q "iso"; then
+            LAYOUT="iso"
+        fi
+    fi
+fi
+
 echo "Detected Layout: $LAYOUT (Machine: $HOSTNAME)"
 
 MODE=$1
@@ -33,12 +43,9 @@ case $MODE in
         fi
         ;;
     homerow)
-        echo "Switching to Home Row Mods ($LAYOUT) configuration..."
-        if [ "$LAYOUT" == "iso" ]; then
-            ln -sf "$CONFIG_DIR/kanata-homerow.kbd" "$ACTIVE_CONFIG"
-        else
-            ln -sf "$CONFIG_DIR/kanata.kbd" "$ACTIVE_CONFIG"
-        fi
+        echo "Switching to Home Row Mods configuration..."
+        # Always use the symlink managed by Home Manager as it points to the correct layout
+        ln -sf "$CONFIG_DIR/kanata-homerow.kbd" "$ACTIVE_CONFIG"
         ;;
     split)
         echo "Switching to Split layout configuration..."

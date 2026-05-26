@@ -32,13 +32,17 @@ let
         osascript -e 'quit app "Karabiner-Elements"' 2>/dev/null || true
         sudo launchctl disable system/org.pqrs.service.daemon.Karabiner-Core-Service 2>/dev/null || true
         sudo launchctl bootout system/org.pqrs.service.daemon.Karabiner-Core-Service 2>/dev/null || true
+        sudo launchctl disable system/org.pqrs.service.daemon.karabiner_grabber 2>/dev/null || true
+        sudo launchctl bootout system/org.pqrs.service.daemon.karabiner_grabber 2>/dev/null || true
       ) &
 
       # Kill all Karabiner related processes immediately
       pkill -x "Karabiner-Menu" 2>/dev/null || true
       pkill -x "Karabiner-NotificationWindow" 2>/dev/null || true
       pkill -x "karabiner_console_user_server" 2>/dev/null || true
+      pkill -x "karabiner_grabber" 2>/dev/null || true
       sudo killall Karabiner-Core-Service 2>/dev/null || true
+      sudo killall karabiner_grabber 2>/dev/null || true
       sudo pkill -9 kanata 2>/dev/null || true
 
       # NOTE: We do NOT stop Karabiner-VirtualHIDDevice-Daemon because Kanata
