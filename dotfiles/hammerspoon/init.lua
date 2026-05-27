@@ -35,6 +35,9 @@ end)
 -- Required for the `hs` CLI tool
 pcall(require, "hs.ipc")
 
+-- Aurora Sweep Browser Remapper
+pcall(require, "sweep-remapper")
+
 -- macOS Vim Navigation
 local ok, err = pcall(require, "macos-vim-navigation/init")
 if not ok then hs.notify.new({ title = "Hammerspoon", informativeText = "macos-vim-navigation: " .. tostring(err) }):send() end
