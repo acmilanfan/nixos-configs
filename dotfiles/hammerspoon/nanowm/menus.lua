@@ -325,11 +325,23 @@ function M.showKeybindMenu()
                 { key = "Alt+U", desc = "Go to urgent tag", fn = tags.gotoUrgent },
                 { key = "Alt+Shift+U", desc = "Undo last move", fn = tags.undoLastMove },
                 { key = "Alt+Shift+M", desc = "Save window tag to memory", fn = tags.saveCurrentWindowTag },
-            },
-        },
-        {
-            category = "Layout & Display",
-            binds = {
+                },
+                },
+                {
+                category = "System",
+                binds = {
+                {
+                    key = "Ctrl+Alt+U",
+                    desc = "Sync Dashboard (SyncMon)",
+                    fn = function()
+                        hs.alert.show("🚀 Launching Sync Dashboard...")
+                        hs.execute("/bin/zsh -l -c 'alacritty --title \"SyncMon Dashboard\" -e syncmon &' > /tmp/syncmon_hs.log 2>&1")
+                    end,
+                },
+                },
+                },
+                {
+                category = "Layout & Display",            binds = {
                 { key = "Cmd+Space", desc = "Cycle layout (vertical/horizontal/mono/scrolling)", fn = actions.toggleLayout },
                 { key = "Alt+G", desc = "Toggle gaps", fn = actions.toggleGaps },
                 { key = "Ctrl+Alt+F", desc = "Toggle free mode", fn = tags.toggleFreeMode },

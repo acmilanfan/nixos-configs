@@ -1,0 +1,6 @@
+syncthing:
+  url: "http://127.0.0.1:8384"
+  apikey: "REPLACE_ME"
+paths:
+  org: "~/org"
+  configs: "~/configs/nixos-configs"

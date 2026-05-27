@@ -55,6 +55,7 @@ M.floatingTitles = {
     "FineTune",
     "Picture-in-Picture",
     "weekenduo",
+    "SyncMon Dashboard",
     "Copy",
     "Move",
     "Info",

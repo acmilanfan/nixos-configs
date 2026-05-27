@@ -21,4 +21,6 @@ final: prev: {
   blueutil-tui = if final.stdenv.hostPlatform.isDarwin
     then final.callPackage ./pkgs/blueutil-tui.nix { }
     else prev.blueutil-tui or null;
+
+  syncmon = final.callPackage ./pkgs/syncmon.nix { };
 }

@@ -1,4 +1,4 @@
-{ pkgs, lib, unstable, ... }:
+{ pkgs, lib, unstable, secrets, ... }:
 
 let
   spoon =
@@ -42,6 +42,7 @@ in
 
       jankyborders
       syncthing-macos
+      syncmon
       yazi
       # Scripts need to be handled. They were in ./scripts/ relative to mac-work/home.nix.
       # We need to make sure they are accessible.
@@ -84,7 +85,9 @@ in
       reload-kanata = "~/.config/kanata/reload-kanata.sh";
       switch-kanata = "~/.config/kanata/switch-kanata.sh";
       reload-kanata-logs = "~/.config/kanata/reload-kanata.sh --show-logs";
-    }
+
+      # Sync Dashboard
+      syncmon = "alacritty --title 'SyncMon Dashboard' -e syncmon";    }
   ];
 
   # macOS-specific programs configuration
@@ -133,6 +136,9 @@ in
       source = ../../dotfiles/kanata/switch-kanata.sh;
       executable = true;
     };
+
+    # Hammerspoon configuration
+    ".hammerspoon/sweep-remapper.lua".source = ../../dotfiles/hammerspoon/sweep-remapper.lua;
 
     # Warpd configuration
     ".config/warpd/config".source = ../../dotfiles/warpd/config;
@@ -185,6 +191,18 @@ in
           active_color=0xff7b5cff \
           inactive_color=0xff3b4261 \
           blacklist="Raycast,System Settings,Finder,Archive Utility,App Store,Hammerspoon,Disk Utility,Calculator"
+      '';
+    };
+
+    # SyncMon configuration
+    ".syncmon.yaml" = {
+      text = ''
+        syncthing:
+          url: "http://127.0.0.1:8384"
+          apikey: "${secrets.syncthing_api_key}"
+        paths:
+          org: "/Users/gentooway/org"
+          configs: "/Users/gentooway/configs/nixos-configs"
       '';
     };
 

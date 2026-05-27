@@ -88,6 +88,12 @@ function M.setup()
     hs.hotkey.bind(alt, "u", tags.gotoUrgent)
     hs.hotkey.bind(altShift, "u", tags.undoLastMove)
 
+    -- Sync Dashboard
+    hs.hotkey.bind(ctrlAlt, "u", function()
+        hs.alert.show("🚀 Launching Sync Dashboard...")
+        hs.execute("/bin/zsh -l -c 'alacritty --title \"SyncMon Dashboard\" -e syncmon &' > /tmp/syncmon_hs.log 2>&1")
+    end)
+
     -- Tag memory
     hs.hotkey.bind(altShift, "m", tags.saveCurrentWindowTag)
     hs.hotkey.bind(ctrlAltShift, "m", tags.saveAllWindowTags)
@@ -450,7 +456,7 @@ function M.setup()
     -- [s]ystem Sub-modal
     leader:bind("", "s", function()
         hs.alert.closeAll()
-        hs.alert.show("System: [p] Battery [g] Bar [o] Borders [k/K] Kanata [l] Lock", 999999)
+        hs.alert.show("System: [p] Battery [g] Bar [o] Borders [d] Sync [k/K] Kanata [l] Lock", 999999)
         systemModal:enter()
     end)
 
@@ -458,6 +464,11 @@ function M.setup()
     systemModal:bind("", "q", exitAll)
     systemModal:bind("", "p", function() integrations.toggleBatterySaver(); exitAll() end)
     systemModal:bind("", "g", function() integrations.toggleSketchybar(); exitAll() end)
+    systemModal:bind("", "d", function()
+        hs.alert.show("🚀 Launching Sync Dashboard...")
+        hs.execute("/bin/zsh -l -c 'alacritty --title \"SyncMon Dashboard\" -e syncmon &' > /tmp/syncmon_hs.log 2>&1")
+        exitAll()
+    end)
     systemModal:bind("", "k", function() integrations.toggleKanata(); exitAll() end)
     systemModal:bind("shift", "k", function() integrations.reloadKanataManual(); exitAll() end)
     systemModal:bind("", "l", function() hs.caffeinate.lockScreen(); exitAll() end)
