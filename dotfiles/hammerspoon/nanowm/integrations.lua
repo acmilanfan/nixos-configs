@@ -74,9 +74,13 @@ local function doUpdateSketchybar()
 
     -- Focused app
     local focusedApp = ""
+    local isFloating = "0"
     local focusedWin = hs.window.focusedWindow()
-    if focusedWin and focusedWin:application() then
-        focusedApp = focusedWin:application():name() or ""
+    if focusedWin then
+        if focusedWin:application() then
+            focusedApp = focusedWin:application():name() or ""
+        end
+        isFloating = core.isFloating(focusedWin) and "1" or "0"
     end
 
     -- Urgent tags
@@ -91,8 +95,8 @@ local function doUpdateSketchybar()
     local urgent = table.concat(urgentList, " ")
 
     local triggerArgs = string.format(
-        'TAG="%s" ACTIVE_TAGS="%s" WINDOWS="%d" LAYOUT="%s" FULLSCREEN="%s" TIMER="%s" APP="%s" OCCUPIED="%s" URGENT="%s"',
-        tag, activeTagsStr, windowCount, layout, isFullscreen, timerRemaining, focusedApp, occupied, urgent
+        'TAG="%s" ACTIVE_TAGS="%s" WINDOWS="%d" LAYOUT="%s" FULLSCREEN="%s" TIMER="%s" APP="%s" IS_FLOATING="%s" OCCUPIED="%s" URGENT="%s"',
+        tag, activeTagsStr, windowCount, layout, isFullscreen, timerRemaining, focusedApp, isFloating, occupied, urgent
     )
 
     -- Single shell invocation for both triggers; -c avoids loading the full login profile

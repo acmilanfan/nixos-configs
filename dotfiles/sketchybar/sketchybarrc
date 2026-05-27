@@ -178,7 +178,7 @@ sketchybar --add item front_app left \
                  label.padding_right=8 \
                  icon.padding_left=8 \
                  script="$CONFIG_DIR/plugins/front_app.sh" \
-           --subscribe front_app front_app_switched
+           --subscribe front_app front_app_switched nanowm_update
 
 # --- Caps Lock Indicator ---
 sketchybar --add item caps_lock left \

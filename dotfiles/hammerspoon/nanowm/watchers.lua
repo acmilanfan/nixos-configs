@@ -8,6 +8,7 @@ local state = require("nanowm.state")
 local core = require("nanowm.core")
 local layout = require("nanowm.layout")
 local tags = require("nanowm.tags")
+local integrations = require("nanowm.integrations")
 
 local M = {}
 
@@ -202,6 +203,7 @@ function M.setup()
 
         if core.isFloating(win) then
             win:raise()
+            integrations.updateSketchybar()
             return
         end
 
