@@ -173,7 +173,7 @@
           git -C "$git_root" worktree add "$worktree_path" -b "$branch" || return 1
         fi
         echo "Created: $worktree_path"
-        agent=$(printf "shell\nclaude\ngemini" | fzf --prompt="Open with > " --height=5)
+        agent=$(printf "shell\nclaude\ngemini\nantigravity" | fzf --prompt="Open with > " --height=6)
         [[ -z "$agent" ]] && return
         session_name=$(echo "$repo_name-$branch" | tr '.' '_' | tr '/' '-')
         if ! tmux has-session -t="$session_name" 2>/dev/null; then
@@ -183,6 +183,7 @@
         case "$agent" in
           claude) tmux send-keys -t "$session_name" "claude" Enter ;;
           gemini) tmux send-keys -t "$session_name" "gemini" Enter ;;
+          antigravity) tmux send-keys -t "$session_name" "antigravity" Enter ;;
         esac
       }
       bindkey -s '^xn' 'wt-new\n'

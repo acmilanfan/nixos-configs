@@ -181,8 +181,8 @@ function M.getAgents()
         end
     end
 
-    -- 2. Fallback: process detection (Gemini etc.)
-    local AGENT_PROCESSES = { "claude", ".claude-wrapped", "gemini", "aider", "cursor" }
+        -- 2. Fallback: process detection (Gemini etc.)
+    local AGENT_PROCESSES = { "claude", ".claude-wrapped", "gemini", "aider", "cursor", "antigravity", "agy" }
     for id, info in pairs(panes) do
         if not processedIds[id] then
             local ttyShort = info.tty:match("([^/]+)$")
@@ -396,7 +396,7 @@ function M.showMenu()
                 cmd=$(ps -t "$ttyShort" -o command= 2>/dev/null)
 
                 foundAgent=""
-                for proc in claude .claude-wrapped gemini aider cursor; do
+                for proc in claude .claude-wrapped gemini aider cursor antigravity agy; do
                     if echo "$cmd" | grep -q "$proc"; then
                         foundAgent=$proc
                         break

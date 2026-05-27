@@ -4,6 +4,7 @@
 # --tmux    : create/switch a tmux session for the selected worktree
 # --claude  : like --tmux but also starts `claude` in the new session
 # --gemini  : like --tmux but also starts `gemini` in the new session
+# --antigravity : like --tmux but also starts `antigravity` in the new session
 
 selected=$(git worktree list --porcelain 2>/dev/null \
   | awk '/^worktree / {print $2}' \
@@ -27,6 +28,7 @@ _tmux_switch() {
 case "$1" in
   --claude) _tmux_switch "$selected" "claude" ;;
   --gemini) _tmux_switch "$selected" "gemini" ;;
+  --antigravity) _tmux_switch "$selected" "antigravity" ;;
   --tmux)   _tmux_switch "$selected" "" ;;
   *)        echo "$selected" ;;
 esac

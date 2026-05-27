@@ -87,6 +87,53 @@ let
     ];
   };
 
+  antigravityHooks = {
+    Notification = [
+      {
+        matcher = "*";
+        hooks = [
+          {
+            type = "command";
+            command = "agent-state --agent antigravity --state needs-input &";
+          }
+        ];
+      }
+    ];
+    BeforeTool = [
+      {
+        matcher = "*";
+        hooks = [
+          {
+            type = "command";
+            command = "agent-state --agent antigravity --state running &";
+          }
+        ];
+      }
+    ];
+    BeforeAgent = [
+      {
+        matcher = "*";
+        hooks = [
+          {
+            type = "command";
+            command = "agent-state --agent antigravity --state running &";
+          }
+        ];
+      }
+    ];
+    SessionEnd = [
+      {
+        matcher = "*";
+        hooks = [
+          {
+            type = "command";
+            command = "agent-state --agent antigravity --state done &";
+          }
+        ];
+      }
+    ];
+  };
+
   claudeSettings = {
     apiKeyHelper = "echo $ANTHROPIC_API_KEY";
     env = {
@@ -158,6 +205,27 @@ let
     hooks = geminiHooks;
   };
 
+  antigravitySettings = {
+    security = {
+      auth = {
+        selectedType = "oauth-personal";
+      };
+    };
+    general = {
+      vimMode = true;
+      previewFeatures = true;
+      sessionRetention = {
+        enabled = true;
+      };
+    };
+    mcpServers = {
+      nixos = {
+        command = "${inputs.mcp-nixos.packages.${pkgs.stdenv.hostPlatform.system}.default}/bin/mcp-nixos";
+      };
+    };
+    hooks = antigravityHooks;
+  };
+
   # List of { url, dir } pairs — dir is the actual directory name under ~/.gemini/extensions/
   geminiExtensions = [
     { url = "https://github.com/samber/cc-skills-golang";           dir = "cc-skills-golang"; }
@@ -171,10 +239,12 @@ in
 {
   home.file.".claude/settings.json".text = builtins.toJSON claudeSettings;
   home.file.".gemini/settings.json".text = builtins.toJSON geminiSettings;
+  home.file.".antigravity/settings.json".text = builtins.toJSON antigravitySettings;
 
   home.packages = [
       inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.claude-code
       inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.gemini-cli
+      inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.antigravity
       inputs.mcp-nixos.packages.${pkgs.stdenv.hostPlatform.system}.default
   ];
 

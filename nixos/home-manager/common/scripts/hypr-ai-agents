@@ -19,6 +19,7 @@ get_agents() {
   STATUS="idle"
   C_COUNT=0
   G_COUNT=0
+  A_COUNT=0
 
   # Detect based on env
   PANE_IDS=$(echo "$AGENT_ENV" | grep -o '%[0-9]*' | sort -u)
@@ -30,6 +31,7 @@ get_agents() {
 
     [[ "$t" == *"Claude"* ]] && ((C_COUNT++))
     [[ "$t" == *"Gemini"* ]] && ((G_COUNT++))
+    [[ "$t" == *"Antigravity"* ]] && ((A_COUNT++))
 
     case "$s" in
       needs-input) [[ $MAX_PRIO -lt 3 ]] && MAX_PRIO=3 && STATUS="needs-input" ;;
@@ -47,10 +49,12 @@ get_agents() {
     agent=""
     [[ "$ps_full" == *"claude"* ]] && agent="Claude"
     [[ "$ps_full" == *"gemini"* ]] && agent="Gemini"
+    [[ "$ps_full" == *"antigravity"* || "$ps_full" == *"agy"* ]] && agent="Antigravity"
 
     if [ -n "$agent" ]; then
       [[ "$agent" == "Claude" ]] && ((C_COUNT++))
       [[ "$agent" == "Gemini" ]] && ((G_COUNT++))
+      [[ "$agent" == "Antigravity" ]] && ((A_COUNT++))
 
       cpu=$(ps -t "$tty_short" -o %cpu= 2>/dev/null | awk '{s+=$1}END{print s}')
       if (( $(echo "$cpu > 1.0" | bc -l) )); then
@@ -59,7 +63,7 @@ get_agents() {
     fi
   done <<< "$ALL_PANES"
 
-  if [ "$C_COUNT" -eq 0 ] && [ "$G_COUNT" -eq 0 ]; then
+  if [ "$C_COUNT" -eq 0 ] && [ "$G_COUNT" -eq 0 ] && [ "$A_COUNT" -eq 0 ]; then
     echo '{"text": "", "class": "none"}'
     return
   fi
@@ -67,6 +71,7 @@ get_agents() {
   LABEL=""
   [ "$C_COUNT" -gt 0 ] && LABEL="C:${C_COUNT}"
   [ "$G_COUNT" -gt 0 ] && LABEL="${LABEL:+$LABEL }G:${G_COUNT}"
+  [ "$A_COUNT" -gt 0 ] && LABEL="${LABEL:+$LABEL }A:${A_COUNT}"
 
   ICON="󰧑"
   [[ "$STATUS" == "needs-input" ]] && ICON="󰀦"

@@ -40,6 +40,7 @@ AGG_PRIORITY=0
 AGGREGATE="idle"
 CLAUDE_ACTIVE=0
 GEMINI_ACTIVE=0
+ANTIGRAVITY_ACTIVE=0
 PROCESSED_PANES=""
 
 update_aggregate() {
@@ -86,10 +87,10 @@ if [ -n "$AGENT_ENV" ]; then
       continue
     fi
 
-    # Verify process is still there
+        # Verify process is still there
     tty=$(echo "$PANE_INFO" | cut -d'|' -f3)
     tty_short=$(basename "$tty")
-    AGENT_PROCESSES="claude .claude-wrapped gemini aider cursor"
+    AGENT_PROCESSES="claude .claude-wrapped gemini aider cursor antigravity agy"
     found_proc=0
     for proc in $AGENT_PROCESSES; do
       if ps -t "$tty_short" -o command= 2>/dev/null | grep -qw "$proc"; then
@@ -120,6 +121,7 @@ if [ -n "$AGENT_ENV" ]; then
     case "$agent_name" in
       *Claude*|*claude*) TYPE="C" ;;
       *Gemini*|*gemini*|*Test*) TYPE="G" ;;
+      *Antigravity*|*antigravity*) TYPE="A" ;;
       *) TYPE="${agent_name:0:1}" ;;
     esac
 
@@ -129,18 +131,21 @@ if [ -n "$AGENT_ENV" ]; then
         update_aggregate 3 "confirm"
         [[ "$TYPE" == "C" ]] && CLAUDE_ACTIVE=$((CLAUDE_ACTIVE + 1))
         [[ "$TYPE" == "G" ]] && GEMINI_ACTIVE=$((GEMINI_ACTIVE + 1))
+        [[ "$TYPE" == "A" ]] && ANTIGRAVITY_ACTIVE=$((ANTIGRAVITY_ACTIVE + 1))
         ;;
       running)
         DOT="●"; COLOR="0xffe0af68"   # yellow — working
         update_aggregate 2 "working"
         [[ "$TYPE" == "C" ]] && CLAUDE_ACTIVE=$((CLAUDE_ACTIVE + 1))
         [[ "$TYPE" == "G" ]] && GEMINI_ACTIVE=$((GEMINI_ACTIVE + 1))
+        [[ "$TYPE" == "A" ]] && ANTIGRAVITY_ACTIVE=$((ANTIGRAVITY_ACTIVE + 1))
         ;;
       done)
         DOT="●"; COLOR="0xff7b5cff"   # purple — waiting/recent
         update_aggregate 1 "recent"
         [[ "$TYPE" == "C" ]] && CLAUDE_ACTIVE=$((CLAUDE_ACTIVE + 1))
         [[ "$TYPE" == "G" ]] && GEMINI_ACTIVE=$((GEMINI_ACTIVE + 1))
+        [[ "$TYPE" == "A" ]] && ANTIGRAVITY_ACTIVE=$((ANTIGRAVITY_ACTIVE + 1))
         ;;
     esac
 
@@ -150,7 +155,7 @@ if [ -n "$AGENT_ENV" ]; then
 fi
 
 # 2b. Fallback: check all other panes for known agent processes
-AGENT_PROCESSES="claude .claude-wrapped gemini aider cursor"
+AGENT_PROCESSES="claude .claude-wrapped gemini aider cursor antigravity agy"
 while IFS='|' read -r pane_id pid tty cwd; do
   [[ "$PROCESSED_PANES" =~ "$pane_id" ]] && continue
   [ "$SLOT" -gt "$MAX_SLOTS" ] && break
@@ -167,6 +172,7 @@ while IFS='|' read -r pane_id pid tty cwd; do
       case "$proc" in
         *claude*) found_agent="Claude" ;;
         *gemini*) found_agent="Gemini" ;;
+        *antigravity*|*agy*) found_agent="Antigravity" ;;
         *) found_agent="$proc" ;;
       esac
       break
@@ -195,6 +201,7 @@ while IFS='|' read -r pane_id pid tty cwd; do
   case "$found_agent" in
     *Claude*|*claude*) TYPE="C" ;;
     *Gemini*|*gemini*) TYPE="G" ;;
+    *Antigravity*|*antigravity*) TYPE="A" ;;
     *) TYPE="${found_agent:0:1}" ;;
   esac
 
@@ -205,12 +212,14 @@ while IFS='|' read -r pane_id pid tty cwd; do
       update_aggregate 3 "confirm"
       [[ "$TYPE" == "C" ]] && CLAUDE_ACTIVE=$((CLAUDE_ACTIVE + 1))
       [[ "$TYPE" == "G" ]] && GEMINI_ACTIVE=$((GEMINI_ACTIVE + 1))
+      [[ "$TYPE" == "A" ]] && ANTIGRAVITY_ACTIVE=$((ANTIGRAVITY_ACTIVE + 1))
       ;;
     running)
       DOT="●"; COLOR="0xffe0af68"   # yellow — working
       update_aggregate 2 "working"
       [[ "$TYPE" == "C" ]] && CLAUDE_ACTIVE=$((CLAUDE_ACTIVE + 1))
       [[ "$TYPE" == "G" ]] && GEMINI_ACTIVE=$((GEMINI_ACTIVE + 1))
+      [[ "$TYPE" == "A" ]] && ANTIGRAVITY_ACTIVE=$((ANTIGRAVITY_ACTIVE + 1))
       ;;
     idle)
       DOT="○"; COLOR="0xff565f89"   # gray — idle
@@ -237,6 +246,7 @@ done
 LABEL=""
 [ "$CLAUDE_ACTIVE" -gt 0 ] && LABEL="C:${CLAUDE_ACTIVE}"
 [ "$GEMINI_ACTIVE" -gt 0 ] && LABEL="${LABEL:+$LABEL }G:${GEMINI_ACTIVE}"
+[ "$ANTIGRAVITY_ACTIVE" -gt 0 ] && LABEL="${LABEL:+$LABEL }A:${ANTIGRAVITY_ACTIVE}"
 
 case "$AGGREGATE" in
   confirm) ICON_COLOR="0xffe06c75" ;;   # red    — needs immediate input
