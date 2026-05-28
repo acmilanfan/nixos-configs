@@ -20,6 +20,9 @@ let
     postInstall = ''
       cd $out/share/tmux-plugins/agent-indicator
       ln -s agent-indicator.tmux agent_indicator.tmux
+      substituteInPlace scripts/agent-state.sh \
+        --replace 'tmux display-message -d "$duration" "$message" || true' 'true' \
+        --replace 'tmux display-message "$message" || true' 'true'
     '';
   };
 in
