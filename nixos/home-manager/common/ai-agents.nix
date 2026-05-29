@@ -88,18 +88,7 @@ let
   };
 
   antigravityHooks = {
-    Notification = [
-      {
-        matcher = "*";
-        hooks = [
-          {
-            type = "command";
-            command = "agent-state --agent antigravity --state needs-input &";
-          }
-        ];
-      }
-    ];
-    BeforeTool = [
+    PreToolUse = [
       {
         matcher = "*";
         hooks = [
@@ -110,7 +99,18 @@ let
         ];
       }
     ];
-    BeforeAgent = [
+    PostToolUse = [
+      {
+        matcher = "*";
+        hooks = [
+          {
+            type = "command";
+            command = "agent-state --agent antigravity --state done &";
+          }
+        ];
+      }
+    ];
+    PreInvocation = [
       {
         matcher = "*";
         hooks = [
@@ -121,7 +121,18 @@ let
         ];
       }
     ];
-    SessionEnd = [
+    PostInvocation = [
+      {
+        matcher = "*";
+        hooks = [
+          {
+            type = "command";
+            command = "agent-state --agent antigravity --state done &";
+          }
+        ];
+      }
+    ];
+    Stop = [
       {
         matcher = "*";
         hooks = [
@@ -206,6 +217,9 @@ let
   };
 
   antigravitySettings = {
+    colorScheme = "dark";
+    enableTelemetry = false;
+    model = "Gemini 3.5 Flash (Medium)";
     security = {
       auth = {
         selectedType = "oauth-personal";
@@ -235,11 +249,11 @@ let
   ];
 
   gemini = "${inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.gemini-cli}/bin/gemini";
+  antigravity = "${inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.antigravity}/bin/antigravity";
 in
 {
   home.file.".claude/settings.json".text = builtins.toJSON claudeSettings;
   home.file.".gemini/settings.json".text = builtins.toJSON geminiSettings;
-  home.file.".antigravity/settings.json".text = builtins.toJSON antigravitySettings;
 
   home.packages = [
       inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.claude-code
@@ -255,6 +269,21 @@ in
     # Use system SSH so ~/.ssh/config macOS options (UseKeychain) are supported
     export GIT_SSH_COMMAND="/usr/bin/ssh"
 
+    # 1. Antigravity Writable Settings Setup
+    # We don't use home.file here because antigravity needs to write to its settings
+    # but we still want them managed/reproducible by Nix.
+    AGY_DIR="$HOME/.gemini/antigravity-cli"
+    AGY_SETTINGS="$AGY_DIR/settings.json"
+    mkdir -p "$AGY_DIR"
+    if [ -L "$AGY_SETTINGS" ]; then rm "$AGY_SETTINGS"; fi
+
+    # Write managed settings
+    cat > "$AGY_SETTINGS" <<EOF
+${builtins.toJSON antigravitySettings}
+EOF
+    chmod 644 "$AGY_SETTINGS"
+
+    # 2. Gemini Extension Installation
     # Uninstall broken last30days-skill if still present on disk
     if [ -d "${config.home.homeDirectory}/.gemini/extensions/last30days-skill" ]; then
       echo "Removing last30days-skill extension..."
@@ -262,13 +291,30 @@ in
         rm -rf "${config.home.homeDirectory}/.gemini/extensions/last30days-skill"
     fi
 
-    # Install extensions if not already present — check by directory existence
+    # Install extensions for Gemini if not already present
     ${builtins.concatStringsSep "\n" (map (ext: ''
       if [ -d "$HOME/.gemini/extensions/${ext.dir}" ]; then
         echo "Gemini extension already installed: ${ext.dir}"
       else
         echo "Installing Gemini extension: ${ext.url}"
         $DRY_RUN_CMD ${gemini} extensions install "${ext.url}" --consent --skip-settings || true
+      fi
+    '') geminiExtensions)}
+
+    # 3. Antigravity Plugin Installation
+    # Import plugins from gemini if none exist yet
+    if [ ! -d "$AGY_DIR/plugins" ] || [ -z "$(ls -A "$AGY_DIR/plugins" 2>/dev/null)" ]; then
+      echo "Importing plugins from gemini to antigravity..."
+      $DRY_RUN_CMD ${antigravity} plugin import gemini --consent || true
+    fi
+
+    # Ensure all required extensions are installed in antigravity
+    ${builtins.concatStringsSep "\n" (map (ext: ''
+      if [ -d "$AGY_DIR/plugins/${ext.dir}" ]; then
+        echo "Antigravity plugin already installed: ${ext.dir}"
+      else
+        echo "Installing Antigravity plugin: ${ext.url}"
+        $DRY_RUN_CMD ${antigravity} plugin install "${ext.url}" --consent --skip-settings || true
       fi
     '') geminiExtensions)}
   '';
