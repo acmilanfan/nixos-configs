@@ -1,9 +1,7 @@
 -- =============================================================================
 -- Aurora Sweep Browser Remapper (Right Control -> Command)
 -- =============================================================================
--- This script replaces Karabiner-Elements for the Sweep.
--- It ensures browser shortcuts work without breaking ZMK mouse reports.
--- Specifically targets Right Control (Keycode 62).
+-- Stateful version: Ensures modifiers are swapped for the entire chord.
 -- =============================================================================
 
 local log = hs.logger.new('SweepRemapper', 'info')
@@ -18,40 +16,43 @@ local BROWSER_BUNDLES = {
 -- macOS Keycodes
 local RIGHT_CTRL = 62
 
--- Create the event tap
--- We listen for keyDown, keyUp, and flagsChanged events.
+-- State tracking
+local rCtrlActive = false
+
 _G.sweepBrowserTap = hs.eventtap.new({
     hs.eventtap.event.types.keyDown,
     hs.eventtap.event.types.keyUp,
     hs.eventtap.event.types.flagsChanged
 }, function(event)
-    -- 1. Check if the active app is a browser
-    local app = hs.application.frontmostApplication()
-    if not app or not BROWSER_BUNDLES[app:bundleID()] then
-        return false
-    end
-
-    -- 2. Verify it is exactly the Right Control key
-    -- This ensures Left Control on your internal keyboard remains standard.
-    if event:getKeyCode() ~= RIGHT_CTRL then
-        return false
-    end
-
-    -- 3. Perform the Flag Swap
-    -- We add CMD and remove CTRL.
-    -- This makes RCTRL+T act as CMD+T in browsers.
+    local keyCode = event:getKeyCode()
     local flags = event:getFlags()
-    local newFlags = {}
-    for k, v in pairs(flags) do newFlags[k] = v end
-    newFlags.cmd = true
-    newFlags.ctrl = false
 
-    event:setFlags(newFlags)
+    -- 1. Browser Check
+    local app = hs.application.frontmostApplication()
+    local bundleID = app and app:bundleID() or "unknown"
+    if not BROWSER_BUNDLES[bundleID] then
+        rCtrlActive = false -- Reset state if we leave the browser
+        return false
+    end
 
-    -- Return false to let the modified event pass through
+    -- 2. Update Right-Control State
+    -- We track if the RIGHT control specifically is being held.
+    if keyCode == RIGHT_CTRL then
+        rCtrlActive = flags.ctrl
+    end
+
+    -- 3. Perform the Swap
+    -- If RCTRL is active (or this IS the RCTRL key event), swap flags.
+    if rCtrlActive and flags.ctrl then
+        local newFlags = {}
+        for k, v in pairs(flags) do newFlags[k] = v end
+        newFlags.cmd = true
+        newFlags.ctrl = false
+        event:setFlags(newFlags)
+    end
+
     return false
 end)
 
--- Start the tap
 _G.sweepBrowserTap:start()
-log.i("Right-Control Browser Remapper Active")
+log.i("Aurora Sweep RCTRL -> CMD (Stateful) Active")

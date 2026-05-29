@@ -57,15 +57,6 @@ if [ "$RELOAD_REQUIRED" = true ]; then
         sudo /bin/launchctl bootout system/org.pqrs.service.daemon.karabiner_grabber 2>/dev/null || true
         sudo /usr/bin/pkill -x "Karabiner-Core-Service" 2>/dev/null || true
         sudo /usr/bin/pkill -x "karabiner_grabber" 2>/dev/null || true
-
-        # Fast Wait for readiness & restart agent
-        for i in {1..20}; do
-            if /usr/sbin/lsof -nP -iTCP:5829 -sTCP:LISTEN >/dev/null 2>&1; then
-                /bin/launchctl kickstart -k "gui/$(id -u)/local.kanata-vk-agent" 2>/dev/null || true
-                break
-            fi
-            sleep 0.05
-        done
     ) >/dev/null 2>&1 &
 
     print_status "✓ Reload initiated (fast path)."

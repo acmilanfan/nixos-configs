@@ -156,18 +156,6 @@ in
     %admin ALL=(ALL) NOPASSWD: /usr/bin/pmset
   '';
 
-  launchd.agents.kanata-vk-agent = {
-    command = "/opt/homebrew/bin/kanata-vk-agent -p 5829 -b com.apple.Safari,org.mozilla.firefox,com.google.Chrome,arc.browser -i com.apple.keylayout.ABC";
-    serviceConfig = {
-      Label = "local.kanata-vk-agent";
-      KeepAlive = true;
-      RunAtLoad = true;
-      LimitLoadToSessionType = "Aqua";
-      StandardOutPath = "/tmp/kanata_vk_agent_stdout.log";
-      StandardErrorPath = "/tmp/kanata_vk_agent_stderr.log";
-    };
-  };
-
   launchd.agents.darwin-startup = {
     command = "${startupScript}/bin/darwin-startup";
     serviceConfig = {
@@ -215,7 +203,6 @@ in
       "scrcpy"
       "kanata"
       "firefoxpwa"
-      "devsunb/tap/kanata-vk-agent"
       "docker"
       "wifitui"
       "k06a/tap/macpow"
@@ -224,7 +211,6 @@ in
     taps = [
       "FelixKratz/formulae"
       "dimentium/autoraise"
-      "devsunb/tap"
       "k06a/tap"
     ];
   };
