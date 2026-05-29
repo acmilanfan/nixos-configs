@@ -8,25 +8,34 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 )
 
-func CheckColima() Status {
-	cmd := exec.Command("colima", "status")
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return Status{Name: "Colima", State: StateInactive, Details: "Stopped"}
+func CheckContainerEngine() Status {
+	if runtime.GOOS == "darwin" {
+		cmd := exec.Command("colima", "status")
+		if err := cmd.Run(); err == nil {
+			return Status{Name: "Containers", State: StateActive, Details: "Colima"}
+		}
 	}
 
-	if strings.Contains(string(out), "running") {
-		return Status{Name: "Colima", State: StateActive, Details: "Running"}
+	// Fallback to docker check
+	cmd := exec.Command("docker", "info")
+	if err := cmd.Run(); err == nil {
+		return Status{Name: "Containers", State: StateActive, Details: "Docker"}
 	}
 
-	return Status{Name: "Colima", State: StateInactive, Details: "Stopped"}
+	return Status{Name: "Containers", State: StateInactive, Details: "Stopped"}
 }
 
 func CheckBrew() Status {
+	_, err := exec.LookPath("brew")
+	if err != nil && runtime.GOOS != "darwin" {
+		return Status{Name: "Brew", State: StateHidden}
+	}
+
 	cmd := exec.Command("brew", "outdated", "--json")
 	out, err := cmd.Output()
 	if err != nil {
@@ -68,7 +77,14 @@ func CheckNix(flakeDir string) Status {
 	if err != nil {
 		hostname = "mac-home"
 	}
-	flakeTarget := fmt.Sprintf(".#darwinConfigurations.%s.system", hostname)
+
+	var flakeTarget string
+	if runtime.GOOS == "darwin" {
+		flakeTarget = fmt.Sprintf(".#darwinConfigurations.%s.system", hostname)
+	} else {
+		flakeTarget = fmt.Sprintf(".#nixosConfigurations.%s.config.system.build.toplevel", hostname)
+	}
+
 	currentSystemPath := "/run/current-system"
 
 	args := []string{
@@ -149,12 +165,13 @@ func CheckNix(flakeDir string) Status {
 }
 
 func CheckNextcloud() Status {
-	cmd := exec.Command("pgrep", "Nextcloud")
-	err := cmd.Run()
-	if err != nil {
-		return Status{Name: "Nextcloud", State: StateInactive, Details: "Stopped"}
+	processes := []string{"Nextcloud", "nextcloud"}
+	for _, p := range processes {
+		if err := exec.Command("pgrep", p).Run(); err == nil {
+			return Status{Name: "Nextcloud", State: StateActive, Details: "Active"}
+		}
 	}
-	return Status{Name: "Nextcloud", State: StateActive, Details: "Active"}
+	return Status{Name: "Nextcloud", State: StateInactive, Details: "Stopped"}
 }
 
 func CheckNextcloudFile(ncRoot string, relPath string) Status {

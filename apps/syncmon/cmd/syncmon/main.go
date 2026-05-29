@@ -19,7 +19,7 @@ type model struct {
 	orgGit        status.Status
 	configGit     status.Status
 	conflicts     status.Status
-	colima        status.Status
+	containers    status.Status
 	brew          status.Status
 	nix           status.Status
 	nixLoading    bool
@@ -40,9 +40,9 @@ func initialModel() model {
 		orgGit:        status.Status{Name: "Org Repo", State: status.StateUnknown},
 		configGit:     status.Status{Name: "Configs", State: status.StateUnknown},
 		conflicts:     status.Status{Name: "Conflicts", State: status.StateUnknown},
-		colima:        status.Status{Name: "Colima", State: status.StateUnknown},
+		containers:    status.Status{Name: "Containers", State: status.StateUnknown},
 		brew:          status.Status{Name: "Brew", State: status.StateUnknown},
-		nix:           status.Status{Name: "Nix", State: status.StateUnknown},
+		nix:           status.Status{Name: "Nix", State: status.StateUnknown, Details: "Ready"},
 		spinner:       s,
 	}
 }
@@ -82,8 +82,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.configGit = msg.Status
 		case "conflicts":
 			m.conflicts = msg.Status
-		case "colima":
-			m.colima = msg.Status
+		case "containers":
+			m.containers = msg.Status
 		case "brew":
 			m.brew = msg.Status
 		case "nix":
@@ -115,21 +115,37 @@ func refreshCmd() tea.Cmd {
 		},
 		func() tea.Msg {
 			// Check newsboat cache in Nextcloud
-			ncRoot := "/Users/gentooway/Nextcloud"
+			ncPath := viper.GetString("paths.nextcloud")
+			if ncPath == "" {
+				ncPath = "~/Nextcloud"
+			}
+			ncRoot := status.ExpandPath(ncPath)
 			relPath := "newsboat/cache.db"
 			return status.StatusMsg{Service: "newsboatCache", Status: status.CheckNextcloudFile(ncRoot, relPath)}
 		},
 		func() tea.Msg {
-			return status.StatusMsg{Service: "orgGit", Status: status.CheckGitStatus(viper.GetString("paths.org"), "Org Repo")}
+			path := viper.GetString("paths.org")
+			if path == "" {
+				return status.StatusMsg{Service: "orgGit", Status: status.Status{Name: "Org Repo", State: status.StateUnknown, Details: "No path"}}
+			}
+			return status.StatusMsg{Service: "orgGit", Status: status.CheckGitStatus(status.ExpandPath(path), "Org Repo")}
 		},
 		func() tea.Msg {
-			return status.StatusMsg{Service: "configGit", Status: status.CheckGitStatus(viper.GetString("paths.configs"), "Configs")}
+			path := viper.GetString("paths.configs")
+			if path == "" {
+				return status.StatusMsg{Service: "configGit", Status: status.Status{Name: "Configs", State: status.StateUnknown, Details: "No path"}}
+			}
+			return status.StatusMsg{Service: "configGit", Status: status.CheckGitStatus(status.ExpandPath(path), "Configs")}
 		},
 		func() tea.Msg {
-			return status.StatusMsg{Service: "conflicts", Status: status.CheckConflicts(viper.GetString("paths.org"))}
+			path := viper.GetString("paths.org")
+			if path == "" {
+				return status.StatusMsg{Service: "conflicts", Status: status.Status{Name: "Conflicts", State: status.StateUnknown, Details: "No path"}}
+			}
+			return status.StatusMsg{Service: "conflicts", Status: status.CheckConflicts(status.ExpandPath(path))}
 		},
 		func() tea.Msg {
-			return status.StatusMsg{Service: "colima", Status: status.CheckColima()}
+			return status.StatusMsg{Service: "containers", Status: status.CheckContainerEngine()}
 		},
 		func() tea.Msg {
 			return status.StatusMsg{Service: "brew", Status: status.CheckBrew()}
@@ -139,9 +155,14 @@ func refreshCmd() tea.Cmd {
 
 func nixCmd() tea.Cmd {
 	return func() tea.Msg {
-		return status.StatusMsg{Service: "nix", Status: status.CheckNix(viper.GetString("paths.configs"))}
+		path := viper.GetString("paths.configs")
+		if path == "" {
+			return status.StatusMsg{Service: "nix", Status: status.Status{Name: "Nix", State: status.StateError, Details: "No path"}}
+		}
+		return status.StatusMsg{Service: "nix", Status: status.CheckNix(status.ExpandPath(path))}
 	}
 }
+
 
 func (m model) View() string {
 	if m.quitting {
@@ -160,7 +181,7 @@ func (m model) View() string {
 	})
 
 	sysCol := m.renderPanel("SYSTEM", []status.Status{
-		m.colima, m.brew, m.nix,
+		m.containers, m.brew, m.nix,
 	})
 
 	body := lipgloss.JoinHorizontal(lipgloss.Top, syncCol, sysCol)
@@ -183,6 +204,9 @@ func (m model) renderPanel(title string, items []status.Status) string {
 
 	var lines []string
 	for _, item := range items {
+		if item.State == status.StateHidden {
+			continue
+		}
 		lines = append(lines, m.renderStatusLine(item, 0))
 		for _, device := range item.Devices {
 			lines = append(lines, m.renderStatusLine(device, 1))
@@ -231,7 +255,10 @@ func (m model) renderStatusLine(item status.Status, indent int) string {
 func main() {
 	viper.SetConfigName(".syncmon")
 	viper.SetConfigType("yaml")
-	viper.AddConfigPath("$HOME")
+
+	if home, err := os.UserHomeDir(); err == nil {
+		viper.AddConfigPath(home)
+	}
 	viper.AddConfigPath(".")
 	viper.SetEnvPrefix("SYNCMON")
 	viper.AutomaticEnv()

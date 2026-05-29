@@ -4,3 +4,4 @@ syncthing:
 paths:
   org: "~/org"
   configs: "~/configs/nixos-configs"
+  nextcloud: "~/Nextcloud"

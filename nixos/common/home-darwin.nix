@@ -200,8 +200,9 @@ in
           url: "http://127.0.0.1:8384"
           apikey: "${secrets.syncthing_api_key}"
         paths:
-          org: "/Users/gentooway/org"
-          configs: "/Users/gentooway/configs/nixos-configs"
+          org: "~/org"
+          configs: "~/configs/nixos-configs"
+          nextcloud: "~/Nextcloud"
       '';
     };
 
