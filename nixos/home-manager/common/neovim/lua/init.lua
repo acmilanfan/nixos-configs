@@ -1,3 +1,36 @@
+-- Defensive patch for Treesitter API changes/bugs in Neovim (fix for "range" nil value)
+if vim.treesitter.get_node_text then
+  local old_get_node_text = vim.treesitter.get_node_text
+  vim.treesitter.get_node_text = function(node, source, opts)
+    if not node or (type(node) ~= "userdata" and type(node) ~= "table") then
+      return ""
+    end
+    local ok, has_range = pcall(function()
+      return type(node.range) == "function"
+    end)
+    if not ok or not has_range then
+      return ""
+    end
+    return old_get_node_text(node, source, opts)
+  end
+end
+
+if vim.treesitter.get_range then
+  local old_get_range = vim.treesitter.get_range
+  vim.treesitter.get_range = function(node, source, metadata)
+    if not node or (type(node) ~= "userdata" and type(node) ~= "table") then
+      return 0, 0, 0, 0
+    end
+    local ok, has_range = pcall(function()
+      return type(node.range) == "function"
+    end)
+    if not ok or not has_range then
+      return 0, 0, 0, 0
+    end
+    return old_get_range(node, source, metadata)
+  end
+end
+
 -- Plugin configurations
 require("plugins.colorscheme")
 require("plugins.nvim-web-devicons")
