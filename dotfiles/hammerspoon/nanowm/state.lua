@@ -121,6 +121,8 @@ M.kanataMode = "homerow"
 -- Persistence Functions
 -- =============================================================================
 
+local SAVE_FILE = os.getenv("HOME") .. "/.hammerspoon/nanowm_state.json"
+
 local saveTimer = hs.timer.delayed.new(2.0, function()
     M.save()
 end)
@@ -141,61 +143,127 @@ local function clean(t)
     return out
 end
 
-function M.load()
-    M.tags = clean(hs.settings.get("nanoWM_tags"))
-    M.stacks = clean(hs.settings.get("nanoWM_stacks"))
-    M.sticky = clean(hs.settings.get("nanoWM_sticky"))
-    M.floatingOverrides = clean(hs.settings.get("nanoWM_floatingOverrides"))
-    M.floatingCache = hs.settings.get("nanoWM_floatingCache") or {}
-    M.sizeCache = hs.settings.get("nanoWM_sizeCache") or {}
-    M.fullscreenCache = hs.settings.get("nanoWM_fullscreenCache") or {}
-    M.masterWidths = clean(hs.settings.get("nanoWM_masterWidths")) or {}
-    M.windowWidths = clean(hs.settings.get("nanoWM_windowWidths")) or {}
-    M.tagLayouts = clean(hs.settings.get("nanoWM_tagLayouts")) or {}
-    M.tagCreationOrder = clean(hs.settings.get("nanoWM_tagCreationOrder")) or {}
-    M.tagFullscreenState = clean(hs.settings.get("nanoWM_tagFullscreenState")) or {}
-    M.tagLastFocused = clean(hs.settings.get("nanoWM_tagLastFocused")) or {}
-    M.appTagMemory = hs.settings.get("nanoWM_appTagMemory") or {}
-    M.freeTags = clean(hs.settings.get("nanoWM_freeTags")) or {}
-    M.freeTagPositions = hs.settings.get("nanoWM_freeTagPositions") or {}
+-- Two-level key conversion for freeTagPositions: {[tag][winId]=frame}
+-- JSON round-trip turns numeric keys into strings at both levels.
+local function cleanNested(t)
+    local out = {}
+    for k, v in pairs(t or {}) do
+        local outerKey = tonumber(k) or k
+        if type(v) == "table" then
+            out[outerKey] = clean(v)
+        else
+            out[outerKey] = v
+        end
+    end
+    return out
+end
 
-    M.activeTags = clean(hs.settings.get("nanoWM_activeTags")) or { 1, 11, 21, 31 }
-    M.currentTag = hs.settings.get("nanoWM_currentTag") or 1
-    M.prevTag = hs.settings.get("nanoWM_prevTag") or 1
-    M.layout = hs.settings.get("nanoWM_globalLayout") or config.layout
-    M.weekenduoWinId = hs.settings.get("nanoWM_weekenduoWinId")
-    M.sketchybarEnabled = hs.settings.get("nanoWM_sketchybarEnabled") or false
-    M.bordersEnabled = hs.settings.get("nanoWM_bordersEnabled") or false
-    M.kanataMode = hs.settings.get("nanoWM_kanataMode") or "homerow"
-    M.caffeinateActive = hs.settings.get("nanoWM_caffeinateActive") or false
+local function loadFromData(d)
+    M.tags              = clean(d.tags)
+    M.stacks            = clean(d.stacks)
+    M.sticky            = clean(d.sticky)
+    M.floatingOverrides = clean(d.floatingOverrides)
+    M.floatingCache     = d.floatingCache or {}
+    M.sizeCache         = d.sizeCache or {}
+    M.fullscreenCache   = d.fullscreenCache or {}
+    M.masterWidths      = clean(d.masterWidths) or {}
+    M.windowWidths      = clean(d.windowWidths) or {}
+    M.tagLayouts        = clean(d.tagLayouts) or {}
+    M.tagCreationOrder  = clean(d.tagCreationOrder) or {}
+    M.tagFullscreenState = clean(d.tagFullscreenState) or {}
+    M.tagLastFocused    = clean(d.tagLastFocused) or {}
+    M.appTagMemory      = d.appTagMemory or {}
+    M.freeTags          = clean(d.freeTags) or {}
+    M.freeTagPositions  = cleanNested(d.freeTagPositions) or {}
+    M.activeTags        = clean(d.activeTags) or { 1, 11, 21, 31 }
+    M.currentTag        = d.currentTag or 1
+    M.prevTag           = d.prevTag or 1
+    M.layout            = d.globalLayout or config.layout
+    M.weekenduoWinId    = d.weekenduoWinId
+    M.sketchybarEnabled = d.sketchybarEnabled or false
+    M.bordersEnabled    = d.bordersEnabled or false
+    M.kanataMode        = d.kanataMode or "homerow"
+    M.caffeinateActive  = d.caffeinateActive or false
+end
+
+function M.load()
+    -- Fast path: single JSON file read
+    local f = io.open(SAVE_FILE, "r")
+    if f then
+        local raw = f:read("*a")
+        f:close()
+        local ok, data = pcall(hs.json.decode, raw)
+        if ok and type(data) == "table" then
+            loadFromData(data)
+            return
+        end
+    end
+    -- Fallback: migrate from hs.settings (first boot after upgrade)
+    loadFromData({
+        tags              = hs.settings.get("nanoWM_tags"),
+        stacks            = hs.settings.get("nanoWM_stacks"),
+        sticky            = hs.settings.get("nanoWM_sticky"),
+        floatingOverrides = hs.settings.get("nanoWM_floatingOverrides"),
+        floatingCache     = hs.settings.get("nanoWM_floatingCache"),
+        sizeCache         = hs.settings.get("nanoWM_sizeCache"),
+        fullscreenCache   = hs.settings.get("nanoWM_fullscreenCache"),
+        masterWidths      = hs.settings.get("nanoWM_masterWidths"),
+        windowWidths      = hs.settings.get("nanoWM_windowWidths"),
+        tagLayouts        = hs.settings.get("nanoWM_tagLayouts"),
+        tagCreationOrder  = hs.settings.get("nanoWM_tagCreationOrder"),
+        tagFullscreenState = hs.settings.get("nanoWM_tagFullscreenState"),
+        tagLastFocused    = hs.settings.get("nanoWM_tagLastFocused"),
+        appTagMemory      = hs.settings.get("nanoWM_appTagMemory"),
+        freeTags          = hs.settings.get("nanoWM_freeTags"),
+        freeTagPositions  = hs.settings.get("nanoWM_freeTagPositions"),
+        activeTags        = hs.settings.get("nanoWM_activeTags"),
+        currentTag        = hs.settings.get("nanoWM_currentTag"),
+        prevTag           = hs.settings.get("nanoWM_prevTag"),
+        globalLayout      = hs.settings.get("nanoWM_globalLayout"),
+        weekenduoWinId    = hs.settings.get("nanoWM_weekenduoWinId"),
+        sketchybarEnabled = hs.settings.get("nanoWM_sketchybarEnabled"),
+        bordersEnabled    = hs.settings.get("nanoWM_bordersEnabled"),
+        kanataMode        = hs.settings.get("nanoWM_kanataMode"),
+        caffeinateActive  = hs.settings.get("nanoWM_caffeinateActive"),
+    })
 end
 
 function M.save()
-    hs.settings.set("nanoWM_tags", serialize(M.tags))
-    hs.settings.set("nanoWM_stacks", serialize(M.stacks))
-    hs.settings.set("nanoWM_sticky", serialize(M.sticky))
-    hs.settings.set("nanoWM_floatingOverrides", serialize(M.floatingOverrides))
-    hs.settings.set("nanoWM_floatingCache", M.floatingCache)
-    hs.settings.set("nanoWM_sizeCache", M.sizeCache)
-    hs.settings.set("nanoWM_fullscreenCache", M.fullscreenCache)
-    hs.settings.set("nanoWM_masterWidths", serialize(M.masterWidths))
-    hs.settings.set("nanoWM_windowWidths", serialize(M.windowWidths))
-    hs.settings.set("nanoWM_tagLayouts", serialize(M.tagLayouts))
-    hs.settings.set("nanoWM_tagCreationOrder", serialize(M.tagCreationOrder))
-    hs.settings.set("nanoWM_tagFullscreenState", serialize(M.tagFullscreenState))
-    hs.settings.set("nanoWM_tagLastFocused", serialize(M.tagLastFocused))
-    hs.settings.set("nanoWM_activeTags", serialize(M.activeTags))
-    hs.settings.set("nanoWM_currentTag", M.currentTag)
-    hs.settings.set("nanoWM_prevTag", M.prevTag)
-    hs.settings.set("nanoWM_globalLayout", M.layout)
-    hs.settings.set("nanoWM_weekenduoWinId", M.weekenduoWinId)
-    hs.settings.set("nanoWM_appTagMemory", M.appTagMemory)
-    hs.settings.set("nanoWM_sketchybarEnabled", M.sketchybarEnabled)
-    hs.settings.set("nanoWM_bordersEnabled", M.bordersEnabled)
-    hs.settings.set("nanoWM_freeTags", serialize(M.freeTags))
-    hs.settings.set("nanoWM_freeTagPositions", M.freeTagPositions)
-    hs.settings.set("nanoWM_kanataMode", M.kanataMode)
-    hs.settings.set("nanoWM_caffeinateActive", M.caffeinateActive)
+    local data = {
+        tags               = serialize(M.tags),
+        stacks             = serialize(M.stacks),
+        sticky             = serialize(M.sticky),
+        floatingOverrides  = serialize(M.floatingOverrides),
+        floatingCache      = M.floatingCache,
+        sizeCache          = M.sizeCache,
+        fullscreenCache    = M.fullscreenCache,
+        masterWidths       = serialize(M.masterWidths),
+        windowWidths       = serialize(M.windowWidths),
+        tagLayouts         = serialize(M.tagLayouts),
+        tagCreationOrder   = serialize(M.tagCreationOrder),
+        tagFullscreenState = serialize(M.tagFullscreenState),
+        tagLastFocused     = serialize(M.tagLastFocused),
+        activeTags         = serialize(M.activeTags),
+        currentTag         = M.currentTag,
+        prevTag            = M.prevTag,
+        globalLayout       = M.layout,
+        weekenduoWinId     = M.weekenduoWinId,
+        appTagMemory       = M.appTagMemory,
+        sketchybarEnabled  = M.sketchybarEnabled,
+        bordersEnabled     = M.bordersEnabled,
+        freeTags           = serialize(M.freeTags),
+        freeTagPositions   = M.freeTagPositions,
+        kanataMode         = M.kanataMode,
+        caffeinateActive   = M.caffeinateActive,
+    }
+    local ok, json = pcall(hs.json.encode, data)
+    if ok and json then
+        local f = io.open(SAVE_FILE, "w")
+        if f then
+            f:write(json)
+            f:close()
+        end
+    end
 end
 
 function M.triggerSave()

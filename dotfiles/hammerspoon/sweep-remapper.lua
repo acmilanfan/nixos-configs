@@ -19,6 +19,19 @@ local RIGHT_CTRL = 62
 -- State tracking
 local rCtrlActive = false
 
+-- Cache the frontmost app's bundle ID so the event tap doesn't call the
+-- Accessibility API on every keyDown/keyUp/flagsChanged event.
+local _frontBundleID = nil
+if _G.sweepAppWatcher then _G.sweepAppWatcher:stop() end
+_G.sweepAppWatcher = hs.application.watcher.new(function(_, event, app)
+    if event == hs.application.watcher.activated then
+        _frontBundleID = app and app:bundleID()
+    end
+end)
+_G.sweepAppWatcher:start()
+local _seedApp = hs.application.frontmostApplication()
+_frontBundleID = _seedApp and _seedApp:bundleID()
+
 _G.sweepBrowserTap = hs.eventtap.new({
     hs.eventtap.event.types.keyDown,
     hs.eventtap.event.types.keyUp,
@@ -27,10 +40,8 @@ _G.sweepBrowserTap = hs.eventtap.new({
     local keyCode = event:getKeyCode()
     local flags = event:getFlags()
 
-    -- 1. Browser Check
-    local app = hs.application.frontmostApplication()
-    local bundleID = app and app:bundleID() or "unknown"
-    if not BROWSER_BUNDLES[bundleID] then
+    -- 1. Browser Check (cache lookup — no AX call per keypress)
+    if not BROWSER_BUNDLES[_frontBundleID] then
         rCtrlActive = false -- Reset state if we leave the browser
         return false
     end

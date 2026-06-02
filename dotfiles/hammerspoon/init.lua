@@ -194,9 +194,16 @@ if _G.capsLockTap then
     _G.capsLockTap:stop()
 end
 
--- Watch for flagsChanged (modifier keys like Caps Lock, Shift, Cmd, etc.)
+-- Watch for flagsChanged (modifier keys like Caps Lock, Shift, Cmd, etc.).
+-- Throttled to 100ms: caps-lock state changes are slow human actions and this
+-- fires on every Shift/Ctrl/Cmd press otherwise, causing unnecessary HID calls.
+local _lastCapsCheck = 0
 _G.capsLockTap = hs.eventtap.new({ hs.eventtap.event.types.flagsChanged }, function(_)
-    updateCapsLock()
+    local now = hs.timer.secondsSinceEpoch()
+    if now - _lastCapsCheck > 0.1 then
+        _lastCapsCheck = now
+        updateCapsLock()
+    end
     return false
 end):start()
 
