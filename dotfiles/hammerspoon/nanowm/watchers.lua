@@ -24,6 +24,10 @@ filter:rejectApp("Sketchybar")
 -- Apps excluded from window enumeration (same as filter rejections above)
 local managedExcluded = { Hammerspoon = true, Sketchybar = true }
 
+-- Short-lived cache so multiple callers in the same event burst share one allWindows() call
+local managedWinsCache = nil
+local managedWinsCacheTime = 0
+
 -- Screen and geometry watcher
 local screenWatcher = nil
 function M.updateScreenFrames()
@@ -50,7 +54,14 @@ end)
 -- hs.window.filter cache going stale after sleep/wake or Accessibility API reconnects,
 -- which caused getManagedWindows() to return only a fraction of live windows and made
 -- sketchybar show all tags as empty (OCCUPIED="1 10" instead of all occupied tags).
+--
+-- The 80ms TTL cache collapses the ~10 redundant allWindows() calls that fire within a
+-- single tag-switch burst (tile + sketchybar update + getTiledWindows) into 1-2 calls.
 function M.getManagedWindows()
+    local now = hs.timer.secondsSinceEpoch()
+    if managedWinsCache and (now - managedWinsCacheTime) < 0.08 then
+        return managedWinsCache
+    end
     local wins = {}
     for _, win in ipairs(hs.window.allWindows()) do
         local id = win:id()
@@ -62,7 +73,13 @@ function M.getManagedWindows()
             end
         end
     end
+    managedWinsCache = wins
+    managedWinsCacheTime = now
     return wins
+end
+
+function M.invalidateManagedWinsCache()
+    managedWinsCache = nil
 end
 
 function M.setup()
@@ -78,6 +95,7 @@ function M.setup()
     -- =========================================================================
     filter:subscribe(hs.window.filter.windowCreated, function(win)
         if not win or not win:id() or win:id() == 0 then return end
+        managedWinsCache = nil
         core.registerWindow(win)
         layout.tile()
     end)
@@ -100,6 +118,8 @@ function M.setup()
 
         local id = win:id()
         if not id or id == 0 then return end
+
+        managedWinsCache = nil
 
         local idStr = tostring(id)
         local tag = state.tags[id]

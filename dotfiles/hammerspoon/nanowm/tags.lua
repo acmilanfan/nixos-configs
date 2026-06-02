@@ -123,20 +123,21 @@ end
 function M.captureSnapshot(tag)
     tag = tag or (state.special.active and state.special.tag or state.currentTag)
 
-    -- If the tag has no tiled windows, clear the snapshot so we show "Empty" in overview
     local wins = core.getTiledWindows(tag)
     if #wins == 0 then
         state.tagSnapshots[tag] = nil
         return
     end
 
-    local screen = hs.screen.mainScreen()
-    if not screen then return end
-
-    local snapshot = screen:snapshot()
-    if snapshot then
-        state.tagSnapshots[tag] = snapshot
-    end
+    -- Defer the blocking screen capture off the main thread critical path
+    hs.timer.doAfter(0, function()
+        local screen = hs.screen.mainScreen()
+        if not screen then return end
+        local snapshot = screen:snapshot()
+        if snapshot then
+            state.tagSnapshots[tag] = snapshot
+        end
+    end)
 end
 
 -- =============================================================================
