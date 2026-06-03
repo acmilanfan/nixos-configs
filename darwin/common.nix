@@ -367,7 +367,19 @@ in
     # Spotlight: exclude subdirectories by planting a .metadata_never_index marker.
     # mdutil -i off only works on volumes; for subdirs mds respects this file.
     echo "Excluding paths from Spotlight indexing..."
-    for p in "/Users/${user}/.cache" "/Users/${user}/.colima" "/Users/${user}/Library/Containers" "/nix"; do
+    for p in \
+      "/Users/${user}/.cache" \
+      "/Users/${user}/.colima" \
+      "/Users/${user}/Library/Containers" \
+      "/Users/${user}/Library/Caches" \
+      "/Users/${user}/.m2" \
+      "/Users/${user}/.gradle" \
+      "/Users/${user}/.cargo" \
+      "/Users/${user}/.rustup" \
+      "/Users/${user}/.npm" \
+      "/Users/${user}/.nix-profile" \
+      "/opt/homebrew" \
+      "/nix"; do
       [ -d "$p" ] && touch "$p/.metadata_never_index" 2>/dev/null || true
     done
   '';
