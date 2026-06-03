@@ -302,15 +302,16 @@ EOF
     '') geminiExtensions)}
 
     # 3. Antigravity Plugin Installation
+    AGY_PLUGINS_DIR="$HOME/.gemini/config/plugins"
     # Import plugins from gemini if none exist yet
-    if [ ! -d "$AGY_DIR/plugins" ] || [ -z "$(ls -A "$AGY_DIR/plugins" 2>/dev/null)" ]; then
+    if [ ! -d "$AGY_PLUGINS_DIR" ] || [ -z "$(ls -A "$AGY_PLUGINS_DIR" 2>/dev/null)" ]; then
       echo "Importing plugins from gemini to antigravity..."
       $DRY_RUN_CMD ${antigravity} plugin import gemini --consent || true
     fi
 
     # Ensure all required extensions are installed in antigravity
     ${builtins.concatStringsSep "\n" (map (ext: ''
-      if [ -d "$AGY_DIR/plugins/${ext.dir}" ]; then
+      if [ -d "$AGY_PLUGINS_DIR/${ext.dir}" ]; then
         echo "Antigravity plugin already installed: ${ext.dir}"
       else
         echo "Installing Antigravity plugin: ${ext.url}"
