@@ -19,6 +19,25 @@ M.destructionDelay = 0.5
 M.tagSwitchCooldown = 1.0
 M.tileProtectionWindow = 0.5
 
+-- Performance profiles (switched by battery watcher)
+-- Battery values are the baseline; AC values are more aggressive.
+M.perf = {
+    ac = {
+        cacheTTL     = 0.05,  -- getManagedWindows cache (watchers.lua)
+        winMapTTL    = 0.06,  -- id→window map cache (core.lua)
+        sbarDelay    = 0.10,  -- sketchybar update debounce (integrations.lua)
+        edgePoll     = 0.15,  -- mouse-edge polling interval (integrations.lua)
+        tileDelay    = 0.02,  -- tile debounce (layout.lua)
+    },
+    battery = {
+        cacheTTL     = 0.15,  -- longer TTL = fewer allWindows() calls on battery
+        winMapTTL    = 0.20,
+        sbarDelay    = 0.30,
+        edgePoll     = 0.50,
+        tileDelay    = 0.08,
+    },
+}
+
 -- Focus management
 -- Set to nil or false to disable automatic focus on empty tags
 M.emptyTagFocusApp = "Finder"

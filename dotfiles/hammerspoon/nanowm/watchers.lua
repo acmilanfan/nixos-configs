@@ -59,7 +59,7 @@ end)
 -- single tag-switch burst (tile + sketchybar update + getTiledWindows) into 1-2 calls.
 function M.getManagedWindows()
     local now = hs.timer.secondsSinceEpoch()
-    if managedWinsCache and (now - managedWinsCacheTime) < 0.08 then
+    if managedWinsCache and (now - managedWinsCacheTime) < state.perfProfile().cacheTTL then
         return managedWinsCache
     end
     local wins = {}

@@ -107,9 +107,13 @@ local function doUpdateSketchybar()
     hs.task.new("/bin/zsh", nil, { "-c", cmd }):start()
 end
 
-local sketchybarUpdateTimer = hs.timer.delayed.new(0.15, function()
-    doUpdateSketchybar()
-end)
+local sketchybarUpdateTimer = hs.timer.delayed.new(
+    require("nanowm.config").perf.battery.sbarDelay, doUpdateSketchybar)
+
+local function rebuildSketchybarTimer()
+    sketchybarUpdateTimer:stop()
+    sketchybarUpdateTimer = hs.timer.delayed.new(state.perfProfile().sbarDelay, doUpdateSketchybar)
+end
 
 function M.updateSketchybar()
     if not state.sketchybarEnabled then return end
@@ -385,7 +389,7 @@ local lastTriggerTime = 0
 function M.setupEdgeTrigger()
     if edgeTriggerTimer then edgeTriggerTimer:stop() end
 
-    edgeTriggerTimer = hs.timer.new(0.25, function()
+    edgeTriggerTimer = hs.timer.new(state.perfProfile().edgePoll, function()
         local now = hs.timer.secondsSinceEpoch()
         if now - lastTriggerTime < 1 then return end
 
@@ -463,6 +467,33 @@ function M.init()
 
     -- Setup gesture proxy (edge trigger)
     M.setupEdgeTrigger()
+
+    -- Battery/AC watcher: switch performance profile when power source changes
+    M.setupBatteryWatcher()
+end
+
+-- =============================================================================
+-- Battery / AC Performance Profile
+-- =============================================================================
+
+local batteryWatcher = nil
+
+function M.onPowerChange()
+    local isAC = hs.battery.powerSource() == "AC Power"
+    if isAC == state.acPower then return end  -- no change
+    state.acPower = isAC
+    print("[NanoWM] Power source changed: " .. (isAC and "AC" or "Battery")
+          .. " — applying perf profile")
+    -- Rebuild timers that have fixed intervals
+    rebuildSketchybarTimer()
+    M.setupEdgeTrigger()
+    require("nanowm.layout").rebuildTileTimer()
+end
+
+function M.setupBatteryWatcher()
+    if batteryWatcher then batteryWatcher:stop() end
+    batteryWatcher = hs.battery.watcher.new(M.onPowerChange)
+    batteryWatcher:start()
 end
 
 return M

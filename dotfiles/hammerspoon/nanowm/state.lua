@@ -117,6 +117,15 @@ M.batterySaverEnabled = false
 M.batterySaverPreviousState = {}
 M.kanataMode = "homerow"
 
+-- Power state: true when running on AC, false on battery
+-- Updated by the battery watcher in integrations.lua
+M.acPower = hs.battery.powerSource() == "AC Power"
+
+-- Returns the perf-profile table appropriate for the current power source
+function M.perfProfile()
+    return M.acPower and config.perf.ac or config.perf.battery
+end
+
 -- =============================================================================
 -- Persistence Functions
 -- =============================================================================

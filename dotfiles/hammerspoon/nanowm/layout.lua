@@ -17,9 +17,16 @@ M.onTileComplete = nil -- Set by integrations module
 -- =============================================================================
 
 -- local tileTimer = hs.timer.delayed.new(0.15, function()
-local tileTimer = hs.timer.delayed.new(0.08, function()
+local tileTimer = hs.timer.delayed.new(config.perf.battery.tileDelay, function()
     M.performTile()
 end)
+
+function M.rebuildTileTimer()
+    tileTimer:stop()
+    tileTimer = hs.timer.delayed.new(state.perfProfile().tileDelay, function()
+        M.performTile()
+    end)
+end
 
 -- Reusable timer for raising special-tag windows after tile settles
 local specialRaiseTimer -- forward-declared so the callback can close over it

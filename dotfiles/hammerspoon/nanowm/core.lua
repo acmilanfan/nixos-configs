@@ -20,7 +20,7 @@ local winMapCacheTime = 0
 
 local function getWinMap()
     local now = hs.timer.secondsSinceEpoch()
-    if not winMapCache or (now - winMapCacheTime) > 0.1 then
+    if not winMapCache or (now - winMapCacheTime) > state.perfProfile().winMapTTL then
         winMapCache = {}
         winMapCacheTime = now
         for _, win in ipairs(require("nanowm.watchers").getManagedWindows()) do
