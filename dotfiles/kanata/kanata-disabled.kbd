@@ -8,6 +8,10 @@
   macos-dev-names-include (
     "Apple Internal Keyboard / Trackpad"
   )
+  macos-dev-names-exclude (
+    "0x6D4541E53C898E10" ;; Aurora Sweep
+    "Charybdis Nano (3x5) Splinky"
+  )
 )
 
 (platform (macos)
