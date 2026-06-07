@@ -281,7 +281,7 @@ let
   ];
 
   gemini = "${inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.gemini-cli}/bin/gemini";
-  antigravity = "${inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.antigravity}/bin/antigravity";
+  antigravity = "${inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.antigravity-cli}/bin/antigravity";
 in
 {
   home.file.".claude/settings.json".text = builtins.toJSON claudeSettings;
@@ -316,7 +316,7 @@ in
   home.packages = [
       inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.claude-code
       inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.gemini-cli
-      inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.antigravity
+      inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.antigravity-cli
       inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.opencode
       inputs.mcp-nixos.packages.${pkgs.stdenv.hostPlatform.system}.default
   ];
