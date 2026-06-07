@@ -236,10 +236,14 @@ in
     #  url = "https://github.com/mogenson/PaperWM.spoon/archive/main.zip";
     #  sha256 = "0swzy9wvgjc93l0qc89m0zk9j0xk14w71v38vqfy2b96f4qd59p4";
     #};
-    ".hammerspoon/Spoons/VimMode.spoon".source = pkgs.fetchzip {
-      url = "https://github.com/dbalatero/VimMode.spoon/archive/master.zip";
-      sha256 = "0ihpg5ipl60gkvwcmlcvjca2b6y0v3lv50dhyz7nicnh3yb7d76f";
-    };
+    ".hammerspoon/Spoons/VimMode.spoon".source = pkgs.runCommand "VimMode.spoon" {} ''
+      cp -r ${pkgs.fetchzip {
+        url = "https://github.com/dbalatero/VimMode.spoon/archive/master.zip";
+        sha256 = "0ihpg5ipl60gkvwcmlcvjca2b6y0v3lv50dhyz7nicnh3yb7d76f";
+      }} $out
+      chmod -R u+w $out
+      cp ${../../dotfiles/hammerspoon/patches/focus_watcher.lua} $out/lib/focus_watcher.lua
+    '';
 
     # --- SketchyBar Config ---
     ".config/sketchybar/sketchybarrc" = {
