@@ -43,8 +43,34 @@ if [ "$RELOAD_REQUIRED" = false ]; then
     fi
 fi
 
+# 3. Check if Kanata has lost Input Monitoring permission (TCC)
+#    macOS ties Input Monitoring permission to the binary's code signature hash.
+#    When /usr/local/bin/kanata-nix is replaced, the hash changes and permission is revoked.
+#    Kanata then fails to create event taps and logs errors.
+if [ "$RELOAD_REQUIRED" = false ]; then
+    if [ -f /tmp/kanata.error.log ]; then
+        if tail -100 /tmp/kanata.error.log 2>/dev/null | grep -qi "permission denied\|event.tap\|not permitted\|CGEventTap\|input monitoring\|accessibility\|failed to create\|cannot create" 2>/dev/null; then
+            RELOAD_REQUIRED=true
+            REASON="Input Monitoring permission may be lost (permission errors in log)"
+        fi
+    fi
+fi
+
 if [ "$RELOAD_REQUIRED" = true ]; then
     print_warning "Reloading Kanata: $REASON"
+
+    # If this looks like a TCC permission issue, notify user and open System Settings
+    if [[ "$REASON" == *"Input Monitoring"* ]] || [[ "$REASON" == *"permission"* ]]; then
+        print_error "┌──────────────────────────────────────────────────────────────┐"
+        print_error "│  Kanata appears to have LOST Input Monitoring permission.    │"
+        print_error "│  Restarting kanata will NOT fix this.                        │"
+        print_error "│                                                              │"
+        print_error "│  Open: System Settings → Privacy & Security → Input Monitoring│"
+        print_error "│  Re-grant permission to /usr/local/bin/kanata-nix            │"
+        print_error "└──────────────────────────────────────────────────────────────┘"
+        osascript -e 'display notification "Kanata lost Input Monitoring permission. Open System Settings → Privacy & Security → Input Monitoring → re-grant /usr/local/bin/kanata-nix" with title "Kanata Permission Lost" sound name "Glass"' 2>/dev/null || true
+        open "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent" 2>/dev/null || true
+    fi
 
     # 1. Immediate restart - kickstart -k handles killing and starting
     # This is the fastest way to get the keyboard back.

@@ -349,13 +349,33 @@ in
     pkill -x warpd || true
     pkill -9 kanata || true
     # Setup kanata stable path for Input Monitoring permissions
+    # Binary update is opt-in to preserve TCC Input Monitoring permission across nix updates.
+    # macOS ties the permission to the binary's code signature hash, which changes on every update.
+    # To update kanata: touch ~/.config/kanata/update-kanata && darwin-rebuild switch
     echo "Ensuring kanata stable binary path for Input Monitoring permissions..."
     mkdir -p /usr/local/bin
-    if ! cmp -s ${unstable.kanata}/bin/kanata /usr/local/bin/kanata-nix; then
-      echo "Updating kanata-nix binary..."
+    KANATA_UPDATE_FLAG="/Users/${user}/.config/kanata/update-kanata"
+    if [ -f "$KANATA_UPDATE_FLAG" ]; then
+      echo "User requested kanata update. Copying binary..."
       cp -f ${unstable.kanata}/bin/kanata /usr/local/bin/kanata-nix
       chmod 755 /usr/local/bin/kanata-nix
       codesign --force -s - /usr/local/bin/kanata-nix 2>/dev/null || true
+      rm -f "$KANATA_UPDATE_FLAG"
+      echo "> IMPORTANT: You MUST re-grant Input Monitoring permission to /usr/local/bin/kanata-nix"
+      echo "> Open: System Settings > Privacy & Security > Input Monitoring"
+      echo "> Toggle OFF then ON for /usr/local/bin/kanata-nix (or re-add it)"
+    elif [ ! -f /usr/local/bin/kanata-nix ]; then
+      echo "First install: copying kanata-nix binary..."
+      cp -f ${unstable.kanata}/bin/kanata /usr/local/bin/kanata-nix
+      chmod 755 /usr/local/bin/kanata-nix
+      codesign --force -s - /usr/local/bin/kanata-nix 2>/dev/null || true
+      echo "> Grant Input Monitoring permission to /usr/local/bin/kanata-nix in System Settings"
+    else
+      if ! cmp -s ${unstable.kanata}/bin/kanata /usr/local/bin/kanata-nix; then
+        echo "> Kanata update available but NOT applied (to preserve Input Monitoring permission)."
+        echo "> To update: touch ~/.config/kanata/update-kanata && darwin-rebuild switch"
+        echo "> After updating, re-grant Input Monitoring permission to /usr/local/bin/kanata-nix"
+      fi
     fi
 
     # Power management (balanced: powernap off, wake-on-LAN off, TCPKeepAlive off)
