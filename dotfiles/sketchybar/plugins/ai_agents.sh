@@ -41,6 +41,7 @@ AGGREGATE="idle"
 CLAUDE_ACTIVE=0
 GEMINI_ACTIVE=0
 ANTIGRAVITY_ACTIVE=0
+OPENCODE_ACTIVE=0
 PROCESSED_PANES=""
 
 update_aggregate() {
@@ -90,7 +91,7 @@ if [ -n "$AGENT_ENV" ]; then
         # Verify process is still there
     tty=$(echo "$PANE_INFO" | cut -d'|' -f3)
     tty_short=$(basename "$tty")
-    AGENT_PROCESSES="claude .claude-wrapped gemini aider cursor antigravity agy"
+    AGENT_PROCESSES="claude .claude-wrapped gemini aider cursor antigravity agy opencode"
     found_proc=0
     for proc in $AGENT_PROCESSES; do
       if ps -t "$tty_short" -o command= 2>/dev/null | grep -qw "$proc"; then
@@ -122,6 +123,7 @@ if [ -n "$AGENT_ENV" ]; then
       *Claude*|*claude*) TYPE="C" ;;
       *Gemini*|*gemini*|*Test*) TYPE="G" ;;
       *Antigravity*|*antigravity*) TYPE="A" ;;
+      *OpenCode*|*opencode*) TYPE="O" ;;
       *) TYPE="${agent_name:0:1}" ;;
     esac
 
@@ -132,6 +134,7 @@ if [ -n "$AGENT_ENV" ]; then
         [[ "$TYPE" == "C" ]] && CLAUDE_ACTIVE=$((CLAUDE_ACTIVE + 1))
         [[ "$TYPE" == "G" ]] && GEMINI_ACTIVE=$((GEMINI_ACTIVE + 1))
         [[ "$TYPE" == "A" ]] && ANTIGRAVITY_ACTIVE=$((ANTIGRAVITY_ACTIVE + 1))
+        [[ "$TYPE" == "O" ]] && OPENCODE_ACTIVE=$((OPENCODE_ACTIVE + 1))
         ;;
       running)
         DOT="●"; COLOR="0xffe0af68"   # yellow — working
@@ -139,6 +142,7 @@ if [ -n "$AGENT_ENV" ]; then
         [[ "$TYPE" == "C" ]] && CLAUDE_ACTIVE=$((CLAUDE_ACTIVE + 1))
         [[ "$TYPE" == "G" ]] && GEMINI_ACTIVE=$((GEMINI_ACTIVE + 1))
         [[ "$TYPE" == "A" ]] && ANTIGRAVITY_ACTIVE=$((ANTIGRAVITY_ACTIVE + 1))
+        [[ "$TYPE" == "O" ]] && OPENCODE_ACTIVE=$((OPENCODE_ACTIVE + 1))
         ;;
       done)
         DOT="●"; COLOR="0xff7b5cff"   # purple — waiting/recent
@@ -146,6 +150,7 @@ if [ -n "$AGENT_ENV" ]; then
         [[ "$TYPE" == "C" ]] && CLAUDE_ACTIVE=$((CLAUDE_ACTIVE + 1))
         [[ "$TYPE" == "G" ]] && GEMINI_ACTIVE=$((GEMINI_ACTIVE + 1))
         [[ "$TYPE" == "A" ]] && ANTIGRAVITY_ACTIVE=$((ANTIGRAVITY_ACTIVE + 1))
+        [[ "$TYPE" == "O" ]] && OPENCODE_ACTIVE=$((OPENCODE_ACTIVE + 1))
         ;;
     esac
 
@@ -155,7 +160,7 @@ if [ -n "$AGENT_ENV" ]; then
 fi
 
 # 2b. Fallback: check all other panes for known agent processes
-AGENT_PROCESSES="claude .claude-wrapped gemini aider cursor antigravity agy"
+AGENT_PROCESSES="claude .claude-wrapped gemini aider cursor antigravity agy opencode"
 while IFS='|' read -r pane_id pid tty cwd; do
   [[ "$PROCESSED_PANES" =~ "$pane_id" ]] && continue
   [ "$SLOT" -gt "$MAX_SLOTS" ] && break
@@ -173,6 +178,7 @@ while IFS='|' read -r pane_id pid tty cwd; do
         *claude*) found_agent="Claude" ;;
         *gemini*) found_agent="Gemini" ;;
         *antigravity*|*agy*) found_agent="Antigravity" ;;
+        *opencode*) found_agent="OpenCode" ;;
         *) found_agent="$proc" ;;
       esac
       break
@@ -202,6 +208,7 @@ while IFS='|' read -r pane_id pid tty cwd; do
     *Claude*|*claude*) TYPE="C" ;;
     *Gemini*|*gemini*) TYPE="G" ;;
     *Antigravity*|*antigravity*) TYPE="A" ;;
+    *OpenCode*|*opencode*) TYPE="O" ;;
     *) TYPE="${found_agent:0:1}" ;;
   esac
 
@@ -213,6 +220,7 @@ while IFS='|' read -r pane_id pid tty cwd; do
       [[ "$TYPE" == "C" ]] && CLAUDE_ACTIVE=$((CLAUDE_ACTIVE + 1))
       [[ "$TYPE" == "G" ]] && GEMINI_ACTIVE=$((GEMINI_ACTIVE + 1))
       [[ "$TYPE" == "A" ]] && ANTIGRAVITY_ACTIVE=$((ANTIGRAVITY_ACTIVE + 1))
+      [[ "$TYPE" == "O" ]] && OPENCODE_ACTIVE=$((OPENCODE_ACTIVE + 1))
       ;;
     running)
       DOT="●"; COLOR="0xffe0af68"   # yellow — working
@@ -220,6 +228,7 @@ while IFS='|' read -r pane_id pid tty cwd; do
       [[ "$TYPE" == "C" ]] && CLAUDE_ACTIVE=$((CLAUDE_ACTIVE + 1))
       [[ "$TYPE" == "G" ]] && GEMINI_ACTIVE=$((GEMINI_ACTIVE + 1))
       [[ "$TYPE" == "A" ]] && ANTIGRAVITY_ACTIVE=$((ANTIGRAVITY_ACTIVE + 1))
+      [[ "$TYPE" == "O" ]] && OPENCODE_ACTIVE=$((OPENCODE_ACTIVE + 1))
       ;;
     idle)
       DOT="○"; COLOR="0xff565f89"   # gray — idle
@@ -247,6 +256,7 @@ LABEL=""
 [ "$CLAUDE_ACTIVE" -gt 0 ] && LABEL="C:${CLAUDE_ACTIVE}"
 [ "$GEMINI_ACTIVE" -gt 0 ] && LABEL="${LABEL:+$LABEL }G:${GEMINI_ACTIVE}"
 [ "$ANTIGRAVITY_ACTIVE" -gt 0 ] && LABEL="${LABEL:+$LABEL }A:${ANTIGRAVITY_ACTIVE}"
+[ "$OPENCODE_ACTIVE" -gt 0 ] && LABEL="${LABEL:+$LABEL }O:${OPENCODE_ACTIVE}"
 
 case "$AGGREGATE" in
   confirm) ICON_COLOR="0xffe06c75" ;;   # red    — needs immediate input

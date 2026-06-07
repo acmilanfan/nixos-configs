@@ -240,6 +240,38 @@ let
     hooks = antigravityHooks;
   };
 
+  opencodeSettings = {
+    model = "opencode-go/deepseek-v4-pro";
+    small_model = "opencode-go/deepseek-v4-flash";
+    plugin = [ "./plugins/agent-state.ts" ];
+
+    mcp = {
+      nixos = {
+        type = "local";
+        command = [
+          "${inputs.mcp-nixos.packages.${pkgs.stdenv.hostPlatform.system}.default}/bin/mcp-nixos"
+        ];
+      };
+    };
+
+    permission = {
+      read = {
+        ".env" = "deny";
+        ".env.*" = "deny";
+        "secrets/**" = "deny";
+        "~/.aws/**" = "deny";
+        "~/.zshrc" = "deny";
+        "~/.bashrc" = "deny";
+      };
+      bash = {
+        "npm *" = "deny";
+        "npx *" = "deny";
+        "*" = "ask";
+      };
+      edit = "ask";
+    };
+  };
+
   # List of { url, dir } pairs — dir is the actual directory name under ~/.gemini/extensions/
   geminiExtensions = [
     { url = "https://github.com/samber/cc-skills-golang";           dir = "cc-skills-golang"; }
@@ -254,11 +286,38 @@ in
 {
   home.file.".claude/settings.json".text = builtins.toJSON claudeSettings;
   home.file.".gemini/settings.json".text = builtins.toJSON geminiSettings;
+  home.file.".config/opencode/opencode.json".text = builtins.toJSON opencodeSettings;
+  home.file.".config/opencode/plugins/agent-state.ts".text = ''
+    import type { Plugin } from "@opencode-ai/plugin";
+
+    const AgentStatePlugin: Plugin = async ({ $ }) => {
+      const notify = (state: string) => {
+        $`agent-state --agent opencode --state ''${state}`;
+      };
+
+      return {
+        "tool.execute.before": () => notify("running"),
+        "tool.execute.after": () => notify("done"),
+        event: ({ event }) => {
+          if (event.type === "session.idle") {
+            notify("done");
+          }
+          if (event.type === "error" || event.type === "notification") {
+            notify("needs-input");
+          }
+        },
+        stop: () => notify("done"),
+      };
+    };
+
+    export default AgentStatePlugin;
+  '';
 
   home.packages = [
       inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.claude-code
       inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.gemini-cli
       inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.antigravity
+      inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.opencode
       inputs.mcp-nixos.packages.${pkgs.stdenv.hostPlatform.system}.default
   ];
 

@@ -182,7 +182,7 @@ function M.getAgents()
     end
 
         -- 2. Fallback: process detection (Gemini etc.)
-    local AGENT_PROCESSES = { "claude", ".claude-wrapped", "gemini", "aider", "cursor", "antigravity", "agy" }
+    local AGENT_PROCESSES = { "claude", ".claude-wrapped", "gemini", "aider", "cursor", "antigravity", "agy", "opencode" }
     for id, info in pairs(panes) do
         if not processedIds[id] then
             local ttyShort = info.tty:match("([^/]+)$")
@@ -233,9 +233,9 @@ function M.getStatus(paneId)
     elseif status == "done"    then return "recent"
     else
         -- Fallback detection status
-        local panesOut = sh("tmux list-panes -a -F '#{pane_id}|#{pane_tty}' 2>/dev/null")
+        local panesOut = sh("tmux list-panes -a -F '#{pane_id} #{pane_tty}' 2>/dev/null")
         local escapedId = paneId:gsub("%%", "%%%%")
-        local tty = panesOut:match(escapedId .. "|([^%s\n]+)")
+        local tty = panesOut:match(escapedId .. " ([^%s\n]+)")
         if tty then
             local ttyShort = tty:match("([^/]+)$")
             local cpu = tonumber(exec("ps -t " .. ttyShort .. " -o %cpu= 2>/dev/null | awk '{s+=$1}END{print s}'")) or 0
@@ -396,7 +396,7 @@ function M.showMenu()
                 cmd=$(ps -t "$ttyShort" -o command= 2>/dev/null)
 
                 foundAgent=""
-                for proc in claude .claude-wrapped gemini aider cursor antigravity agy; do
+                for proc in claude .claude-wrapped gemini aider cursor antigravity agy opencode; do
                     if echo "$cmd" | grep -q "$proc"; then
                         foundAgent=$proc
                         break
