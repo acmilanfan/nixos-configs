@@ -28,6 +28,16 @@ if ! git -C "$selected" diff --quiet 2>/dev/null || \
   force="--force"
 fi
 
+# Kill leftover nvim processes whose cwd is this worktree
+# (prevents orphaned --embed nvim from leaking after tmux kill-session)
+for pid in $(pgrep nvim 2>/dev/null); do
+  cwd=$(lsof -p "$pid" -F n 2>/dev/null | sed -n 's/^n//p')
+  if [[ "$cwd" == "$selected" ]]; then
+    kill "$pid" 2>/dev/null
+    echo "Killed orphaned nvim (PID $pid) in $selected"
+  fi
+done
+
 git worktree remove $force "$selected"
 echo "Removed: $selected"
 
