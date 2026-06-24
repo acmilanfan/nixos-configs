@@ -9,6 +9,7 @@ local core = require("nanowm.core")
 local layout = require("nanowm.layout")
 local tags = require("nanowm.tags")
 local integrations = require("nanowm.integrations")
+local profiler = require("nanowm.profiler")
 
 local M = {}
 
@@ -50,27 +51,44 @@ local resizeWatcher = hs.timer.delayed.new(0.3, function()
     layout.handleManualResize()
 end)
 
--- Use hs.window.allWindows() instead of filter:getWindows() to avoid the
--- hs.window.filter cache going stale after sleep/wake or Accessibility API reconnects,
--- which caused getManagedWindows() to return only a fraction of live windows and made
--- sketchybar show all tags as empty (OCCUPIED="1 10" instead of all occupied tags).
---
--- The 80ms TTL cache collapses the ~10 redundant allWindows() calls that fire within a
--- single tag-switch burst (tile + sketchybar update + getTiledWindows) into 1-2 calls.
+-- Enumerate windows per-app instead of via hs.window.allWindows() so that when
+-- any single app's AX server hangs, we can log WHICH app caused it.
+-- Background-only processes (kind == -1) are skipped to avoid unnecessary AX calls.
+-- The TTL cache still collapses burst events into 1-2 real enumerations.
 function M.getManagedWindows()
     local now = hs.timer.secondsSinceEpoch()
     if managedWinsCache and (now - managedWinsCacheTime) < state.perfProfile().cacheTTL then
         return managedWinsCache
     end
+
+    local _totalT0 = profiler.enabled and hs.timer.secondsSinceEpoch() or 0
     local wins = {}
-    for _, win in ipairs(hs.window.allWindows()) do
-        local id = win:id()
-        if id and id > 0 and win:isStandard() and not win:isMinimized() then
-            local app = win:application()
-            local appName = app and app:name() or ""
+    for _, app in ipairs(hs.application.runningApplications()) do
+        -- Skip background-only daemons that have no windows (kind == -1)
+        if app:kind() ~= -1 then
+            local appName = app:name() or ""
             if not managedExcluded[appName] then
-                table.insert(wins, win)
+                local _appT0 = profiler.enabled and hs.timer.secondsSinceEpoch() or 0
+                local appWins = app:allWindows()
+                if profiler.enabled then
+                    local _appDt = hs.timer.secondsSinceEpoch() - _appT0
+                    if _appDt >= 0.10 then
+                        profiler.log("app:allWindows() SLOW", _appDt, appName)
+                    end
+                end
+                for _, win in ipairs(appWins) do
+                    local id = win:id()
+                    if id and id > 0 and win:isStandard() and not win:isMinimized() then
+                        table.insert(wins, win)
+                    end
+                end
             end
+        end
+    end
+    if profiler.enabled then
+        local _totalDt = hs.timer.secondsSinceEpoch() - _totalT0
+        if _totalDt >= profiler.threshold then
+            profiler.log("getManagedWindows(total)", _totalDt)
         end
     end
     managedWinsCache = wins
@@ -93,27 +111,27 @@ function M.setup()
     -- =========================================================================
     -- WINDOW CREATED
     -- =========================================================================
-    filter:subscribe(hs.window.filter.windowCreated, function(win)
+    filter:subscribe(hs.window.filter.windowCreated, profiler.wrap("wf:windowCreated", function(win)
         if not win or not win:id() or win:id() == 0 then return end
         managedWinsCache = nil
         core.registerWindow(win)
         layout.tile()
-    end)
+    end))
 
     -- =========================================================================
     -- WINDOW TITLE CHANGED
     -- =========================================================================
-    filter:subscribe(hs.window.filter.windowTitleChanged, function(win)
+    filter:subscribe(hs.window.filter.windowTitleChanged, profiler.wrap("wf:titleChanged", function(win)
         if not win or not win:id() or win:id() == 0 then return end
         -- Title change may affect title-based float detection; clear cached result
         core.invalidateFloatingCache(win:id())
         core.registerWindow(win)
-    end)
+    end))
 
     -- =========================================================================
     -- WINDOW DESTROYED
     -- =========================================================================
-    filter:subscribe(hs.window.filter.windowDestroyed, function(win)
+    filter:subscribe(hs.window.filter.windowDestroyed, profiler.wrap("wf:windowDestroyed", function(win)
         if not win then return end
 
         local id = win:id()
@@ -189,12 +207,12 @@ function M.setup()
             state.triggerSave()
             layout.tile()
         end)
-    end)
+    end))
 
     -- =========================================================================
     -- WINDOW FOCUSED
     -- =========================================================================
-    filter:subscribe(hs.window.filter.windowFocused, function(win)
+    filter:subscribe(hs.window.filter.windowFocused, profiler.wrap("wf:windowFocused", function(win)
         if not win or not win:id() or win:id() == 0 then return end
         if state.launching then return end
 
@@ -222,12 +240,18 @@ function M.setup()
         if timeSinceSwitch < config.tagSwitchCooldown then return end
 
         if core.isFloating(win) then
-            win:raise()
-            integrations.updateSketchybar()
+            if tag == currentContextTag then
+                win:raise()
+                integrations.updateSketchybar()
+            else
+                -- Floating window parked off-screen on another tag: mark that tag urgent
+                -- instead of raising an invisible window
+                tags.markTagUrgent(tag)
+            end
             return
         end
 
-        if not tag or tag == state.currentTag or tag == "special" then
+        if not tag or tag == state.currentTag then
             return
         end
 
@@ -258,19 +282,19 @@ function M.setup()
             state.focusTimer:stop()
             state.focusTimer = nil
         end
-    end)
+    end))
 
     -- =========================================================================
     -- WINDOW MOVED (for resize detection)
     -- =========================================================================
-    filter:subscribe(hs.window.filter.windowMoved, function(win)
+    filter:subscribe(hs.window.filter.windowMoved, profiler.wrap("wf:windowMoved", function(win)
         if not win or not win:id() or win:id() == 0 then return end
 
         local tag = state.special.active and state.special.tag or state.currentTag
         if not core.isFloating(win) and not state.isTagFree(tag) then
             resizeWatcher:start()
         end
-    end)
+    end))
 end
 
 return M

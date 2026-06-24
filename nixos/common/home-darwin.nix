@@ -223,6 +223,7 @@ in
     ".hammerspoon/nanowm/keybinds.lua".source = ../../dotfiles/hammerspoon/nanowm/keybinds.lua;
     ".hammerspoon/nanowm/watchers.lua".source = ../../dotfiles/hammerspoon/nanowm/watchers.lua;
     ".hammerspoon/nanowm/agents.lua".source = ../../dotfiles/hammerspoon/nanowm/agents.lua;
+    ".hammerspoon/nanowm/profiler.lua".source = ../../dotfiles/hammerspoon/nanowm/profiler.lua;
 
     # Rofi-like menus
     # ".hammerspoon/rofi-menus/init.lua".source = ../../dotfiles/hammerspoon/rofi-menus/init.lua;

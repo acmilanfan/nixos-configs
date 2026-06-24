@@ -23,13 +23,11 @@ M.tileProtectionWindow = 0.5
 -- Battery values are the baseline; AC values are more aggressive.
 M.perf = {
     ac = {
-        -- cacheTTL was 0.05 (50ms) — raised to 0.50 to stop saturating the
-        -- macOS Accessibility API. During event bursts the old value caused
-        -- hs.window.allWindows() to fire 10-20×/sec, which hung the whole
-        -- process for 60+ seconds. The cache is explicitly invalidated on
-        -- windowCreated/Destroyed, so freshness for real events is unchanged.
-        cacheTTL     = 0.50,  -- getManagedWindows cache (watchers.lua)
-        winMapTTL    = 0.50,  -- id→window map cache (core.lua)
+        -- cacheTTL raised to 2.0s: per-app enumeration still fires on every
+        -- windowCreated/Destroyed (explicit invalidation), so the TTL only
+        -- matters for tile/focus bursts where stale data is fine for 2s.
+        cacheTTL     = 2.00,  -- getManagedWindows cache (watchers.lua)
+        winMapTTL    = 2.00,  -- id→window map cache (core.lua)
         sbarDelay    = 0.15,  -- sketchybar update debounce (integrations.lua)
         edgePoll     = 0.15,  -- mouse-edge polling interval (integrations.lua)
         tileDelay    = 0.05,  -- tile debounce (layout.lua)

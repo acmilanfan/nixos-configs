@@ -6,6 +6,7 @@
 local config = require("nanowm.config")
 local state = require("nanowm.state")
 local core = require("nanowm.core")
+local profiler = require("nanowm.profiler")
 
 local M = {}
 
@@ -18,13 +19,13 @@ M.onTileComplete = nil -- Set by integrations module
 
 -- local tileTimer = hs.timer.delayed.new(0.15, function()
 local tileTimer = hs.timer.delayed.new(config.perf.battery.tileDelay, function()
-    M.performTile()
+    profiler.wrap("performTile", function() M.performTile() end)()
 end)
 
 function M.rebuildTileTimer()
     tileTimer:stop()
     tileTimer = hs.timer.delayed.new(state.perfProfile().tileDelay, function()
-        M.performTile()
+        profiler.wrap("performTile", function() M.performTile() end)()
     end)
 end
 

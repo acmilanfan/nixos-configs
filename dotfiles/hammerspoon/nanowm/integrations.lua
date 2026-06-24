@@ -5,6 +5,7 @@
 
 local state = require("nanowm.state")
 local core = require("nanowm.core")
+local profiler = require("nanowm.profiler")
 
 local M = {}
 
@@ -13,6 +14,7 @@ local M = {}
 -- =============================================================================
 
 local function doUpdateSketchybar()
+    local _t0 = profiler.enabled and hs.timer.secondsSinceEpoch() or 0
     local function isUtilityWindow(win)
         if not win then return false end
         local id = win:id()
@@ -105,6 +107,10 @@ local function doUpdateSketchybar()
         triggerArgs, triggerArgs
     )
     hs.task.new("/bin/zsh", nil, { "-c", cmd }):start()
+    if profiler.enabled then
+        local _dt = hs.timer.secondsSinceEpoch() - _t0
+        if _dt >= profiler.threshold then profiler.log("doUpdateSketchybar", _dt) end
+    end
 end
 
 local sketchybarUpdateTimer = hs.timer.delayed.new(
