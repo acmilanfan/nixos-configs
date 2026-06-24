@@ -104,7 +104,18 @@ function M.startHeartbeat()
         local now = hs.timer.secondsSinceEpoch()
         local gap = now - _lastBeat
         if gap >= 2.0 then
-            M.log("*** FREEZE ***", gap, string.format("Hammerspoon was frozen for %.1fs", gap))
+            -- Collect running UI apps (kind != -1) to help identify the AX culprit
+            local apps = {}
+            for _, app in ipairs(hs.application.runningApplications()) do
+                if app:kind() ~= -1 then
+                    local n = app:name()
+                    if n then table.insert(apps, n) end
+                end
+            end
+            table.sort(apps)
+            local appList = table.concat(apps, ", ")
+            M.log("*** FREEZE ***", gap,
+                string.format("%.1fs | running: %s", gap, appList:sub(1, 300)))
         end
         _lastBeat = now
     end)
