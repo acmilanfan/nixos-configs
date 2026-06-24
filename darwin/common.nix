@@ -1,5 +1,6 @@
 {
   pkgs,
+  lib,
   inputs,
   unstable,
   config,
@@ -173,7 +174,8 @@ in
     # global.autoUpdate = true;
     global.autoUpdate = false;
     onActivation = {
-      cleanup = "zap";
+      cleanup = "none";
+      # cleanup = "zap";
       autoUpdate = false;
       # autoUpdate = true;
       upgrade = false;
@@ -214,6 +216,12 @@ in
       "k06a/tap"
     ];
   };
+
+  system.activationScripts.homebrew.text = lib.mkBefore ''
+    echo "Trusting third-party Homebrew taps..."
+    sudo -u ${user} HOME=/Users/${user} /opt/homebrew/bin/brew trust dimentium/autoraise felixkratz/formulae k06a/tap || true
+    sudo -u ${user} HOME=/Users/${user} /opt/homebrew/bin/brew trust --formula k06a/tap/macpow || true
+  '';
 
   # Fonts
   fonts.packages = with pkgs; [
