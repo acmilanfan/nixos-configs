@@ -4,6 +4,7 @@
 -- =============================================================================
 
 local config = require("nanowm.config")
+local profiler = require("nanowm.profiler")
 
 local M = {}
 
@@ -132,9 +133,9 @@ end
 
 local SAVE_FILE = os.getenv("HOME") .. "/.hammerspoon/nanowm_state.json"
 
-local saveTimer = hs.timer.delayed.new(2.0, function()
+local saveTimer = hs.timer.delayed.new(2.0, profiler.wrap("state.saveTimer", function()
     M.save()
-end)
+end))
 
 local function serialize(t)
     local out = {}
@@ -238,6 +239,7 @@ function M.load()
 end
 
 function M.save()
+    local t0 = profiler.enabled and hs.timer.secondsSinceEpoch() or 0
     local data = {
         tags               = serialize(M.tags),
         stacks             = serialize(M.stacks),
@@ -265,12 +267,20 @@ function M.save()
         kanataMode         = M.kanataMode,
         caffeinateActive   = M.caffeinateActive,
     }
+    local encodeT0 = profiler.enabled and hs.timer.secondsSinceEpoch() or 0
     local ok, json = pcall(hs.json.encode, data)
+    local encodeDt = (profiler.enabled and hs.timer.secondsSinceEpoch() or 0) - encodeT0
     if ok and json then
+        local writeT0 = profiler.enabled and hs.timer.secondsSinceEpoch() or 0
         local f = io.open(SAVE_FILE, "w")
         if f then
             f:write(json)
             f:close()
+        end
+        local writeDt = (profiler.enabled and hs.timer.secondsSinceEpoch() or 0) - writeT0
+        if profiler.enabled and (encodeDt + writeDt) >= profiler.threshold then
+            profiler.log("state.save", encodeDt + writeDt,
+                string.format("encode:%.1fms write:%.1fms", encodeDt*1000, writeDt*1000))
         end
     end
 end
