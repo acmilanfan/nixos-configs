@@ -21,18 +21,43 @@ local M = {}
 local filter = hs.window.filter.new(true)
 filter:rejectApp("Hammerspoon")
 filter:rejectApp("Sketchybar")
--- Corporate security/VPN agents: their hourly keepalive/reconnect cycles briefly
--- create AX-accessible windows that block the AXObserver for ~20-30 seconds.
-filter:rejectApp("GlobalProtect")
-filter:rejectApp("Falcon Notifications")
-
--- Apps excluded from window enumeration (same as filter rejections above)
-local managedExcluded = {
-    Hammerspoon = true,
-    Sketchybar = true,
-    GlobalProtect = true,
-    ["Falcon Notifications"] = true,
+-- rejectApp() prevents AXObserver registration for these apps, stopping their
+-- slow/hanging AX servers from freezing Hammerspoon's main thread.
+-- Categories:
+--   Corporate agents (hourly VPN/auth/MDM keepalives)
+--   Electron/WKWebView helper subprocesses (never top-level windows)
+--   macOS system UI daemons (never user-managed windows)
+local _rejectedApps = {
+    -- Corporate security / VPN / MDM
+    "GlobalProtect", "Falcon Notifications", "Splashtop Streamer",
+    "jamfRemoteAssistConnectorUI", "nbagent",
+    -- System auth daemons
+    "Single Sign-On", "Keychain Circle Notification",
+    "universalAccessAuthWarn", "coreautha",
+    -- Electron / WKWebView helper processes
+    "Slack Helper",
+    "Raycast Graphics and Media", "Raycast Networking", "Raycast Web Content",
+    "nsattributedstringagent Graphics and Media",
+    -- macOS system UI (never tiled/managed)
+    "Accessibility", "Accessibility Services",
+    "AirPlay Screen Mirroring", "BackgroundTaskManagementAgent",
+    "Control Center", "CoreLocationAgent", "CoreServicesUIAgent",
+    "Notification Center", "PowerChime",
+    "Scroll Reverser", "Shortcuts",
+    "SoftwareUpdateNotificationManager", "Spotlight",
+    "SystemUIServer", "TextInputMenuAgent", "TextInputSwitcher",
+    "Universal Control", "Wallpaper", "Wi-Fi", "WindowManager",
+    "loginwindow", "talagentd",
 }
+for _, appName in ipairs(_rejectedApps) do
+    filter:rejectApp(appName)
+end
+
+-- Apps excluded from window enumeration (same set as filter rejections above)
+local managedExcluded = { Hammerspoon = true, Sketchybar = true }
+for _, appName in ipairs(_rejectedApps) do
+    managedExcluded[appName] = true
+end
 
 -- Short-lived cache so multiple callers in the same event burst share one allWindows() call
 local managedWinsCache = nil
