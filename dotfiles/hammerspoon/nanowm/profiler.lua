@@ -115,7 +115,7 @@ function M.startHeartbeat()
             table.sort(apps)
             local appList = table.concat(apps, ", ")
             M.log("*** FREEZE ***", gap,
-                string.format("%.1fs | running: %s", gap, appList:sub(1, 300)))
+                string.format("%.1fs | running: %s", gap, appList))
         end
         _lastBeat = now
     end)

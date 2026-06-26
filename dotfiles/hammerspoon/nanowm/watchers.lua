@@ -21,9 +21,18 @@ local M = {}
 local filter = hs.window.filter.new(true)
 filter:rejectApp("Hammerspoon")
 filter:rejectApp("Sketchybar")
+-- Corporate security/VPN agents: their hourly keepalive/reconnect cycles briefly
+-- create AX-accessible windows that block the AXObserver for ~20-30 seconds.
+filter:rejectApp("GlobalProtect")
+filter:rejectApp("Falcon Notifications")
 
 -- Apps excluded from window enumeration (same as filter rejections above)
-local managedExcluded = { Hammerspoon = true, Sketchybar = true }
+local managedExcluded = {
+    Hammerspoon = true,
+    Sketchybar = true,
+    GlobalProtect = true,
+    ["Falcon Notifications"] = true,
+}
 
 -- Short-lived cache so multiple callers in the same event burst share one allWindows() call
 local managedWinsCache = nil
