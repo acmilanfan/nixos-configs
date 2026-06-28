@@ -7,9 +7,9 @@ let
       (with pkgs; [
         python3
         python3.pkgs.requests
-        python3.pkgs.pyqt5
-        python3.pkgs.xlib
-        qt5.full
+        # python3.pkgs.pyqt5  # removed from nixpkgs
+        # python3.pkgs.xlib   # removed from nixpkgs
+        # qt5.full            # removed from nixpkgs
         xdotool
       ]);
     runScript = "zsh";
@@ -20,9 +20,9 @@ in pkgs.stdenv.mkDerivation {
   nativeBuildInputs = [
     fhs
     pkgs.python3.pkgs.requests
-    pkgs.python3.pkgs.pyqt5
-    pkgs.python3.pkgs.xlib
-    pkgs.python3.pkgs.evdev
+    # pkgs.python3.pkgs.pyqt5  # removed from nixpkgs
+    # pkgs.python3.pkgs.xlib   # removed from nixpkgs
+    # pkgs.python3.pkgs.evdev  # removed from nixpkgs
   ];
   shellHook = ''
     export PIP_PREFIX=$(pwd)/_build/pip_packages

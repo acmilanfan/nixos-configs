@@ -16,9 +16,8 @@ in pkgs.mkShell {
 
     # Node.js ecosystem
     nodejs
-    nodePackages.mocha
-    # nodePackages.ts-node
-    nodePackages.typescript
+    mocha
+    typescript
 
     # Development tools
     openssl

@@ -7,7 +7,7 @@ let
   selectedJDK = pkgs.openjdk21;
   # selectedJDK = pkgs.openjdk23;
 
-  fhs = pkgs.buildFHSUserEnv {
+  fhs = pkgs.buildFHSEnv {
     name = "java-maven-env";
     targetPkgs = pkgs:
       (with pkgs; [
@@ -28,13 +28,12 @@ let
         libxcrypt
         libxcrypt-legacy
         nodejs_22
-        nodePackages.mocha
-        nodePackages.ts-node
-        nodePackages.typescript
+        mocha
+        typescript
         docker
         openssl
         glibc
-        mysql-client
+        mariadb.client
         glibcLocales
         gnumake
         mariadb
