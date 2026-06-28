@@ -199,25 +199,39 @@ function M.setup()
             return
         end
 
-        -- If we have a sizeFactor, watch for the window to appear to resize it
+        -- Poll for the window to appear and resize it immediately when found.
         if sizeFactor then
-            local filter = hs.window.filter.new(false):setAppFilter(appName or "Firefox", {allowTitles = titlePattern})
-            filter:subscribe(hs.window.filter.windowCreated, function(newWin)
-                filter:unsubscribe(hs.window.filter.windowCreated)
-                hs.timer.doAfter(1.0, function()
-                    if newWin:isValid() then
-                        local screen = newWin:screen():frame()
-                        local newW = screen.w * sizeFactor
-                        local newH = screen.h * sizeFactor
-                        local newX = screen.x + (screen.w - newW) / 2
-                        local newY = screen.y + (screen.h - newH) / 2
-                        newWin:setFrame({ x = newX, y = newY, w = newW, h = newH })
-                        newWin:raise()
-                        newWin:focus()
-                        layout.tile()
+            local lowerPattern = titlePattern:lower()
+            local attempts = 0
+            local function poll()
+                attempts = attempts + 1
+                if attempts > 20 then return end
+                for _, app in ipairs(hs.application.runningApplications()) do
+                    if app:name() == appName then
+                        for _, w in ipairs(app:allWindows()) do
+                            local wid = w:id()
+                            if wid and wid > 0 then
+                                local title = w:title() or ""
+                                if title:lower():find(lowerPattern, 1, true) then
+                                    state.floatingOverrides[wid] = true
+                                    state.lastIntendedFocusId = wid
+                                    local screen = hs.screen.mainScreen():frame()
+                                    local newW = math.floor(screen.w * sizeFactor)
+                                    local newH = math.floor(screen.h * sizeFactor)
+                                    local newX = math.floor(screen.x + (screen.w - newW) / 2)
+                                    local newY = math.floor(screen.y + (screen.h - newH) / 2)
+                                    w:setFrame({ x = newX, y = newY, w = newW, h = newH })
+                                    w:raise()
+                                    w:focus()
+                                    return
+                                end
+                            end
+                        end
                     end
-                end)
-            end)
+                end
+                hs.timer.doAfter(0.2, poll)
+            end
+            poll()
         end
 
         core.launchTask("/bin/zsh", { "-c", launchCmd })

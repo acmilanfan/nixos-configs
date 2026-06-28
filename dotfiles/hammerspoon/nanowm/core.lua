@@ -427,24 +427,38 @@ function M.openInAlacritty(command, sizeFactor)
     local fullCmd = string.format("/usr/bin/open -n -a Alacritty --args --title '%s' -e zsh -c \"%s\"", command, shellCmd)
 
     if sizeFactor then
-        -- Watch for the specific window title we just set
-        local filter = hs.window.filter.new(false):setAppFilter("Alacritty", {allowTitles = command})
-        filter:subscribe(hs.window.filter.windowCreated, function(newWin)
-            filter:unsubscribe(hs.window.filter.windowCreated)
-            -- Give it a bit more time to fully initialize and be recognized by NanoWM
-            hs.timer.doAfter(0.8, function()
-                if newWin:isValid() then
-                    local screen = newWin:screen():frame()
-                    local newW = screen.w * sizeFactor
-                    local newH = screen.h * sizeFactor
-                    local newX = screen.x + (screen.w - newW) / 2
-                    local newY = screen.y + (screen.h - newH) / 2
-                    newWin:setFrame({ x = newX, y = newY, w = newW, h = newH })
-                    newWin:raise()
-                    newWin:focus()
+        -- Poll for the window to appear and resize it immediately when found.
+        local lowerCommand = command:lower()
+        local attempts = 0
+        local function poll()
+            attempts = attempts + 1
+            if attempts > 20 then return end
+            for _, app in ipairs(hs.application.runningApplications()) do
+                if app:name() == "Alacritty" then
+                    for _, w in ipairs(app:allWindows()) do
+                        local wid = w:id()
+                        if wid and wid > 0 then
+                            local title = w:title() or ""
+                            if title:lower():find(lowerCommand, 1, true) then
+                                state.floatingOverrides[wid] = true
+                                state.lastIntendedFocusId = wid
+                                local screen = hs.screen.mainScreen():frame()
+                                local newW = math.floor(screen.w * sizeFactor)
+                                local newH = math.floor(screen.h * sizeFactor)
+                                local newX = math.floor(screen.x + (screen.w - newW) / 2)
+                                local newY = math.floor(screen.y + (screen.h - newH) / 2)
+                                w:setFrame({ x = newX, y = newY, w = newW, h = newH })
+                                w:raise()
+                                w:focus()
+                                return
+                            end
+                        end
+                    end
                 end
-            end)
-        end)
+            end
+            hs.timer.doAfter(0.2, poll)
+        end
+        poll()
     end
 
     hs.task.new("/bin/zsh", nil, { "-c", fullCmd }):start()
