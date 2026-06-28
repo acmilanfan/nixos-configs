@@ -174,7 +174,6 @@ let
   opencodeSettings = {
     model = "opencode-go/deepseek-v4-pro";
     small_model = "opencode-go/deepseek-v4-flash";
-    plugin = [ "./plugins/agent-state.ts" ];
 
     mcp = {
       nixos = {
@@ -220,22 +219,20 @@ in
     import type { Plugin } from "@opencode-ai/plugin";
 
     const AgentStatePlugin: Plugin = async ({ $ }) => {
-      const notify = (state: string) => {
-        $`agent-state --agent opencode --state ''${state}`;
+      const notify = async (state: string) => {
+        await $`agent-state --agent opencode --state ''${state}`;
       };
 
       return {
-        "tool.execute.before": () => notify("running"),
-        "tool.execute.after": () => notify("done"),
-        event: ({ event }) => {
+        "tool.execute.before": async () => { await notify("running"); },
+        event: async ({ event }) => {
           if (event.type === "session.idle") {
-            notify("done");
+            await notify("done");
           }
-          if (event.type === "error" || event.type === "notification") {
-            notify("needs-input");
+          if (event.type === "session.error") {
+            await notify("needs-input");
           }
         },
-        stop: () => notify("done"),
       };
     };
 
