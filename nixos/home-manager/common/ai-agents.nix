@@ -39,54 +39,6 @@ let
     ];
   };
 
-  # Gemini specific hooks (matching the peon-ping example structure)
-  geminiHooks = {
-    Notification = [
-      {
-        matcher = "*";
-        hooks = [
-          {
-            type = "command";
-            command = "agent-state --agent gemini --state needs-input &";
-          }
-        ];
-      }
-    ];
-    BeforeTool = [
-      {
-        matcher = "*";
-        hooks = [
-          {
-            type = "command";
-            command = "agent-state --agent gemini --state running &";
-          }
-        ];
-      }
-    ];
-    BeforeAgent = [
-      {
-        matcher = "*";
-        hooks = [
-          {
-            type = "command";
-            command = "agent-state --agent gemini --state running &";
-          }
-        ];
-      }
-    ];
-    SessionEnd = [
-      {
-        matcher = "*";
-        hooks = [
-          {
-            type = "command";
-            command = "agent-state --agent gemini --state done &";
-          }
-        ];
-      }
-    ];
-  };
-
   antigravityHooks = {
     PreToolUse = [
       {
@@ -195,27 +147,6 @@ let
     hooks = mkHooks "claude";
   };
 
-  geminiSettings = {
-    security = {
-      auth = {
-        selectedType = "oauth-personal";
-      };
-    };
-    general = {
-      vimMode = true;
-      previewFeatures = true;
-      sessionRetention = {
-        enabled = true;
-      };
-    };
-    mcpServers = {
-      nixos = {
-        command = "${inputs.mcp-nixos.packages.${pkgs.stdenv.hostPlatform.system}.default}/bin/mcp-nixos";
-      };
-    };
-    hooks = geminiHooks;
-  };
-
   antigravitySettings = {
     colorScheme = "dark";
     enableTelemetry = false;
@@ -280,12 +211,10 @@ let
     { url = "https://github.com/gemini-cli-extensions/code-review"; dir = "code-review"; }
   ];
 
-  gemini = "${inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.gemini-cli}/bin/gemini";
   antigravity = "${inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.antigravity-cli}/bin/antigravity";
 in
 {
   home.file.".claude/settings.json".text = builtins.toJSON claudeSettings;
-  home.file.".gemini/settings.json".text = builtins.toJSON geminiSettings;
   home.file.".config/opencode/opencode.json".text = builtins.toJSON opencodeSettings;
   home.file.".config/opencode/plugins/agent-state.ts".text = ''
     import type { Plugin } from "@opencode-ai/plugin";
@@ -315,7 +244,6 @@ in
 
   home.packages = [
       inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.claude-code
-      inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.gemini-cli
       inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.antigravity-cli
       inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.opencode
       inputs.mcp-nixos.packages.${pkgs.stdenv.hostPlatform.system}.default
@@ -342,25 +270,7 @@ ${builtins.toJSON antigravitySettings}
 EOF
     chmod 644 "$AGY_SETTINGS"
 
-    # 2. Gemini Extension Installation
-    # Uninstall broken last30days-skill if still present on disk
-    if [ -d "${config.home.homeDirectory}/.gemini/extensions/last30days-skill" ]; then
-      echo "Removing last30days-skill extension..."
-      ${gemini} extensions uninstall last30days-skill 2>/dev/null || \
-        rm -rf "${config.home.homeDirectory}/.gemini/extensions/last30days-skill"
-    fi
-
-    # Install extensions for Gemini if not already present
-    ${builtins.concatStringsSep "\n" (map (ext: ''
-      if [ -d "$HOME/.gemini/extensions/${ext.dir}" ]; then
-        echo "Gemini extension already installed: ${ext.dir}"
-      else
-        echo "Installing Gemini extension: ${ext.url}"
-        $DRY_RUN_CMD ${gemini} extensions install "${ext.url}" --consent --skip-settings || true
-      fi
-    '') geminiExtensions)}
-
-    # 3. Antigravity Plugin Installation
+    # 2. Antigravity Plugin Installation
     AGY_PLUGINS_DIR="$HOME/.gemini/config/plugins"
     # Import plugins from gemini if none exist yet
     if [ ! -d "$AGY_PLUGINS_DIR" ] || [ -z "$(ls -A "$AGY_PLUGINS_DIR" 2>/dev/null)" ]; then

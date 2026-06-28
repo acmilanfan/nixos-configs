@@ -9,7 +9,7 @@
       git
       httpie
       kitty
-      nixfmt-classic
+      nixfmt
       htop
       yt-dlp
       clinfo

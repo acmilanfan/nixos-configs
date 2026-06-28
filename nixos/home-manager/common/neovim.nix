@@ -51,13 +51,13 @@ in
     vue-language-server
     bash-language-server
     reftools
-    nodePackages.typescript
-    nodePackages.typescript-language-server
-    nodePackages.vscode-json-languageserver
-    nodePackages.prettier
-    nodePackages.eslint
-    nodePackages.graphql-language-service-cli
-    nodePackages.fixjson
+    typescript
+    typescript-language-server
+    vscode-json-languageserver
+    prettier
+    eslint
+    graphql-language-service-cli
+    fixjson
     # vscode-extensions.vscjava.vscode-java-test
   ];
 
@@ -184,7 +184,7 @@ in
       minuet-ai-nvim
     ];
     # Load the main init.lua which requires all other modules
-    extraLuaConfig = ''
+    initLua = ''
       require("init")
     '';
   };
