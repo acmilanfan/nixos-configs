@@ -102,6 +102,6 @@ case "$SENDER" in
         ;;
     "kanata_rescue_restore_hid")
         sketchybar --set kanata popup.drawing=off
-        sudo /bin/launchctl bootstrap system /Library/LaunchDaemons/org.pqrs.service.daemon.Karabiner-VirtualHIDDevice-Daemon.plist
+        sudo /bin/launchctl kickstart -k system/org.pqrs.service.daemon.Karabiner-VirtualHIDDevice-Daemon
         ;;
 esac

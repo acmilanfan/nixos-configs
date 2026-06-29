@@ -72,7 +72,19 @@ if [ "$RELOAD_REQUIRED" = true ]; then
         open "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent" 2>/dev/null || true
     fi
 
-    # 1. Immediate restart - kickstart -k handles killing and starting
+    # 1a. Ensure VirtualHIDDevice is healthy before restarting kanata.
+    #     After deep standby (hibernation), the virtual keyboard device can vanish from ioreg
+    #     even while the daemon process is still listed as running. Restarting the daemon
+    #     re-enumerates the device. The ioreg check is fast (~50ms) and adds no delay when
+    #     VirtualHID is healthy; only broken-state wakes incur the ~1s restart wait.
+    if ! ioreg -rn "Karabiner VirtualHIDKeyboard" >/dev/null 2>&1; then
+        print_warning "Karabiner VirtualHIDKeyboard not found in ioreg — restarting VirtualHIDDevice-Daemon..."
+        sudo /bin/launchctl kickstart -k system/org.pqrs.service.daemon.Karabiner-VirtualHIDDevice-Daemon 2>/dev/null || true
+        sleep 1
+        print_status "VirtualHIDDevice-Daemon restarted."
+    fi
+
+    # 1b. Restart kanata - kickstart -k handles killing and starting
     # This is the fastest way to get the keyboard back.
     sudo /bin/launchctl kickstart -k system/local.kanata
 
