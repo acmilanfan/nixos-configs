@@ -17,47 +17,62 @@ local M = {}
 -- Window Filter Setup
 -- =============================================================================
 
--- Use 'true' to only track standard, visible windows, ignoring background noise
-local filter = hs.window.filter.new(true)
-filter:rejectApp("Hammerspoon")
-filter:rejectApp("Sketchybar")
--- rejectApp() prevents AXObserver registration for these apps, stopping their
--- slow/hanging AX servers from freezing Hammerspoon's main thread.
--- Categories:
---   Corporate agents (hourly VPN/auth/MDM keepalives)
---   Electron/WKWebView helper subprocesses (never top-level windows)
---   macOS system UI daemons (never user-managed windows)
-local _rejectedApps = {
-    -- Corporate security / VPN / MDM
-    "GlobalProtect", "Falcon Notifications", "Splashtop Streamer",
-    "jamfRemoteAssistConnectorUI", "nbagent",
-    -- System auth daemons
-    "Single Sign-On", "Keychain Circle Notification",
-    "universalAccessAuthWarn", "coreautha",
-    -- Electron / WKWebView helper processes
-    "Slack Helper",
-    "Raycast Graphics and Media", "Raycast Networking", "Raycast Web Content",
-    "nsattributedstringagent Graphics and Media",
-    -- macOS system UI (never tiled/managed)
-    "Accessibility", "Accessibility Services",
-    "AirPlay Screen Mirroring", "BackgroundTaskManagementAgent",
-    "Control Center", "CoreLocationAgent", "CoreServicesUIAgent",
-    "Notification Center", "PowerChime",
-    "Scroll Reverser", "Shortcuts",
-    "SoftwareUpdateNotificationManager", "Spotlight",
-    "SystemUIServer", "TextInputMenuAgent", "TextInputSwitcher",
-    "Universal Control", "Wallpaper", "Wi-Fi", "WindowManager",
-    "loginwindow", "talagentd",
+-- Apps never tracked via AXObserver or window enumeration.
+-- rejectApp() only drops Lua callbacks — the C++ AXObserver remains registered
+-- and can still freeze the main thread. The fix is filter.new(false) so that
+-- these apps never get an AXObserver at all.
+local managedExcluded = {
+    Hammerspoon = true, Sketchybar = true,
+    -- Corporate security / VPN / MDM agents (hourly keepalives hang AX)
+    GlobalProtect = true, ["Falcon Notifications"] = true,
+    ["Splashtop Streamer"] = true, jamfRemoteAssistConnectorUI = true,
+    nbagent = true,
+    -- System auth / security daemons
+    ["Single Sign-On"] = true, ["Keychain Circle Notification"] = true,
+    universalAccessAuthWarn = true, coreautha = true,
+    -- Electron / WKWebView renderer subprocesses
+    ["Slack Helper"] = true,
+    ["Raycast Graphics and Media"] = true, ["Raycast Networking"] = true,
+    ["Raycast Web Content"] = true,
+    ["nsattributedstringagent Graphics and Media"] = true,
+    -- macOS system UI daemons
+    Accessibility = true, ["Accessibility Services"] = true,
+    ["AirPlay Screen Mirroring"] = true, BackgroundTaskManagementAgent = true,
+    ["Control Center"] = true, CoreLocationAgent = true, CoreServicesUIAgent = true,
+    Dock = true, ["Notification Center"] = true, PowerChime = true,
+    ["Scroll Reverser"] = true, Shortcuts = true,
+    SoftwareUpdateNotificationManager = true, Spotlight = true,
+    SystemUIServer = true, TextInputMenuAgent = true, TextInputSwitcher = true,
+    ["Universal Control"] = true, UserNotificationCenter = true,
+    Wallpaper = true, ["Wi-Fi"] = true, WindowManager = true,
+    loginwindow = true, talagentd = true,
+    -- Accessibility / input utilities (no manageable windows)
+    AutoRaise = true, Cursorcerer = true, MiddleClick = true, Warpd = true,
 }
-for _, appName in ipairs(_rejectedApps) do
-    filter:rejectApp(appName)
+
+-- Allowlist mode: AXObservers are set up ONLY for apps we explicitly allow.
+-- Excluded apps (corporate agents, system daemons) can never block the AX layer.
+local filter = hs.window.filter.new(false)
+
+local function _shouldAllow(app)
+    if not app then return false end
+    local name = app:name() or ""
+    return app:kind() ~= -1 and not managedExcluded[name]
 end
 
--- Apps excluded from window enumeration (same set as filter rejections above)
-local managedExcluded = { Hammerspoon = true, Sketchybar = true }
-for _, appName in ipairs(_rejectedApps) do
-    managedExcluded[appName] = true
+for _, app in ipairs(hs.application.runningApplications()) do
+    if _shouldAllow(app) then
+        filter:allowApp(app:name())
+    end
 end
+
+-- Dynamically allow newly launched user-facing apps
+local _appLaunchWatcher = hs.application.watcher.new(function(appName, event, app)
+    if event == hs.application.watcher.launched and _shouldAllow(app) then
+        filter:allowApp(appName)
+    end
+end)
+_appLaunchWatcher:start()
 
 -- Short-lived cache so multiple callers in the same event burst share one allWindows() call
 local managedWinsCache = nil
