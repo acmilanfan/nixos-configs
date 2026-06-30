@@ -50,6 +50,7 @@ local VimMode = hs.loadSpoon("VimMode")
 if VimMode then
     local vimMode = VimMode:new()
     vimMode:shouldShowAlertInNormalMode(false)
+    vimMode:disableForApp('Alacritty')
     vimMode:bindHotKeys({ enter = { { "alt" }, "e" } })
 end
 
