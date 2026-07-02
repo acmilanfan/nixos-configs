@@ -30,7 +30,7 @@ in
     # Whether to enable hyprland-session.target on hyprland startup
     systemd.enable = true;
     plugins = with pkgs; [
-      hyprlandPlugins.hyprgrass
+      # hyprlandPlugins.hyprgrass  # incompatible with current hyprland
     ];
     extraConfig = lib.readFile ./../../../dotfiles/hypr/hyprland.conf;
   };

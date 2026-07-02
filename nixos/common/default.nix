@@ -1,8 +1,6 @@
 { inputs, ... }: {
 
   imports = [
-    "${inputs.nixpkgs-howdy}/nixos/modules/services/security/howdy"
-    "${inputs.nixpkgs-howdy}/nixos/modules/services/misc/linux-enable-ir-emitter.nix"
     ./hardware
 
     ./awesome.nix

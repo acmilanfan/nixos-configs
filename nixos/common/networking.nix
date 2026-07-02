@@ -3,6 +3,7 @@
   networking.networkmanager.enable = true;
   networking.useDHCP = false;
 
+  networking.networkmanager.wifi.backend = "iwd";
   networking.networkmanager.wifi.powersave = false;
 
   # services.globalprotect.enable = true;

@@ -29,16 +29,16 @@
     };
   in {
     hyprlock.rules.auth = {
-      howdy = howdyRule;
+      howdy = lib.mkForce howdyRule;
     };
     i3lock.rules.auth = {
-      howdy = howdyRule;
+      howdy = lib.mkForce howdyRule;
     };
     sudo.rules.auth = {
-      howdy = howdyRule;
+      howdy = lib.mkForce howdyRule;
     };
     login.rules.auth = {
-      howdy = howdyRule;
+      howdy = lib.mkForce howdyRule;
     };
   };
 }

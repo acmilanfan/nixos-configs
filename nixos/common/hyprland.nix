@@ -33,6 +33,4 @@
 
   security.pam.services.hyprland.enableGnomeKeyring = true;
 
-  networking.wireless.iwd.enable = true;
-
 }

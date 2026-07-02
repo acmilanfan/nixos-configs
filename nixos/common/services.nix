@@ -5,7 +5,7 @@
   services.greenclip.enable = !config.programs.hyprland.enable;
   services.fwupd.enable = true;
   services.thermald.enable = lib.mkDefault true;
-  programs.light.enable = true;
+  hardware.acpilight.enable = true;
   programs.gnupg.agent.enable = true;
 
   services.syncthing = {
