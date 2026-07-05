@@ -30,14 +30,12 @@ in
     # Whether to enable hyprland-session.target on hyprland startup
     systemd.enable = true;
     plugins = with pkgs; [
-      # hyprlandPlugins.hyprgrass  # incompatible with current hyprland
+      # No plugins needed — touch_gestures is built-in as of Hyprland 0.55+
     ];
-    extraConfig = lib.readFile ./../../../dotfiles/hypr/hyprland.conf;
+    extraConfig = "";  # Lua config is loaded via xdg.configFile below
   };
 
-  # xdg.configFile = {
-  #   "hypr/hyprland.conf".source = ./../../../dotfiles/hypr/hyprland.conf;
-  # };
+  xdg.configFile."hypr/hyprland.lua".source = ../../../dotfiles/hypr/hyprland.lua;
 
   home.file = {
     ".config/waybar/config".source = ../../../dotfiles/waybar/config;
@@ -388,7 +386,6 @@ in
     ))
     (writeShellScriptBin "hypr-focus-other-monitor" (lib.readFile ./scripts/hypr-focus-other-monitor))
     (writeShellScriptBin "hypr-cycle-layout" (lib.readFile ./scripts/hypr-cycle-layout))
-    (writeShellScriptBin "hypr-float-center" (lib.readFile ./scripts/hypr-float-center))
     (writeShellScriptBin "hypr-powersave-mode" (lib.readFile ./scripts/hypr-powersave-mode))
     (writeShellScriptBin "hypr-animations-toggle" (lib.readFile ./scripts/hypr-animations-toggle))
     (writeShellScriptBin "hypr-layout-status" (lib.readFile ./scripts/hypr-layout-status))
@@ -398,7 +395,6 @@ in
     (writeShellScriptBin "hypr-commands" (lib.readFile ./scripts/hypr-commands))
     (writeShellScriptBin "hypr-ai-agents" (lib.readFile ./scripts/hypr-ai-agents))
     (writeShellScriptBin "hypr-expand-float" (lib.readFile ./scripts/hypr-expand-float))
-    (writeShellScriptBin "hypr-expand-float-recover" (lib.readFile ./scripts/hypr-expand-float-recover))
     (writeShellScriptBin "hypr-iio-rotate" (lib.readFile ./scripts/hypr-iio-rotate))
     (writeShellScriptBin "hypr-focus-or-spawn" (lib.readFile ./scripts/hypr-focus-or-spawn))
     (writeShellScriptBin "hypr-reset-touch" (lib.readFile ./scripts/hypr-reset-touch))
