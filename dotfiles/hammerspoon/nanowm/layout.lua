@@ -212,22 +212,24 @@ function M.performTile()
     end
 
     -- PHASE 2: HIDE
-    local hideScreenFrame = primaryFrame
     for _, win in ipairs(toHide) do
         local id = win:id()
-        local idStr = tostring(id)
-        local f = win:frame()
+        if state.windowState[id] and state.windowState[id].isHidden then
+            -- already parked off-screen; skip all AX calls
+        else
+            local idStr = tostring(id)
+            local f = win:frame()
 
-        if f.x < 90000 then
-            if f.w > 0 and f.h > 0 then
-                if core.isFloating(win) and f.x < 10000 then
-                    state.floatingCache[idStr] = { x = f.x, y = f.y, w = f.w, h = f.h }
+            if f.x < 90000 then
+                if f.w > 0 and f.h > 0 then
+                    if core.isFloating(win) and f.x < 10000 then
+                        state.floatingCache[idStr] = { x = f.x, y = f.y, w = f.w, h = f.h }
+                    end
+
+                    f.x = 100000
+                    f.y = 100000
+                    win:setFrame(f)
                 end
-
-                -- Park far off-screen
-                f.x = 100000
-                f.y = 100000
-                win:setFrame(f)
             end
         end
         state.windowState[id].isHidden = true
@@ -303,10 +305,10 @@ function M.performTile()
         local id = win:id()
         local idStr = tostring(id)
         local onSpecial = (state.tags[id] == state.special.tag)
-        local shouldRaise = state.windowState[id].isHidden or win:frame().x >= 90000 or (state.lastIntendedFocusId == id) or onSpecial
+        local shouldRaise = state.windowState[id].isHidden or (state.lastIntendedFocusId == id) or onSpecial
 
         if shouldRaise then
-            if state.windowState[id].isHidden or win:frame().x >= 90000 then
+            if state.windowState[id].isHidden then
                 local saved = state.floatingCache[idStr]
                 local winTag = state.tags[id]
                 local targetFrame = visibleTags[winTag] or primaryFrame

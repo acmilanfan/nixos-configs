@@ -50,6 +50,22 @@ local managedExcluded = {
     AutoRaise = true, Cursorcerer = true, MiddleClick = true, Warpd = true,
 }
 
+-- Only allow AX observers for apps we actually need to manage.
+-- Every allowed app gets an AXObserver that can freeze the event loop, so
+-- we whitelist rather than blacklist. Add any app whose windows you want to tile.
+local managedAllowed = {
+    ["Activity Monitor"] = true, Alacritty = true, Arc = true,
+    ["App Store"] = true, ["Archive Utility"] = true, Brave = true,
+    Calculator = true, Cursor = true, ["Disk Utility"] = true,
+    Discord = true, Finder = true, FineTune = true,
+    Firefox = true, ["Google Chrome"] = true, IINA = true,
+    ["IntelliJ IDEA"] = true, Marta = true, Nextcloud = true,
+    ["Photo Booth"] = true, Preview = true, Safari = true,
+    Slack = true, Syncthing = true, ["System Settings"] = true,
+    Telegram = true, VLC = true, ["Visual Studio Code"] = true,
+    Zed = true, ["Force Quit Applications"] = true,
+}
+
 -- Allowlist mode: AXObservers are set up ONLY for apps we explicitly allow.
 -- Excluded apps (corporate agents, system daemons) can never block the AX layer.
 local filter = hs.window.filter.new(false)
@@ -57,7 +73,7 @@ local filter = hs.window.filter.new(false)
 local function _shouldAllow(app)
     if not app then return false end
     local name = app:name() or ""
-    return app:kind() ~= -1 and not managedExcluded[name]
+    return managedAllowed[name] == true and not managedExcluded[name]
 end
 
 for _, app in ipairs(hs.application.runningApplications()) do
@@ -113,10 +129,9 @@ function M.getManagedWindows()
     local _totalT0 = profiler.enabled and hs.timer.secondsSinceEpoch() or 0
     local wins = {}
     for _, app in ipairs(hs.application.runningApplications()) do
-        -- Skip background-only daemons that have no windows (kind == -1)
         if app:kind() ~= -1 then
             local appName = app:name() or ""
-            if not managedExcluded[appName] then
+            if managedAllowed[appName] and not managedExcluded[appName] then
                 local _appT0 = profiler.enabled and hs.timer.secondsSinceEpoch() or 0
                 local appWins = app:allWindows()
                 if profiler.enabled then
