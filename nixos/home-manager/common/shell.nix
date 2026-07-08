@@ -199,10 +199,14 @@
   programs.ssh = {
     enable = true;
     enableDefaultConfig = false;
+    settings."github.com" = lib.mkIf pkgs.stdenv.isDarwin {
+      User = "git";
+      IdentityFile = "~/.ssh/id_ed25519";
+      IdentitiesOnly = true;
+    };
     settings."*" = lib.mkIf pkgs.stdenv.isDarwin {
       addKeysToAgent = "yes";
       useKeychain = "yes";
-      identityFile = "~/.ssh/id_ed25519";
     };
   };
 

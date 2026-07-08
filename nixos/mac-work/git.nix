@@ -4,11 +4,11 @@ let secrets = import /Users/andreishumailov/configs/nixos-configs/secrets/secret
 in {
   programs.ssh = {
     enable = true;
-    matchBlocks."github-work" = {
-      hostname = "github.com";
-      user = "git";
-      identityFile = "~/.ssh/id_rsa";
-      identitiesOnly = true;
+    settings."github-work" = {
+      Hostname = "github.com";
+      User = "git";
+      IdentityFile = "~/.ssh/id_rsa";
+      IdentitiesOnly = true;
     };
   };
 
@@ -18,6 +18,12 @@ in {
       user.email = secrets.homeEmail;
       core.sshCommand = "ssh -i ~/.ssh/id_ed25519 -o 'IdentitiesOnly yes'";
       "url \"git@github.com:\"".insteadOf = "https://github.com/";
+      "url \"git@github-work:wkda/\"" = {
+        insteadOf = [
+          "https://github.com/wkda/"
+          "git@github.com:wkda/"
+        ];
+      };
     };
     includes = [
       {
