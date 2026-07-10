@@ -52,11 +52,13 @@ function M.log(name, elapsed, extra)
     writeLog(msg)
 end
 
--- Wrap a function: times every call, logs if >= threshold.
+-- Wrap a function: stamps lastEvent + times every call, logs if >= threshold.
 -- Handles up to 4 return values (enough for all NanoWM callbacks).
 function M.wrap(name, fn)
     if not M.enabled then return fn end
     return function(...)
+        M.lastCallback = name
+        M.lastEvent = name
         local t0 = hs.timer.secondsSinceEpoch()
         local ok, a, b, c, d = pcall(fn, ...)
         local dt = hs.timer.secondsSinceEpoch() - t0
@@ -95,6 +97,17 @@ function M.unpatchGlobals()
     hs.execute = _origHsExec
 end
 
+-- Breadcrumbs for freeze diagnosis.
+-- lastCallback: set by M.wrap() at the START of every AXObserver callback (never overwritten by AX calls).
+-- lastEvent: set just before each blocking AX call (resync:appName, appActivated:appName, etc.).
+-- After a freeze: lastCallback identifies the triggering event; lastEvent identifies the AX call.
+M.lastCallback = "startup"
+M.lastEvent = "startup"
+
+-- Optional callback fired after any detected freeze >= 5 s.
+-- Set by watchers.lua to extend the wake-suppress guard after an unexpected freeze.
+M.onFreeze = nil
+
 -- Start a 1-second heartbeat. Only logs when there is a gap > 2s (i.e. a real freeze).
 -- Call once from init.lua after profiler is enabled.
 local _heartbeatTimer = nil
@@ -115,7 +128,11 @@ function M.startHeartbeat()
             table.sort(apps)
             local appList = table.concat(apps, ", ")
             M.log("*** FREEZE ***", gap,
-                string.format("%.1fs | running: %s", gap, appList))
+                string.format("%.1fs | lastCallback: %s | lastEvent: %s | running: %s",
+                    gap, M.lastCallback, M.lastEvent, appList))
+            if gap >= 5.0 and M.onFreeze then
+                M.onFreeze(gap)
+            end
         end
         _lastBeat = now
     end)

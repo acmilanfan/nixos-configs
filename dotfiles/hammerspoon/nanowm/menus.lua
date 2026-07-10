@@ -96,6 +96,12 @@ function M.openMenu(mode)
                     integrations.switchKanata("angle")
                 end,
             },
+            {
+                t = "Kanata: Training Mode (Forced HRM)",
+                fn = function()
+                    integrations.switchKanata("training")
+                end,
+            },
         }
 
         for _, cmd in ipairs(commands) do
@@ -187,6 +193,11 @@ function M.openKanataMenu()
             text = "Disabled Mode",
             subText = (state.kanataMode == "disabled") and "ACTIVE" or "Block all internal keyboard input",
             uuid = "disabled",
+        },
+        {
+            text = "Training Mode (Forced HRM)",
+            subText = (state.kanataMode == "training") and "ACTIVE" or "Disable non-home-row mods to enforce correct technique",
+            uuid = "training",
         },
         {
             text = "Force Reload All Instances",
