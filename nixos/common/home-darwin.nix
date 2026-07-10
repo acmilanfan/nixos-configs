@@ -124,6 +124,7 @@ in
     ".config/kanata/kanata-split.kbd".source = ../../dotfiles/kanata/kanata-split.kbd;
     ".config/kanata/kanata-angle.kbd".source = ../../dotfiles/kanata/kanata-angle.kbd;
     ".config/kanata/kanata-disabled.kbd".source = ../../dotfiles/kanata/kanata-disabled.kbd;
+    ".config/kanata/kanata-training.kbd".source = ../../dotfiles/kanata/kanata-training.kbd;
     # ".config/kanata/active_config.kbd".source = ../../dotfiles/kanata/kanata-default.kbd;
     ".config/kanata/reload-kanata.sh" = {
       source = ../../dotfiles/kanata/reload-kanata.sh;

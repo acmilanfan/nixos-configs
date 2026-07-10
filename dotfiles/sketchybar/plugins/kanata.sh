@@ -44,6 +44,11 @@ update() {
             icon="󰅛"
             color=0xfff7768e # Red
             ;;
+        *kanata-training.kbd | *kanata-training-iso.kbd)
+            label="Training"
+            icon="󰮡"
+            color=0xffff9e64 # Orange
+            ;;
     esac
 
     # Always update the main 'kanata' item, regardless of which popup item triggered the script
@@ -91,6 +96,9 @@ case "$SENDER" in
         ;;
     "kanata_switch_disabled")
         switch_mode "disabled"
+        ;;
+    "kanata_switch_training")
+        switch_mode "training"
         ;;
     "kanata_rescue_kill")
         sketchybar --set kanata popup.drawing=off

@@ -63,8 +63,16 @@ case $MODE in
         echo "Switching to Disabled configuration..."
         ln -sf "$CONFIG_DIR/kanata-disabled.kbd" "$ACTIVE_CONFIG"
         ;;
+    training)
+        echo "Switching to Training (Forced Home Row) configuration..."
+        if [ "$LAYOUT" == "iso" ]; then
+            ln -sf "$CONFIG_DIR/kanata-training-iso.kbd" "$ACTIVE_CONFIG"
+        else
+            ln -sf "$CONFIG_DIR/kanata-training.kbd" "$ACTIVE_CONFIG"
+        fi
+        ;;
     *)
-        echo "Usage: $0 [default|homerow|split|angle|disabled]"
+        echo "Usage: $0 [default|homerow|split|angle|disabled|training]"
         exit 1
         ;;
 esac
