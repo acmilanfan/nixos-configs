@@ -74,6 +74,7 @@
       nix-darwin,
       nix-homebrew,
       mac-app-util,
+      mcp-nixos,
       ...
     }:
     let
@@ -98,6 +99,12 @@
 
       overlay-custom = import ./nixos/common/overlays.nix;
 
+      overlay-fastmcp-slim-fix = import ./nixos/common/overlays/fastmcp-slim-fix.nix;
+
+      overlay-mcp-nixos = nixpkgs.lib.composeExtensions
+        mcp-nixos.overlays.default
+        overlay-fastmcp-slim-fix;
+
       pkgsFor =
         system:
         import inputs.nixpkgs {
@@ -106,6 +113,7 @@
           overlays = [
             overlay-howdy
             overlay-custom
+            overlay-mcp-nixos
           ];
         };
 
@@ -117,6 +125,7 @@
           overlays = [
             overlay-howdy
             overlay-custom
+            overlay-mcp-nixos
           ];
         };
 
