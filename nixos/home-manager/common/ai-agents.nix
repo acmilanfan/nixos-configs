@@ -165,7 +165,7 @@ let
     };
     mcpServers = {
       nixos = {
-        command = "${inputs.mcp-nixos.packages.${pkgs.stdenv.hostPlatform.system}.default}/bin/mcp-nixos";
+        command = "${pkgs.mcp-nixos}/bin/mcp-nixos";
       };
     };
     hooks = antigravityHooks;
@@ -179,7 +179,7 @@ let
       nixos = {
         type = "local";
         command = [
-          "${inputs.mcp-nixos.packages.${pkgs.stdenv.hostPlatform.system}.default}/bin/mcp-nixos"
+          "${pkgs.mcp-nixos}/bin/mcp-nixos"
         ];
       };
     };
@@ -243,7 +243,7 @@ in
       inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.claude-code
       inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.antigravity-cli
       inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.opencode
-      inputs.mcp-nixos.packages.${pkgs.stdenv.hostPlatform.system}.default
+      pkgs.mcp-nixos
   ];
 
   # Automate extension installation on activation
