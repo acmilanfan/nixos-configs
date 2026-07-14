@@ -40,7 +40,7 @@
     _     🔅    🔆    mctl  sls   dtn   dnd   ◀◀    ▶⏸    ▶▶    🔇    🔉    🔊
     _     _     _     _     _     _     _     _     _     _     _     _     _     _
     _     _     _     _     _     _     _     _     _     _     _     _     _
-    _     @a    @s    @d    @f    _     _     @j    @k    @l    @;    _     _     _
+    _     @a    @s    @d    @f    @g    _     @j    @k    @l    @;    _     _     _
     _     _     _     _     @v    @b    @n    @m    _     _     _     _
     @fn   _     _     _                 @spc              _     _     _     _     _     _
   )
@@ -130,6 +130,19 @@
     m (tap-hold-release $tap-time $hold-time m (layer-while-held symbols))
     v (tap-hold-release $tap-time $hold-time v (layer-while-held arrows))
     b (tap-hold-release $tap-time $hold-time b (layer-while-held media))
+    g (tap-hold-release $tap-time $hold-time g (layer-while-held mouse))
+
+    ;; Mouse movement (starts at 1px/tick, accelerates to 20px/tick over 1s)
+    mup (movemouse-accel-up 1 1000 1 20)
+    mdn (movemouse-accel-down 1 1000 1 20)
+    mlf (movemouse-accel-left 1 1000 1 20)
+    mrt (movemouse-accel-right 1 1000 1 20)
+
+    ;; Mouse scroll
+    whu (mwheel-up 50 120)
+    whd (mwheel-down 50 120)
+    whl (mwheel-left 50 120)
+    whr (mwheel-right 50 120)
   )
 )
 
@@ -141,5 +154,20 @@
     _     lmet  lalt  lsft  lctl  _     prev  vold  volu  next  mute  _     _     _
     _     _     _     _     _     _     _     _     _     _     _     _
     _     _     _     _                 pp                _     _     _     _     _     _
+  )
+)
+
+;; Mouse layer: g (held) → mouse control
+;; Right hand: hjkl = move, nm,. = scroll, ; = right click
+;; Left hand home row: direct mods for shift/ctrl+click
+;; Space = left click
+(platform (macos)
+  (deflayer mouse
+    _     _     _     _     _     _     _     _     _     _     _     _     _
+    _     _     _     _     _     _     _     _     _     _     _     _     _     _
+    _     _     _     _     _     _     @redo @paste @copy @cut  @undo _     _
+    _     lmet  lalt  lsft  lctl  _     @mlf  @mdn  @mup  @mrt  mrgt  _     _     _
+    _     _     _     _     _     _     @whl  @whu  @whd  @whr  mmid  _
+    _     _     _     _                 mlft              _     _     _     _     _     _
   )
 )
