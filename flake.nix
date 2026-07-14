@@ -110,6 +110,9 @@
         import inputs.nixpkgs {
           inherit system;
           config.allowUnfree = true;
+          config.permittedInsecurePackages = [
+            "pnpm-9.15.9"
+          ];
           overlays = [
             overlay-howdy
             overlay-custom
