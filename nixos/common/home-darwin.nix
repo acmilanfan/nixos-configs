@@ -23,7 +23,7 @@ in
       m-cli # Swiss Army Knife for macOS
 
       # Development tools that work well on macOS
-      unstable.colima # Container runtime for macOS
+      colima # Container runtime for macOS
       lazydocker # Terminal UI for docker
 
       # Additional macOS tools
@@ -44,6 +44,10 @@ in
       syncthing-macos
       syncmon
       yazi
+
+      pass
+      gnupg
+      pinentry_mac
       # Scripts need to be handled. They were in ./scripts/ relative to mac-work/home.nix.
       # We need to make sure they are accessible.
       # (writeShellScriptBin "pip-pop" (lib.readFile ./scripts/pip-pop))
@@ -225,6 +229,7 @@ in
     ".hammerspoon/nanowm/watchers.lua".source = ../../dotfiles/hammerspoon/nanowm/watchers.lua;
     ".hammerspoon/nanowm/agents.lua".source = ../../dotfiles/hammerspoon/nanowm/agents.lua;
     ".hammerspoon/nanowm/profiler.lua".source = ../../dotfiles/hammerspoon/nanowm/profiler.lua;
+    ".hammerspoon/nanowm/pass.lua".source = ../../dotfiles/hammerspoon/nanowm/pass.lua;
 
     # Rofi-like menus
     # ".hammerspoon/rofi-menus/init.lua".source = ../../dotfiles/hammerspoon/rofi-menus/init.lua;

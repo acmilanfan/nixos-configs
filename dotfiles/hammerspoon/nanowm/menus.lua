@@ -361,11 +361,12 @@ function M.showKeybindMenu()
         {
             category = "Menus",
             binds = {
-                { key = "Alt+M", desc = "App menu palette", fn = M.triggerMenuPalette },
-                { key = "Alt+P", desc = "Commands menu", fn = function() M.openMenu("commands") end },
-                { key = "Alt+I", desc = "Windows menu", fn = function() M.openMenu("windows") end },
-                { key = "Alt+N", desc = "Control Center (Audio/WiFi/BT)", fn = function() M.openControlMenu() end },
-                { key = "Alt+/", desc = "This keybind menu", fn = M.showKeybindMenu },
+                { key = "Alt+M",       desc = "App menu palette",              fn = M.triggerMenuPalette },
+                { key = "Alt+P",       desc = "Commands menu",                 fn = function() M.openMenu("commands") end },
+                { key = "Alt+I",       desc = "Windows menu",                  fn = function() M.openMenu("windows") end },
+                { key = "Alt+N",       desc = "Control Center (Audio/WiFi/BT)", fn = function() M.openControlMenu() end },
+                { key = "Alt+/",       desc = "This keybind menu",             fn = M.showKeybindMenu },
+                { key = "Alt+Shift+P", desc = "Pass password manager",         fn = function() require("nanowm.pass").showChooser() end },
             },
         },
         {

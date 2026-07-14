@@ -12,6 +12,7 @@ local tags = require("nanowm.tags")
 local menus = require("nanowm.menus")
 local integrations = require("nanowm.integrations")
 local agents = require("nanowm.agents")
+local pass   = require("nanowm.pass")
 
 local M = {}
 
@@ -39,6 +40,7 @@ function M.setup()
     hs.hotkey.bind(alt, "i", function() menus.openMenu("windows") end)
     hs.hotkey.bind(alt, "n", menus.openControlMenu)
     hs.hotkey.bind(alt, "/", menus.showKeybindMenu)
+    hs.hotkey.bind(altShift, "p", pass.showChooser)
 
     -- AI Agents: chooser (Alt+A) and SketchyBar popup toggle (Ctrl+Alt+A)
     hs.hotkey.bind(alt,     "a", agents.showMenu)

@@ -174,8 +174,8 @@ in
     # global.autoUpdate = true;
     global.autoUpdate = false;
     onActivation = {
-      cleanup = "none";
-      # cleanup = "zap";
+      # cleanup = "none";
+      cleanup = "zap";
       autoUpdate = false;
       # autoUpdate = true;
       upgrade = false;
@@ -288,6 +288,25 @@ in
       ln -sf "/Users/${user}/.config/kanata/kanata-homerow.kbd" "/Users/${user}/.config/kanata/active_config.kbd"
     fi
     chown -R ${user}:staff "/Users/${user}/.config/kanata"
+
+    # Setup password-store symlink (pass expects ~/.password-store)
+    echo "Setting up password-store symlink..."
+    if [ ! -e "/Users/${user}/.password-store" ]; then
+      ln -sf "/Users/${user}/configs/nixos-configs/secrets/passwords" "/Users/${user}/.password-store"
+    fi
+
+    # Configure gpg-agent to use pinentry-mac for GUI passphrase prompts
+    echo "Configuring gpg-agent..."
+    mkdir -p "/Users/${user}/.gnupg"
+    chmod 700 "/Users/${user}/.gnupg"
+    GPGAGENT_CONF="/Users/${user}/.gnupg/gpg-agent.conf"
+    PINENTRY_PATH="/etc/profiles/per-user/${user}/bin/pinentry-mac"
+    # Always keep pinentry-program up to date (strip stale line, append fresh)
+    touch "$GPGAGENT_CONF"
+    grep -v "pinentry-program" "$GPGAGENT_CONF" > "$GPGAGENT_CONF.tmp" 2>/dev/null || true
+    echo "pinentry-program $PINENTRY_PATH" >> "$GPGAGENT_CONF.tmp"
+    mv "$GPGAGENT_CONF.tmp" "$GPGAGENT_CONF"
+    chown -R ${user} "/Users/${user}/.gnupg"
 
     # Setup firefoxpwa
     echo "Linking firefoxpwa native messaging host..."
