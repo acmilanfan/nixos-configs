@@ -16,7 +16,17 @@ local _fh = nil
 local _lineCount = 0
 local MAX_LINES = 8000
 
+local function countLines()
+    local f = io.open(LOG, "r")
+    if not f then return 0 end
+    local n = 0
+    for _ in f:lines() do n = n + 1 end
+    f:close()
+    return n
+end
+
 local function openLog()
+    _lineCount = countLines()
     _fh = io.open(LOG, "a")
 end
 
@@ -111,8 +121,17 @@ M.onFreeze = nil
 -- Start a 1-second heartbeat. Only logs when there is a gap > 2s (i.e. a real freeze).
 -- Call once from init.lua after profiler is enabled.
 local _heartbeatTimer = nil
+local _resetHeartbeat = nil
+
+-- Call on systemWillSleep/systemDidWake so the sleep duration itself isn't
+-- logged as a freeze (all timers, including this heartbeat, pause during sleep).
+function M.resetHeartbeat()
+    if _resetHeartbeat then _resetHeartbeat() end
+end
+
 function M.startHeartbeat()
     local _lastBeat = hs.timer.secondsSinceEpoch()
+    _resetHeartbeat = function() _lastBeat = hs.timer.secondsSinceEpoch() end
     _heartbeatTimer = hs.timer.new(1.0, function()
         local now = hs.timer.secondsSinceEpoch()
         local gap = now - _lastBeat

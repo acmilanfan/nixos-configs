@@ -105,8 +105,10 @@ local _axCircuitUntil = 0
 -- suppress for 90 s, then resync+retile when the freeze window has passed.
 local _wakeSuppress = false
 local _wakeSuppressTimer = nil
+local _wakeSuppressUntil = 0  -- absolute epoch time when current suppression expires
 
 local function _resync()
+    if _wakeSuppress then return end
     local now = hs.timer.secondsSinceEpoch()
     if _axCircuitOpen then
         if now < _axCircuitUntil then return end
@@ -404,14 +406,23 @@ function M.setup()
     _appWatcher:start()
 
     -- After any detected freeze >= 5 s, extend the AX suppress guard for 90 s.
-    -- This catches cases where corporate agents reconnect after the caffeinate
-    -- guard's initial 300 s window (or when no sleep/wake event fired at all).
+    -- Only overrides the current timer when the new deadline would be later, so
+    -- the caffeinate watcher's 300 s wake:suppress is never shortened to 90 s.
     profiler.onFreeze = function(_gap)
+        local now = hs.timer.secondsSinceEpoch()
+        local newUntil = now + 90
+        if newUntil <= _wakeSuppressUntil then
+            -- Current timer expires later — leave it alone, just log
+            profiler.log("post-freeze (suppressed, timer kept)", 0)
+            return
+        end
         _wakeSuppress = true
+        _wakeSuppressUntil = newUntil
         if _wakeSuppressTimer then _wakeSuppressTimer:stop() end
         profiler.log("post-freeze suppress start", 0)
         _wakeSuppressTimer = hs.timer.doAfter(90, function()
             _wakeSuppress = false
+            _wakeSuppressUntil = 0
             _wakeSuppressTimer = nil
             profiler.log("post-freeze suppress lifted", 0)
             _resync()
@@ -427,14 +438,20 @@ function M.setup()
     -- may already be reconnecting). The 300 s resync+retile fires when AX is safe again.
     -- _cafWatcher must be module-level — Hammerspoon GCs watchers without a live reference.
     _cafWatcher = hs.caffeinate.watcher.new(function(event)
-        if event == hs.caffeinate.watcher.systemDidWake then
+        if event == hs.caffeinate.watcher.systemWillSleep then
+            profiler.resetHeartbeat()
+        elseif event == hs.caffeinate.watcher.systemDidWake then
+            profiler.resetHeartbeat()
+            local now = hs.timer.secondsSinceEpoch()
             _wakeSuppress = true
+            _wakeSuppressUntil = now + 300
             if _wakeSuppressTimer then _wakeSuppressTimer:stop() end
             profiler.lastEvent = "wake:suppress"
             profiler.log("wake:suppress start", 0)
             -- +300 s: lift suppression and do a final resync+retile
             _wakeSuppressTimer = hs.timer.doAfter(300, function()
                 _wakeSuppress = false
+                _wakeSuppressUntil = 0
                 _wakeSuppressTimer = nil
                 profiler.log("wake:suppress lifted", 0)
                 _resync()
