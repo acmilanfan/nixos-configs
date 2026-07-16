@@ -37,6 +37,16 @@ let
         ];
       }
     ];
+    SessionEnd = [
+      {
+        hooks = [
+          {
+            type = "command";
+            command = "agent-state --agent ${agent} --state off &";
+          }
+        ];
+      }
+    ];
   };
 
   antigravityHooks = {

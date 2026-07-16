@@ -373,16 +373,28 @@ function M.showMenu()
 
                     paneInfo=$(echo "$panes" | grep "^${id}|")
                     if [[ -n "$paneInfo" ]]; then
-                        cwd=$(echo "$paneInfo" | cut -d'|' -f4)
-                        proj=$(basename "$cwd")
+                        tty=$(echo "$paneInfo" | cut -d'|' -f3)
+                        ttyShort=$(basename "$tty")
+                        cmd=$(ps -t "$ttyShort" -o command= 2>/dev/null)
 
-                        # capture content
-                        content=$(tmux capture-pane -t "$id" -p 2>/dev/null | tail -20)
-                        if echo "$content" | grep -qE "Allow once|Allow for this session|Allow in project|Do you want to proceed?|\[y/n\]"; then
-                            state="needs-input"
+                        # Verify the tracked agent process is still actually running on
+                        # this tty (hooks can leave stale state if a session exits
+                        # without a SessionEnd hook firing, e.g. a forced kill).
+                        if echo "$cmd" | grep -q "$name"; then
+                            cwd=$(echo "$paneInfo" | cut -d'|' -f4)
+                            proj=$(basename "$cwd")
+
+                            # capture content
+                            content=$(tmux capture-pane -t "$id" -p 2>/dev/null | tail -20)
+                            if echo "$content" | grep -qE "Allow once|Allow for this session|Allow in project|Do you want to proceed?|\[y/n\]"; then
+                                state="needs-input"
+                            fi
+
+                            echo "${id}|${state}|${name}|${proj}|${cwd}"
+                        else
+                            tmux set-environment -ug "TMUX_AGENT_PANE_${id}_STATE" 2>/dev/null
+                            tmux set-environment -ug "TMUX_AGENT_PANE_${id}_AGENT" 2>/dev/null
                         fi
-
-                        echo "${id}|${state}|${name}|${proj}|${cwd}"
                     fi
                 fi
             fi
