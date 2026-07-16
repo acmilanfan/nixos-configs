@@ -45,7 +45,7 @@ in
       syncmon
       yazi
 
-      pass
+      (pass.withExtensions (exts: [ exts.pass-otp ]))
       gnupg
       pinentry_mac
       # Scripts need to be handled. They were in ./scripts/ relative to mac-work/home.nix.

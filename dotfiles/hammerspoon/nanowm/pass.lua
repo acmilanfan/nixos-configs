@@ -157,6 +157,23 @@ function M.generatePassword()
     end)
 end
 
+-- Copy the current TOTP code for an OTP entry
+function M.copyOtp(entry)
+    local cmd = string.format('%s pass otp %q', passEnv(), entry)
+    hs.task.new("/bin/zsh", function(exitCode, stdOut, stdErr)
+        if exitCode ~= 0 then
+            hs.alert.show("pass otp failed:\n" .. (stdErr or ""), 3)
+            return
+        end
+        local code = stdOut:match("([^\n]+)")
+        if not code or code == "" then
+            hs.alert.show("pass otp: no code returned")
+            return
+        end
+        clipAndClear(code, entry .. " (OTP)")
+    end, { "-c", cmd }):start()
+end
+
 -- Remove a password from the store (with confirmation)
 function M.removePassword(entry)
     hs.focus()
@@ -232,6 +249,8 @@ function M.showChooser()
             M.copyPassword(choice.entry)
         elseif choice.action == "type" then
             M.typePassword(choice.entry)
+        elseif choice.action == "otp" then
+            M.copyOtp(choice.entry)
         elseif choice.action == "remove" then
             M.removePassword(choice.entry)
         end
@@ -259,6 +278,7 @@ function M.showChooser()
         else
             actionChooser:choices({
                 { text = "Copy to clipboard", subText = choice.entry, action = "copy",   entry = choice.entry },
+                { text = "Copy OTP code",     subText = choice.entry, action = "otp",    entry = choice.entry },
                 { text = "Type into window",  subText = choice.entry, action = "type",   entry = choice.entry },
                 { text = "Remove from store", subText = choice.entry, action = "remove", entry = choice.entry },
             })
