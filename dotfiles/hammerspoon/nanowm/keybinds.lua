@@ -275,6 +275,16 @@ function M.setup()
         )
     end)
 
+    -- Nvim Scratchpad: quick note -> clipboard (Cmd+Alt+Ctrl+S)
+    hs.hotkey.bind({ "cmd", "alt", "ctrl" }, "s", function()
+        focusOrCreateApp(
+            "SCRATCHPAD",
+            'open -n -a Alacritty --args -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "SCRATCHPAD" -e zsh -lc "nvim-scratchpad"',
+            0.6,
+            "Alacritty"
+        )
+    end)
+
     hs.hotkey.bind(alt, "y", function()
         focusOrCreateApp(
             "YAZI",

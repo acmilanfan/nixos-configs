@@ -52,6 +52,21 @@ in
       # We need to make sure they are accessible.
       # (writeShellScriptBin "pip-pop" (lib.readFile ./scripts/pip-pop))
       # (writeShellScriptBin "fullscreen-raise" (lib.readFile ./scripts/fullscreen-raise))
+
+      # Nvim scratchpad: bare `nvim` (not a store path) so the configured
+      # programs.neovim wrapper + orgmode is used. Copies to clipboard on
+      # :wq; :cq exits non-zero so pbcopy is skipped and clipboard is untouched.
+      # Runs from a dedicated empty dir: orgmode's org_agenda_files globs
+      # "$cwd/**/*.org" recursively, and GUI-launched (via `open`) processes
+      # start with cwd "/" -- without this cd it walks the whole filesystem.
+      (pkgs.writeShellScriptBin "nvim-scratchpad" ''
+        SCRATCH_DIR="/tmp/nvim-scratchpad"
+        SCRATCH_FILE="$SCRATCH_DIR/nvim_scratch.org"
+        mkdir -p "$SCRATCH_DIR"
+        : > "$SCRATCH_FILE"
+        cd "$SCRATCH_DIR"
+        nvim -c 'startinsert' "$SCRATCH_FILE" && /usr/bin/pbcopy < "$SCRATCH_FILE"
+      '')
     ]
     ++ lib.optionals pkgs.stdenv.isDarwin [
       # Darwin-specific packages
