@@ -69,10 +69,7 @@ local managedAllowed = {
 -- Apps managed by nanowm but excluded from the AXObserver filter.
 -- Their windows are picked up by the 60s resync and by an NSWorkspace activation watcher,
 -- not via AXObserver, to avoid their Electron background tasks blocking the AX layer.
-local _filterExcluded = {
-    Slack = true,       -- Electron; background auth/sync freezes AX for ~30s (confirmed)
-    Discord = true,     -- Electron; same risk
-}
+local _filterExcluded = {}
 
 -- Allowlist mode: AXObservers are set up ONLY for apps we explicitly allow.
 -- Excluded apps (corporate agents, system daemons) can never block the AX layer.
@@ -127,7 +124,6 @@ local function _resync()
                     _axCircuitOpen = true
                     _axCircuitUntil = hs.timer.secondsSinceEpoch() + 90
                     profiler.log("AX circuit open", dt, appName)
-                    return
                 end
                 if profiler.enabled and dt >= 0.10 then
                     profiler.log("resync allWindows() SLOW", dt, appName)
@@ -142,6 +138,18 @@ local function _resync()
         end
     end
     _trackedWins = fresh
+
+    local untaggedFound = false
+    for _, win in pairs(fresh) do
+        local wid = win:id()
+        if wid and not state.tags[wid] then
+            core.registerWindow(win)
+            untaggedFound = true
+        end
+    end
+    if untaggedFound then
+        layout.tile()
+    end
 end
 
 -- Screen and geometry watcher
@@ -184,6 +192,45 @@ function M.invalidateManagedWinsCache()
     -- No-op: window list is maintained by AXObserver events, not a TTL cache.
 end
 
+-- Scans the focused app for unmanaged standard windows and adds them to
+-- _trackedWins. Called from performTile() to catch windows that the
+-- hs.window.filter AXObserver missed (e.g. Firefox tab detached to new window).
+function M.augmentAllWins(allWins)
+    local appsToScan = {}
+    for _, app in ipairs(hs.application.runningApplications()) do
+        local appName = app:name() or ""
+        if managedAllowed[appName] and not managedExcluded[appName] and app:kind() ~= -1 then
+            table.insert(appsToScan, app)
+        end
+    end
+
+    if #appsToScan == 0 then return end
+
+    local tStart = hs.timer.secondsSinceEpoch()
+    for _, fapp in ipairs(appsToScan) do
+            if hs.timer.secondsSinceEpoch() - tStart >= 2.0 then
+                return
+        end
+        local appName = fapp:name() or ""
+        local t0 = hs.timer.secondsSinceEpoch()
+        local appWins = fapp:allWindows()
+        local dt = hs.timer.secondsSinceEpoch() - t0
+        if dt < 0.5 then
+            for _, w in ipairs(appWins) do
+                local wid = w:id()
+                if wid and wid > 0 and w:isStandard() and not w:isMinimized() then
+                    if not _trackedWins[wid] then
+                        _trackedWins[wid] = w
+                        table.insert(allWins, w)
+                    end
+                    if not state.tags[wid] then
+                        core.registerWindow(w)
+                    end
+                end
+            end
+    end
+end
+
 function M.setup()
     M.updateScreenFrames()
     screenWatcher = hs.screen.watcher.new(function()
@@ -195,13 +242,49 @@ function M.setup()
     -- =========================================================================
     -- WINDOW CREATED
     -- =========================================================================
+
+    -- Re-evaluate floating classification after a window has had time to settle.
+    -- isStandard() may return false during initial window creation, causing
+    -- isFloating() to cache a false positive. Called 1s after windowCreated.
+    function M._reevaluateFloating(captureId)
+        return function()
+            local w = _trackedWins[captureId]
+            if w and state.tags[captureId] and core.isFloating(w) then
+                if state.floatingOverrides[captureId] == nil then
+                    core.invalidateFloatingCache(captureId)
+                    if not core.isFloating(w) then
+                        core.registerWindow(w)
+                        layout.tile()
+                    end
+                end
+            end
+        end
+    end
+
     filter:subscribe(hs.window.filter.windowCreated, profiler.wrap("wf:windowCreated", function(win)
         if _wakeSuppress then return end
-        if not win or not win:id() or win:id() == 0 then return end
+        if not win then return end
+
         local id = win:id()
+        if not id or id == 0 then
+            hs.timer.doAfter(0.1, function()
+                local retryId = win:id()
+                if retryId and retryId ~= 0 then
+                    _trackedWins[retryId] = win
+                    core.registerWindow(win)
+                    layout.tile()
+                    local captureId = retryId
+                    hs.timer.doAfter(1.0, M._reevaluateFloating(captureId))
+                end
+            end)
+            return
+        end
+
         _trackedWins[id] = win
         core.registerWindow(win)
         layout.tile()
+        local captureId = id
+        hs.timer.doAfter(1.0, M._reevaluateFloating(captureId))
     end))
 
     -- =========================================================================
@@ -210,9 +293,9 @@ function M.setup()
     filter:subscribe(hs.window.filter.windowTitleChanged, profiler.wrap("wf:titleChanged", function(win)
         if _wakeSuppress then return end
         if not win or not win:id() or win:id() == 0 then return end
-        -- Title change may affect title-based float detection; clear cached result
         core.invalidateFloatingCache(win:id())
         core.registerWindow(win)
+        layout.tile()
     end))
 
     -- =========================================================================
@@ -302,10 +385,34 @@ function M.setup()
     -- =========================================================================
     filter:subscribe(hs.window.filter.windowFocused, profiler.wrap("wf:windowFocused", function(win)
         if _wakeSuppress then return end
-        if not win or not win:id() or win:id() == 0 then return end
+        if not win then return end
         if state.launching then return end
 
         local id = win:id()
+        if not id or id == 0 then return end
+
+        local app = win:application()
+        local appName = app and app:name() or "nil"
+
+        -- Register the focused window if it's not tracked.
+        local inTracked = (_trackedWins[id] ~= nil)
+        local hasTag = (state.tags[id] ~= nil)
+        if not inTracked or not hasTag then
+            _trackedWins[id] = win
+            core.registerWindow(win)
+            local captureId = id
+            hs.timer.doAfter(1.0, M._reevaluateFloating(captureId))
+        end
+
+        -- Always trigger a tile on focus change so augmentAllWins (which
+        -- scans all managed apps) can discover unmanaged sibling windows
+        -- (e.g. Firefox tabs detached to new windows, which the filter's
+        -- AXObserver does not fire events for).
+        local timeSinceTile = hs.timer.secondsSinceEpoch() - state.lastTileTime
+        if timeSinceTile >= config.tileProtectionWindow then
+            layout.tile()
+        end
+
         local tag = state.tags[id]
 
         if tag then
@@ -460,6 +567,34 @@ function M.setup()
         end
     end)
     _cafWatcher:start()
+
+    -- Firefox-specific scanner: runs every 1s regardless of focused app.
+    -- Tab-detach windows are often invisible to the AXObserver filter, so a
+    -- dedicated scan bridges the gap. One allWindows() call per second.
+    M._ffScanTimer = hs.timer.new(1.0, function()
+        if _wakeSuppress then return end
+        local ff = hs.application.get("Firefox")
+        if not ff then return end
+
+        local appWins = ff:allWindows()
+        local foundNew = false
+        for _, w in ipairs(appWins) do
+            local wid = w:id()
+            if wid and wid > 0 and w:isStandard() and not w:isMinimized() then
+                if not _trackedWins[wid] then
+                    _trackedWins[wid] = w
+                    foundNew = true
+                end
+                if not state.tags[wid] then
+                    core.registerWindow(w)
+                    foundNew = true
+                end
+            end
+        end
+        if foundNew then
+            layout.tile()
+        end
+    end):start()
 end
 
 return M

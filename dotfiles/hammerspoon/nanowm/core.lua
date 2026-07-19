@@ -119,7 +119,10 @@ function M.registerWindow(win)
 
     if not appName or title == nil then
         hs.timer.doAfter(0.1, function()
-            if win and win:id() then M.registerWindow(win) end
+            if win and win:id() then
+                M.registerWindow(win)
+                require("nanowm.layout").tile()
+            end
         end)
         return
     end
@@ -195,7 +198,8 @@ function M.registerWindow(win)
 
         state.tags[id] = targetTag
 
-        if not M.isFloating(win) then
+        local isFloat = M.isFloating(win)
+        if not isFloat then
             if not state.stacks[targetTag] then state.stacks[targetTag] = {} end
             table.insert(state.stacks[targetTag], 1, id)
 

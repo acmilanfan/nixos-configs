@@ -11,7 +11,12 @@ M.enabled = true
 -- Log ops slower than this (seconds). os.execute/hs.execute are logged always.
 M.threshold = 0.030
 
-local LOG = os.getenv("HOME") .. "/.hammerspoon/nanowm_slow.log"
+local function _home()
+    local h = os.getenv("HOME") or ""
+    if h:match("^/Users/") then return h end
+    return "/Users/" .. (os.getenv("USER") or "gentooway")
+end
+local LOG = _home() .. "/.hammerspoon/nanowm_slow.log"
 local _fh = nil
 local _lineCount = 0
 local MAX_LINES = 8000

@@ -5,7 +5,12 @@
 
 local M = {}
 
-local HOME      = os.getenv("HOME") or ""
+local function _home()
+    local h = os.getenv("HOME") or ""
+    if h:match("^/Users/") then return h end
+    return "/Users/" .. (os.getenv("USER") or "gentooway")
+end
+local HOME = _home()
 local clipTimer = nil  -- held at module level to survive GC
 
 local function storeDir()

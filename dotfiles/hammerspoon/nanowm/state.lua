@@ -131,7 +131,12 @@ end
 -- Persistence Functions
 -- =============================================================================
 
-local SAVE_FILE = os.getenv("HOME") .. "/.hammerspoon/nanowm_state.json"
+local function _home()
+    local h = os.getenv("HOME") or ""
+    if h:match("^/Users/") then return h end
+    return "/Users/" .. (os.getenv("USER") or "gentooway")
+end
+local SAVE_FILE = _home() .. "/.hammerspoon/nanowm_state.json"
 
 local saveTimer = hs.timer.delayed.new(2.0, profiler.wrap("state.saveTimer", function()
     M.save()

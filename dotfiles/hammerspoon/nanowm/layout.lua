@@ -117,6 +117,7 @@ function M.performTile()
     state.lastTileTime = hs.timer.secondsSinceEpoch()
 
     local allWins = require("nanowm.watchers").getManagedWindows()
+    require("nanowm.watchers").augmentAllWins(allWins)
     local toHide = {}
     local toFloat = {}
 
