@@ -261,7 +261,7 @@ in
     ".hammerspoon/Spoons/VimMode.spoon".source = pkgs.runCommand "VimMode.spoon" {} ''
       cp -r ${pkgs.fetchzip {
         url = "https://github.com/dbalatero/VimMode.spoon/archive/master.zip";
-        sha256 = "0ihpg5ipl60gkvwcmlcvjca2b6y0v3lv50dhyz7nicnh3yb7d76f";
+        sha256 = "C4WDpMVDF0zuDV4rZYx05gwn8YZf3tOGegBj8dma8vY=";
       }} $out
       chmod -R u+w $out
       cp ${../../dotfiles/hammerspoon/patches/focus_watcher.lua} $out/lib/focus_watcher.lua
