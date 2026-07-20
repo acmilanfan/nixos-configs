@@ -228,6 +228,7 @@ function M.augmentAllWins(allWins)
                     end
                 end
             end
+        end
     end
 end
 
