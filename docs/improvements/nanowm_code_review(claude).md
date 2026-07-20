@@ -159,3 +159,66 @@ M3, M4, L5–L8 are follow-ups.
   agent chooser (Alt+A), pass chooser (Alt+Shift+P), sleep/wake cycle.
 - With profiler default-off, confirm `~/.hammerspoon/nanowm_slow.log` stops growing and
   `os.execute`/`hs.execute` are no longer globally wrapped (check via console).
+
+---
+
+## Appendix: Validation of the external (DeepSeek) review
+
+Cross-check of `nanowm-code-review(deepseek).md` (26 findings) against the actual source.
+Each verdict was confirmed by reading the cited code. **~20/26 accurate**; the two flagship
+"Critical" items are wrong/overstated and should not be acted on.
+
+### Wrong or overstated — do not act on as stated
+- **DS#1 `writeObjects(password)` must be `{password}` — ❌ INVALID.** `hs.pasteboard.writeObjects`
+  accepts *an object **or** a table of objects*, and a bare Lua string is a valid object. `pass.lua:108`
+  is correct; the concealed type is set separately regardless.
+- **DS#2 grid modulo can produce index 12 / `gotoTag(12)` — ❌ MOSTLY INVALID.** In Lua `a % b`
+  yields `0..b-1` for positive `b`, so all four expressions in `overview.lua:216-223` are capped at
+  **1..11**. Index 12 can never occur and `gotoTag(12)` can never be called. Only real artifact is a
+  cosmetic edge-wrap ("up" from tile 1 → 8, not the claimed 9). Low, not critical.
+- **DS#23 syncmon `/tmp` redirect = "info leak" — ⚠️ OVERSTATED.** Present 3× (`keybinds.lua:101,500`,
+  `menus.lua:349`). It's a local log of a fixed command; "info leak" is a stretch. Cosmetic.
+
+### Partially valid
+- **DS#7 built-in display detection — ⚠️** hardcoded name match duplicated 3× (`watchers.lua:166`,
+  `layout.lua:132,145`) is genuinely fragile; but the "backwards" claim is a guess about the monitor
+  layout (code offsets *external* displays, which may be correct here).
+- **DS#8 float-by-title with no app guard — ✅ VALID, under-rated,** but its example is wrong: the cited
+  `keybinds.lua:~223` poll path *does* guard with `app:name()==appName`. The real exposure is `core.lua`
+  `isFloating` (title-only) combined with generic strings in `config.floatingTitles` (`"Copy"`,`"Move"`,`"Info"`).
+- **DS#11 windowCreated retry stale ID — ⚠️ LOW.** `_reevaluateFloating` returns a closure
+  (`watchers.lua:250-263`), so the timer is mechanically correct (not the immediate-call bug the snippet
+  implies). Stale-ID lookup just no-ops harmlessly.
+- **DS#22 PiP resize fragile — ⚠️ LOW.** w/h have a `math.max(…,200)` floor but x/y are unclamped
+  (`actions.lua:378-415`). Real gap, low impact.
+- **DS#25 `require()` in hot paths — ✅ with caveat:** the dynamic requires (`layout.lua:37,69,119,120`,
+  `tags.lua:559`) are deliberate — they break a **watchers↔layout circular dependency**. Hoisting to a
+  module-level upvalue as suggested could reintroduce a cycle. Marginal micro-opt.
+
+### Confirmed valid (complements this review — several not caught above)
+- **DS#3** tag memory hard-wiped at >1000, no LRU (`state.lua:84`).
+- **DS#4** `init()` kills+restarts sketchybar on every reload when running+enabled → flicker
+  (`integrations.lua:448-479`); deliberate "refresh" but heavy-handed.
+- **DS#5** dock-position cache never invalidated (`core.lua`, `cachedDockPos` set once).
+- **DS#6 / DS#24** `augmentAllWins()` runs on every focus (`watchers.lua:415`) — overlaps M3 / heavy
+  `windowFocused`.
+- **DS#9** `markNextWeekenduo` dead code (set `keybinds.lua:324,346`, never read).
+- **DS#10** rule `app` uses `string.match` (Lua pattern, not plain find) — valid but **latent**
+  (`config.rules` is empty).
+- **DS#12** crash-recovery window only 2s (`core.lua:167`) — design choice.
+- **DS#13** `toggleSketchybar` no concurrency guard — low.
+- **DS#16** redundant `tagSnapshots` init loop, no-op after `={}` (`state.lua:33-35`).
+- **DS#17** swap stack/order divergence — latent/defensive (`actions.lua:262-325`).
+- **DS#18** `_resync` drops minimized windows on full rebuild (`watchers.lua:131`).
+- **DS#19** initial tile timer hardcodes battery profile (`layout.lua:21`).
+- **DS#26** no automated tests — factual.
+
+Overlap with this review: **DS#14 = H1** (profiler globals), **DS#15 = L3** (`_home()` ×5),
+**DS#21 = L4** (`animationDuration` twice), **DS#13/#7/#25 ≈ L7** (shell/coupling).
+
+### Findings this review caught that DeepSeek missed
+- **H2** blocking `os.execute(… &)` for Kanata switch/reload.
+- **H3** unguarded `hs.window.allWindows()` in `focusPip` (real AX-freeze risk under corporate agents).
+- **M1** no periodic orphaned-window-id reconciliation.
+- **M2** dead `cacheTTL` config + no-op `invalidateManagedWinsCache`.
+- **L1** `toggleOverview` self-assignment; **L2** weekenduo dead clause; **L5** keybind help drift.
