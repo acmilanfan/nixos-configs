@@ -361,3 +361,81 @@ local getManagedWindows = require("nanowm.watchers").getManagedWindows
 | Medium | 7 | Dead code, pattern matching bugs, stale ID captures, tight crash-recovery window, concurrent toggle races, global profiler pollution, duplicated utility code |
 | Low | 8 | Redundant code, potential list divergence, dropped windows, wrong initial timer config, stale agent entries, redundant settings, fragile PiP math, debug redirects |
 | Architectural | 3 | Heavy windowFocused handler, hot-path require calls, no tests |
+
+---
+
+## Cross-Validation Against Claude Code Review
+
+Reference: `docs/improvements/nanowm_code_review(claude).md` in same directory.
+
+### Findings Confirmed By Both Reviews (Validated)
+
+| Deepseek | Claude | Finding |
+|----------|--------|---------|
+| #14 | H1 | Profiler enabled in production, globals patched, per-line flush |
+| #15 | L3 | `_home()` duplicated 5× with hardcoded `gentooway` fallback |
+| #21 | L4 | `hs.window.animationDuration = 0` set twice |
+| #9 | L2 | Weekenduo state has dead/drifted logic (different details, same area) |
+
+Additionally, #4 (sketchybar restart on reload) is implicitly reinforced by Claude's L7 (inconsistent shell strategy — `os.execute(&)` in integration paths that should use `hs.task`).
+
+### Findings Unique to Deepseek (Missed by Claude)
+
+| # | Severity | What Claude Missed |
+|---|----------|--------------------|
+| #1 | Critical | `hs.pasteboard.writeObjects(password)` should be `writeObjects({password})`. This is a genuine API misuse that could silently corrupt the pasteboard. |
+| #2 | Critical | Overview grid navigation uses modulo 11 instead of 12, causing wrong wrap-around and potential `gotoTag(12)` on nonexistent tag. |
+| #3 | Critical | `appTagMemory = {}` purge at 1000 entries is destructive; Claude's M1 addresses orphaned window IDs but not the tag-memory purge specifically. |
+| #4 | High | Sketchybar restarted on every config reload. |
+| #5 | High | Dock position cache never invalidated. |
+| #6 | High | `augmentAllWins()` called on every focus event (Claude's M3 notes the silent drop, not the frequency). |
+| #7 | High | Display detection by negative name match is fragile. |
+| #8 | High | Floating-override by title alone risks false positives. |
+| #10 | Medium | Rule `app` matching uses `string.match` (pattern) instead of `string.find` (plain). |
+| #11 | Medium | `windowCreated` retry closure captures stale ID. |
+| #12 | Medium | Crash-recovery time window only 2s. |
+| #13 | Medium | Rapid `toggleSketchybar()` can stack multiple startup processes. |
+| #16 | Low | Redundant `tagSnapshots[i] = nil` loop. |
+| #17 | Low | Stack/creation-order list divergence risk in `swapWindow()`. |
+| #18 | Low | `_resync()` drops minimized windows silently. |
+| #19 | Low | Initial tile timer hardcodes battery delay. |
+| #22 | Low | PiP resize can produce negative coordinates. |
+| #23 | Low | Stray `/tmp/syncmon_hs.log` redirect. |
+| #24 | Arch | `windowFocused` handler too heavy. |
+| #25 | Arch | `require()` in hot paths. |
+| #26 | Arch | No tests. |
+
+### Findings Unique to Claude (Missed by Deepseek)
+
+| # | Severity | What Deepseek Missed |
+|---|----------|---------------------|
+| H1 | High | Profiler flush-on-every-line: Deepseek's #14 noted global patching, but missed the per-line `_fh:flush()` disk write aspect. Good catch. |
+| H2 | High | Blocking `os.execute(cmd .. " &")` for Kanata switch/reload: Deepseek noted general `os.execute` usage but didn't flag the Kanata path specifically. |
+| H3 | High | `focusPip` calls unguarded `hs.window.allWindows()`: Deepseek noted the function uses `allWindows()` but didn't call out the missing circuit breaker. Important for corporate-agent environments. |
+| M1 | Medium | Per-window state tables leak on missed destroy events: Deepseek noted general memory concerns but didn't recommend a periodic orphaned-id sweep. |
+| M2 | Medium | `cacheTTL` config values are dead: Noted in config comments but the cache they reference no longer exists. Deepseek missed this config drift. |
+| M3 | Medium | `augmentAllWins` silently drops slow-app windows: Deepseek noted the function's cost (#6) but not the silent data loss. |
+| M4 | Medium | Two parallel agent-detection implementations: Deepseek missed the Lua sync path vs. zsh async path duplication. |
+| L1 | Low | `M.toggleOverview = M.toggleOverview` dead self-assignment in `init.lua:92`. |
+| L2 | Low | Weekenduo staleness check has a dead clause: `not hs.window(state.weekenduoWinId)` is always false. |
+| L5 | Low | Keybind help menu drifted from real bindings (dup System section, wrong fn bodies, broken indentation). |
+| L6 | Low | Duplicated window-classification in `performTile` + `raiseFloating` (noted in perf docs but unfixed). |
+| L7 | Low | Inconsistent shell-invocation strategy across integrations/agents/pass. |
+| L8 | Low | `contentIsConfirm` can false-positive on normal terminal output containing `[y/n]`. |
+
+### Combined Fix Priority
+
+Suggested execution order incorporating both reviews:
+
+1. **H1 (both)** — Default profiler off; stop global patching; buffer log writes instead of per-line flush.
+2. **I #1 (deepseek)** — Fix `writeObjects({password})` — one-line fix with immediate impact.
+3. **I #2 (deepseek)** — Fix overview grid modulo (12 instead of 11, wrap index 12).
+4. **H2 (claude)** — Convert Kanata switch/reload to `hs.task`.
+5. **H3 (claude)** — Add circuit breaker to `focusPip`'s `allWindows()`.
+6. **I #3 (deepseek)** — Implement LRU or remove cap on `appTagMemory`.
+7. **I #4 (deepseek)** — Fix sketchybar restart-on-reload logic.
+8. **M1 (claude)** — Periodic orphaned-id sweep behind circuit breaker guard.
+9. **M2 (claude)** — Remove dead `cacheTTL` config + no-op invalidator.
+10. **L1-L4 (both)** — Trivial cleanups (self-assignment, weekenduo clause, shared `_home()`, dup animationDuration).
+
+Remaining findings from both reviews are lower-priority follow-ups.
