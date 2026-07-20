@@ -396,6 +396,7 @@ function M.setup()
         local appName = app and app:name() or "nil"
 
         -- Register the focused window if it's not tracked.
+        local needsTile = false
         local inTracked = (_trackedWins[id] ~= nil)
         local hasTag = (state.tags[id] ~= nil)
         if not inTracked or not hasTag then
@@ -403,15 +404,24 @@ function M.setup()
             core.registerWindow(win)
             local captureId = id
             hs.timer.doAfter(1.0, M._reevaluateFloating(captureId))
+            needsTile = true
         end
 
-        -- Always trigger a tile on focus change so augmentAllWins (which
-        -- scans all managed apps) can discover unmanaged sibling windows
-        -- (e.g. Firefox tabs detached to new windows, which the filter's
-        -- AXObserver does not fire events for).
-        local timeSinceTile = hs.timer.secondsSinceEpoch() - state.lastTileTime
-        if timeSinceTile >= config.tileProtectionWindow then
-            layout.tile()
+        -- Scan for unmanaged sibling windows (e.g. Firefox tab-detach windows
+        -- that the AXObserver filter didn't fire events for). Only trigger a
+        -- full tile if we actually found something, to avoid re-raising
+        -- floating windows on every focus click.
+        local scanWins = {}
+        M.augmentAllWins(scanWins)
+        if #scanWins > 0 then
+            needsTile = true
+        end
+
+        if needsTile then
+            local timeSinceTile = hs.timer.secondsSinceEpoch() - state.lastTileTime
+            if timeSinceTile >= config.tileProtectionWindow then
+                layout.tile()
+            end
         end
 
         local tag = state.tags[id]
