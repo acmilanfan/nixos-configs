@@ -19,6 +19,7 @@
     ./tmux.nix
     ./lazygit.nix
     ./ai-agents.nix
+    ./opencode.nix
   ]
   ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
     ./awesome.nix

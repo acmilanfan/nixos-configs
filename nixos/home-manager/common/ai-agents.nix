@@ -108,7 +108,7 @@ let
   };
 
   claudeSettings = {
-    apiKeyHelper = "echo $ANTHROPIC_API_KEY";
+    # apiKeyHelper = "echo $ANTHROPIC_API_KEY";
     env = {
       ENABLE_LSP_TOOL = "1";
       DISABLE_TELEMETRY = "1";
@@ -129,7 +129,7 @@ let
       ];
       ask = [ ];
     };
-    model = "opusplan";
+    model = "opusplan[1m]";
     enabledPlugins = {
       "jdtls-lsp@claude-plugins-official" = true;
       "clangd-lsp@claude-plugins-official" = true;
@@ -181,37 +181,6 @@ let
     hooks = antigravityHooks;
   };
 
-  opencodeSettings = {
-    model = "opencode-go/deepseek-v4-pro";
-    small_model = "opencode-go/deepseek-v4-flash";
-
-    mcp = {
-      nixos = {
-        type = "local";
-        command = [
-          "${pkgs.mcp-nixos}/bin/mcp-nixos"
-        ];
-      };
-    };
-
-    permission = {
-      read = {
-        ".env" = "deny";
-        ".env.*" = "deny";
-        "secrets/**" = "deny";
-        "~/.aws/**" = "deny";
-        "~/.zshrc" = "deny";
-        "~/.bashrc" = "deny";
-      };
-      bash = {
-        "npm *" = "deny";
-        "npx *" = "deny";
-        "*" = "ask";
-      };
-      edit = "ask";
-    };
-  };
-
   # List of { url, dir } pairs — dir is the actual directory name under ~/.gemini/extensions/
   geminiExtensions = [
     { url = "https://github.com/samber/cc-skills-golang";           dir = "cc-skills-golang"; }
@@ -224,30 +193,7 @@ let
 in
 {
   home.file.".claude/settings.json".text = builtins.toJSON claudeSettings;
-  home.file.".config/opencode/opencode.json".text = builtins.toJSON opencodeSettings;
-  home.file.".config/opencode/plugins/agent-state.ts".text = ''
-    import type { Plugin } from "@opencode-ai/plugin";
-
-    const AgentStatePlugin: Plugin = async ({ $ }) => {
-      const notify = async (state: string) => {
-        await $`agent-state --agent opencode --state ''${state}`;
-      };
-
-      return {
-        "tool.execute.before": async () => { await notify("running"); },
-        event: async ({ event }) => {
-          if (event.type === "session.idle") {
-            await notify("done");
-          }
-          if (event.type === "session.error") {
-            await notify("needs-input");
-          }
-        },
-      };
-    };
-
-    export default AgentStatePlugin;
-  '';
+  # opencode config/plugins now live in ./opencode.nix.
 
   home.packages = [
       inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.claude-code

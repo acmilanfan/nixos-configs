@@ -69,8 +69,24 @@ in
     AI_PROXY_OPENAI = secrets.aiProxy.openai;
     AI_PROXY_MISTRAL_COMPLETION = secrets.aiProxy.mistralCompletion;
     AI_PROXY_API_KEY = secrets.aiProxy.apiKey;
-    ANTHROPIC_API_KEY = secrets.aiProxy.claudeKey;
-    ANTHROPIC_BASE_URL = secrets.aiProxy.claude;
+    # ANTHROPIC_API_KEY = secrets.aiProxy.claudeKey;
+    # ANTHROPIC_BASE_URL = secrets.aiProxy.claude;
+    # opencode: self-hosted model via the internal AI proxy.
+    # Prefers an explicit secrets.aiProxy.selfHosted, else derives it from the
+    # Claude endpoint so no company host needs a new secrets key right away.
+    SELF_HOSTED_BASE_URL =
+      secrets.aiProxy.selfHosted or (
+        lib.replaceStrings [ "/proxy-api/anthropic" ] [ "/proxy-api/self-hosted/v1" ] secrets.aiProxy.claude
+      );
+    SELF_HOSTED_API_KEY = secrets.aiProxy.selfHostedKey or secrets.aiProxy.apiKey;
+    # opencode: github/sonarqube MCP servers (work only; harmless empty string on mac-home).
+    GITHUB_PERSONAL_ACCESS_TOKEN = (secrets.github or { }).token or "";
+    SONAR_API_KEY = (secrets.sonar or { }).apiKey or "";
+    SONAR_URL = (secrets.sonar or { }).url or "";
+    # opencode: internal RAG/scorecard MCP servers (work only; company URLs stay
+    # in the secrets submodule, never literally in opencode.json).
+    RAG_MCP_URL = (secrets.mcp or { }).ragUrl or "";
+    SCORECARD_MCP_URL = (secrets.mcp or { }).scorecardUrl or "";
   };
 
   # Place Lua configuration files in ~/.config/nvim/lua/
