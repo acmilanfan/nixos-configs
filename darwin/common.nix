@@ -132,7 +132,7 @@ in
   ];
 
   nixpkgs.overlays = [
-    (import ../nixos/common/overlays.nix)
+    (import ../nixos/common/overlays.nix { inherit inputs; })
   ];
 
   launchd.daemons.kanata = {

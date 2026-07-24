@@ -89,22 +89,22 @@ let
         apiKey = "local";
       };
       models = {
-        "mlx-community/gemma-4-e4b-it-4bit" = {
-          name = "Gemma 4 (MLX, local)";
+        "mlx-community/gemma-4-31b-it-4bit" = {
+          name = "Gemma 4 31B Dense (MLX, local)";
         };
       };
     };
 
-    llamacpp = {
+    mtplx = {
       npm = "@ai-sdk/openai-compatible";
-      name = "llama.cpp (local)";
+      name = "MTPLX Qwen (local)";
       options = {
         baseURL = "http://127.0.0.1:8081/v1";
         apiKey = "local";
       };
       models = {
         "qwen3.6-mtp" = {
-          name = "Qwen3.6 (llama.cpp, MTP, local)";
+          name = "Qwen3.6 (MTPLX, MTP, local)";
         };
       };
     };
@@ -201,30 +201,44 @@ let
   # opencode provider.
   # -------------------------------------------------------------------------
 
+  # Built via uv2nix (nixos/common/pkgs/mtplx) instead of `uvx --from mtplx`,
+  # so it's a real Nix-store package pinned by uv.lock rather than a
+  # runtime PyPI fetch. Darwin-only (see overlays.nix); do not reference
+  # unstable.mtplx outside of a Darwin-guarded context.
   serveQwen = pkgs.writeShellScriptBin "serve-qwen" ''
     set -euo pipefail
-    MODEL="''${QWEN_GGUF:-$HOME/ai/models/qwen3.6/Qwen3.6-27B-A3B-MTP.gguf}"
-    if [ ! -f "$MODEL" ]; then
-      echo "Qwen 3.6 MTP GGUF not found at: $MODEL" >&2
-      echo "Set \$QWEN_GGUF or place a GGUF there (e.g. from havenoammo/froggeric on HuggingFace)." >&2
-      exit 1
-    fi
-    echo "Starting llama.cpp (Qwen 3.6, MTP speculative decoding) on :8081 ..."
-    exec ${unstable.llama-cpp}/bin/llama-server \
-      -m "$MODEL" \
-      --spec-type draft-mtp \
-      --spec-draft-n-max 3 \
-      -c "''${QWEN_CTX:-131072}" \
-      -ngl 99 \
-      --port 8081
+
+    # MTPLX uses MLX-formatted Hugging Face repos instead of GGUF files
+    MODEL="''${QWEN_MLX:-samwang0041/Qwen3.6-27B-MLX-4bit-MTP}"
+
+    echo "Starting MTPLX (Qwen 3.6, native MLX MTP) on :8081 ..."
+
+    # `mtplx quickstart` is the headless OpenAI/Anthropic server entry point;
+    # `mtplx start` is interactive-only (picks model/mode/surface, then drops
+    # into chat). `pull` is a separate explicit step so first-run downloads
+    # happen predictably rather than inline during quickstart.
+    ${unstable.mtplx}/bin/mtplx pull "$MODEL"
+    exec ${unstable.mtplx}/bin/mtplx quickstart \
+      --model "$MODEL" \
+      --host 127.0.0.1 \
+      --port 8081 \
+      --yes
   '';
 
+  # Tried swapping to nixpkgs' python312Packages.mlx-lm for the same
+  # reproducibility reason as serveQwen above, but a real build showed its
+  # runtime deps (transformers/datasets/huggingface-hub) each default
+  # doCheck=true independently of mlx-lm's own doCheck, pulling in a
+  # from-source PyTorch plus ~60 unrelated test-only packages
+  # (elasticsearch, redis, flask, scipy...). Disabling checks correctly
+  # would mean overriding doCheck across that whole transitive chain, which
+  # isn't worth it for a manually-run dev script — kept on uvx.
   serveGemma = pkgs.writeShellScriptBin "serve-gemma" ''
     set -euo pipefail
     export PATH="${pkgs.uv}/bin:$PATH"
-    echo "Starting MLX (Gemma 4) on :8080 ..."
+    echo "Starting MLX (Gemma 4 31B Dense) on :8080 ..."
     exec uvx --from mlx-lm mlx_lm.server \
-      --model "''${GEMMA_MODEL:-mlx-community/gemma-4-e4b-it-4bit}" \
+      --model "''${GEMMA_MODEL:-mlx-community/gemma-4-31b-it-4bit}" \
       --port 8080
   '';
 
@@ -468,11 +482,14 @@ in
   # script below rather than added to home.packages (buildEnv can't merge a
   # bare file at the top level).
   home.packages = [
-    unstable.llama-cpp
     pkgs.uv
+    aiModels
+  ] ++ lib.optionals pkgs.stdenv.isDarwin [
+    # serveQwen/serveGemma reference Darwin-only Nix-store packages
+    # (unstable.mtplx, unstable.python312Packages.mlx-lm) — this file is
+    # shared with Linux hosts, which must never force those derivations.
     serveQwen
     serveGemma
-    aiModels
   ];
 
   # Workspace + opencode asset directories always exist, reproducibly.

@@ -1,3 +1,4 @@
+{ inputs }:
 final: prev: {
   nvim-opener = final.callPackage ./pkgs/nvim-opener.nix {
     inherit (final) apple-sdk_14;
@@ -23,4 +24,8 @@ final: prev: {
     else prev.blueutil-tui or null;
 
   syncmon = final.callPackage ./pkgs/syncmon.nix { };
+
+  mtplx = if final.stdenv.hostPlatform.isDarwin
+    then final.callPackage ./pkgs/mtplx { inherit inputs; }
+    else prev.mtplx or null;
 }

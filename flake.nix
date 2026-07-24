@@ -59,6 +59,20 @@
       url = "github:utensils/mcp-nixos";
       inputs.nixpkgs.follows = "unstable-nixpkgs";
     };
+
+    pyproject-nix = {
+      url = "github:pyproject-nix/pyproject.nix";
+      inputs.nixpkgs.follows = "unstable-nixpkgs";
+    };
+    uv2nix = {
+      url = "github:pyproject-nix/uv2nix";
+      inputs.pyproject-nix.follows = "pyproject-nix";
+    };
+    pyproject-build-systems = {
+      url = "github:pyproject-nix/build-system-pkgs";
+      inputs.pyproject-nix.follows = "pyproject-nix";
+      inputs.uv2nix.follows = "uv2nix";
+    };
   };
 
   outputs =
@@ -97,7 +111,7 @@
         linux-enable-ir-emitter = inputs.nixpkgs-howdy.legacyPackages.${prev.stdenv.hostPlatform.system}.linux-enable-ir-emitter;
       };
 
-      overlay-custom = import ./nixos/common/overlays.nix;
+      overlay-custom = import ./nixos/common/overlays.nix { inherit inputs; };
 
       overlay-fastmcp-slim-fix = import ./nixos/common/overlays/fastmcp-slim-fix.nix;
 
