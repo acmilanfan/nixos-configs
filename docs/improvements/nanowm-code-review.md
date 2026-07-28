@@ -102,7 +102,14 @@ at `watchers.lua:211-213`.
 
 ---
 
-### P4. The AC performance profile never activates
+### ~~P4. The AC performance profile never activates~~ — ✅ DONE
+
+> **Status: fixed** in `layout.lua` and `integrations.lua`; both compile. **Confirmed by
+> measurement in the live instance before the fix:** on AC, with
+> `perfProfile().tileDelay = 0.05`, the actual tile debounce measured **101 ms** — the
+> battery value, proving `rebuildTileTimer()` had never run. See [§7](#7-change-log).
+> Not live until `darwin-rebuild switch` + reload.
+
 
 `config.perf` defines an AC profile roughly 2× more aggressive than battery
 (`config.lua:24-42`), but two of the three timers that consume it are built from the
@@ -526,7 +533,7 @@ window. Those need no AX access.
 Grouped so each step is independently verifiable, cheapest-first within each group.
 
 1. ~~**P1** — profiler off by default, guard `M.log`, buffer writes.~~ ✅ **DONE** — see §7.
-2. **P4** — two one-line timer fixes. Immediate, measurable.
+2. ~~**P4** — two one-line timer fixes.~~ ✅ **DONE** — see §7.
 3. **P2 + P3** — circuit-breaker coverage and `augmentAllWins` scoping. Same function; do them
    together. This is the actual freeze/latency work the profiler was installed to find.
 4. **P5, P6, P7, P8** — four independent, self-contained bug fixes.
@@ -610,13 +617,68 @@ breaker observable with profiling off.
 running instance was not touched). Pre-change baseline recorded for comparison:
 `~/.hammerspoon/nanowm_slow.log` at 1163 lines / 65 KB and actively growing.
 
-**Verification still outstanding** (needs deployment — the files under `~/.hammerspoon/` are
-nix-store symlinks, so repo edits are not live until `darwin-rebuild switch`):
+**Verified live** after `darwin-rebuild switch` + reload, by probing the running instance:
 
-1. `darwin-rebuild switch`, then reload Hammerspoon.
-2. Confirm no `[prof]` spam in the console and that `nanowm_slow.log` stops growing.
-3. Confirm the globals are unwrapped — in the console, `os.execute` and `hs.execute` should be
-   the stock functions, and no "profiler ENABLED" line should appear at startup.
-4. Round-trip the toggle: `hs.settings.set("nanowm_profiler", true); hs.reload()` → the
-   notice appears, the log resumes, and entries land in ≤ 5 s batches rather than one at a
-   time. Then set it back to `false`.
+```
+enabled      = false                       -- old code hardcoded true → new code active
+setting      = nil                         -- unset → off by default, as designed
+M.flush      = function                     -- new API present
+os.execute   = C    src=[C]                 -- stock C function, NOT patched ✅
+hs.execute   = Lua  src=.../hs/_coresetup.lua  -- stock HS impl, not profiler.lua ✅
+lastCallback = startup                      -- heartbeat never ran, wrap returned raw fn ✅
+```
+
+Note when checking this yourself: stock `hs.execute` **is** Lua-implemented, so
+`debug.getinfo(hs.execute,"S").what == "C"` is the wrong test and will mislead. Compare
+`short_src` instead — stock resolves to `hs/_coresetup.lua`, patched would resolve to
+`profiler.lua`.
+
+Still outstanding: the enable/disable round-trip (`hs.settings.set("nanowm_profiler", true)`
+→ reload → confirm the notice appears, the log resumes, and lines land in ≤ 5 s batches rather
+than one at a time → set back to `false`). Not run because it mutates settings and forces a
+reload of the live WM.
+
+**Consequence to be aware of:** the `*** FREEZE ***` heartbeat is now off, so multi-second
+event-loop stalls are no longer recorded. Two were observed while verifying this change (a
+120 s and a ~15 s unresponsive `hs` CLI, interleaved with instant responses), so the stalls
+are ongoing. Turn profiling on deliberately while working P2 — which no longer requires a
+code edit, the point of this change.
+
+---
+
+### P4 — AC performance profile applied at construction (`layout.lua`, `integrations.lua`)
+
+- `layout.lua:21` — `hs.timer.delayed.new(config.perf.battery.tileDelay, ...)` →
+  `state.perfProfile().tileDelay`.
+- `integrations.lua:123` — `hs.timer.delayed.new(require("nanowm.config").perf.battery.sbarDelay, ...)`
+  → `state.perfProfile().sbarDelay`. This removed the last use of the `config` module in
+  `integrations.lua`, so the inline `require("nanowm.config")` is gone with it.
+- Also deleted the dead commented-out `-- local tileTimer = hs.timer.delayed.new(0.15, ...)`
+  line directly above the changed line in `layout.lua`.
+
+Both now match what `rebuildTileTimer()` (`layout.lua:27`) and `rebuildSketchybarTimer()`
+(`integrations.lua:127`) already did — the initial construction was the only place still
+reading the battery constants. Verified by grep that exactly two such sites existed;
+`edgePoll` (`integrations.lua:405`) and `winMapTTL` (`core.lua:23`) were already correct
+because they read `state.perfProfile()` at call time rather than at construction.
+
+`state.acPower` is initialised at module load (`state.lua:123`) and `layout`/`integrations`
+both require `state` above these lines, so the profile is available and correct at
+construction time. No dependency cycle: `state` requires only `config` and `profiler`.
+
+**Measured before the fix** (live instance, on AC), by temporarily swapping
+`layout.performTile` to time the gap between `tile()` and the tile actually running:
+
+```
+measured tile debounce = 101 ms | acPower=true | perfProfile().tileDelay=0.05
+```
+
+The profile said 50 ms; the timer used 100 ms. Confirms both the bug and that
+`rebuildTileTimer()` had never fired in ~20 h of uptime.
+
+**Verification outstanding** — after `darwin-rebuild switch` + reload, re-run the same
+measurement; it should report ≈50 ms. The probe is at
+`scratchpad/measure_tile.lua` (self-restoring; it triggers one real tile, which is harmless
+since tiling runs constantly anyway). `hs.timer.delayed` has no delay getter, so measuring the
+debounce is the only direct way to check this — `nextTrigger()` would work but the timers are
+module-local.

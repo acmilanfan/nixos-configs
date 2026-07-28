@@ -119,8 +119,10 @@ local function doUpdateSketchybar()
     end
 end
 
+-- Live power profile, not a hardcoded battery constant — see the tileTimer comment in
+-- layout.lua: rebuildSketchybarTimer() only fires on an actual power-source transition.
 local sketchybarUpdateTimer = hs.timer.delayed.new(
-    require("nanowm.config").perf.battery.sbarDelay, doUpdateSketchybar)
+    state.perfProfile().sbarDelay, doUpdateSketchybar)
 
 local function rebuildSketchybarTimer()
     sketchybarUpdateTimer:stop()

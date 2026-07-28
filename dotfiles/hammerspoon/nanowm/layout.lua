@@ -17,8 +17,11 @@ M.onTileComplete = nil -- Set by integrations module
 -- Debounced Tile Timer
 -- =============================================================================
 
--- local tileTimer = hs.timer.delayed.new(0.15, function()
-local tileTimer = hs.timer.delayed.new(config.perf.battery.tileDelay, function()
+-- Build from the live power profile, not a hardcoded battery constant.
+-- onPowerChange() only rebuilds this timer on an actual AC<->battery transition, so a
+-- machine that boots on AC and stays plugged in would otherwise keep the slower battery
+-- delay for the entire session.
+local tileTimer = hs.timer.delayed.new(state.perfProfile().tileDelay, function()
     profiler.wrap("performTile", function() M.performTile() end)()
 end)
 
