@@ -148,11 +148,13 @@ let
         type = "remote";
         url = "{env:SCORECARD_MCP_URL}";
       };
-      # Public host, but OAuth/SSE login is required on first use
+      # Public host, but OAuth login is required on first use
       # (`opencode auth login` or in-session prompt) — see plan verification.
+      # The old /v1/sse endpoint is deprecated after 30 June 2026; using the
+      # streamable-HTTP /v1/mcp endpoint instead.
       atlassian = {
         type = "remote";
-        url = "https://mcp.atlassian.com/v1/sse";
+        url = "https://mcp.atlassian.com/v1/mcp";
       };
       sonarqube = {
         type = "local";
