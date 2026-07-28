@@ -28,17 +28,13 @@ let
     # including external keyboards. The grabber auto-respawns via internal XPC/launchd,
     # so pkill/bootout is insufficient — we must prevent it from ever executing.
     KARABINER_BIN="/Library/Application Support/org.pqrs/Karabiner-Elements/bin"
-    if [ -f "$KARABINER_BIN/karabiner_grabber" ]; then
+    if [ -x "$KARABINER_BIN/karabiner_grabber" ]; then
       echo "Ensuring Karabiner grabber and GUI processes cannot execute..."
       sudo chmod -x "$KARABINER_BIN/karabiner_grabber" 2>/dev/null || true
       sudo chmod -x "$KARABINER_BIN/karabiner_console_user_server" 2>/dev/null || true
       sudo chmod -x "$KARABINER_BIN/karabiner_session_monitor" 2>/dev/null || true
+      sudo pkill -9 -f karabiner_grabber 2>/dev/null || true
     fi
-
-    # Kill any grabber that may have started before we disabled it
-    sudo pkill -9 -f karabiner_grabber 2>/dev/null || true
-    pkill -x "Karabiner-Menu" 2>/dev/null || true
-    pkill -x "Karabiner-NotificationWindow" 2>/dev/null || true
 
     # VirtualHIDDevice-Daemon auto-starts via its own launchd plist at boot.
     # If it isn't running (e.g. after a fresh install), start it so Kanata has
