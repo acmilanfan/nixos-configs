@@ -43,7 +43,21 @@ if [ "$RELOAD_REQUIRED" = false ]; then
     fi
 fi
 
-# 3. Check if Kanata has lost Input Monitoring permission (TCC)
+# 3. Check if karabiner_grabber was recently denied TCC on IOHIDDeviceOpen.
+#    The grabber (if it managed to start) opens HID keyboards exclusively via the
+#    DriverKit dext. When TCC Input Monitoring permission is missing/revoked,
+#    macOS denies IOHIDDeviceOpen but the dext still holds exclusive access.
+#    This creates a total keyboard blackout — even external keyboards stop working.
+#    The grabber may have already been killed, but the dext lock persists until
+#    the VirtualHIDDevice-Daemon (and its dext) is restarted.
+if [ "$RELOAD_REQUIRED" = false ]; then
+    if sudo /usr/bin/log show --predicate 'eventMessage CONTAINS "TCC deny IOHIDDeviceOpen" AND process == "karabiner_grabber"' --last 5m --style compact 2>/dev/null | grep -q "TCC deny"; then
+        RELOAD_REQUIRED=true
+        REASON="karabiner_grabber denied TCC on IOHIDDeviceOpen — HID devices may be locked by dext"
+    fi
+fi
+
+# 4. Check if Kanata has lost Input Monitoring permission (TCC)
 #    macOS ties Input Monitoring permission to the binary's code signature hash.
 #    When /usr/local/bin/kanata-nix is replaced, the hash changes and permission is revoked.
 #    Kanata then fails to create event taps and logs errors.
@@ -59,11 +73,31 @@ fi
 if [ "$RELOAD_REQUIRED" = true ]; then
     print_warning "Reloading Kanata: $REASON"
 
-    # If this looks like a TCC permission issue, notify user and open System Settings
-    if [[ "$REASON" == *"Input Monitoring"* ]] || [[ "$REASON" == *"permission"* ]]; then
+    # If the karabiner_grabber was denied TCC on IOHIDDeviceOpen, the DriverKit dext
+    # still holds exclusive HID access. Force-restart the VirtualHIDDevice-Daemon to
+    # kill the dext and release locked devices before restarting kanata.
+    if [[ "$REASON" == *"IOHIDDeviceOpen"* ]] || [[ "$REASON" == *"HID devices may be locked"* ]]; then
+        print_error "┌──────────────────────────────────────────────────────────────┐"
+        print_error "│  karabiner_grabber lost Input Monitoring TCC permission.     │"
+        print_error "│  The DriverKit dext holds HID devices exclusively, blocking  │"
+        print_error "│  ALL keyboard input (even external keyboards).               │"
+        print_error "│                                                              │"
+        print_error "│  Force-restarting VirtualHIDDevice-Daemon to release HID...  │"
+        print_error "└──────────────────────────────────────────────────────────────┘"
+        osascript -e 'display notification "karabiner_grabber TCC denied — restarting VirtualHID daemon to unlock keyboards" with title "Keyboard Input Blocked" sound name "Glass"' 2>/dev/null || true
+        print_status "Killing VirtualHIDDevice-Daemon and dext to release HID devices..."
+        sudo /usr/bin/pkill -9 -f "Karabiner-VirtualHIDDevice-Daemon" 2>/dev/null || true
+        sudo /usr/bin/pkill -9 -f "org.pqrs.Karabiner-DriverKit-VirtualHIDDevice" 2>/dev/null || true
+        sleep 2
+        print_status "Restarting VirtualHIDDevice-Daemon..."
+        sudo /bin/launchctl kickstart -k system/org.pqrs.service.daemon.Karabiner-VirtualHIDDevice-Daemon 2>/dev/null || true
+        sleep 2
+    fi
+
+    # If Kanata specifically lost its Input Monitoring permission, notify user
+    if [[ "$REASON" == *"Input Monitoring"* ]]; then
         print_error "┌──────────────────────────────────────────────────────────────┐"
         print_error "│  Kanata appears to have LOST Input Monitoring permission.    │"
-        print_error "│  Restarting kanata will NOT fix this.                        │"
         print_error "│                                                              │"
         print_error "│  Open: System Settings → Privacy & Security → Input Monitoring│"
         print_error "│  Re-grant permission to /usr/local/bin/kanata-nix            │"
@@ -72,15 +106,23 @@ if [ "$RELOAD_REQUIRED" = true ]; then
         open "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent" 2>/dev/null || true
     fi
 
-    # 1a. Ensure VirtualHIDDevice is healthy before restarting kanata.
-    #     After deep standby (hibernation), the virtual keyboard device can vanish from ioreg
-    #     even while the daemon process is still listed as running. Restarting the daemon
-    #     re-enumerates the device. The ioreg check is fast (~50ms) and adds no delay when
-    #     VirtualHID is healthy; only broken-state wakes incur the ~1s restart wait.
-    if ! ioreg -rn "Karabiner VirtualHIDKeyboard" >/dev/null 2>&1; then
-        print_warning "Karabiner VirtualHIDKeyboard not found in ioreg — restarting VirtualHIDDevice-Daemon..."
-        sudo /bin/launchctl kickstart -k system/org.pqrs.service.daemon.Karabiner-VirtualHIDDevice-Daemon 2>/dev/null || true
+    # Ensure VirtualHIDDevice is healthy before restarting kanata.
+    # After deep standby (hibernation), the virtual keyboard device can vanish from ioreg
+    # even while the daemon process is still listed as running. Also, after killing the
+    # daemon above (TCC deny case), we may need to wait for it to re-register.
+    VIRTUALHID_OK=false
+    for i in 1 2 3 4 5; do
+        if ioreg -rn "Karabiner VirtualHIDKeyboard" >/dev/null 2>&1; then
+            VIRTUALHID_OK=true
+            break
+        fi
         sleep 1
+    done
+
+    if [ "$VIRTUALHID_OK" = false ]; then
+        print_warning "Karabiner VirtualHIDKeyboard not found in ioreg — attempting to restart VirtualHIDDevice-Daemon..."
+        sudo /bin/launchctl kickstart -k system/org.pqrs.service.daemon.Karabiner-VirtualHIDDevice-Daemon 2>/dev/null || true
+        sleep 2
         print_status "VirtualHIDDevice-Daemon restarted."
     fi
 
@@ -89,8 +131,11 @@ if [ "$RELOAD_REQUIRED" = true ]; then
     sudo /bin/launchctl kickstart -k system/local.kanata
 
     # 2. Parallel background cleanup of interfering processes
-    # We redirect everything to /dev/null so parent doesn't wait for pipes
+    # The grabber auto-respawns via Karabiner's internal XPC, so pkill alone is
+    # insufficient. Make it non-executable as defense-in-depth so it cannot respawn.
     (
+        KARABINER_BIN="/Library/Application Support/org.pqrs/Karabiner-Elements/bin"
+        sudo chmod -x "$KARABINER_BIN/karabiner_grabber" 2>/dev/null || true
         sudo /bin/launchctl bootout system/org.pqrs.service.daemon.Karabiner-Core-Service 2>/dev/null || true
         sudo /bin/launchctl bootout system/org.pqrs.service.daemon.karabiner_grabber 2>/dev/null || true
         sudo /usr/bin/pkill -x "Karabiner-Core-Service" 2>/dev/null || true
