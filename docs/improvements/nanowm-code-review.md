@@ -56,7 +56,14 @@ measure, and it is on by default.
 
 ---
 
-### P2. The AX circuit breaker doesn't cover the two hottest AX paths
+### ~~P2. The AX circuit breaker doesn't cover the two hottest AX paths~~ — ✅ DONE
+
+> **Status: fixed** in `watchers.lua`. **Log evidence made this worse than described below:**
+> across a multi-hour log with **27 recorded freezes**, `"AX circuit open"` appears
+> **0 times** — the breaker had never tripped once, because its *detection* was also
+> confined to `_resync`. Scope widened accordingly (both trip and check now cover every AX
+> entry point, including the AXObserver callbacks). See [§7](#7-change-log).
+
 
 This is the highest-value functional finding and neither source document caught it.
 
@@ -79,7 +86,12 @@ breaker from `augmentAllWins`' own slow-app detection (see P3) rather than only 
 
 ---
 
-### P3. `augmentAllWins` scans every app on every focus event, and silently drops slow apps
+### ~~P3. `augmentAllWins` scans every app on every focus event, and silently drops slow apps~~ — ✅ DONE
+
+> **Status: fixed** in `watchers.lua` — scoped to the focused app, full sweep rate-limited,
+> slow-app skips now logged, and a slow app now trips the breaker instead of being silently
+> skipped. See [§7](#7-change-log).
+
 
 Same function as P2, two distinct problems:
 
@@ -398,6 +410,25 @@ until M11 is fixed can block on `hs.execute`) — on every focus event. Fixing P
 of the cost; the remainder would benefit from a fast path (record last-focused id, update the
 bar) versus a slow path on the existing timers.
 
+**M23. The freeze detector probably can't distinguish an AX stall from system sleep.**
+*(Surfaced while mining the log for P2; needs confirmation before acting.)* Of the 27 recorded
+freezes, several are 627 s, 828 s and 1284 s. Those are implausible as AX locks — the code's own
+comments put the corporate-agent lock at ~30 s, and the credible entries cluster at 2–30 s. The
+long ones look like sleep or suspend: `hs.timer` pauses while the machine is asleep, so the
+heartbeat sees one enormous gap.
+
+`profiler.resetHeartbeat()` is called on `systemWillSleep` and `systemDidWake`
+(`watchers.lua`, caffeinate watcher), which should suppress the false positive — but there is a
+race (the 1 s heartbeat can fire before the wake callback), and display-sleep/lock events
+(`screensDidSleep`, `screensDidLock`) don't reset it at all. Note the 828 s "freeze" at 17:58
+has no adjacent `wake:suppress start`, so it wasn't a `systemDidWake` cycle.
+
+Consequence: the freeze count is inflated and its severity distribution is misleading, which
+matters because this log is the primary evidence for the whole AX-cost design.
+*Fix:* record both a monotonic and a wall-clock delta per beat and label the gap as
+`slept` when they agree closely, or subscribe to the remaining caffeinate events. Until then,
+treat gaps over ~60 s as suspect.
+
 ### Cosmetic
 
 **M18. Overview grid navigation wraps wrongly.**
@@ -534,8 +565,7 @@ Grouped so each step is independently verifiable, cheapest-first within each gro
 
 1. ~~**P1** — profiler off by default, guard `M.log`, buffer writes.~~ ✅ **DONE** — see §7.
 2. ~~**P4** — two one-line timer fixes.~~ ✅ **DONE** — see §7.
-3. **P2 + P3** — circuit-breaker coverage and `augmentAllWins` scoping. Same function; do them
-   together. This is the actual freeze/latency work the profiler was installed to find.
+3. ~~**P2 + P3** — circuit-breaker coverage and `augmentAllWins` scoping.~~ ✅ **DONE** — see §7.
 4. **P5, P6, P7, P8** — four independent, self-contained bug fixes.
 5. **M13** — delete the dead code (≈130 lines), including the misleading `cacheTTL` comments.
    Do this before the M-series refactors so there's less surface to touch.
@@ -676,9 +706,129 @@ measured tile debounce = 101 ms | acPower=true | perfProfile().tileDelay=0.05
 The profile said 50 ms; the timer used 100 ms. Confirms both the bug and that
 `rebuildTileTimer()` had never fired in ~20 h of uptime.
 
-**Verification outstanding** — after `darwin-rebuild switch` + reload, re-run the same
-measurement; it should report ≈50 ms. The probe is at
-`scratchpad/measure_tile.lua` (self-restoring; it triggers one real tile, which is harmless
-since tiling runs constantly anyway). `hs.timer.delayed` has no delay getter, so measuring the
-debounce is the only direct way to check this — `nextTrigger()` would work but the timers are
-module-local.
+**Verified after deploy.** The machine had moved onto battery by then, where 0.10 s is the
+*correct* delay and old/new code are indistinguishable — so the AC profile was forced
+explicitly and restored (`scratchpad/verify_p4.lua`):
+
+| condition | measured debounce | expected |
+|---|---|---|
+| pre-fix, on AC (`acPower=true`) | **101 ms** | 50 ms ← the bug |
+| post-fix, AC profile forced | **51 ms** | ~50 ms ✅ |
+| post-fix, on battery (`acPower=false`) | **101 ms** | 100 ms ✅ |
+
+Power state confirmed restored afterwards (`acPower=false`, real `false`, `tileDelay=0.1`).
+
+Caveat on what this proves: forcing the profile exercises `rebuildTileTimer()`, which was
+already correct before the fix. The line actually changed is the module-load construction,
+which now evaluates the identical `state.perfProfile().tileDelay` expression — so the
+substitution is sound, but the construction path itself will only be observed at 50 ms on the
+next reload that happens while on AC.
+
+---
+
+### P2 + P3 — AX breaker coverage and `augmentAllWins` scoping (`watchers.lua`)
+
+**What the log showed first.** Mining the pre-existing 1163-line `nanowm_slow.log` (which
+predates all of this work) produced the finding that drove the design:
+
+| signal | count |
+|---|---|
+| `*** FREEZE ***` | **27** |
+| `AX circuit open` | **0** |
+
+Freeze durations included 23.9 s, 25.4 s, 28.6 s — exactly the "corporate agent holds the AX
+lock ~30 s" window the code comments describe. Attribution was `wf:titleChanged`,
+`wf:windowFocused`, `wf:windowDestroyed`, `performTile`, `state.saveTimer` — **never**
+`resync`. And the 17:58–18:30 stretch is a storm of consecutive freezes (828 s, 73 s, 67 s,
+111 s, 1284 s, 199 s) all attributed to `wf:titleChanged`: repeated blocking callbacks with
+nothing backing off between them.
+
+So the breaker was not merely under-applied, it was effectively dead code: it could only
+*trip* inside `_resync` (a 60 s timer) while every actual stall happened in a path that
+neither tripped it nor honoured it.
+
+**Changes**
+
+- Extracted `_axTrip(dt, appName)` and `_axBlocked()` helpers. `_axBlocked()` folds in
+  `_wakeSuppress`, so one call covers post-wake suppression and the breaker. Exported as
+  `M.axBlocked`. Constants named: `AX_SLOW = 1.0`, `AX_BACKOFF = 90` (both unchanged in value).
+- **Trip sites — was 1, now 3:** `_resync` (unchanged behaviour), `augmentAllWins`, and the 1 s
+  Firefox scanner. `augmentAllWins` was *already timing* every `allWindows()` call and
+  discarding the measurement to silently skip the app — that measurement now trips the breaker.
+  Once-per-second under a lock is the worst possible retry cadence, which is why the Firefox
+  scanner trips too.
+- **Check sites — was 1, now 8:** `_resync`, `augmentAllWins`, the Firefox scanner, and all five
+  AXObserver callbacks (`windowCreated`, `windowTitleChanged`, `windowDestroyed`,
+  `windowFocused`, `windowMoved`), which previously checked only `_wakeSuppress`.
+- **`augmentAllWins(allWins, onlyApp)`** — new optional second argument. `windowFocused` now
+  passes the focused app, so a focus event scans one app instead of every allowlisted one. The
+  original comment claimed it already did this; the code did not.
+- **Full sweep rate-limited** to once per 1.0 s (`FULL_AUGMENT_COOLDOWN`) for the
+  `performTile` caller, which fires on every debounced tile. Safe because window discovery is
+  redundantly covered by `windowCreated` events, the 1 s Firefox scanner and the 60 s resync.
+- **Silent drops now logged** — both the slow-app skip (≥0.5 s) and budget exhaustion (≥2.0 s
+  cumulative). Gated on `profiler.enabled` to avoid console spam when profiling is off,
+  matching the existing pattern at the `resync allWindows() SLOW` site. `AX circuit open` stays
+  unconditional: it is rare and it is the line you most want to see.
+
+**Beyond the original P2 scope, deliberately.** Guarding the five AXObserver callbacks was not
+in P2 as written, but the freeze attribution data points squarely at them, and the observed
+storm pattern is what a missing backoff looks like. Expected effect: one stall trips the
+breaker, and the following 90 s of would-be-blocking callbacks return immediately, converting
+a storm into a single stall plus a quiet backoff.
+
+**Trade-off to be aware of:** while the breaker is open, `windowDestroyed` events are dropped
+too, so per-window state for windows closed during that 90 s window leaks — see M1, which this
+makes slightly more pressing. Justification for accepting it: under a real lock the callback
+would block on `win:id()` anyway, and the existing post-wake path already drops the same events
+for 300 s. A spurious trip costs 90 s of degraded window management; the threshold is 1.0 s
+against a healthy `allWindows()` of well under 100 ms, so spurious trips should be rare.
+
+**Verified after deploy.** New code confirmed live (`watchers.axBlocked` is a function, which
+only exists post-fix), and the P3 saving measured directly (`scratchpad/verify_p3.lua`):
+
+| path | measured |
+|---|---|
+| scoped scan, `onlyApp` = focused app (**new** per-focus behaviour) | **1.1 ms** |
+| full multi-app sweep (**old** per-focus behaviour) | **31.6 ms** |
+| full sweep repeated inside the 1 s cooldown | **0.0 ms** ✅ rate limiter works |
+
+**≈30 ms of AX work removed from every focus event** — every `Alt+J`/`Alt+K` and every mouse
+click — a 29.7× reduction on that path. And that is with a *healthy* AX layer; under a lock the
+full sweep is the thing that would block for seconds, which is the freeze this addresses.
+
+Also confirmed: `axBlocked()` returns `false` in normal operation (so the breaker isn't stuck
+open), no `augmentAllWins skip (slow app)` or `budget exhausted` entries have appeared, and the
+WM is healthy (10 managed windows, tiling active in the log).
+
+**Verification outstanding** — the payoff can only be confirmed by waiting for a real stall:
+with the profiler on, `AX circuit open` should now appear (it never once did in the entire
+previous log), and freezes should stop arriving in back-to-back storms. Also still worth an
+eyes-on check: detaching a Firefox tab, and opening/closing windows in a *non-focused* app,
+since those are what the scoping and cooldown touch.
+
+---
+
+### Profiler enabled (session state change)
+
+Set `hs.settings.set("nanowm_profiler", true)` and reloaded, per your go-ahead — this doubles
+as the P1 round-trip verification that was outstanding. Post-reload probe:
+
+```
+enabled    = true    setting = true
+os.execute = Lua  src=.../nanowm/profiler.lua   -- patched ✅
+hs.execute = Lua  src=.../nanowm/profiler.lua   -- patched ✅
+lastCallback = performTile                      -- wrap + heartbeat live ✅
+```
+
+Batched writing confirmed: entries timestamped `18:41:04`–`18:41:05` reached disk at file
+mtime `18:41:09` — a ~5 s lag matching `FLUSH_INTERVAL`, where the old code `fsync`'d every
+line.
+
+**Remember to turn this back off** once the freeze question is settled:
+`hs.settings.set("nanowm_profiler", false); hs.reload()`.
+
+Incidental measurement from the reload, corroborating M10 and M12: `os.execute pkill -x
+sketchybar` blocked **30.4 ms** and `os.execute "sketchybar &"` blocked **35.3 ms** — ~66 ms
+of main-thread stall on every single config reload, from a kill/restart that M10 says
+shouldn't happen at all when sketchybar is already running and enabled.

@@ -104,13 +104,34 @@ local _wakeSuppress = false
 local _wakeSuppressTimer = nil
 local _wakeSuppressUntil = 0  -- absolute epoch time when current suppression expires
 
+-- Slow-AX detection, shared by every path that enumerates windows.
+-- Previously only _resync() could trip the breaker, and only _resync() checked it. Since
+-- _resync runs on a 60s timer while the per-focus and per-second scans run orders of
+-- magnitude more often, the breaker never fired in practice (0 occurrences across a
+-- multi-hour log containing 27 recorded freezes) — the lock was always hit by a hot path
+-- that neither tripped nor honoured it.
+local AX_SLOW    = 1.0   -- a single app:allWindows() at/above this means AX is locked
+local AX_BACKOFF = 90    -- seconds to stop touching AX once tripped
+
+local function _axTrip(dt, appName)
+    _axCircuitOpen = true
+    _axCircuitUntil = hs.timer.secondsSinceEpoch() + AX_BACKOFF
+    profiler.log("AX circuit open", dt, appName)
+end
+
+-- True when AX enumeration must be skipped: post-wake suppression or an open breaker.
+local function _axBlocked()
+    if _wakeSuppress then return true end
+    if not _axCircuitOpen then return false end
+    if hs.timer.secondsSinceEpoch() < _axCircuitUntil then return true end
+    _axCircuitOpen = false
+    return false
+end
+
+M.axBlocked = _axBlocked
+
 local function _resync()
-    if _wakeSuppress then return end
-    local now = hs.timer.secondsSinceEpoch()
-    if _axCircuitOpen then
-        if now < _axCircuitUntil then return end
-        _axCircuitOpen = false
-    end
+    if _axBlocked() then return end
     local fresh = {}
     for _, app in ipairs(hs.application.runningApplications()) do
         if app:kind() ~= -1 then
@@ -120,11 +141,7 @@ local function _resync()
                 profiler.lastEvent = "resync:" .. appName
                 local appWins = app:allWindows()
                 local dt = hs.timer.secondsSinceEpoch() - t0
-                if dt >= 1.0 then
-                    _axCircuitOpen = true
-                    _axCircuitUntil = hs.timer.secondsSinceEpoch() + 90
-                    profiler.log("AX circuit open", dt, appName)
-                end
+                if dt >= AX_SLOW then _axTrip(dt, appName) end
                 if profiler.enabled and dt >= 0.10 then
                     profiler.log("resync allWindows() SLOW", dt, appName)
                 end
@@ -192,15 +209,39 @@ function M.invalidateManagedWinsCache()
     -- No-op: window list is maintained by AXObserver events, not a TTL cache.
 end
 
--- Scans the focused app for unmanaged standard windows and adds them to
--- _trackedWins. Called from performTile() to catch windows that the
--- hs.window.filter AXObserver missed (e.g. Firefox tab detached to new window).
-function M.augmentAllWins(allWins)
+-- Scans allowlisted apps for unmanaged standard windows and adds them to _trackedWins,
+-- catching windows the hs.window.filter AXObserver missed (e.g. a Firefox tab detached
+-- into a new window).
+--
+-- onlyApp: when supplied, scan just that application. windowFocused passes the focused
+-- app — enumerating every allowlisted app on every focus event (so: every Alt+J/K and
+-- every mouse click) was the hottest AX path in the config, despite the original comment
+-- here claiming it only scanned the focused app.
+--
+-- With no onlyApp the full sweep still runs, but rate-limited: within the cooldown the
+-- window set is covered by windowCreated events, the 1s Firefox scanner and the 60s
+-- resync anyway.
+local _lastFullAugment = 0
+local FULL_AUGMENT_COOLDOWN = 1.0
+
+function M.augmentAllWins(allWins, onlyApp)
+    if _axBlocked() then return end
+
     local appsToScan = {}
-    for _, app in ipairs(hs.application.runningApplications()) do
-        local appName = app:name() or ""
-        if managedAllowed[appName] and not managedExcluded[appName] and app:kind() ~= -1 then
-            table.insert(appsToScan, app)
+    if onlyApp then
+        local appName = onlyApp:name() or ""
+        if managedAllowed[appName] and not managedExcluded[appName] and onlyApp:kind() ~= -1 then
+            appsToScan[1] = onlyApp
+        end
+    else
+        local now = hs.timer.secondsSinceEpoch()
+        if now - _lastFullAugment < FULL_AUGMENT_COOLDOWN then return end
+        _lastFullAugment = now
+        for _, app in ipairs(hs.application.runningApplications()) do
+            local appName = app:name() or ""
+            if managedAllowed[appName] and not managedExcluded[appName] and app:kind() ~= -1 then
+                table.insert(appsToScan, app)
+            end
         end
     end
 
@@ -208,14 +249,31 @@ function M.augmentAllWins(allWins)
 
     local tStart = hs.timer.secondsSinceEpoch()
     for _, fapp in ipairs(appsToScan) do
-            if hs.timer.secondsSinceEpoch() - tStart >= 2.0 then
-                return
+        local elapsed = hs.timer.secondsSinceEpoch() - tStart
+        if elapsed >= 2.0 then
+            -- Out of budget: remaining apps stay unscanned this pass.
+            if profiler.enabled then
+                profiler.log("augmentAllWins budget exhausted", elapsed)
+            end
+            return
         end
         local appName = fapp:name() or ""
         local t0 = hs.timer.secondsSinceEpoch()
         local appWins = fapp:allWindows()
         local dt = hs.timer.secondsSinceEpoch() - t0
-        if dt < 0.5 then
+        if dt >= AX_SLOW then
+            -- AX is locked. Trip the breaker so every other path backs off too, instead of
+            -- silently skipping this app and retrying on the next focus event.
+            _axTrip(dt, appName)
+            return
+        end
+        if dt >= 0.5 then
+            -- Slow but under the trip threshold: skip, and say so — this app's windows stay
+            -- unmanaged until it responds faster, which was previously silent.
+            if profiler.enabled then
+                profiler.log("augmentAllWins skip (slow app)", dt, appName)
+            end
+        else
             for _, w in ipairs(appWins) do
                 local wid = w:id()
                 if wid and wid > 0 and w:isStandard() and not w:isMinimized() then
@@ -263,7 +321,7 @@ function M.setup()
     end
 
     filter:subscribe(hs.window.filter.windowCreated, profiler.wrap("wf:windowCreated", function(win)
-        if _wakeSuppress then return end
+        if _axBlocked() then return end
         if not win then return end
 
         local id = win:id()
@@ -292,7 +350,7 @@ function M.setup()
     -- WINDOW TITLE CHANGED
     -- =========================================================================
     filter:subscribe(hs.window.filter.windowTitleChanged, profiler.wrap("wf:titleChanged", function(win)
-        if _wakeSuppress then return end
+        if _axBlocked() then return end
         if not win or not win:id() or win:id() == 0 then return end
         core.invalidateFloatingCache(win:id())
         core.registerWindow(win)
@@ -303,7 +361,7 @@ function M.setup()
     -- WINDOW DESTROYED
     -- =========================================================================
     filter:subscribe(hs.window.filter.windowDestroyed, profiler.wrap("wf:windowDestroyed", function(win)
-        if _wakeSuppress then return end
+        if _axBlocked() then return end
         if not win then return end
 
         local id = win:id()
@@ -385,7 +443,7 @@ function M.setup()
     -- WINDOW FOCUSED
     -- =========================================================================
     filter:subscribe(hs.window.filter.windowFocused, profiler.wrap("wf:windowFocused", function(win)
-        if _wakeSuppress then return end
+        if _axBlocked() then return end
         if not win then return end
         if state.launching then return end
 
@@ -407,12 +465,13 @@ function M.setup()
             needsTile = true
         end
 
-        -- Scan for unmanaged sibling windows (e.g. Firefox tab-detach windows
-        -- that the AXObserver filter didn't fire events for). Only trigger a
+        -- Scan the focused app for unmanaged sibling windows (e.g. Firefox tab-detach
+        -- windows that the AXObserver filter didn't fire events for). Only trigger a
         -- full tile if we actually found something, to avoid re-raising
         -- floating windows on every focus click.
+        -- Scoped to `app`: the all-apps sweep belongs on the 60s resync, not here.
         local scanWins = {}
-        M.augmentAllWins(scanWins)
+        M.augmentAllWins(scanWins, app)
         if #scanWins > 0 then
             needsTile = true
         end
@@ -495,7 +554,7 @@ function M.setup()
     -- WINDOW MOVED (for resize detection)
     -- =========================================================================
     filter:subscribe(hs.window.filter.windowMoved, profiler.wrap("wf:windowMoved", function(win)
-        if _wakeSuppress then return end
+        if _axBlocked() then return end
         if not win or not win:id() or win:id() == 0 then return end
 
         local tag = state.special.active and state.special.tag or state.currentTag
@@ -583,11 +642,18 @@ function M.setup()
     -- Tab-detach windows are often invisible to the AXObserver filter, so a
     -- dedicated scan bridges the gap. One allWindows() call per second.
     M._ffScanTimer = hs.timer.new(1.0, function()
-        if _wakeSuppress then return end
+        if _axBlocked() then return end
         local ff = hs.application.get("Firefox")
         if not ff then return end
 
+        local _t0 = hs.timer.secondsSinceEpoch()
         local appWins = ff:allWindows()
+        local _dt = hs.timer.secondsSinceEpoch() - _t0
+        if _dt >= AX_SLOW then
+            -- Once per second is the worst possible cadence to keep retrying under a lock.
+            _axTrip(_dt, "Firefox")
+            return
+        end
         local foundNew = false
         for _, w in ipairs(appWins) do
             local wid = w:id()
