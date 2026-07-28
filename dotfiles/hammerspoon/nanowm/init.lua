@@ -137,11 +137,15 @@ M.isTagFree = state.isTagFree
 -- =============================================================================
 
 function M.init()
-    -- Patch os.execute / hs.execute globally so every blocking call is logged.
-    -- Remove this line (and profiler require above) when investigation is done.
-    profiler.patchGlobals()
-    -- Heartbeat: logs "*** FREEZE ***" whenever Lua was blocked > 2s.
-    profiler.startHeartbeat()
+    -- Profiling is opt-in and off by default; both calls no-op when disabled.
+    -- Enable with: hs.settings.set("nanowm_profiler", true); hs.reload()
+    if profiler.enabled then
+        -- Patch os.execute / hs.execute globally so every blocking call is logged.
+        profiler.patchGlobals()
+        -- Heartbeat: logs "*** FREEZE ***" whenever Lua was blocked > 2s.
+        profiler.startHeartbeat()
+        print("[NanoWM] profiler ENABLED — globals patched, logging to nanowm_slow.log")
+    end
 
     -- Disable window animations for instant tiling and better performance
     hs.window.animationDuration = 0

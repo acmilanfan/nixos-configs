@@ -1,12 +1,21 @@
 -- =============================================================================
--- NanoWM Profiler - Temporary slowness investigation
--- Set M.enabled = false (or remove require calls) when done investigating.
--- Log file: ~/.hammerspoon/nanowm_slow.log
+-- NanoWM Profiler - Opt-in slowness investigation
+--
+-- Disabled by default: when enabled it patches os.execute/hs.execute process-wide
+-- and writes to disk, which adds main-thread overhead to the hot path it measures.
+--
+-- Enable from the Hammerspoon console:
+--     hs.settings.set("nanowm_profiler", true);  hs.reload()
+-- Disable again with:
+--     hs.settings.set("nanowm_profiler", false); hs.reload()
+--
+-- Log file: ~/.hammerspoon/nanowm_slow.log (file output only while enabled;
+-- rare events such as "AX circuit open" always reach the HS console).
 -- =============================================================================
 
 local M = {}
 
-M.enabled = true
+M.enabled = hs.settings.get("nanowm_profiler") == true
 
 -- Log ops slower than this (seconds). os.execute/hs.execute are logged always.
 M.threshold = 0.030
@@ -20,6 +29,15 @@ local LOG = _home() .. "/.hammerspoon/nanowm_slow.log"
 local _fh = nil
 local _lineCount = 0
 local MAX_LINES = 8000
+
+-- Lines are buffered and written in batches: flushing per line put a synchronous
+-- disk write on the main event loop for every logged call.
+local _buf = {}
+local _bufTimer = nil
+local FLUSH_INTERVAL = 5.0   -- seconds
+local MAX_BUFFERED = 200     -- force a flush before the buffer grows past this
+
+local flush -- forward declaration (referenced by the flush timer)
 
 local function countLines()
     local f = io.open(LOG, "r")
@@ -35,23 +53,54 @@ local function openLog()
     _fh = io.open(LOG, "a")
 end
 
-local function writeLog(msg)
-    if not _fh then openLog() end
+local function rotate()
+    if _fh then _fh:close() end
+    _fh = io.open(LOG, "w")
     if _fh then
-        _fh:write(msg .. "\n")
+        _fh:write(string.format("-- rotated at %s (was %d lines)\n",
+            os.date("%Y-%m-%d %H:%M:%S"), _lineCount))
         _fh:flush()
-        _lineCount = _lineCount + 1
-        if _lineCount >= MAX_LINES then
-            -- Rotate: truncate and restart
-            _fh:close()
-            _fh = io.open(LOG, "w")
-            if _fh then
-                _fh:write(string.format("-- rotated at %s (was %d lines)\n",
-                    os.date("%Y-%m-%d %H:%M:%S"), MAX_LINES))
-            end
-            _lineCount = 1
-        end
     end
+    _lineCount = 1
+end
+
+flush = function()
+    if _bufTimer then
+        _bufTimer:stop()
+        _bufTimer = nil
+    end
+    if #_buf == 0 then return end
+    if not _fh then openLog() end
+    if not _fh then
+        _buf = {}
+        return
+    end
+    _fh:write(table.concat(_buf, "\n") .. "\n")
+    _fh:flush()  -- one flush per batch, not per line
+    _lineCount = _lineCount + #_buf
+    _buf = {}
+    if _lineCount >= MAX_LINES then rotate() end
+end
+
+-- Force any buffered lines to disk. Safe to call when disabled (no-op).
+M.flush = flush
+
+local function writeLog(msg)
+    if not M.enabled then return end
+    _buf[#_buf + 1] = msg
+    if #_buf >= MAX_BUFFERED then
+        flush()
+    elseif not _bufTimer then
+        _bufTimer = hs.timer.doAfter(FLUSH_INTERVAL, flush)
+    end
+end
+
+-- Don't lose the tail of a profiling session on reload/quit — that is exactly
+-- the window of interest when diagnosing a freeze. Chain rather than replace.
+local _prevShutdown = hs.shutdownCallback
+hs.shutdownCallback = function()
+    flush()
+    if _prevShutdown then _prevShutdown() end
 end
 
 function M.log(name, elapsed, extra)
@@ -89,7 +138,11 @@ local _origHsExec  = hs.execute
 
 -- Patch os.execute and hs.execute globally.
 -- Every call is logged because both functions always block the event loop.
+-- No-op unless profiling is enabled: this rewrites globals for ALL Hammerspoon
+-- code (AClock, VimMode, the caps-lock watcher, ...), not just NanoWM.
 function M.patchGlobals()
+    if not M.enabled then return end
+
     os.execute = function(cmd)
         local t0 = hs.timer.secondsSinceEpoch()
         local r = _origOsExec(cmd)
@@ -135,6 +188,8 @@ function M.resetHeartbeat()
 end
 
 function M.startHeartbeat()
+    if not M.enabled then return end
+
     local _lastBeat = hs.timer.secondsSinceEpoch()
     _resetHeartbeat = function() _lastBeat = hs.timer.secondsSinceEpoch() end
     _heartbeatTimer = hs.timer.new(1.0, function()

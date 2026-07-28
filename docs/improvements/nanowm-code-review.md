@@ -27,7 +27,14 @@ never activates (P4). Line numbers are as of this review.
 
 ## 1. Fix first
 
-### P1. The profiler ships enabled, patches global functions, and flushes to disk per line
+### ~~P1. The profiler ships enabled, patches global functions, and flushes to disk per line~~ — ✅ DONE
+
+> **Status: fixed** in `profiler.lua` and `nanowm/init.lua`. Both files compile
+> (`loadfile` via the `hs` CLI). Not yet live: `~/.hammerspoon/` is populated from
+> nix-store symlinks, so this takes effect after `darwin-rebuild switch` + an HS reload.
+> See [§7 Change log](#7-change-log) for what was changed and one deliberate deviation
+> from the fix described below.
+
 
 - `profiler.lua:9` — `M.enabled = true`, with a header comment saying "Set false when done."
 - `nanowm/init.lua:142,144` — `M.init()` unconditionally calls `profiler.patchGlobals()` and
@@ -518,8 +525,7 @@ window. Those need no AX access.
 
 Grouped so each step is independently verifiable, cheapest-first within each group.
 
-1. **P1** — profiler off by default, guard `M.log`, buffer writes. Pure instrumentation, zero
-   functional risk, removes measurement distortion from everything that follows.
+1. ~~**P1** — profiler off by default, guard `M.log`, buffer writes.~~ ✅ **DONE** — see §7.
 2. **P4** — two one-line timer fixes. Immediate, measurable.
 3. **P2 + P3** — circuit-breaker coverage and `augmentAllWins` scoping. Same function; do them
    together. This is the actual freeze/latency work the profiler was installed to find.
@@ -552,3 +558,65 @@ Grouped so each step is independently verifiable, cheapest-first within each gro
   while on AC and confirm they read 0.05 / 0.15.
 - After P8: `Alt+Y`, then inspect `NanoWM.stacks[NanoWM.state.currentTag]` in the console and
   confirm the floating window's id is absent.
+
+---
+
+## 7. Change log
+
+### P1 — profiler opt-in (`profiler.lua`, `nanowm/init.lua`)
+
+**`profiler.lua`**
+
+- `M.enabled` now derives from a setting instead of being hardcoded `true`:
+  `M.enabled = hs.settings.get("nanowm_profiler") == true`. Unset → `false`, so it is off by
+  default. Toggle from the HS console with
+  `hs.settings.set("nanowm_profiler", true); hs.reload()`.
+- **Buffered writes.** Replaced the per-line `_fh:flush()` with a batching writer: lines
+  accumulate in `_buf` and are written as one `table.concat` + a single flush, triggered by
+  either a 5 s timer or a 200-line buffer cap. Rotation logic (`MAX_LINES = 8000`) preserved
+  and moved into its own `rotate()`, now counting real lines written rather than assuming
+  `MAX_LINES`.
+- `writeLog` early-returns unless enabled, so no file is opened or touched when off.
+- `M.flush()` exposed for forcing a write from the console, and `hs.shutdownCallback` is
+  **chained** (not replaced) to flush on reload/quit — otherwise the last few seconds before a
+  freeze-induced reload, the most interesting part, would be lost.
+- `patchGlobals()` and `startHeartbeat()` early-return when disabled, so they are safe to call
+  unconditionally from anywhere.
+
+**`nanowm/init.lua`**
+
+- `M.init()` only calls `patchGlobals()`/`startHeartbeat()` inside `if profiler.enabled then`,
+  and prints a one-line notice when profiling is active so an accidentally-left-on profiler is
+  visible in the console.
+
+**Deliberate deviation from the fix as written above.** P1 prescribed guarding `M.log` itself
+with `if not M.enabled then return end`. Implemented instead as: gate the **file write**, keep
+the `print()` to the HS console unconditional. Rationale — once globals are unpatched, the
+heartbeat is off and `M.wrap` returns the raw function, the only `M.log` callers still
+reachable in the disabled state are three rare, high-value ones:
+
+- `watchers.lua:126` — `"AX circuit open"`
+- `watchers.lua:568,574` — `wake:suppress start` / `lifted`
+
+(The `onFreeze` logs at `watchers.lua:534-545` are unreachable when disabled, since only the
+heartbeat calls them; the sites at `watchers.lua:129`, `integrations.lua:118` and
+`state.lua:287` are already individually gated on `profiler.enabled`.)
+
+Fully gating `M.log` would silently discard exactly the AX diagnostics needed for the P2 work,
+at a saving of a few `print()` calls per day. Preserving them costs nothing and keeps the
+breaker observable with profiling off.
+
+**Verification done:** both files compile (`loadfile` via the `hs` CLI — compile-only, the
+running instance was not touched). Pre-change baseline recorded for comparison:
+`~/.hammerspoon/nanowm_slow.log` at 1163 lines / 65 KB and actively growing.
+
+**Verification still outstanding** (needs deployment — the files under `~/.hammerspoon/` are
+nix-store symlinks, so repo edits are not live until `darwin-rebuild switch`):
+
+1. `darwin-rebuild switch`, then reload Hammerspoon.
+2. Confirm no `[prof]` spam in the console and that `nanowm_slow.log` stops growing.
+3. Confirm the globals are unwrapped — in the console, `os.execute` and `hs.execute` should be
+   the stock functions, and no "profiler ENABLED" line should appear at startup.
+4. Round-trip the toggle: `hs.settings.set("nanowm_profiler", true); hs.reload()` → the
+   notice appears, the log resumes, and entries land in ≤ 5 s batches rather than one at a
+   time. Then set it back to `false`.
