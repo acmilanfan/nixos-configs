@@ -299,6 +299,15 @@ function M.setup()
         )
     end)
 
+    hs.hotkey.bind(altShift, "f", function()
+        focusOrCreateApp(
+            "ORGINDEX-CALORIES",
+            string.format('open -n -a Alacritty --args -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-CALORIES" -e zsh -c "cd %s/org/life && vim %s/org/life/calories.org"', home, home),
+            0.6,
+            "Alacritty"
+        )
+    end)
+
     -- Nvim Scratchpad: quick note -> clipboard (Cmd+Alt+Ctrl+S)
     hs.hotkey.bind({ "cmd", "alt", "ctrl" }, "s", function()
         focusOrCreateApp(
