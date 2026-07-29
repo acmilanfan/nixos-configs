@@ -155,7 +155,10 @@ latency win on every tile and every bar update.
 
 ---
 
-### P5. `focusPip` runs an unguarded `hs.window.allWindows()` straight off a hotkey
+### ~~P5. `focusPip` runs an unguarded `hs.window.allWindows()` straight off a hotkey~~ — ✅ DONE
+
+> **Status: fixed** in `actions.lua`, after one wrong turn: the first attempt was *slower*
+> than the code it replaced (211 ms vs 44-66 ms). See [§7](#7-change-log).
 
 `actions.lua:245` — `focusPip` (bound to `Alt+V`, `keybinds.lua:67`) calls
 `hs.window.allWindows()`, the full-system AX enumeration that the allowlist filter, the
@@ -174,7 +177,11 @@ fine to leave, since it's a deliberate last-resort escape hatch.
 
 ---
 
-### P6. Windows float on generic title substrings with no app check
+### ~~P6. Windows float on generic title substrings with no app check~~ — ✅ DONE
+
+> **Status: fixed** in `config.lua` + `core.lua`. A **live false positive was caught**: a
+> Firefox Confluence tab matched bare `"Info"` inside the word "Information".
+> See [§7](#7-change-log).
 
 `core.isFloating` matches title substrings with **no application guard**:
 
@@ -205,7 +212,10 @@ terminal ones are all Alacritty), or at minimum drop the four generic words. Not
 
 ---
 
-### P7. Failed weekenduo launches leak a window filter and its AXObserver
+### ~~P7. Failed weekenduo launches leak a window filter and its AXObserver~~ — ✅ DONE
+
+> **Status: fixed** in `keybinds.lua` — filter hoisted to module scope, torn down on success,
+> on timeout, and before each new attempt. See [§7](#7-change-log).
 
 `keybinds.lua:352-378` (`Alt+Shift+Z`):
 
@@ -232,7 +242,10 @@ safety timer as well as from the callback.
 
 ---
 
-### P8. `moveWindowToTag` inserts floating windows into the tiled stack
+### ~~P8. `moveWindowToTag` inserts floating windows into the tiled stack~~ — ✅ DONE
+
+> **Status: fixed** in `tags.lua`. **Severity was overstated in the original write-up below** —
+> see the correction in [§7](#7-change-log); the visible-swap symptom does not occur.
 
 `tags.lua:391-411` unconditionally does:
 
@@ -266,11 +279,44 @@ mirroring `registerWindow`. Optionally add the `#stack ~= #order` warning as a c
 
 ---
 
+### ~~P9. The hourly prune sweep blocks the main thread for ~29 s~~ — ✅ DONE
+
+*Found by investigating a reported freeze; not in either source review. This was the single
+worst defect in the config.*
+
+`state.lua`'s `pruneTimer` probed `hs.window(id)` for **every** entry in `state.tags`, and never
+removed anything from that table. Both halves compounded:
+
+- a `hs.window(id)` lookup for an id that no longer exists costs **36.6 ms** (measured);
+- nothing ever deleted dead ids, so the table grew without bound — **800 entries**, of which a
+  40-id sample was 35/40 dead.
+
+800 x 36.6 ms = **~29 s of solid main-thread blocking, once an hour**, and growing. Measured
+against the recorded freezes:
+
+| | |
+|---|---|
+| extrapolated sweep cost | **29.3 s** |
+| observed hourly freezes | **24.1 s** (12:01:12), **28.1 s** (10:01:15), **29.0 s** (11:01:16) |
+
+Hourly to within four seconds, matching the extrapolation. So M1's dead-id leak was not merely
+a memory issue — **it was the fuel for a compounding hourly freeze.**
+
+It also explains the misattribution noted in M23: `pruneTimer` is not wrapped in
+`profiler.wrap`, so `lastCallback` still held whatever ran previously. Every one of these
+freezes was blamed on `performTile` or `state.saveTimer`, which is why the pruner was never
+suspected.
+
+**Fixed** — see [§7](#7-change-log). Supersedes the M1 sweep work.
+
+---
+
 ## 2. Confirmed, lower priority
 
 ### Correctness
 
-**M1. Persisted window-id state leaks across reboots.**
+**M1. Persisted window-id state leaks across reboots.** — ✅ **FIXED as part of P9**; the leak
+turned out to be the cause of the hourly ~29 s freeze, not just unbounded growth.
 `state.tags`, `sticky`, `floatingOverrides`, `windowWidths`, `tagLastFocused`,
 `tagCreationOrder` are written to JSON (`state.lua:248-274`) and reloaded verbatim with no
 liveness check (`state.lua:177-201`). The hourly pruner only trims `floatingCache` and
@@ -566,7 +612,7 @@ Grouped so each step is independently verifiable, cheapest-first within each gro
 1. ~~**P1** — profiler off by default, guard `M.log`, buffer writes.~~ ✅ **DONE** — see §7.
 2. ~~**P4** — two one-line timer fixes.~~ ✅ **DONE** — see §7.
 3. ~~**P2 + P3** — circuit-breaker coverage and `augmentAllWins` scoping.~~ ✅ **DONE** — see §7.
-4. **P5, P6, P7, P8** — four independent, self-contained bug fixes.
+4. ~~**P5, P6, P7, P8** — four independent, self-contained bug fixes.~~ ✅ **DONE** — see §7.
 5. **M13** — delete the dead code (≈130 lines), including the misleading `cacheTTL` comments.
    Do this before the M-series refactors so there's less surface to touch.
 6. **M14, M21, M12** — shared `_home()`, duplicate `animationDuration`, consolidate the three
@@ -832,3 +878,243 @@ Incidental measurement from the reload, corroborating M10 and M12: `os.execute p
 sketchybar` blocked **30.4 ms** and `os.execute "sketchybar &"` blocked **35.3 ms** — ~66 ms
 of main-thread stall on every single config reload, from a kill/restart that M10 says
 shouldn't happen at all when sketchybar is already running and enabled.
+
+---
+
+### P5 — `focusPip` without a global enumeration (`actions.lua`)
+
+Two-stage lookup replacing `hs.window.allWindows()`:
+
+1. Scan `watchers.getManagedWindows()` — iterates `_trackedWins`, **0.2 ms**, no AX
+   enumeration. PiP windows reach `_trackedWins` via the `windowCreated`/`windowFocused`
+   handlers, which (unlike the resync paths) don't require `isStandard()`.
+2. Fallback, only if step 1 misses and `axBlocked()` is false: one
+   `hs.application.runningApplications()` pass filtered to the browsers that can host PiP.
+
+**First attempt was a regression — worth recording so it isn't reintroduced.** The fallback
+originally looped `hs.application.get(name)` over five browser names. Measured:
+
+```
+application.get("Firefox")        =  2.2 ms   (running)
+application.get("Brave")          = 41.7 ms   (NOT running)
+application.get("Arc")            = 56.8 ms   (NOT running)
+application.get("Safari")         = 48.0 ms   (NOT running)
+application.get("Google Chrome")  = 49.4 ms   (NOT running)
+--------------------------------------------------------
+five-name loop                    = 211.5 ms
+hs.window.allWindows() (replaced) = 44-66 ms
+runningApplications()             = 11.4 ms
+```
+
+**`hs.application.get(name)` costs ~50 ms when the named app is not running** — it falls back
+to a bundle-ID / Launch Services lookup. So the "cheaper, scoped" version was 3-5× *slower*
+than the global call it replaced. Rewritten to a single `runningApplications()` pass.
+
+Lesson generalises: never loop `hs.application.get` over names that might be absent.
+
+### New finding (from that measurement) — the 1 s Firefox scanner paid the same tax
+
+`watchers.lua` called `hs.application.get("Firefox")` on every tick of its 1 s timer. With
+Firefox **closed** that is ~50 ms of main-thread time every second — roughly 5% of a core,
+continuously, for a scan that then does nothing. Not in either source review; found only
+because P5 forced the measurement.
+
+Fixed with a cached handle (`_ffApp`) plus a `FF_LOOKUP_BACKOFF` of 10 s between lookups while
+Firefox is absent. `isRunning()` returns false for a relaunched instance as well, so a stale
+handle self-invalidates. The existing app watcher now adopts the handle directly on Firefox
+launch, so a launch is picked up immediately instead of waiting out the backoff.
+
+Audited the remaining `hs.application.get` call sites: `tags.lua:264,351,445` use
+`config.emptyTagFocusApp` (= `"Finder"`, always running, ~2 ms) and `core.lua:483` is
+`toggleFineTune`, on-demand from a hotkey. Both acceptable. Worth knowing that pointing
+`emptyTagFocusApp` at an app you don't keep running would put a ~50 ms cost on every tag switch.
+
+---
+
+### P6 — app-scoped `floatingTitles` (`config.lua`, `core.lua`)
+
+`floatingTitles` entries are now either a bare string (any app) or `{ app = ..., title = ... }`.
+Terminal TUIs scoped to Alacritty, `weekenduo` to Firefox, `FineTune` to FineTune;
+`Picture-in-Picture` and `Task Switcher` left unscoped as they're specific enough.
+`core.lua` is the only consumer (grep-verified).
+
+Bare `"Copy"`, `"Move"` and `"Info"` were **removed** rather than scoped: Finder and Marta
+already float wholesale via `floatingApps`, so they added risk with no benefit. If a dialog
+stops floating, re-add it scoped — the config comment says so.
+
+**A live false positive was caught by regression-testing old vs new rules against all 10 open
+windows:**
+
+```
+Firefox  "Using Claude in a cost effective way. - General Information - Confluence"
+         old = true  (matched bare "Info" at char 49, inside "Information")
+         new = false
+```
+
+A Confluence page in a normal tiled browser window. It wasn't floating at that moment only
+because `floatingOverrides[177] = false` happened to mask it — a window without that override
+would be yanked out of the tiling layout the moment you navigated to a page whose title
+contained "Info", "Copy" or "Move". Since `isFloating` caches per window id and only
+re-evaluates on title change, the misclassification would then stick.
+
+**Verified post-deploy:** config shows 8 scoped / 2 bare entries (was 12 bare / 0 scoped); with
+the masking override temporarily cleared, that same window now evaluates `isFloating = false`.
+
+---
+
+### P7 — weekenduo filter leak (`keybinds.lua`)
+
+`weekenduoFilter`/`weekenduoTimeout` hoisted to module scope with a `weekenduoCleanup()` helper,
+called in three places: on success, on the 5 s timeout, and before starting a new attempt.
+Previously `unsubscribe()` ran only inside the success callback, so any launch that never
+produced a matching window leaked an AXObserver on Firefox for the rest of the session.
+
+---
+
+### P8 — floating windows kept out of the tiled stack (`tags.lua`)
+
+`moveWindowToTag` now guards its `state.stacks` / `state.tagCreationOrder` inserts with
+`not core.isFloating(win)`, mirroring `registerWindow`. Removal from the *old* tag stays
+unconditional.
+
+**Correction to the severity claimed in P8 above.** The original write-up said `Alt+Shift+J/L`
+would visibly do nothing. That is wrong: re-reading `core.getTiledWindows`, a *visible*
+floating window is dropped from `cleanStack` rather than preserved, so the current tag
+self-heals within one tile cycle. The real impact is narrower — phantoms persist only on tags
+that aren't currently being tiled, and get written to the save file.
+
+Confirmed empirically before the fix: exactly **one** phantom existed —
+`ORGINDEX-WORK` (Alacritty, floating) in `stacks["special"]`, which survived precisely because
+`getTiledWindows("special")` only runs while the special tag is active. Post-deploy census:
+**0 phantoms**.
+
+That same census quantified **M1**: **84 dead window ids** still sitting in `state.stacks`
+against 8 genuinely tiled entries, and 799 entries in `state.tags` for 10 live windows. M1 is
+the natural next item.
+
+---
+
+### P9 — prune sweep rewritten (`state.lua`)
+
+**Before:** one `hs.window(id)` AX probe per entry in `state.tags` (~37 ms each for a dead id),
+with nothing ever removed from the table. 800 entries -> ~29 s of main-thread blocking hourly.
+
+**After:**
+- Live id set built from `watchers.getManagedWindows()` (free — iterates `_trackedWins`) plus
+  **one** `hs.window.allWindows()` enumeration. Measured **41 ms**, replacing 799 individual
+  lookups: a ~700x reduction.
+- The global enumeration is deliberately kept on top of `_trackedWins`: the dry run found **1
+  live window present only in `allWindows()`**, so pruning off `_trackedWins` alone would have
+  deleted a real window's tag. `_resync` drops minimized windows (M3), which is the likely
+  route for that.
+- **Two-strike rule** (`PRUNE_STRIKES = 2`): an id must be absent on two consecutive sweeps
+  before its state is deleted. Tags are user-meaningful, so a transient AX hiccup must not
+  destroy real assignments. Costs up to 2 h before reclamation, versus never before.
+- Now actually prunes: `tags`, `sticky`, `floatingOverrides`, `windowState`, `windowWidths`,
+  the three string-keyed caches, plus dangling ids in `stacks`, `tagCreationOrder`,
+  `tagLastFocused` and `freeTagPositions`.
+- Bails if AX returns an empty window list, rather than interpreting it as "everything died".
+- Guarded by `watchers.axBlocked()` — the sweep can wait an hour.
+- Logs how many ids were dropped.
+
+**Dry-run verified before shipping** (mutates nothing), since this deletes persisted state:
+
+```
+state.tags: 799 total | KEEP 11 | strike-for-removal 788
+kept: Firefox x7, Slack, Alacritty x3   -- all real, all correctly retained
+```
+
+Left alone deliberately: the `appTagMemory` destructive wipe at >1000 entries is in the same
+callback but is a separate concern — still M2, still open, now flagged with a NOTE in the code.
+
+---
+
+### The `hs.ipc` warning flood — diagnosis
+
+The reported burst was:
+
+```
+hs.ipc: Instance of [9F776289-...] already recursing, refusing request.   (xN)
+ERROR: LuaSkin: hs.ipc:callback - .../hs/ipc.lua:422: attempt to index a nil value (field '?')
+```
+
+**Not a nanowm defect, and not the AX freeze.** Reading the Hammerspoon source:
+
+- `ipc.lua:71` is the guard emitting the warning: it fires when a message arrives for a CLI
+  instance that is already mid-request. The repeated *single* UUID means one instance
+  re-entering, not many clients competing.
+- `ipc.lua:422` is `module.__registeredCLIInstances[msg]._cli.remote:delete()` in the
+  `UNREGISTER` branch. Indexing nil means an UNREGISTER arrived for an instance not in the
+  table — the downstream consequence of a refused registration. That missing nil-check is a
+  Hammerspoon bug, not a config one.
+
+**CONFIRMED cause: this session's own diagnostics.** A later recurrence produced a stack trace
+naming the culprit outright:
+
+```
+[C]: in function 'hs.osascript._osascript'
+...hs/osascript.lua:61: in function 'hs.applescript.applescript'
+...scratchpad/leak_test.lua:11: in main chunk
+```
+
+That is a diagnostic probe calling `hs.osascript.applescript(...)` to create a throwaway Finder
+window. The call is synchronous on the main thread and had to load the `osascript` extension
+first, then round-trip AppleScript to Finder — blocking Hammerspoon long enough for queued IPC
+requests to pile up behind it. The earlier 20:07 burst has the identical signature (same
+warning, same `ipc.lua:422`), so both were self-inflicted.
+
+**Neither flood was a nanowm defect.** Contributing factors on the probe side: `hs -c` calls
+killed mid-request by a `perl alarm` timeout, and scripts that `print()` many lines (each
+`print` is a separate IPC message back to a reader that may already be gone,
+`ipc.lua:405-412`).
+
+Rules adopted after this: no blocking calls (`hs.osascript`, AppleScript, login shells) from
+probes, no killing `hs -c` mid-request, and keep probe output to one or two lines.
+
+Secondary contributor worth knowing about: `nixos/home-manager/common/tmux.nix:47` and `:87`
+spawn a backgrounded `hs -c` on **every** agent state change. With Claude Code sessions running
+those fire frequently, and nothing serialises them.
+
+**Was it actually a freeze?** Probably not a Lua stall: no `*** FREEZE ***` was logged (the
+heartbeat was live and does catch >2 s gaps), and the surrounding log is ordinary —
+`wf:windowFocused` at 45.5 ms and 103.6 ms, plus VimMode toggling its `⌥E` hotkey. The 44 s log
+gap at 20:07:01-20:07:45 is consistent with an idle machine, since the profiler only records
+events over 30 ms. More likely Hammerspoon was briefly unresponsive to IPC and hotkeys while
+the refusal flood was processed.
+
+*Lesson for further diagnostics: keep probe output to a couple of lines or write results to a
+file, and avoid killing `hs -c` mid-request.*
+
+---
+
+### P9 follow-ups — leak sources closed at the root (`state.lua`, `watchers.lua`)
+
+P9 stopped the *freeze*, but the pruner was still cleaning up after an ongoing leak. Traced the
+leak to its sources: only two places ever remove a tag — the `windowDestroyed` handler and the
+pruner — and the normal close path was verified working (`tags 11 -> 12 -> 11`, tag correctly
+removed). So the 799 entries came entirely from exceptional paths:
+
+1. **Destroy events dropped during suppression.** `windowDestroyed` opens with
+   `if _axBlocked() then return end`, so any window closed during post-wake (300 s) or
+   post-freeze (90 s) suppression leaked its tag permanently. Measured from the log:
+   `8 wake x 300 s + 25 post-freeze x 90 s = 4,650 s (~1.3 h)` of dropped destroy events.
+2. **A trapdoor in the deferred cleanup** — see below.
+3. **The hourly freeze itself**, plus crashes / force-quits (no destroy event at all), plus the
+   save file persisting across reboots where every prior-boot id is dead by definition.
+
+**Fix 1 — trapdoor removed (`watchers.lua`).** The 0.5 s deferred cleanup probed
+`hs.window(id)` and, on a non-nil result, printed "reappeared" and abandoned cleanup
+permanently with no retry. Two problems: that lookup costs ~37 ms for an id that no longer
+exists (so it was paid on essentially every window close), and a false positive leaked the id
+forever. Replaced with a check of `_trackedWins[id]`, which is **free and strictly more
+accurate**: the handler nils that entry on entry, so it is non-nil at cleanup time only if a
+`windowCreated`/`windowFocused` event genuinely re-registered the window. Self-healing if it
+ever errs — the next focus event or the 60 s resync re-registers via `core.registerWindow()`.
+
+**Fix 2 — prune interval 3600 s -> 900 s (`state.lua`).** The hour was only defensible while
+the sweep cost ~29 s. At ~50 ms there's no reason to wait; with `PRUNE_STRIKES = 2` this bounds
+reclamation of a leaked id at ~30 min instead of ~2 h, for ~200 ms of work per hour.
+
+Residual leak paths (1 and 3) are inherent — dropping destroy events while AX is unsafe is the
+correct trade — but they are now reclaimed rather than permanent, so `state.tags` should stay
+in the low tens rather than growing without bound.

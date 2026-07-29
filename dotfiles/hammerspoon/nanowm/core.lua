@@ -82,15 +82,25 @@ function M.isFloating(win)
         return false
     end
 
+    local appName = app:name()
     local result
-    if config.floatingApps[app:name()] then
+    if config.floatingApps[appName] then
         result = true
     else
-        -- Check title-based floating
+        -- Check title-based floating. Entries are either a bare string (any app) or
+        -- { app = ..., title = ... }; the scoped form exists because a bare substring match
+        -- floats anything whose title merely contains the word. See config.floatingTitles.
         local title = (win:title() or ""):lower()
         result = false
-        for _, str in ipairs(config.floatingTitles) do
-            if string.find(title, str:lower(), 1, true) then
+        for _, entry in ipairs(config.floatingTitles) do
+            local pattern, scope
+            if type(entry) == "table" then
+                pattern, scope = entry.title, entry.app
+            else
+                pattern = entry
+            end
+            if pattern and (not scope or scope == appName)
+                and string.find(title, pattern:lower(), 1, true) then
                 result = true
                 break
             end

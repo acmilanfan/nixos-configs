@@ -16,6 +16,25 @@ local pass   = require("nanowm.pass")
 
 local M = {}
 
+-- Weekenduo launch watcher, held at module level so a failed launch can't leak it.
+-- The filter carries an AXObserver on Firefox; previously it was created per attempt and
+-- only unsubscribed inside the success callback, so every launch that never produced a
+-- matching window (failed launch, slow Firefox, title mismatch) leaked one observer for
+-- the life of the session. The whole AX design here exists to keep observer count minimal.
+local weekenduoFilter = nil
+local weekenduoTimeout = nil
+
+local function weekenduoCleanup()
+    if weekenduoFilter then
+        weekenduoFilter:unsubscribe()
+        weekenduoFilter = nil
+    end
+    if weekenduoTimeout then
+        weekenduoTimeout:stop()
+        weekenduoTimeout = nil
+    end
+end
+
 -- Modifier shortcuts
 local alt = config.modifiers.alt
 local altShift = config.modifiers.altShift
@@ -349,10 +368,12 @@ function M.setup()
         local titlePattern = "weekenduo"
         local launchCmd = '/Applications/Firefox.app/Contents/MacOS/firefox --new-window "https://weekenduo.app"'
 
-        local filter = hs.window.filter.new(false):setAppFilter(appName, {allowTitles = titlePattern})
+        -- Drop any watcher left over from a previous attempt before creating a new one.
+        weekenduoCleanup()
+        weekenduoFilter = hs.window.filter.new(false):setAppFilter(appName, {allowTitles = titlePattern})
         -- Use windowAllowed instead of windowCreated to catch when title changes during load
-        filter:subscribe(hs.window.filter.windowAllowed, function(newWin)
-            filter:unsubscribe()
+        weekenduoFilter:subscribe(hs.window.filter.windowAllowed, function(newWin)
+            weekenduoCleanup()
             state.weekenduoLaunching = false -- Reset launching flag
             hs.timer.doAfter(1.0, function()
                 if newWin:isValid() and newWin:application() then
@@ -369,8 +390,11 @@ function M.setup()
             end)
         end)
 
-        -- Safety timer: reset launching flag if window doesn't appear after 5s
-        hs.timer.doAfter(5, function()
+        -- Safety timer: on timeout, tear the watcher down as well as resetting the flag.
+        -- Resetting the flag alone was what leaked the filter.
+        weekenduoTimeout = hs.timer.doAfter(5, function()
+            weekenduoTimeout = nil
+            weekenduoCleanup()
             if state.weekenduoLaunching then
                 state.weekenduoLaunching = false
                 print("[NanoWM] Weekenduo launch timed out")

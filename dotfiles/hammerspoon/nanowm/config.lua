@@ -68,20 +68,34 @@ M.floatingApps = {
     ["Force Quit Applications"] = true,
 }
 
--- Window titles that should float
+-- Window titles that should float.
+--
+-- Entries are either a bare string (matches any app — use only for titles specific enough
+-- that no other window could contain them) or { app = "...", title = "..." } to require a
+-- matching application name.
+--
+-- Prefer the scoped form: matching is a case-insensitive substring test, so a bare "Copy"
+-- floated any window whose title merely contained the word — e.g. a Firefox tab named
+-- "How to Copy Files". The result is cached per window id, so a false positive sticks
+-- until the title changes.
 M.floatingTitles = {
-    "ORGINDEX",
-    "YAZI",
-    "wifitui",
-    "btui",
-    "FineTune",
+    -- Terminal scratchpads / TUIs, all launched into Alacritty
+    { app = "Alacritty", title = "ORGINDEX" },
+    { app = "Alacritty", title = "SCRATCHPAD" },
+    { app = "Alacritty", title = "YAZI" },
+    { app = "Alacritty", title = "wifitui" },
+    { app = "Alacritty", title = "btui" },
+    { app = "Alacritty", title = "SyncMon Dashboard" },
+    -- App-specific windows
+    { app = "FineTune", title = "FineTune" },
+    { app = "Firefox",  title = "weekenduo" },
+    -- Specific enough to leave unscoped (PiP can come from any browser)
     "Picture-in-Picture",
-    "weekenduo",
-    "SyncMon Dashboard",
-    "Copy",
-    "Move",
-    "Info",
     "Task Switcher",
+    -- NOTE: bare "Copy", "Move" and "Info" were removed here. They were redundant — Finder
+    -- and Marta already float wholesale via M.floatingApps — while matching any window whose
+    -- title contained those words. If a dialog stops floating, re-add it scoped to its app,
+    -- e.g. { app = "Nextcloud", title = "Copy" }.
 }
 
 -- Apps that can trigger urgent notifications

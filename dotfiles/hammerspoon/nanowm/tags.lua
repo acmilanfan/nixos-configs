@@ -390,13 +390,7 @@ function M.moveWindowToTag(destTag, win)
 
     state.tags[id] = destTag
 
-    -- Update stacks
-    if not state.stacks[destTag] then
-        state.stacks[destTag] = {}
-    end
-    table.insert(state.stacks[destTag], 1, id)
-
-    -- Update creation order
+    -- Always remove from the old tag's creation order, floating or not.
     if currentTag and state.tagCreationOrder[currentTag] then
         for i, vid in ipairs(state.tagCreationOrder[currentTag]) do
             if vid == id then
@@ -405,10 +399,24 @@ function M.moveWindowToTag(destTag, win)
             end
         end
     end
-    if not state.tagCreationOrder[destTag] then
-        state.tagCreationOrder[destTag] = {}
+
+    -- Only tiled windows belong in the stack and creation order. registerWindow() already
+    -- skips both for floating windows; this path did not, so every floating window moved
+    -- here left an id behind that never tiles. bringWindowToCurrentContext() sets
+    -- floatingOverrides[id] before calling us, so Alt+Y / ORGINDEX / weekenduo all hit this.
+    -- getTiledWindows() prunes such ids only for tags it actually tiles, so phantoms
+    -- persisted on non-active tags and were saved to disk with the rest of the state.
+    if not core.isFloating(win) then
+        if not state.stacks[destTag] then
+            state.stacks[destTag] = {}
+        end
+        table.insert(state.stacks[destTag], 1, id)
+
+        if not state.tagCreationOrder[destTag] then
+            state.tagCreationOrder[destTag] = {}
+        end
+        table.insert(state.tagCreationOrder[destTag], id)
     end
-    table.insert(state.tagCreationOrder[destTag], id)
 
     if currentTag then
         core.resetMasterWidthIfNeeded(currentTag)

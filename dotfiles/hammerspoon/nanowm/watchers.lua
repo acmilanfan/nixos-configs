@@ -130,6 +130,16 @@ end
 
 M.axBlocked = _axBlocked
 
+-- Cached Firefox handle for the 1s scanner below.
+-- hs.application.get(name) costs ~2 ms when the app is running but ~50 ms when it is NOT
+-- (measured: it falls back to a bundle-ID / Launch Services lookup). The scanner fires every
+-- second, so an unguarded lookup burned ~50 ms/s of main-thread time the whole time Firefox
+-- was closed. Cache the handle, and back off the lookup on a miss.
+-- isRunning() returns false for a relaunched instance too, so a stale handle self-invalidates.
+local _ffApp = nil
+local _ffLookupAt = 0
+local FF_LOOKUP_BACKOFF = 10  -- seconds between lookups while Firefox is absent
+
 local function _resync()
     if _axBlocked() then return end
     local fresh = {}
@@ -388,8 +398,17 @@ function M.setup()
 
         -- Delay the actual cleanup
         state.pendingDestruction[id].timer = hs.timer.doAfter(config.destructionDelay, function()
-            local stillExists = hs.window(id)
-            if stillExists then
+            -- Liveness is checked against the event-driven set, not by probing AX.
+            -- This used to call hs.window(id), which costs ~37 ms for an id that no longer
+            -- exists — i.e. on virtually every window close — and, far worse, a false
+            -- "still exists" abandoned the cleanup permanently with no retry. That was a
+            -- primary source of the hundreds of dead ids that accumulated in state.tags.
+            -- _trackedWins[id] was set to nil at the top of this handler, so it is non-nil
+            -- here only if a windowCreated/windowFocused event genuinely re-registered the
+            -- window in the meantime — a stronger signal, for zero cost.
+            -- If a live window is ever cleaned up in error it is self-healing: the next focus
+            -- event or the 60s resync re-registers it via core.registerWindow().
+            if _trackedWins[id] then
                 print("[NanoWM] Window " .. tostring(id) .. " reappeared, not cleaning up")
                 state.pendingDestruction[id] = nil
                 return
@@ -574,6 +593,12 @@ function M.setup()
     -- held the AX lock. The 60s _resync() timer covers those windows without blocking.
     _appWatcher = hs.application.watcher.new(function(appName, event, app)
         if event == hs.application.watcher.launched then
+            -- Adopt the handle directly so the 1s scanner doesn't wait out FF_LOOKUP_BACKOFF
+            -- (and doesn't pay for a lookup it can get for free here).
+            if appName == "Firefox" then
+                _ffApp = app
+                _ffLookupAt = 0
+            end
             if _shouldAllow(app) then filter:allowApp(appName) end
             if managedAllowed[appName] and not managedExcluded[appName] then
                 hs.timer.doAfter(1.5, _resync)
@@ -643,8 +668,17 @@ function M.setup()
     -- dedicated scan bridges the gap. One allWindows() call per second.
     M._ffScanTimer = hs.timer.new(1.0, function()
         if _axBlocked() then return end
-        local ff = hs.application.get("Firefox")
-        if not ff then return end
+
+        -- Resolve Firefox via the cache; see FF_LOOKUP_BACKOFF above for why.
+        if _ffApp and not _ffApp:isRunning() then _ffApp = nil end
+        if not _ffApp then
+            local lookupNow = hs.timer.secondsSinceEpoch()
+            if lookupNow - _ffLookupAt < FF_LOOKUP_BACKOFF then return end
+            _ffLookupAt = lookupNow
+            _ffApp = hs.application.get("Firefox")
+            if not _ffApp then return end
+        end
+        local ff = _ffApp
 
         local _t0 = hs.timer.secondsSinceEpoch()
         local appWins = ff:allWindows()

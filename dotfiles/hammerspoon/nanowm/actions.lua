@@ -241,17 +241,57 @@ end
 -- Picture-in-Picture Focus
 -- =============================================================================
 
+-- Browsers that can host a PiP window, for the scoped fallback below.
+local PIP_HOSTS = { "Firefox", "Google Chrome", "Safari", "Brave", "Arc" }
+
+local function isPipTitle(title)
+    return title == "Picture-in-Picture" or title == "Picture in Picture"
+end
+
 function M.focusPip()
-    local wins = hs.window.allWindows()
-    for _, win in ipairs(wins) do
-        local title = win:title()
-        if title == "Picture-in-Picture" or title == "Picture in Picture" then
-            win:focus()
-            win:raise()
-            hs.alert.show("Focused PiP", 0.5)
+    local watchers = require("nanowm.watchers")
+
+    local function grab(win)
+        win:focus()
+        win:raise()
+        hs.alert.show("Focused PiP", 0.5)
+    end
+
+    -- 1. Tracked windows first: getManagedWindows() iterates _trackedWins and performs no
+    -- AX enumeration. PiP windows reach _trackedWins via the windowCreated/windowFocused
+    -- handlers, which (unlike the resync paths) don't require isStandard().
+    for _, win in ipairs(watchers.getManagedWindows()) do
+        if isPipTitle(win:title()) then
+            grab(win)
             return
         end
     end
+
+    -- 2. Fallback: one runningApplications() pass filtered to the PiP hosts. Never
+    -- hs.window.allWindows() — the old global enumeration cost 44-66 ms and ran straight off
+    -- a hotkey with no guard, so it could freeze the event loop on keypress under an AX lock.
+    --
+    -- Deliberately NOT hs.application.get(name) per browser: for an app that is not running
+    -- that call costs ~50 ms (measured), because it falls back to a bundle-ID/Launch Services
+    -- lookup. A five-name loop with four absent browsers measured 211 ms — slower than the
+    -- global call it was meant to replace. One runningApplications() pass is ~11 ms.
+    if watchers.axBlocked() then
+        hs.alert.show("PiP: AX busy, try again", 1)
+        return
+    end
+    local hosts = {}
+    for _, n in ipairs(PIP_HOSTS) do hosts[n] = true end
+    for _, app in ipairs(hs.application.runningApplications()) do
+        if hosts[app:name() or ""] then
+            for _, win in ipairs(app:allWindows()) do
+                if isPipTitle(win:title()) then
+                    grab(win)
+                    return
+                end
+            end
+        end
+    end
+
     hs.alert.show("No PiP window found", 0.5)
 end
 

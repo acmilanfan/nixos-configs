@@ -51,36 +51,114 @@ M.weekenduoLaunching = false
 M.markNextWeekenduo = false
 M.lastIntendedFocusId = nil
 
--- Pruning function to prevent memory leaks
-M.pruneTimer = hs.timer.new(3600, function()
-    -- Only prune if we have managed windows tracked, otherwise it might be a weird state
-    local managed = require("nanowm.watchers").getManagedWindows()
-    if #managed == 0 then return end
+-- Reconcile persisted per-window state against reality.
+--
+-- This used to probe hs.window(id) for every entry in M.tags "to be extra safe", and never
+-- actually removed anything from M.tags. Both halves of that were bad: a hs.window(id) lookup
+-- for an id that no longer exists costs ~37 ms (measured), and since dead ids were never
+-- dropped the table only grew — 800 entries, i.e. ~29 s of solid main-thread blocking, once
+-- an hour. That matched the observed hourly freezes (24.1 s / 28.1 s / 29.0 s) almost exactly,
+-- and it got worse the longer the config ran.
+--
+-- Now: build the live id set with a bounded number of enumerations, then drop state for ids
+-- absent on two consecutive sweeps. The two-strike rule matters because tags are
+-- user-meaningful — a transient AX hiccup must not destroy real tag assignments.
+-- Interval is 900 s, not the original 3600 s: the hour was only defensible while the sweep
+-- cost ~29 s. At ~50 ms there is no reason to wait, and with PRUNE_STRIKES = 2 this bounds
+-- reclamation of a leaked id at ~30 min instead of ~2 h.
+local _pruneStrikes = {}
+local PRUNE_STRIKES = 2
+local PRUNE_INTERVAL = 900
 
-    local validIds = {}
-    for _, win in ipairs(managed) do
-        validIds[tostring(win:id())] = true
+M.pruneTimer = hs.timer.new(PRUNE_INTERVAL, function()
+    local watchers = require("nanowm.watchers")
+    -- Don't enumerate while AX is known-slow; the sweep can wait an hour.
+    if watchers.axBlocked and watchers.axBlocked() then return end
+
+    local liveIds = {}
+    for _, win in ipairs(watchers.getManagedWindows()) do
+        local id = win:id()
+        if id then liveIds[id] = true end
     end
 
-    -- Also include all windows currently on tags to be extra safe
-    for id, _ in pairs(M.tags) do
-        local w = hs.window(id)
-        if w and w:id() then validIds[tostring(id)] = true end
+    -- One global enumeration (~50 ms, hourly) instead of one lookup per id. Needed on top of
+    -- _trackedWins because that set drops minimized windows, and a minimized window must not
+    -- lose its tag.
+    local t0 = hs.timer.secondsSinceEpoch()
+    local allWins = hs.window.allWindows()
+    local dt = hs.timer.secondsSinceEpoch() - t0
+    if profiler.enabled and dt >= profiler.threshold then
+        profiler.log("prune allWindows()", dt)
+    end
+    for _, win in ipairs(allWins) do
+        local id = win:id()
+        if id then liveIds[id] = true end
     end
 
-    for idStr, _ in pairs(M.floatingCache) do
-        if not validIds[idStr] then M.floatingCache[idStr] = nil end
+    -- If AX returned nothing at all, treat it as unreliable rather than wiping state.
+    if next(liveIds) == nil then return end
+
+    local removed = 0
+    for id in pairs(M.tags) do
+        if liveIds[id] then
+            _pruneStrikes[id] = nil
+        else
+            local strikes = (_pruneStrikes[id] or 0) + 1
+            _pruneStrikes[id] = strikes
+            if strikes >= PRUNE_STRIKES then
+                local idStr = tostring(id)
+                M.tags[id] = nil
+                M.sticky[id] = nil
+                M.floatingOverrides[id] = nil
+                M.windowState[id] = nil
+                M.windowWidths[id] = nil
+                M.floatingCache[idStr] = nil
+                M.sizeCache[idStr] = nil
+                M.fullscreenCache[idStr] = nil
+                _pruneStrikes[id] = nil
+                removed = removed + 1
+            end
+        end
     end
-    for idStr, _ in pairs(M.sizeCache) do
-        if not validIds[idStr] then M.sizeCache[idStr] = nil end
+
+    -- Drop references to ids that no longer have a tag.
+    for _, stack in pairs(M.stacks) do
+        for i = #stack, 1, -1 do
+            if not M.tags[stack[i]] then table.remove(stack, i) end
+        end
+    end
+    for _, order in pairs(M.tagCreationOrder) do
+        for i = #order, 1, -1 do
+            if not M.tags[order[i]] then table.remove(order, i) end
+        end
+    end
+    for tag, id in pairs(M.tagLastFocused) do
+        if not M.tags[id] then M.tagLastFocused[tag] = nil end
+    end
+    for _, positions in pairs(M.freeTagPositions) do
+        for id in pairs(positions) do
+            if not M.tags[id] then positions[id] = nil end
+        end
+    end
+
+    -- Caches are keyed by string id and cheap to rebuild, so no strike protection needed.
+    for idStr in pairs(M.floatingCache) do
+        if not liveIds[tonumber(idStr) or -1] then M.floatingCache[idStr] = nil end
+    end
+    for idStr in pairs(M.sizeCache) do
+        if not liveIds[tonumber(idStr) or -1] then M.sizeCache[idStr] = nil end
     end
 
     -- Caps for tag memory
+    -- NOTE: still a destructive wipe rather than an LRU eviction — see M2 in the review.
     local keys = {}
     for k, _ in pairs(M.appTagMemory) do table.insert(keys, k) end
     if #keys > 1000 then
-        -- Simple clear if too large
         M.appTagMemory = {}
+    end
+
+    if removed > 0 then
+        print(string.format("[NanoWM] prune: dropped state for %d stale window ids", removed))
     end
     M.triggerSave()
 end)
