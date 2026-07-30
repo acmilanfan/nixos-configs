@@ -61,29 +61,31 @@ orgmode.setup(params)
 -- ── Calorie Tracker ──────────────────────────────────────────────
 -- Edit this table to add/remove foods. Values are per 100g.
 local common_foods = {
-  { name = "Milk (whole)",          cal = 64,  pro = 3.5,  carb = 4.7,  fat = 3.5 },
-  { name = "Grain d'or",            cal = 382, pro = 12.3, carb = 74.5, fat = 3.9 },
-  { name = "Boiled eggs (whole)",   cal = 155, pro = 13,   carb = 1,    fat = 11 },
-  { name = "Cane Sugar",            cal = 400, pro = 0,    carb = 100,  fat = 0 },
-  { name = "Butter Irish",          cal = 748, pro = 0.7,  carb = 0.7,  fat = 82.5 },
-  { name = "Collagen powder",       cal = 364, pro = 91,   carb = 0,    fat = 0 },
-  { name = "Bread Korner Balance",  cal = 257, pro = 8.8,  carb = 39,   fat = 6 },
-  { name = "Tilsiter Cheese",       cal = 329, pro = 24.3, carb = 0,    fat = 25.8 },
-  { name = "Banana",                cal = 89,  pro = 1.1,  carb = 23,   fat = 0.3 },
-  { name = "Avocado",               cal = 160, pro = 2,    carb = 9,    fat = 15 },
-  { name = "Milk Chocolate",        cal = 546, pro = 7.5,  carb = 55,   fat = 32.3 },
-  { name = "Sushki",                cal = 412, pro = 10,   carb = 72,   fat = 10 },
-  { name = "Skyr (cherry)",         cal = 81,  pro = 8.9,  carb = 10,   fat = 0.2 },
-  { name = "Skyr natur",            cal = 62,  pro = 10.6, carb = 4,    fat = 0.2 },
-  { name = "Blueberries",           cal = 57,  pro = 0.6,  carb = 14.5, fat = 0.2 },
-  { name = "Chicken salami",        cal = 106, pro = 21.7, carb = 1.5,  fat = 1.5 },
-  { name = "Delicatess mayo",       cal = 742, pro = 1.5,  carb = 2,    fat = 80 },
-  { name = "Potatos (wedges)",      cal = 139, pro = 2.6,  carb = 23.4, fat = 3.4 },
-  { name = "Drink (multivitamins)", cal = 8,   pro = 0,    carb = 0,    fat = 0 },
-  { name = "Edeka Chicken Filet",   cal = 98,  pro = 7.6,  carb = 12.8, fat = 1.5 },
-  { name = "Apple (R. Jonaprince)", cal = 80,  pro = 0.6,  carb = 19,   fat = 0.5 },
-  { name = "Watermelon",            cal = 30,  pro = 0.6,  carb = 7.6,  fat = 0 },
-  { name = "--- Custom Entry ---",  cal = 0,   pro = 0,    carb = 0,    fat = 0,   custom = true },
+  { name = "Milk (whole)",                    cal = 64,  pro = 3.5,  carb = 4.7,  fat = 3.5 },
+  { name = "Grain d'or",                      cal = 382, pro = 12.3, carb = 74.5, fat = 3.9 },
+  { name = "Boiled eggs (whole)",             cal = 155, pro = 13,   carb = 1,    fat = 11 },
+  { name = "Cane Sugar",                      cal = 400, pro = 0,    carb = 100,  fat = 0 },
+  { name = "Butter Irish",                    cal = 748, pro = 0.7,  carb = 0.7,  fat = 82.5 },
+  { name = "Collagen powder",                 cal = 364, pro = 91,   carb = 0,    fat = 0 },
+  { name = "Bread Korner Balance",            cal = 257, pro = 8.8,  carb = 39,   fat = 6 },
+  { name = "Tilsiter Cheese",                 cal = 329, pro = 24.3, carb = 0,    fat = 25.8 },
+  { name = "Banana",                          cal = 89,  pro = 1.1,  carb = 23,   fat = 0.3 },
+  { name = "Avocado",                         cal = 160, pro = 2,    carb = 9,    fat = 15 },
+  { name = "Milk Chocolate",                  cal = 546, pro = 7.5,  carb = 55,   fat = 32.3 },
+  { name = "Sushki",                          cal = 412, pro = 10,   carb = 72,   fat = 10 },
+  { name = "Skyr (cherry)",                   cal = 81,  pro = 8.9,  carb = 10,   fat = 0.2 },
+  { name = "Skyr natur",                      cal = 62,  pro = 10.6, carb = 4,    fat = 0.2 },
+  { name = "Blueberries",                     cal = 57,  pro = 0.6,  carb = 14.5, fat = 0.2 },
+  { name = "Chicken salami",                  cal = 106, pro = 21.7, carb = 1.5,  fat = 1.5 },
+  { name = "Delicatess mayo",                 cal = 742, pro = 1.5,  carb = 2,    fat = 80 },
+  { name = "Potatos (wedges)",                cal = 139, pro = 2.6,  carb = 23.4, fat = 3.4 },
+  { name = "Drink (multivitamins)",           cal = 8,   pro = 0,    carb = 0,    fat = 0 },
+  { name = "Edeka Chicken Filet",             cal = 98,  pro = 7.6,  carb = 12.8, fat = 1.5 },
+  { name = "Apple (R. Jonaprince)",           cal = 80,  pro = 0.6,  carb = 19,   fat = 0.5 },
+  { name = "Watermelon",                      cal = 30,  pro = 0.6,  carb = 7.6,  fat = 0 },
+  { name = "Delikatess Putenbrust (Paprika)", cal = 102, pro = 21.7, carb = 0.7,  fat = 1.4 },
+  { name = "Tomato",                      cal = 18,  pro = 0.6,  carb = 7.6,  fat = 0 },
+  { name = "--- Custom Entry ---",            cal = 0,   pro = 0,    carb = 0,    fat = 0,   custom = true },
 }
 
 local table_header = "| Meal | Food | G | Cal | Pro | Carb | Fat |"
@@ -455,15 +457,20 @@ _G.calc_daily_totals = function()
   local total_row = string.format(
     "| TOTAL     | %-20s |   | %3d | %3d | %4d | %3d |",
     tostring(count) .. " items",
-    sums.cal,
-    sums.pro,
-    sums.carb,
-    sums.fat
+    math.floor(sums.cal + 0.5),
+    math.floor(sums.pro + 0.5),
+    math.floor(sums.carb + 0.5),
+    math.floor(sums.fat + 0.5)
   )
 
   vim.api.nvim_buf_set_lines(bufnr, total_ln - 1, total_ln, false, { total_row })
   vim.notify(
-    string.format("[calories] %d items: %d Cal | P:%dg C:%dg F:%dg", count, sums.cal, sums.pro, sums.carb, sums.fat),
+    string.format("[calories] %d items: %d Cal | P:%dg C:%dg F:%dg",
+      count,
+      math.floor(sums.cal + 0.5),
+      math.floor(sums.pro + 0.5),
+      math.floor(sums.carb + 0.5),
+      math.floor(sums.fat + 0.5)),
     vim.log.levels.INFO
   )
 end
