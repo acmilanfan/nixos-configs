@@ -9,25 +9,29 @@ local state = require("nanowm.state")
 local M = {}
 
 -- =============================================================================
--- Window Map Cache
--- hs.window.allWindows() hits the Accessibility API and is expensive.
--- Cache the result for 100ms so multiple getTiledWindows calls in the same
--- tile cycle (layout + sketchybar update) share one enumeration.
+-- Window Map
+-- id -> window lookup, rebuilt on every call. Measured at 0.05 ms for ~10 windows.
+--
+-- This used to be cached behind a 1-2 s TTL (config.perf.*.winMapTTL), which dated from when
+-- getManagedWindows() still called hs.window.allWindows(). It is now a plain iteration over
+-- the event-driven _trackedWins table and touches AX only for win:id(), so the cache was
+-- saving ~50 microseconds while introducing up to 2 s of staleness.
+--
+-- That staleness was a real, user-visible bug: any tile running inside the TTL built its
+-- layout from a map that predated a newly created window. getTiledWindows() then took the
+-- `elseif state.tags[id] == tag` branch, which marks the id `seen` without adding it to the
+-- layout, so the allWins fallback skipped it too and applyLayout() saw count == 0 and
+-- returned. Net effect: the first window opened after a tag switch or wake kept its natural
+-- size until the TTL happened to expire and something triggered another tile — matching the
+-- reported "not tiled until I open another window or float/unfloat it".
 -- =============================================================================
 
-local winMapCache = nil
-local winMapCacheTime = 0
-
 local function getWinMap()
-    local now = hs.timer.secondsSinceEpoch()
-    if not winMapCache or (now - winMapCacheTime) > state.perfProfile().winMapTTL then
-        winMapCache = {}
-        winMapCacheTime = now
-        for _, win in ipairs(require("nanowm.watchers").getManagedWindows()) do
-            winMapCache[win:id()] = win
-        end
+    local map = {}
+    for _, win in ipairs(require("nanowm.watchers").getManagedWindows()) do
+        map[win:id()] = win
     end
-    return winMapCache
+    return map
 end
 
 -- =============================================================================

@@ -49,12 +49,7 @@ local cmdAltShiftCtrl = config.modifiers.cmdAltShiftCtrl
 -- =============================================================================
 
 function M.setup()
-    local function _home()
-        local h = os.getenv("HOME") or ""
-        if h:match("^/Users/") then return h end
-        return "/Users/" .. (os.getenv("USER") or "gentooway")
-    end
-    local home = _home()
+    local home = config.home()
 
     -- =========================================================================
     -- MENUS
@@ -349,7 +344,6 @@ function M.setup()
                     existingWin = win
                     state.weekenduoWinId = win:id()
                     state.weekenduoLaunching = false
-                    state.markNextWeekenduo = false
                     state.triggerSave()
                     print("[NanoWM] Found weekenduo window among existing windows")
                     break
@@ -371,7 +365,6 @@ function M.setup()
         end
 
         state.weekenduoLaunching = true
-        state.markNextWeekenduo = true
         local sizeFactor = 0.8
         local appName = "Firefox"
         local titlePattern = "weekenduo"

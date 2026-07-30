@@ -13,6 +13,8 @@
 -- rare events such as "AX circuit open" always reach the HS console).
 -- =============================================================================
 
+local config = require("nanowm.config")
+
 local M = {}
 
 M.enabled = hs.settings.get("nanowm_profiler") == true
@@ -20,12 +22,7 @@ M.enabled = hs.settings.get("nanowm_profiler") == true
 -- Log ops slower than this (seconds). os.execute/hs.execute are logged always.
 M.threshold = 0.030
 
-local function _home()
-    local h = os.getenv("HOME") or ""
-    if h:match("^/Users/") then return h end
-    return "/Users/" .. (os.getenv("USER") or "gentooway")
-end
-local LOG = _home() .. "/.hammerspoon/nanowm_slow.log"
+local LOG = config.home() .. "/.hammerspoon/nanowm_slow.log"
 local _fh = nil
 local _lineCount = 0
 local MAX_LINES = 8000
@@ -190,11 +187,29 @@ end
 function M.startHeartbeat()
     if not M.enabled then return end
 
+    -- Two clocks, because duration alone cannot tell a stall from a sleep:
+    --   secondsSinceEpoch() is wall-clock and advances while the machine sleeps;
+    --   absoluteTime() is monotonic since boot and, per the Hammerspoon docs, "does not
+    --   include time that the system has spent asleep".
+    -- So a genuine stall advances both equally (CPU awake, Lua blocked), while sleep advances
+    -- only the wall clock. Reporting on the monotonic gap makes the freeze log trustworthy and
+    -- stops sleep from triggering onFreeze — a 22 s lock/unlock was previously logged as a
+    -- freeze and armed a 90 s AX suppression, costing ~90 s of window management for nothing.
     local _lastBeat = hs.timer.secondsSinceEpoch()
-    _resetHeartbeat = function() _lastBeat = hs.timer.secondsSinceEpoch() end
+    local _lastMono = hs.timer.absoluteTime() / 1e9
+    _resetHeartbeat = function()
+        _lastBeat = hs.timer.secondsSinceEpoch()
+        _lastMono = hs.timer.absoluteTime() / 1e9
+    end
     _heartbeatTimer = hs.timer.new(1.0, function()
         local now = hs.timer.secondsSinceEpoch()
-        local gap = now - _lastBeat
+        local mono = hs.timer.absoluteTime() / 1e9
+        local wallGap = now - _lastBeat
+        local gap = mono - _lastMono          -- monotonic: excludes sleep
+        local slept = wallGap - gap
+        if gap < 2.0 and slept >= 2.0 then
+            M.log("slept", slept, string.format("%.0fs asleep — not a freeze", slept))
+        end
         if gap >= 2.0 then
             -- Collect running UI apps (kind != -1) to help identify the AX culprit
             local apps = {}
@@ -207,13 +222,14 @@ function M.startHeartbeat()
             table.sort(apps)
             local appList = table.concat(apps, ", ")
             M.log("*** FREEZE ***", gap,
-                string.format("%.1fs | lastCallback: %s | lastEvent: %s | running: %s",
-                    gap, M.lastCallback, M.lastEvent, appList))
+                string.format("%.1fs blocked (+%.0fs asleep) | lastCallback: %s | lastEvent: %s | running: %s",
+                    gap, slept, M.lastCallback, M.lastEvent, appList))
             if gap >= 5.0 and M.onFreeze then
                 M.onFreeze(gap)
             end
         end
         _lastBeat = now
+        _lastMono = mono
     end)
     _heartbeatTimer:start()
 end

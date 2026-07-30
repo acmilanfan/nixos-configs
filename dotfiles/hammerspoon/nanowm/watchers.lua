@@ -17,42 +17,27 @@ local M = {}
 -- Window Filter Setup
 -- =============================================================================
 
--- Apps never tracked via AXObserver or window enumeration.
--- rejectApp() only drops Lua callbacks — the C++ AXObserver remains registered
--- and can still freeze the main thread. The fix is filter.new(false) so that
--- these apps never get an AXObserver at all.
-local managedExcluded = {
-    Hammerspoon = true, Sketchybar = true,
-    -- Corporate security / VPN / MDM agents (hourly keepalives hang AX)
-    GlobalProtect = true, ["Falcon Notifications"] = true,
-    ["Splashtop Streamer"] = true, jamfRemoteAssistConnectorUI = true,
-    nbagent = true,
-    -- System auth / security daemons
-    ["Single Sign-On"] = true, ["Keychain Circle Notification"] = true,
-    universalAccessAuthWarn = true, coreautha = true,
-    -- Electron / WKWebView renderer subprocesses
-    ["Slack Helper"] = true,
-    ["Raycast Graphics and Media"] = true, ["Raycast Networking"] = true,
-    ["Raycast Web Content"] = true,
-    ["nsattributedstringagent Graphics and Media"] = true,
-    -- macOS system UI daemons
-    Accessibility = true, ["Accessibility Services"] = true,
-    ["AirPlay Screen Mirroring"] = true, BackgroundTaskManagementAgent = true,
-    ["Control Center"] = true, CoreLocationAgent = true, CoreServicesUIAgent = true,
-    Dock = true, ["Notification Center"] = true, PowerChime = true,
-    ["Scroll Reverser"] = true, Shortcuts = true,
-    SoftwareUpdateNotificationManager = true, Spotlight = true,
-    SystemUIServer = true, TextInputMenuAgent = true, TextInputSwitcher = true,
-    ["Universal Control"] = true, UserNotificationCenter = true,
-    Wallpaper = true, ["Wi-Fi"] = true, WindowManager = true,
-    loginwindow = true, talagentd = true,
-    -- Accessibility / input utilities (no manageable windows)
-    AutoRaise = true, Cursorcerer = true, MiddleClick = true, Warpd = true,
-}
-
 -- Only allow AX observers for apps we actually need to manage.
--- Every allowed app gets an AXObserver that can freeze the event loop, so
--- we whitelist rather than blacklist. Add any app whose windows you want to tile.
+-- Every allowed app gets an AXObserver that can freeze the event loop, so this is an
+-- allowlist, not a denylist. Add any app whose windows you want tiled.
+--
+-- A 44-entry `managedExcluded` denylist used to sit here, tested at five call sites. The
+-- filter is built with hs.window.filter.new(false), so nothing is observed unless it appears
+-- below -- and the two lists were entirely disjoint, making every `not managedExcluded[...]`
+-- test a constant true. Removed as dead code, but the knowledge is worth keeping, because it
+-- is the reason this is an allowlist in the first place:
+--
+--   NEVER add these -- they hang the AX layer, or have no manageable windows:
+--     corporate security / VPN / MDM . GlobalProtect, Falcon Notifications,
+--         Splashtop Streamer, jamfRemoteAssistConnectorUI, nbagent
+--     auth / security daemons ........ Single Sign-On, Keychain Circle Notification,
+--         universalAccessAuthWarn, coreautha
+--     Electron / WKWebView renderers . Slack Helper, Raycast {Graphics and Media,
+--         Networking, Web Content}, nsattributedstringagent Graphics and Media
+--     macOS UI daemons ............... Dock, Control Center, Notification Center, Spotlight,
+--         SystemUIServer, WindowManager, Wallpaper, loginwindow, talagentd, Accessibility,
+--         AirPlay Screen Mirroring, CoreLocationAgent, PowerChime, Shortcuts, Wi-Fi, ...
+--     input utilities ................ AutoRaise, Cursorcerer, MiddleClick, Warpd
 local managedAllowed = {
     ["Activity Monitor"] = true, Alacritty = true, Arc = true,
     ["App Store"] = true, ["Archive Utility"] = true, Brave = true,
@@ -66,19 +51,13 @@ local managedAllowed = {
     Zed = true, ["Force Quit Applications"] = true,
 }
 
--- Apps managed by nanowm but excluded from the AXObserver filter.
--- Their windows are picked up by the 60s resync and by an NSWorkspace activation watcher,
--- not via AXObserver, to avoid their Electron background tasks blocking the AX layer.
-local _filterExcluded = {}
-
--- Allowlist mode: AXObservers are set up ONLY for apps we explicitly allow.
--- Excluded apps (corporate agents, system daemons) can never block the AX layer.
+-- Allowlist mode: AXObservers are set up ONLY for apps we explicitly allow, so the
+-- daemons and corporate agents listed above can never block the AX layer.
 local filter = hs.window.filter.new(false)
 
 local function _shouldAllow(app)
     if not app then return false end
-    local name = app:name() or ""
-    return managedAllowed[name] == true and not managedExcluded[name] and not _filterExcluded[name]
+    return managedAllowed[app:name() or ""] == true
 end
 
 for _, app in ipairs(hs.application.runningApplications()) do
@@ -95,13 +74,29 @@ local _trackedWins = {}
 local _axCircuitOpen = false
 local _axCircuitUntil = 0
 
--- Post-wake AX suppression: corporate agents (GlobalProtect, Falcon) reconnect ~40 s
--- after system wake and hold the global AX lock for ~30 s. win:id() itself calls
--- AXUIElementGetWindowID and blocks under that lock, so the guard must fire before
--- any AX call in every callback. Strategy: retile at +2 s (before agents start),
--- suppress for 90 s, then resync+retile when the freeze window has passed.
+-- Post-wake AX suppression. win:id() calls AXUIElementGetWindowID and blocks under a held
+-- AX lock, so the guard has to fire before any AX call in every callback.
+--
+-- This window was 300 s, sized against "corporate agents reconnect 40-207 s post-wake and
+-- hold the lock ~30 s". Reduced to 45 s for two reasons:
+--   1. Reclassifying the freeze log found no event matching that ~30 s lock signature. The
+--      24-29 s freezes that looked like it were all hourly-aligned -- they were the prune
+--      sweep (see state.lua), which has since been fixed.
+--   2. Suppression no longer has to be the only defence. Every AX enumeration now trips the
+--      circuit breaker below, so a lock that appears at, say, +150 s is caught reactively
+--      instead of needing a blanket 5-minute window guessed in advance.
+-- Cost of being wrong is bounded: the first slow enumeration after the window trips the
+-- breaker and backs everything off for AX_BACKOFF anyway.
+-- Wake suppression is evidence-driven, not a fixed guess. On wake, AX is probed immediately:
+-- if it answers (normal case) nothing is suppressed at all. Only a probe that fails engages
+-- suppression, which then lifts as soon as a later probe succeeds. WAKE_SUPPRESS_MAX is a
+-- ceiling for the case where the probe never recovers.
+local WAKE_SUPPRESS_MAX   = 45    -- hard ceiling, lift regardless
+local WAKE_PROBE_INTERVAL = 2     -- how often to test whether AX is answering again
+local AX_PROBE_OK         = 0.25  -- a healthy system-wide attribute read is sub-millisecond
 local _wakeSuppress = false
 local _wakeSuppressTimer = nil
+local _wakeProbeTimer = nil
 local _wakeSuppressUntil = 0  -- absolute epoch time when current suppression expires
 
 -- Slow-AX detection, shared by every path that enumerates windows.
@@ -130,15 +125,34 @@ end
 
 M.axBlocked = _axBlocked
 
--- Cached Firefox handle for the 1s scanner below.
+-- Minimal AX health check: one attribute read on the system-wide element. Orders of magnitude
+-- cheaper than app:allWindows(), but it goes through the same global AX lock, so it blocks
+-- precisely when the lock is held — which is the signal we want. A healthy read is
+-- sub-millisecond; anything at AX_SLOW or beyond trips the breaker so every other path backs
+-- off too.
+local function _axProbeHealthy()
+    local t0 = hs.timer.secondsSinceEpoch()
+    local ok = pcall(function()
+        return hs.axuielement.systemWideElement():attributeValue("AXFocusedApplication")
+    end)
+    local dt = hs.timer.secondsSinceEpoch() - t0
+    if dt >= AX_SLOW then
+        _axTrip(dt, "wake probe")
+        return false
+    end
+    return ok and dt < AX_PROBE_OK
+end
+
+-- Cached Firefox handle for the Firefox scanner below.
 -- hs.application.get(name) costs ~2 ms when the app is running but ~50 ms when it is NOT
 -- (measured: it falls back to a bundle-ID / Launch Services lookup). The scanner fires every
--- second, so an unguarded lookup burned ~50 ms/s of main-thread time the whole time Firefox
+-- tick, so an unguarded lookup burned ~50 ms per tick the whole time Firefox
 -- was closed. Cache the handle, and back off the lookup on a miss.
 -- isRunning() returns false for a relaunched instance too, so a stale handle self-invalidates.
 local _ffApp = nil
 local _ffLookupAt = 0
 local FF_LOOKUP_BACKOFF = 10  -- seconds between lookups while Firefox is absent
+-- (the scanner below runs every 3 s; see M._ffScanTimer)
 
 local function _resync()
     if _axBlocked() then return end
@@ -146,7 +160,7 @@ local function _resync()
     for _, app in ipairs(hs.application.runningApplications()) do
         if app:kind() ~= -1 then
             local appName = app:name() or ""
-            if managedAllowed[appName] and not managedExcluded[appName] then
+            if managedAllowed[appName] then
                 local t0 = hs.timer.secondsSinceEpoch()
                 profiler.lastEvent = "resync:" .. appName
                 local appWins = app:allWindows()
@@ -177,6 +191,39 @@ local function _resync()
     if untaggedFound then
         layout.tile()
     end
+end
+
+-- Lift AX suppression and reconcile. Idempotent; safe from either the probe or the ceiling.
+local function _liftSuppress(reason)
+    if not _wakeSuppress then return end
+    _wakeSuppress = false
+    _wakeSuppressUntil = 0
+    if _wakeSuppressTimer then _wakeSuppressTimer:stop(); _wakeSuppressTimer = nil end
+    if _wakeProbeTimer then _wakeProbeTimer:stop(); _wakeProbeTimer = nil end
+    profiler.log("suppress lifted (" .. reason .. ")", 0)
+    _resync()
+    layout.tile()
+end
+
+-- Suppress AX handling, then probe out of it as soon as AX answers. `ceiling` is only a
+-- backstop for the case where the probe never recovers.
+--
+-- Both entry points (system wake, and a detected freeze) share this, so neither can leave a
+-- fixed-duration stall behind: previously a freeze armed a flat 90 s suppression that even
+-- direct evidence of a healthy AX layer would not clear.
+local function _suppressUntilHealthy(reason, ceiling)
+    ceiling = ceiling or WAKE_SUPPRESS_MAX
+    _wakeSuppress = true
+    _wakeSuppressUntil = hs.timer.secondsSinceEpoch() + ceiling
+    if _wakeSuppressTimer then _wakeSuppressTimer:stop() end
+    if _wakeProbeTimer then _wakeProbeTimer:stop() end
+    profiler.log("suppress start (" .. reason .. ")", 0)
+    _wakeSuppressTimer = hs.timer.doAfter(ceiling, function() _liftSuppress("ceiling") end)
+    _wakeProbeTimer = hs.timer.new(WAKE_PROBE_INTERVAL, function()
+        if not _wakeSuppress then return end
+        if _axProbeHealthy() then _liftSuppress("probe ok") end
+    end)
+    _wakeProbeTimer:start()
 end
 
 -- Screen and geometry watcher
@@ -215,10 +262,6 @@ function M.getManagedWindows()
     return wins
 end
 
-function M.invalidateManagedWinsCache()
-    -- No-op: window list is maintained by AXObserver events, not a TTL cache.
-end
-
 -- Scans allowlisted apps for unmanaged standard windows and adds them to _trackedWins,
 -- catching windows the hs.window.filter AXObserver missed (e.g. a Firefox tab detached
 -- into a new window).
@@ -240,7 +283,7 @@ function M.augmentAllWins(allWins, onlyApp)
     local appsToScan = {}
     if onlyApp then
         local appName = onlyApp:name() or ""
-        if managedAllowed[appName] and not managedExcluded[appName] and onlyApp:kind() ~= -1 then
+        if managedAllowed[appName] and onlyApp:kind() ~= -1 then
             appsToScan[1] = onlyApp
         end
     else
@@ -249,7 +292,7 @@ function M.augmentAllWins(allWins, onlyApp)
         _lastFullAugment = now
         for _, app in ipairs(hs.application.runningApplications()) do
             local appName = app:name() or ""
-            if managedAllowed[appName] and not managedExcluded[appName] and app:kind() ~= -1 then
+            if managedAllowed[appName] and app:kind() ~= -1 then
                 table.insert(appsToScan, app)
             end
         end
@@ -582,15 +625,13 @@ function M.setup()
         end
     end))
 
-    -- Populate _trackedWins at startup, then resync every 60s to catch any drift
-    -- and pick up windows for _filterExcluded apps (Slack, Discord) that have no AXObserver.
+    -- Populate _trackedWins at startup, then resync every 60s to catch any drift.
     _resync()
     hs.timer.new(60, _resync):start()
 
     -- Allow newly launched apps into the filter; trigger a deferred resync for new apps.
-    -- The appActivated path for _filterExcluded apps (Slack, Discord) was removed:
-    -- app:allWindows() on every Slack activation caused 25 s freezes when corporate agents
-    -- held the AX lock. The 60s _resync() timer covers those windows without blocking.
+    -- There is deliberately no appActivated hook: app:allWindows() on every Slack activation
+    -- caused 25 s freezes when the AX lock was held. The 60s _resync() covers those windows.
     _appWatcher = hs.application.watcher.new(function(appName, event, app)
         if event == hs.application.watcher.launched then
             -- Adopt the handle directly so the 1s scanner doesn't wait out FF_LOOKUP_BACKOFF
@@ -600,7 +641,7 @@ function M.setup()
                 _ffLookupAt = 0
             end
             if _shouldAllow(app) then filter:allowApp(appName) end
-            if managedAllowed[appName] and not managedExcluded[appName] then
+            if managedAllowed[appName] then
                 hs.timer.doAfter(1.5, _resync)
             end
         end
@@ -610,63 +651,51 @@ function M.setup()
     -- After any detected freeze >= 5 s, extend the AX suppress guard for 90 s.
     -- Only overrides the current timer when the new deadline would be later, so
     -- the caffeinate watcher's 300 s wake:suppress is never shortened to 90 s.
-    profiler.onFreeze = function(_gap)
-        local now = hs.timer.secondsSinceEpoch()
-        local newUntil = now + 90
-        if newUntil <= _wakeSuppressUntil then
-            -- Current timer expires later — leave it alone, just log
-            profiler.log("post-freeze (suppressed, timer kept)", 0)
-            return
-        end
-        _wakeSuppress = true
-        _wakeSuppressUntil = newUntil
-        if _wakeSuppressTimer then _wakeSuppressTimer:stop() end
-        profiler.log("post-freeze suppress start", 0)
-        _wakeSuppressTimer = hs.timer.doAfter(90, function()
-            _wakeSuppress = false
-            _wakeSuppressUntil = 0
-            _wakeSuppressTimer = nil
-            profiler.log("post-freeze suppress lifted", 0)
-            _resync()
-            layout.tile()
-        end)
+    -- A genuine stall (the profiler now discriminates sleep from blocking via the monotonic
+    -- clock, so this only fires for real ones). Suppress, but probe out of it rather than
+    -- sitting out a fixed backoff.
+    profiler.onFreeze = function(gap)
+        _suppressUntilHealthy(string.format("post-freeze %.0fs", gap), AX_BACKOFF)
     end
 
-    -- Suppress all AX callbacks for 300 s after system wake to avoid blocking on the
-    -- corporate-agent reconnect window. Agents reconnect at unpredictable times post-wake
-    -- (observed: 40 s–207 s) and hold the global AX lock for ~30 s. win:id() itself calls
-    -- AXUIElementGetWindowID and blocks under that lock.
-    -- No early retile: the +2 s window is unreliable (caffeinate event arrives late; agents
-    -- may already be reconnecting). The 300 s resync+retile fires when AX is safe again.
+    -- Suppress AX callbacks after wake, then lift as soon as a probe says AX is answering
+    -- (ceiling WAKE_SUPPRESS_MAX). Anything still locked trips the breaker instead.
     -- _cafWatcher must be module-level — Hammerspoon GCs watchers without a live reference.
     _cafWatcher = hs.caffeinate.watcher.new(function(event)
         if event == hs.caffeinate.watcher.systemWillSleep then
             profiler.resetHeartbeat()
         elseif event == hs.caffeinate.watcher.systemDidWake then
             profiler.resetHeartbeat()
-            local now = hs.timer.secondsSinceEpoch()
-            _wakeSuppress = true
-            _wakeSuppressUntil = now + 300
-            if _wakeSuppressTimer then _wakeSuppressTimer:stop() end
-            profiler.lastEvent = "wake:suppress"
-            profiler.log("wake:suppress start", 0)
-            -- +300 s: lift suppression and do a final resync+retile
-            _wakeSuppressTimer = hs.timer.doAfter(300, function()
-                _wakeSuppress = false
-                _wakeSuppressUntil = 0
-                _wakeSuppressTimer = nil
-                profiler.log("wake:suppress lifted", 0)
-                _resync()
-                layout.tile()
-            end)
+
+            -- Probe BEFORE suppressing anything. If AX answers immediately — which is the
+            -- normal case, ~0.1 ms — there is nothing to protect against, so window events
+            -- keep flowing uninterrupted and this costs one sub-millisecond read.
+            -- Suppression therefore only ever engages on evidence that AX is actually stuck,
+            -- rather than on the assumption that it might be.
+            profiler.lastEvent = "wake"
+            if _axProbeHealthy() then
+                -- Direct evidence that AX answers. Clear anything a freeze detection armed —
+                -- a lock/unlock used to leave a 90 s post-freeze suppression in place even
+                -- though this probe had just proved AX was fine.
+                if _wakeSuppress then
+                    _liftSuppress("wake probe ok")
+                else
+                    profiler.log("wake: AX healthy, no suppression", 0)
+                    _resync()
+                    layout.tile()
+                end
+                return
+            end
+            _suppressUntilHealthy("wake", WAKE_SUPPRESS_MAX)
         end
     end)
     _cafWatcher:start()
 
-    -- Firefox-specific scanner: runs every 1s regardless of focused app.
-    -- Tab-detach windows are often invisible to the AXObserver filter, so a
-    -- dedicated scan bridges the gap. One allWindows() call per second.
-    M._ffScanTimer = hs.timer.new(1.0, function()
+    -- Firefox-specific scanner. Tab-detach windows are often invisible to the AXObserver
+    -- filter, so a dedicated scan bridges the gap. Interval raised from 1 s to 3 s: each tick
+    -- costs an allWindows() (~1.8 ms measured) and a wakeup, forever, for a case that a
+    -- 1 s cadence never justified -- windowCreated and the 60 s resync also cover it.
+    M._ffScanTimer = hs.timer.new(3.0, function()
         if _axBlocked() then return end
 
         -- Resolve Firefox via the cache; see FF_LOOKUP_BACKOFF above for why.

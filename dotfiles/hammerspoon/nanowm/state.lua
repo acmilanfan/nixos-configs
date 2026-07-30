@@ -30,10 +30,6 @@ M.screenFrames = {}
 M.tagSnapshots = {}
 M.overviewActive = false
 
--- Initialize tag snapshots
-for i = 1, 20 do M.tagSnapshots[i] = nil end
-M.tagSnapshots["special"] = nil
-
 -- Pending destruction tracking
 M.pendingDestruction = {}
 
@@ -48,7 +44,6 @@ M.gap = config.gap
 M.caffeinateActive = false
 M.weekenduoWinId = nil
 M.weekenduoLaunching = false
-M.markNextWeekenduo = false
 M.lastIntendedFocusId = nil
 
 -- Reconcile persisted per-window state against reality.
@@ -209,12 +204,7 @@ end
 -- Persistence Functions
 -- =============================================================================
 
-local function _home()
-    local h = os.getenv("HOME") or ""
-    if h:match("^/Users/") then return h end
-    return "/Users/" .. (os.getenv("USER") or "gentooway")
-end
-local SAVE_FILE = _home() .. "/.hammerspoon/nanowm_state.json"
+local SAVE_FILE = config.home() .. "/.hammerspoon/nanowm_state.json"
 
 local saveTimer = hs.timer.delayed.new(2.0, profiler.wrap("state.saveTimer", function()
     M.save()

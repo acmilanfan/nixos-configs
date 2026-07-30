@@ -1118,3 +1118,336 @@ reclamation of a leaked id at ~30 min instead of ~2 h, for ~200 ms of work per h
 Residual leak paths (1 and 3) are inherent — dropping destroy events while AX is unsafe is the
 correct trade — but they are now reclaimed rather than permanent, so `state.tags` should stay
 in the low tens rather than growing without bound.
+
+---
+
+## 8. Simplification pass
+
+Prompted by a good question: now that the hourly freeze turned out to be the prune sweep, how
+much of the defensive machinery was sized against a problem that wasn't what it looked like?
+
+### Reclassifying the freeze log
+
+All 39 recorded `*** FREEZE ***` events, by class:
+
+| class | count | evidence |
+|---|---|---|
+| Sleep / idle artifacts | **31** | 149-5,315 s, overnight, clustered at ~5,290 s (~88 min) and ~2,000-2,700 s. `hs.timer` pauses while asleep — see M23 |
+| The prune sweep (P9) | **6** | 23.9 / 28.6 / 25.4 / 28.1 / 29.0 s and 24.1 s — every one hourly-aligned within its session (`:01`, `:03`, `:56` phases = separate reloads). 24-29 s is 650-790 dead ids x 36.6 ms |
+| Genuine minor stalls | **2** | 2.1 s (`windowDestroyed`), 2.3 s (`windowFocused`) |
+| **~30 s corporate-agent AX lock** | **0** | — |
+
+Nothing in the log matches the ~30 s AX lock that the allowlist, the circuit breaker and the
+300 s wake suppression were all built around. The events that *look* like it are hourly, which
+points at the pruner. Strong, but not conclusive: the log is ~2 days, and the original comments
+cite observations (agents reconnecting 40-207 s post-wake) that can't be checked from here.
+
+### Dead code removed
+
+| item | note |
+|---|---|
+| `managedExcluded` (44 entries, 5 test sites) | Entirely disjoint from `managedAllowed`, and the filter is `new(false)` — so every `not managedExcluded[...]` was a constant `true`. Kept as a comment: it documents *why* this is an allowlist |
+| `_filterExcluded` | Always-empty table, plus two comments describing Slack/Discord behaviour that no longer exists |
+| `agents.getAgents` + `getStatus` | ~150 lines, zero callers repo-wide. Also removed a second drifting copy of the confirm/tty/cpu heuristics. **`exec()`/`sh()` were kept** — an earlier estimate wrongly called them dead; `getProcessTable` and `focusAgent` both use them |
+| `contentIsConfirm` | Only callers were the two above |
+| `config.perf.*.cacheTTL` | Described a cache that no longer exists |
+| `invalidateManagedWinsCache` | Explicit no-op, no callers |
+| `_home()` x5 -> `config.home()` | Also drops the hardcoded foreign-username fallback; resolves `~` instead |
+| `markNextWeekenduo`, `tagSnapshots` init loop, `toggleOverview` self-assign, duplicate `animationDuration` | — |
+
+**6,808 -> 6,623 lines** in `nanowm/`, and 289 deletions against 98 insertions overall.
+
+### Defences relaxed
+
+**Wake suppression: 300 s fixed -> probe-driven, ~2 s typical (45 s ceiling).**
+
+First worth stating precisely what suppression costs, because "the WM is broken after wake" is
+not quite right. There is no `_axBlocked()` gate anywhere in `layout.lua`, `keybinds.lua`,
+`tags.lua`, `actions.lua` or `core.lua` — verified by grep. So during suppression:
+
+- **still works:** every hotkey — tag switching, focus cycling, float/fullscreen/swap/resize,
+  move-to-tag, overview, choosers. They call `layout.tile()`, which tiles the tracked set.
+- **suppressed:** reactive handling only — a newly opened window isn't registered or tiled,
+  closing one doesn't clean up state, focus changes don't auto-retile, and the resync and
+  Firefox scanners pause.
+
+It stops *noticing* window changes but still obeys you. The reason it was total rather than
+partial: if an AXObserver callback fires while the AX lock is held, `win:id()` blocks the
+Hammerspoon main thread and then *nothing* works, hotkeys included. Degraded-but-obedient beats
+fully-frozen — so the mechanism is sound; only the fixed 300 s duration was indefensible.
+
+**Note the limit of the log evidence.** Zero post-wake freezes cannot show the lock doesn't
+exist, because suppression was active for the entire recording. That reading is equally
+consistent with "the lock never happens" and "the suppression is working" — selection bias. What
+the log *does* rule out is any basis for five minutes specifically.
+
+So rather than guess a shorter constant, measure. `_axProbeHealthy()` does one attribute read on
+`hs.axuielement.systemWideElement()`, timed:
+
+```
+AX probe      : 0.07 - 0.31 ms
+allWindows()  : 36.7 ms          (~500x more expensive)
+```
+
+Cheap enough to run every 2 s, yet it passes through the same global AX lock, so it blocks
+exactly when the lock is held. Behaviour:
+
+- Normal wake: probe returns in microseconds, suppression lifts at **~2 s**, then resync+retile.
+- AX genuinely locked: the probe blocks once, trips the breaker, and every path stays backed off
+  — the same protection the fixed window gave, but paid for only when actually needed.
+- `WAKE_SUPPRESS_MAX = 45` remains as a ceiling in case the probe never reports healthy.
+
+This also shrinks P9 leak source #1: `windowDestroyed` events are now dropped for ~2 s per wake
+instead of 300 s.
+
+**Post-freeze suppression now ignores sleep-sized gaps (>60 s).** It had fired 25 times, and
+since ~31 of 39 "freezes" were sleep artifacts, most of those disabled window management for
+90 s *just as work resumed* — stacked on top of the wake window. It was dormant only as an
+accidental side effect of P1 (the heartbeat is the sole caller), so it would have returned the
+moment the profiler was switched on for diagnosis.
+
+**Firefox scanner 1 s -> 3 s.** An `allWindows()` (~1.8 ms) plus a timer wakeup every second,
+forever, for a case `windowCreated` and the 60 s resync also cover.
+
+**Edge-trigger poll 0.15/0.50 s -> 0.50/1.00 s** (AC/battery). Confirmed with the user that the
+top-left-corner overview gesture is rarely used; `Alt+Tab` covers it. Cuts that timer's wakeups
+by ~3x on AC and 2x on battery. Kept rather than deleted so the gesture still works.
+
+### Deliberately kept
+
+- **The circuit breaker**, despite never having tripped. It's ~free, and it is precisely what
+  makes shortening the two suppression windows defensible.
+- **The allowlist** (`managedAllowed`). Only *running* allowed apps get an AXObserver, so
+  unused entries cost nothing.
+- **`pendingDestruction` crash recovery**, `destructionDelay`, the 60 s resync.
+- **M2** (`appTagMemory` destructive wipe) — still open, flagged in code.
+
+---
+
+## 9. Should wake suppression exist at all?
+
+Asked directly: since the hourly lock turned out to be the prune sweep, can the wake handling
+just be deleted? Answer: **no, but it can be made free** — and it now is.
+
+### What the log can and cannot show
+
+Correlating every `*** FREEZE ***` against every `wake:suppress start` across ~3 days: only
+**2 of 39** freezes fell within 15 minutes of a recorded wake, at +662 s (2.1 s long) and +573 s
+(49.9 s). Both are ~10 minutes after the wake — far outside the 40-207 s reconnect window the
+suppression was designed for, and outside the old 300 s guard entirely.
+
+That is *not* proof the AX lock never happens, and the distinction matters: suppression was
+active during every wake window in the log, so an absence of post-wake freezes is equally
+consistent with "the lock never happens" and "the guard works". Selection bias.
+
+**But the shortened windows are now an actual experiment**, and the first results are in:
+
+```
+13:58:17  wake:suppress lifted              <- 45 s fixed version
+14:36:37  wake:suppress lifted (probe ok)   <- 2 s
+14:38:37  wake:suppress lifted (probe ok)   <- 2 s
+14:39:08  wake:suppress lifted (probe ok)   <- 2 s
+```
+
+Four wakes with little or no protection and no freeze after any of them. Encouraging, but four
+wakes in one afternoon is a small sample.
+
+### Why not delete it
+
+The argument for deletion was a 300 s productivity stall. That is already gone — the cost was
+2 s and is now ~0 (see below). Deleting would buy nothing measurable, while removing the only
+guard against a failure mode whose absence hasn't been established. And the failure mode is
+asymmetric: suppression degrades the WM to "obeys hotkeys but doesn't notice window changes",
+whereas a blocked `win:id()` freezes the entire Hammerspoon event loop, hotkeys included.
+
+Cheap insurance against a hotkey-killing freeze is worth keeping when the premium is zero.
+
+### Making the premium zero
+
+The wake handler now probes AX **before** suppressing anything:
+
+- AX answers (normal): log `wake: AX healthy, no suppression`, resync + retile, **nothing is
+  suppressed at all**. Cost: one ~0.1 ms attribute read.
+- Probe fails: suppress, then re-probe every 2 s and lift on the first success.
+- Probe never recovers: `WAKE_SUPPRESS_MAX = 45` ceiling.
+
+So suppression only ever engages on *evidence* that AX is stuck, instead of on the assumption
+that it might be. Progression across this work: **300 s always -> 45 s always -> 2 s typical ->
+0 s unless AX actually fails to answer.**
+
+### When it would be safe to delete
+
+Leave the profiler on for a few weeks and watch for two things:
+
+- `wake:suppress lifted (ceiling)` — would mean the probe never recovered within 45 s, i.e. a
+  real sustained lock.
+- `wake: AX healthy, no suppression` on every single wake, with no post-wake freeze.
+
+If the second holds and the first never appears over a decent sample of wakes (including on the
+corporate VPN, after long sleeps, and on battery), the mechanism has demonstrated it is
+unnecessary and can go with confidence. Deleting now would be trading a real safety property
+for a saving already reduced to zero.
+
+---
+
+## 10. Bug: first window after a tag switch or wake is not tiled
+
+**Reported symptom:** right after wake, or after switching tags, the first window opened is
+managed (Alt+J/K reaches it) but never tiled. It stays that way until 1-2 more windows are
+opened, or until it is manually floated and unfloated.
+
+**Reproduced** on an empty vertical tag, opening via the same path as `Alt+Return`:
+
+```
++0.8s  inStack=true float=false std=true  tiledCount=0  frame=800x600@356,120
++1.8s  inStack=true float=false std=true  tiledCount=1  frame=800x600@356,120
++4.0s  inStack=true float=false std=true  tiledCount=1  frame=800x600@356,120
+```
+
+Classification was never the problem — the window is in the stack, not floating, standard.
+`getTiledWindows` returned **0** immediately after creation and **1** a second later, and the
+frame was never set at all.
+
+**Root cause: the `winMap` TTL cache in `core.lua`.**
+
+1. `gotoTag` (or the post-wake resync) calls `layout.tile()`, which builds the `winMap` and
+   stamps `winMapCacheTime`.
+2. A window is opened. `windowCreated` adds it to `_trackedWins`, registers it (so it *is* in
+   `state.stacks`), and calls `layout.tile()`.
+3. `performTile` runs ~100 ms later. `getWinMap()` finds the cache younger than `winMapTTL`
+   (1.0 s on battery, 2.0 s on AC) and returns the **stale** map, which predates the window.
+4. In `getTiledWindows`, `winMap[id]` is `nil`, so the `elseif state.tags[id] == tag` branch
+   runs: it appends to `cleanStack` and sets **`seenIds[id] = true`**.
+5. The `allWins` fallback loop — which would otherwise have caught it — tests
+   `not seenIds[id]` and therefore skips it.
+6. `windows` is empty, so `applyLayout` hits `if count == 0 then return end` and positions
+   nothing. The window keeps its natural size.
+
+It recovers only once the TTL expires *and* something triggers another tile — which is exactly
+"open another window" or "float/unfloat it". Both wake and tag switch trigger a tile immediately
+before the user opens a window, which is why those two situations reproduce it reliably.
+
+**Fix: delete the cache.** It dated from when `getManagedWindows()` still called
+`hs.window.allWindows()`. That has been event-driven for some time, so the map is now a plain
+iteration over `_trackedWins` touching AX only for `win:id()`. Measured:
+
+```
+10 x win:id()            = 0.048 ms
+full winMap rebuild      = 0.051 ms
+```
+
+The cache was saving ~50 microseconds while introducing up to 2 s of staleness that broke
+tiling. Rebuilt fresh on every call instead; `config.perf.*.winMapTTL` removed as now-unused.
+
+Chosen over adding `core.invalidateWinMap()` calls at the seven `_trackedWins` mutation sites:
+same outcome, less machinery, and no way for a future mutation site to reintroduce the bug by
+forgetting to invalidate.
+
+---
+
+## 11. Regression: a 22 s lock/unlock cost ~90 s of tiling
+
+Both defects here were introduced by earlier changes in this document, not pre-existing.
+
+**Reported:** locked and unlocked the laptop; nothing tiled for a long while, then recovered.
+
+The console showed the whole causal chain in one second:
+
+```
+15:57:17  *** FREEZE ***  22.4s   (lastCallback: state.saveTimer)
+15:57:17  post-freeze suppress start        <- 90 s suppression armed
+15:57:17  wake: AX healthy, no suppression  <- the probe proved AX was FINE
+...
+15:58:47  post-freeze suppress lifted       <- exactly 90 s later
+```
+
+### Defect 1 — the sleep guard used duration, and duration cannot tell them apart
+
+§8 added `if _gap > 60 then ignore end` to stop sleep from being read as a freeze. A ~22 s
+lock/unlock sleeps the machine, timers pause, and the heartbeat sees a 22.4 s gap — under the
+threshold, so it was reported as a freeze and armed suppression. Raising the threshold would
+have blinded the detector to genuine 20-30 s stalls, which are exactly the ones worth catching.
+The heuristic was the wrong tool.
+
+**Fixed with two clocks**, which is what M23 originally called for:
+
+| clock | during sleep | during a real stall |
+|---|---|---|
+| `hs.timer.secondsSinceEpoch()` (wall) | advances | advances |
+| `hs.timer.absoluteTime()` (monotonic) | **does not advance** — per HS docs, "does not include time that the system has spent asleep" | advances |
+
+The heartbeat now reports on the **monotonic** gap, so `*** FREEZE ***` means the CPU was awake
+and Lua was blocked. Sleep is logged separately as `slept  N s asleep — not a freeze`, and the
+freeze entry additionally reports how much sleep overlapped it. This retroactively explains the
+31-of-39 sleep artifacts in §8 and makes the log trustworthy without any duration guessing.
+
+### Defect 2 — a healthy probe could not clear an existing suppression
+
+§9's wake probe took the healthy path and `return`ed **without clearing suppression already
+armed by the freeze detection**. So the probe proved AX was responsive at 15:57:17 and the WM
+still ignored window events until 15:58:47.
+
+**Fixed by unifying both paths** onto one mechanism:
+
+- `_suppressUntilHealthy(reason, ceiling)` — used by *both* wake and post-freeze. Suppresses,
+  then probes out as soon as AX answers; the ceiling is only a backstop.
+- `_liftSuppress(reason)` — idempotent, resyncs and retiles.
+- The wake handler now calls `_liftSuppress("wake probe ok")` when suppression is active,
+  instead of returning and leaving it in place.
+
+Consequence: no path can leave a flat fixed-duration stall behind any more. A post-freeze
+suppression now also ends ~2 s after AX starts answering, rather than sitting out `AX_BACKOFF`.
+
+### Note
+
+This particular 90 s stall only occurred because the profiler was left enabled — `onFreeze` is
+called solely by the heartbeat, which runs only while profiling. With profiling off it could not
+have happened, but the defect was real and would have returned on the next diagnostic session.
+
+---
+
+## 12. Bug: focus jumps to an arbitrary window when moving a window off the current tag
+
+**Reported:** with mono/fullscreen tiled windows and a floating window (e.g. ORGINDEX) on top,
+moving the floating window to another tag focuses "a random one" rather than the window now
+revealed underneath. And with several floating windows, moving one away leaves the others buried
+behind a window that comes to the front.
+
+Two defects, both in `moveWindowToTag`'s focus tail.
+
+### Defect 1 — the successor was the stack head
+
+```lua
+local remaining = core.getTiledWindows(currentTag)
+if #remaining > 0 then remaining[1]:focus() end
+```
+
+`remaining[1]` is the head of `state.stacks[tag]`, i.e. the most recently *inserted* window
+(`table.insert(stack, 1, id)`), not the most recently focused or the visually topmost. Under
+mono or fullscreen every tiled window occupies the same rectangle, so the stack head has no
+relationship to what the user can see — hence "random". It also considered only **tiled**
+windows, so a remaining floating window was never a candidate.
+
+`state.tagLastFocused[tag]` is maintained and would be better, but it is updated on *every*
+focus including floating windows — so when the floating window being moved was the last thing
+focused, it points at exactly the window that is leaving.
+
+**Fixed** by selecting on real z-order: `hs.window.orderedWindows()` is documented front-to-back
+(measured 31 ms for 11 windows — fine for a user-initiated action, and skipped when
+`axBlocked()`). The first entry still on this tag is the window now revealed underneath, and
+because floats sit on top this automatically prefers a remaining floating window. Falls back to
+`tagLastFocused`, then to the old stack-head behaviour.
+
+### Defect 2 — focusing buried the remaining floating windows
+
+macOS raises the focused window's app to the front, so focusing any tiled window puts it above
+every floating window on the tag. `performTile` PHASE 4 does not correct this: it re-raises a
+floating window only when `isHidden or lastIntendedFocusId == id or onSpecial`, and a visible
+non-target float matches none of those.
+
+`layout.raiseFloating()` already does precisely the right thing — raise every visible floating
+window on visible tags — and had **zero callers**: exported as `M.raiseFloating` in `init.lua`
+and otherwise never invoked. Now called right after focusing the successor.
+
+Also tightened: `state.lastIntendedFocusId` now tracks the successor in the move-away case
+instead of continuing to point at the window that just left the tag.

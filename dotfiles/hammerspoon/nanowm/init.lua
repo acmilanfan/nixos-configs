@@ -89,7 +89,6 @@ function M.toggleOverview()
         overview.show()
     end
 end
-M.toggleOverview = M.toggleOverview
 
 -- Tag functions
 M.gotoTag = tags.gotoTag

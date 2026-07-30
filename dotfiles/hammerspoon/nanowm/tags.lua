@@ -436,19 +436,57 @@ function M.moveWindowToTag(destTag, win)
             -- Extra raise AFTER focus to defeat macOS app-stacking
             hs.timer.doAfter(0.01, function() win:raise() end)
         elseif currentTag == activeTag and destTag ~= activeTag then
-            -- Window moved AWAY from our view: find something else to focus
-            local remaining = core.getTiledWindows(currentTag)
-            if #remaining > 0 then
-                remaining[1]:focus()
-            else
-                if config.emptyTagFocusApp then
-                    local app = hs.application.get(config.emptyTagFocusApp)
-                    if app then
-                        -- Only activate if it already has windows to avoid opening new ones
-                        local appWins = app:allWindows()
-                        if #appWins > 0 then
-                            app:activate()
-                        end
+            -- The window left our view, so something else has to take focus.
+            --
+            -- This used to be `core.getTiledWindows(currentTag)[1]` — the head of the tag's
+            -- stack. Under mono or fullscreen every tiled window occupies the same rectangle,
+            -- so the stack head bears no relation to what is actually visible, and focus
+            -- appeared to jump to a random window. It also ignored floating windows entirely.
+            --
+            -- Pick by real z-order instead: orderedWindows() is front-to-back, so the first
+            -- match is the window now revealed underneath. This also naturally prefers a
+            -- remaining floating window, since floats sit on top.
+            local successor = nil
+            local watchers = require("nanowm.watchers")
+            if not (watchers.axBlocked and watchers.axBlocked()) then
+                for _, w in ipairs(hs.window.orderedWindows()) do
+                    local wid = w:id()
+                    if wid and wid ~= id
+                        and (state.tags[wid] == currentTag or state.sticky[wid]) then
+                        successor = w
+                        break
+                    end
+                end
+            end
+            -- Fallbacks: last window focused on this tag, then the old stack-head behaviour.
+            if not successor then
+                local lastId = state.tagLastFocused[currentTag]
+                if lastId and lastId ~= id then
+                    for _, w in ipairs(core.getAllVisibleWindows()) do
+                        if w:id() == lastId then successor = w break end
+                    end
+                end
+            end
+            if not successor then
+                successor = core.getTiledWindows(currentTag)[1]
+            end
+
+            if successor then
+                state.lastIntendedFocusId = successor:id()
+                successor:focus()
+                -- Keep floating windows above the newly focused window. macOS raises the
+                -- focused window's app to the front, which otherwise buries every other
+                -- floating window on this tag behind it — the reported "moving one floating
+                -- window hides the others" symptom. layout.raiseFloating() does exactly this
+                -- and, until now, was never called from anywhere.
+                layout.raiseFloating()
+            elseif config.emptyTagFocusApp then
+                local app = hs.application.get(config.emptyTagFocusApp)
+                if app then
+                    -- Only activate if it already has windows to avoid opening new ones
+                    local appWins = app:allWindows()
+                    if #appWins > 0 then
+                        app:activate()
                     end
                 end
             end

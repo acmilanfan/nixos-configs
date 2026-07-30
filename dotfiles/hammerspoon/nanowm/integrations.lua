@@ -3,17 +3,13 @@
 -- Sketchybar, JankyBorders, battery saver, and timer functionality
 -- =============================================================================
 
+local config = require("nanowm.config")
 local state = require("nanowm.state")
 local core = require("nanowm.core")
 local profiler = require("nanowm.profiler")
 
 local M = {}
 
-local function _home()
-    local h = os.getenv("HOME") or ""
-    if h:match("^/Users/") then return h end
-    return "/Users/" .. (os.getenv("USER") or "gentooway")
-end
 
 -- =============================================================================
 -- Sketchybar Integration
@@ -270,7 +266,7 @@ function M.switchKanata(mode)
         return
     end
 
-    local script = _home() .. "/.config/kanata/switch-kanata.sh"
+    local script = config.home() .. "/.config/kanata/switch-kanata.sh"
     hs.alert.show("Switching Kanata to: " .. mode .. "...")
 
     hs.task.new("/bin/zsh", function(exitCode, _, stdErr)
@@ -322,7 +318,7 @@ local pendingWakeSketchybar = nil
 local wakeReloadRunning = false
 
 function M.reloadKanata(force, callback)
-    local script = _home() .. "/.config/kanata/reload-kanata.sh"
+    local script = config.home() .. "/.config/kanata/reload-kanata.sh"
     if not hs.fs.attributes(script) then
         print("[NanoWM] Kanata reload script not found: " .. script)
         if callback then callback(false) end

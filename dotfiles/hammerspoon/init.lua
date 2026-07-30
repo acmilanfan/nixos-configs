@@ -55,12 +55,6 @@ if VimMode then
 end
 
 -- =============================================================================
--- Base Settings
--- =============================================================================
-
-hs.window.animationDuration = 0
-
--- =============================================================================
 -- SketchyBar Event Timers
 -- =============================================================================
 
@@ -68,7 +62,7 @@ hs.window.animationDuration = 0
 _G.sketchybarTimers = _G.sketchybarTimers or {}
 
 -- Precision clock trigger at the start of every minute
-local user = os.getenv("USER") or "gentooway"
+local user = os.getenv("USER") or ""
 local sketchybarBin = "/etc/profiles/per-user/" .. user .. "/bin/sketchybar"
 
 local function triggerClockTick()

@@ -23,20 +23,13 @@ M.tileProtectionWindow = 0.5
 -- Battery values are the baseline; AC values are more aggressive.
 M.perf = {
     ac = {
-        -- cacheTTL raised to 2.0s: per-app enumeration still fires on every
-        -- windowCreated/Destroyed (explicit invalidation), so the TTL only
-        -- matters for tile/focus bursts where stale data is fine for 2s.
-        cacheTTL     = 2.00,  -- getManagedWindows cache (watchers.lua)
-        winMapTTL    = 2.00,  -- id→window map cache (core.lua)
         sbarDelay    = 0.15,  -- sketchybar update debounce (integrations.lua)
-        edgePoll     = 0.15,  -- mouse-edge polling interval (integrations.lua)
+        edgePoll     = 0.50,  -- mouse-edge polling interval (integrations.lua)
         tileDelay    = 0.05,  -- tile debounce (layout.lua)
     },
     battery = {
-        cacheTTL     = 1.00,  -- longer TTL = fewer allWindows() calls on battery
-        winMapTTL    = 1.00,
         sbarDelay    = 0.30,
-        edgePoll     = 0.50,
+        edgePoll     = 1.00,
         tileDelay    = 0.10,
     },
 }
@@ -131,6 +124,19 @@ M.excludedFromTagMemory = {
 M.specialTag = "special"
 M.specialPadding = 100
 M.sketchybarHeight = 35
+
+-- =============================================================================
+-- Shared helpers
+-- =============================================================================
+
+-- Home directory, previously duplicated in five modules (state, integrations, profiler,
+-- pass, keybinds) each with a fallback that built paths under a hardcoded foreign
+-- username. Resolving "~" is both correct and username-agnostic.
+function M.home()
+    local h = os.getenv("HOME")
+    if h and h ~= "" then return h end
+    return hs.fs.pathToAbsolute("~") or "."
+end
 
 -- Modifier key shortcuts
 M.modifiers = {
