@@ -84,7 +84,8 @@ local common_foods = {
   { name = "Apple (R. Jonaprince)",           cal = 80,  pro = 0.6,  carb = 19,   fat = 0.5 },
   { name = "Watermelon",                      cal = 30,  pro = 0.6,  carb = 7.6,  fat = 0 },
   { name = "Delikatess Putenbrust (Paprika)", cal = 102, pro = 21.7, carb = 0.7,  fat = 1.4 },
-  { name = "Tomato",                      cal = 18,  pro = 0.6,  carb = 7.6,  fat = 0 },
+  { name = "Tomato",                          cal = 18,  pro = 0.6,  carb = 7.6,  fat = 0 },
+  { name = "Edeka Lachs h pro",               cal = 126, pro = 6.4,  carb = 12.5, fat = 5.3 },
   { name = "--- Custom Entry ---",            cal = 0,   pro = 0,    carb = 0,    fat = 0,   custom = true },
 }
 
@@ -465,12 +466,14 @@ _G.calc_daily_totals = function()
 
   vim.api.nvim_buf_set_lines(bufnr, total_ln - 1, total_ln, false, { total_row })
   vim.notify(
-    string.format("[calories] %d items: %d Cal | P:%dg C:%dg F:%dg",
+    string.format(
+      "[calories] %d items: %d Cal | P:%dg C:%dg F:%dg",
       count,
       math.floor(sums.cal + 0.5),
       math.floor(sums.pro + 0.5),
       math.floor(sums.carb + 0.5),
-      math.floor(sums.fat + 0.5)),
+      math.floor(sums.fat + 0.5)
+    ),
     vim.log.levels.INFO
   )
 end
