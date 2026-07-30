@@ -59,35 +59,48 @@ local params = {
 orgmode.setup(params)
 
 -- ── Calorie Tracker ──────────────────────────────────────────────
--- Edit this table to add/remove foods. Values are per 100g.
-local common_foods = {
-  { name = "Milk (whole)",                    cal = 64,  pro = 3.5,  carb = 4.7,  fat = 3.5 },
-  { name = "Grain d'or",                      cal = 382, pro = 12.3, carb = 74.5, fat = 3.9 },
-  { name = "Boiled eggs (whole)",             cal = 155, pro = 13,   carb = 1,    fat = 11 },
-  { name = "Cane Sugar",                      cal = 400, pro = 0,    carb = 100,  fat = 0 },
-  { name = "Butter Irish",                    cal = 748, pro = 0.7,  carb = 0.7,  fat = 82.5 },
-  { name = "Collagen powder",                 cal = 364, pro = 91,   carb = 0,    fat = 0 },
-  { name = "Bread Korner Balance",            cal = 257, pro = 8.8,  carb = 39,   fat = 6 },
-  { name = "Tilsiter Cheese",                 cal = 329, pro = 24.3, carb = 0,    fat = 25.8 },
-  { name = "Banana",                          cal = 89,  pro = 1.1,  carb = 23,   fat = 0.3 },
-  { name = "Avocado",                         cal = 160, pro = 2,    carb = 9,    fat = 15 },
-  { name = "Milk Chocolate",                  cal = 546, pro = 7.5,  carb = 55,   fat = 32.3 },
-  { name = "Sushki",                          cal = 412, pro = 10,   carb = 72,   fat = 10 },
-  { name = "Skyr (cherry)",                   cal = 81,  pro = 8.9,  carb = 10,   fat = 0.2 },
-  { name = "Skyr natur",                      cal = 62,  pro = 10.6, carb = 4,    fat = 0.2 },
-  { name = "Blueberries",                     cal = 57,  pro = 0.6,  carb = 14.5, fat = 0.2 },
-  { name = "Chicken salami",                  cal = 106, pro = 21.7, carb = 1.5,  fat = 1.5 },
-  { name = "Delicatess mayo",                 cal = 742, pro = 1.5,  carb = 2,    fat = 80 },
-  { name = "Potatos (wedges)",                cal = 139, pro = 2.6,  carb = 23.4, fat = 3.4 },
-  { name = "Drink (multivitamins)",           cal = 8,   pro = 0,    carb = 0,    fat = 0 },
-  { name = "Edeka Chicken Filet",             cal = 98,  pro = 7.6,  carb = 12.8, fat = 1.5 },
-  { name = "Apple (R. Jonaprince)",           cal = 80,  pro = 0.6,  carb = 19,   fat = 0.5 },
-  { name = "Watermelon",                      cal = 30,  pro = 0.6,  carb = 7.6,  fat = 0 },
-  { name = "Delikatess Putenbrust (Paprika)", cal = 102, pro = 21.7, carb = 0.7,  fat = 1.4 },
-  { name = "Tomato",                          cal = 18,  pro = 0.6,  carb = 7.6,  fat = 0 },
-  { name = "Edeka Lachs h pro",               cal = 126, pro = 6.4,  carb = 12.5, fat = 5.3 },
-  { name = "--- Custom Entry ---",            cal = 0,   pro = 0,    carb = 0,    fat = 0,   custom = true },
-}
+-- Food library is read from the table under "* Food Library" in ~/org/life/calories.org.
+-- Add/edit rows there — no rebuild needed.
+
+local function load_food_library()
+  local path = vim.fn.expand("~/org/life/calories.org")
+  local ok, lines = pcall(vim.fn.readfile, path)
+  if not ok or not lines or #lines == 0 then
+    return {}
+  end
+
+  local in_section, in_data = false, false
+  local foods = {}
+
+  for _, line in ipairs(lines) do
+    if line:find("^%* Food Library") then
+      in_section = true
+    elseif in_section and line:find("^%* ") then
+      break
+    elseif in_section and line:find("^|") then
+      if line:find("^|%-") then
+        in_data = not in_data
+      elseif in_data then
+        local cells = vim.split(line, "|", { plain = true })
+        table.remove(cells, 1)
+        table.remove(cells)
+        for i, c in ipairs(cells) do
+          cells[i] = vim.trim(c)
+        end
+        if #cells >= 5 and cells[1] ~= "" then
+          local cal = tonumber(((cells[2] or ""):gsub(",", "."))) or 0
+          local pro = tonumber(((cells[3] or ""):gsub(",", "."))) or 0
+          local carb = tonumber(((cells[4] or ""):gsub(",", "."))) or 0
+          local fat = tonumber(((cells[5] or ""):gsub(",", "."))) or 0
+          table.insert(foods, { name = cells[1], cal = cal, pro = pro, carb = carb, fat = fat })
+        end
+      end
+    end
+  end
+
+  table.insert(foods, { name = "--- Custom Entry ---", cal = 0, pro = 0, carb = 0, fat = 0, custom = true })
+  return foods
+end
 
 local table_header = "| Meal | Food | G | Cal | Pro | Carb | Fat |"
 local table_sep = "|------+------+---+-----+-----+------+-----|"
@@ -194,6 +207,8 @@ _G.add_food_row = function()
     print("[calories] Today's entry not found. Use <leader>od to create it first.")
     return
   end
+
+  local common_foods = load_food_library()
 
   local food_names = {}
   for _, f in ipairs(common_foods) do
@@ -311,6 +326,7 @@ _G.recalc_current_row = function()
 
   local per_cal, per_pro, per_carb, per_fat
   local found = false
+  local common_foods = load_food_library()
   for _, f in ipairs(common_foods) do
     if f.name == name and not f.custom then
       per_cal, per_pro, per_carb, per_fat = f.cal, f.pro, f.carb, f.fat
