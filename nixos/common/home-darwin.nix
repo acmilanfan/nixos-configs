@@ -245,6 +245,7 @@ in
     ".hammerspoon/nanowm/agents.lua".source = ../../dotfiles/hammerspoon/nanowm/agents.lua;
     ".hammerspoon/nanowm/profiler.lua".source = ../../dotfiles/hammerspoon/nanowm/profiler.lua;
     ".hammerspoon/nanowm/pass.lua".source = ../../dotfiles/hammerspoon/nanowm/pass.lua;
+    ".hammerspoon/nanowm/spec.lua".source = ../../dotfiles/hammerspoon/nanowm/spec.lua;
 
     # Rofi-like menus
     # ".hammerspoon/rofi-menus/init.lua".source = ../../dotfiles/hammerspoon/rofi-menus/init.lua;
