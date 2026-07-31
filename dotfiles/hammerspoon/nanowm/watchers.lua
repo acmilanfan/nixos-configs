@@ -130,6 +130,11 @@ M.axBlocked = _axBlocked
 -- precisely when the lock is held — which is the signal we want. A healthy read is
 -- sub-millisecond; anything at AX_SLOW or beyond trips the breaker so every other path backs
 -- off too.
+-- Touch hs.axuielement once at load so the extension is resolved now rather than lazily during
+-- the first post-wake probe, where it added ~28 ms (measured) to the very call whose latency
+-- decides whether AX is healthy.
+local _ = hs.axuielement
+
 local function _axProbeHealthy()
     local t0 = hs.timer.secondsSinceEpoch()
     local ok = pcall(function()
@@ -507,13 +512,11 @@ function M.setup()
     filter:subscribe(hs.window.filter.windowFocused, profiler.wrap("wf:windowFocused", function(win)
         if _axBlocked() then return end
         if not win then return end
-        if state.launching then return end
 
         local id = win:id()
         if not id or id == 0 then return end
 
         local app = win:application()
-        local appName = app and app:name() or "nil"
 
         -- Register the focused window if it's not tracked.
         local needsTile = false
@@ -539,10 +542,13 @@ function M.setup()
         end
 
         if needsTile then
-            local timeSinceTile = hs.timer.secondsSinceEpoch() - state.lastTileTime
-            if timeSinceTile >= config.tileProtectionWindow then
-                layout.tile()
-            end
+            -- Always tile. layout.tile() is debounced by perfProfile().tileDelay, so repeated
+            -- calls coalesce by themselves. The `>= tileProtectionWindow` test that used to
+            -- guard this did not defer the tile, it DROPPED it — so a window registered within
+            -- 0.5 s of any other tile never got laid out. That is a second, independent route
+            -- to the same "first window after a tag switch or wake isn't tiled" symptom as the
+            -- winMap staleness fixed in section 10.
+            layout.tile()
         end
 
         local tag = state.tags[id]
@@ -560,7 +566,15 @@ function M.setup()
             return
         end
 
-        -- Anti-jump protection for cross-tag focus
+        -- Anti-jump protection for cross-tag focus.
+        --
+        -- state.launching belongs here rather than at the top of the handler. Its purpose is to
+        -- avoid reacting to focus stolen by an app we just launched; applied to the whole
+        -- handler it also skipped window registration and the state.tagLastFocused bookkeeping
+        -- below for 2 s after every Alt+Return, leaving a stale "last focused" id that later
+        -- tag switches then restore focus to.
+        if state.launching then return end
+
         local timeSinceTile = hs.timer.secondsSinceEpoch() - state.lastTileTime
         if timeSinceTile < config.tileProtectionWindow then return end
 

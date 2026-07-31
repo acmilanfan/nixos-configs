@@ -144,12 +144,21 @@ M.pruneTimer = hs.timer.new(PRUNE_INTERVAL, function()
         if not liveIds[tonumber(idStr) or -1] then M.sizeCache[idStr] = nil end
     end
 
-    -- Caps for tag memory
-    -- NOTE: still a destructive wipe rather than an LRU eviction — see M2 in the review.
-    local keys = {}
-    for k, _ in pairs(M.appTagMemory) do table.insert(keys, k) end
-    if #keys > 1000 then
-        M.appTagMemory = {}
+    -- Tag memory size check.
+    --
+    -- This used to do `if #keys > 1000 then M.appTagMemory = {} end` — silently discarding
+    -- every hand-curated entry the moment the cap was crossed. Now it only warns.
+    --
+    -- Unbounded growth is not a real risk here: the map is only written by the two explicit
+    -- user actions saveCurrentWindowTag (Alt+Shift+M) and saveAllWindowTags, so it grows at
+    -- human speed. rememberWindowTag() would have grown it automatically but has no callers.
+    -- At the observed size (single digits) even 5000 entries would be a few hundred KB of JSON.
+    local memCount = 0
+    for _ in pairs(M.appTagMemory) do memCount = memCount + 1 end
+    if memCount > 5000 then
+        print(string.format(
+            "[NanoWM] tag memory has %d entries; clear it from the menu if that seems wrong",
+            memCount))
     end
 
     if removed > 0 then
@@ -429,14 +438,6 @@ function M.getWindowKey(win)
 
     local shortTitle = string.sub(normalizedTitle, 1, 60)
     return appName .. "::" .. shortTitle
-end
-
-function M.rememberWindowTag(win, tag)
-    local key = M.getWindowKey(win)
-    if key then
-        M.appTagMemory[key] = tag
-        M.triggerSave()
-    end
 end
 
 function M.getRememberedTag(win)
