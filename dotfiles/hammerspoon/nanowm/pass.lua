@@ -20,18 +20,25 @@ local function storeDir()
     return HOME .. "/configs/nixos-configs/secrets/passwords"
 end
 
-local function listEntries(dir)
-    local entries = {}
-    local output = hs.execute(string.format(
-        '/usr/bin/find -L %q -name "*.gpg" -type f 2>/dev/null | /usr/bin/sort', dir))
-    if not output or output == "" then return entries end
-    for line in output:gmatch("[^\n]+") do
-        local entry = line:sub(#dir + 2, -5)
-        if entry ~= "" then
-            table.insert(entries, entry)
+-- Enumerate store entries asynchronously.
+--
+-- This was a blocking hs.execute("find ... | sort") on the Alt+Shift+P path, so opening the
+-- chooser stalled the Hammerspoon event loop for the duration of a filesystem walk. Now the
+-- chooser appears immediately with its two actions and fills in when find returns — the same
+-- pattern agents.showMenu() uses. Runs find directly rather than through a shell, and sorts in
+-- Lua, so no shell is spawned at all.
+local function listEntriesAsync(dir, callback)
+    hs.task.new("/usr/bin/find", function(_, stdOut)
+        local entries = {}
+        for line in (stdOut or ""):gmatch("[^\n]+") do
+            local entry = line:sub(#dir + 2, -5)  -- strip the "dir/" prefix and ".gpg" suffix
+            if entry ~= "" then
+                entries[#entries + 1] = entry
+            end
         end
-    end
-    return entries
+        table.sort(entries)
+        callback(entries)
+    end, { "-L", dir, "-name", "*.gpg", "-type", "f" }):start()
 end
 
 local function buildEntryChoices(entries)
@@ -241,9 +248,6 @@ function M.showChooser()
         return
     end
 
-    local entries = listEntries(dir)
-    local entryChoices = buildEntryChoices(entries)
-
     -- Action chooser shown after an entry is picked
     local actionChooser = hs.chooser.new(function(choice)
         if not choice then return end
@@ -263,13 +267,10 @@ function M.showChooser()
     actionChooser:subTextColor({ hex = "#AAAAAA" })
 
     -- Main chooser: actions at top, then existing entries
-    local choices = {
+    local actionRows = {
         { text = "Generate new password", subText = "Create and save a random password", entry = "__generate__" },
         { text = "Add password manually",  subText = "Type a password to save",           entry = "__add__"      },
     }
-    for _, c in ipairs(entryChoices) do
-        table.insert(choices, c)
-    end
 
     local entryChooser = hs.chooser.new(function(choice)
         if not choice then return end
@@ -292,10 +293,20 @@ function M.showChooser()
     entryChooser:bgDark(true)
     entryChooser:fgColor({ hex = "#FFFFFF" })
     entryChooser:subTextColor({ hex = "#AAAAAA" })
-    entryChooser:choices(choices)
+    entryChooser:choices(actionRows)
     entryChooser:placeholderText("pass: select entry or action...")
     entryChooser:searchSubText(true)
     entryChooser:show()
+
+    -- Fill in the store entries once find returns.
+    listEntriesAsync(dir, function(entries)
+        if not entryChooser:isVisible() then return end
+        local full = { actionRows[1], actionRows[2] }
+        for _, c in ipairs(buildEntryChoices(entries)) do
+            full[#full + 1] = c
+        end
+        entryChooser:choices(full)
+    end)
 end
 
 return M
