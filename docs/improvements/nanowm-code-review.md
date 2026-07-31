@@ -1451,3 +1451,500 @@ and otherwise never invoked. Now called right after focusing the successor.
 
 Also tightened: `state.lastIntendedFocusId` now tracks the successor in the move-away case
 instead of continuing to point at the window that just left the tag.
+
+---
+
+## 13. Guard audit + cleanup batch
+
+Context: several days with **zero genuine freezes** (no entries in the post-§11 `blocked (+Ns
+asleep)` format), 43 `slept` entries correctly *not* treated as freezes, `AX circuit open` still
+0 across 61 prune sweeps, and `state.tags` at **11 against 11 live windows** — exact parity,
+where it was 799 vs 10. So the remaining work is correctness and simplification, not firefighting.
+
+### The guard audit — two real defects
+
+The four overlapping time-based heuristics around `windowFocused` were audited because they are
+the same family as the two that already caused bugs (`winMapTTL` -> untiled windows,
+300 s wake suppression -> productivity stalls).
+
+**Defect A — `tileProtectionWindow` dropped a needed tile instead of deferring it.**
+
+```lua
+if needsTile then
+    local timeSinceTile = ... - state.lastTileTime
+    if timeSinceTile >= config.tileProtectionWindow then   -- 0.5 s
+        layout.tile()
+    end
+end
+```
+
+`layout.tile()` is already debounced by `perfProfile().tileDelay`, so repeated calls coalesce by
+themselves. This test did not defer the tile — it **discarded** it. A window registered via the
+focus path within 0.5 s of any other tile therefore never got laid out. That is a **second,
+independent route to the same symptom** as the winMap staleness in §10: "the first window after a
+tag switch or wake isn't tiled". Fixing §10 alone would have left this one live.
+*Fixed:* always call `layout.tile()`; the debounce is the coalescing mechanism.
+
+**Defect B — `state.launching` gated the entire handler.**
+
+`if state.launching then return end` sat at the top of `windowFocused`, so for 2 s after *any*
+`core.launchTask` (i.e. after every `Alt+Return`) the handler did nothing at all — skipping
+window registration, `augmentAllWins`, the scrolling retile, and
+`state.tagLastFocused[tag] = id`. Its actual purpose is only to avoid reacting to focus stolen by
+the app being launched, which is the cross-tag section at the bottom.
+
+The bookkeeping loss matters: `tagLastFocused` is what `gotoTag` and `toggleSpecial` use to
+restore focus, so a stale value there sends focus to the wrong window later — plausibly part of
+the "focus goes somewhere random" family.
+*Fixed:* moved the guard down to the anti-jump section where it belongs.
+
+**Kept as correct:** `tileProtectionWindow` and `tagSwitchCooldown` on the *cross-tag* path
+(lines guarding the anti-jump block). Tiling moves windows, which generates focus events;
+reacting to those would cause tag ping-pong. That is a real hazard and the guards are the right
+shape for it.
+
+### M15 — one classifier instead of two
+
+`core.classifyWindow(win, visibleTags)` is now the single source of truth, returning
+`isVisible, isFloat, isSticky, isPip, tag, id` (multiple returns rather than a table, to avoid
+per-window garbage in the tile loop). Called from `performTile` PHASE 1 and `raiseFloating`.
+
+The drift was real: `raiseFloating` carried extra special-tag clauses because it builds
+`visibleTags` from `state.activeTags` (which excludes the special tag), while `performTile`
+injects the special tag before classifying. Harmless while `raiseFloating` was dead code —
+but §12 gave it its first caller, so two code paths could have classified the same window
+differently.
+
+Both copies also contained a **dead** `isVisible = false` branch, requiring
+`not visibleTags[tag] and not sticky and not pip` — precisely the case where `isVisible` was
+already false. Dropped.
+
+### Cleanup batch
+
+**M10 — sketchybar no longer killed on every reload.** When it is already running *and* wanted,
+`init()` now just refreshes it. Previously it `pkill`ed and relaunched every single time, costing
+two blocking `os.execute` calls (measured **30.4 ms + 35.3 ms** of main-thread stall) plus a
+visible bar flicker, for no benefit.
+
+**M11 — dock orientation no longer blocking or permanently stale.** It was read on first use with
+a blocking `hs.execute` (~34 ms, inside the `windowFocused` path) and cached for the process
+lifetime, so moving the dock silently broke dock-click tag switching until reload. Now refreshed
+via `hs.task` at load and every `DOCK_REFRESH` (600 s): never blocks, and notices a moved dock.
+
+**M12 (partial) — blocking shell calls.** `integrations.lua` is down from 8 `os.execute` calls to
+1 (the Kanata reload, which has a documented fire-and-forget rationale and runs only on
+wake/manual). Sketchybar start/stop now uses `hs.task`. The SyncMon launcher was three identical
+blocking copies across `keybinds.lua` (x2) and `menus.lua`, each with a leftover
+`> /tmp/syncmon_hs.log` redirect — now one non-blocking `core.launchSyncMon()`.
+
+### Still open, deliberately
+
+- **`pass.lua:25`** — blocking `find` over the password store on the `Alt+Shift+P` path, and
+  **`agents.lua:20,26`** — `exec`/`sh` used by `focusAgent`, which issues ~5 sequential login-shell
+  calls. Both are on explicit user actions, and converting them means restructuring their choosers
+  around a "Loading…" placeholder (the pattern `agents.showMenu` already uses). Real but a UI
+  change, not a mechanical one.
+- **M2** `appTagMemory` destructive wipe — currently 5 entries against a cap of 1000, so latent.
+- **M3** (`_resync` drops minimized), **M4** (`gotoTag(nil)` with 5+ screens), **M5** (PiP clamp),
+  **M6** (toggle guard), **M8**, **M9**, **M18/M19** (overview), **M20** (keybind menu drift),
+  **M22**.
+
+---
+
+## 14. Verification of §13, and a new finding: the off-screen sentinel never matches
+
+### §13 verified
+
+The reported bug is fixed. Same probe, empty vertical tag, opened via `core.launchTask`:
+
+| | tiledCount @ +0.8s | frame |
+|---|---|---|
+| before | **0** | 800x600@356,120 (natural size) |
+| after | **1** | **1512x950@0,32** (full work area) |
+
+Tiled immediately, with no dependence on a cache expiring or a second window appearing.
+
+Classifier refactor checked: `core.classifyWindow` is semantically identical to the code it
+replaced (for `performTile`, `visibleTags` is a tag->frame map and `visibleTags[tag] ~= nil`
+matches the old truthy test; the added special-tag term is already implied there because
+`performTile` injects the special tag before classifying). `raiseFloating()` runs clean.
+
+### New finding — `x >= 90000` can never be true, because macOS clamps
+
+`performTile` PHASE 2 parks hidden windows with `f.x = 100000`. Inspecting live state:
+
+```
+9 windows: hidden=true,  x=1472    <- screen width is 1512, i.e. exactly 40 px left on screen
+1 window:  hidden=false, x=0
+```
+
+**macOS refuses to move a window fully off-screen** and clamps it to ~40 px of visibility. So
+parked windows sit at x=1472, not 100000, and every coordinate-based "is this parked?" test in
+the codebase is dead or inverted:
+
+| site | test | actual effect |
+|---|---|---|
+| `actions.lua:375` (`centerWindow`) | `f.x >= 90000` -> pull window back | **never fires**; falls through to `centerOnScreen()`, which happens to work |
+| `layout.lua:46, 76, 87` (raise paths) | `f.x < 90000` -> "not parked, safe to raise" | always true, so filters nothing; harmless only because the callers already gate on visibility |
+| `layout.lua:192` (PHASE 2) | `f.x < 90000` -> needs parking | always true; harmless only because the `windowState.isHidden` check short-circuits first |
+| `layout.lua:194` | `isFloating and f.x < 10000` -> cache real position | 1472 < 10000, so **a parked position can be cached as a float's "real" position** |
+
+The last row is the one with teeth: if `windowState[id].isHidden` ever drifts out of sync with
+reality, PHASE 2 re-runs on an already-parked float and writes `x = 1472` into
+`state.floatingCache`. PHASE 4 then restores from it (`saved.x < 10000` passes), so the float
+reappears jammed against the right edge instead of centred. That is a plausible explanation for
+any "floating window came back in the wrong place" behaviour.
+
+Nothing is visibly broken today because `state.windowState[id].isHidden` — not the coordinate —
+is what actually tracks parked-ness, and that bookkeeping is correct.
+
+**Recommended fix (not applied):** stop sniffing coordinates and use
+`state.windowState[id].isHidden` as the single authority, since it is already the real source of
+truth. That touches the hide/restore path, which is the most delicate part of the layout engine,
+so it deserves its own change rather than being appended to this batch.
+
+### Note on method
+
+The 9 "position mismatches" that surfaced this were initially my own test asserting the wrong
+invariant — it assumed parked windows sit at 100000. Worth recording, because the same wrong
+assumption is baked into four places in the codebase.
+
+---
+
+## 15. Sentinel fix + pass chooser async
+
+### Off-screen sentinel replaced with the real authority
+
+`core.isParked(win, id)` now answers "is this window parked?" from
+`state.windowState[id].isHidden`, which was always the actual source of truth. All eight
+coordinate tests are converted:
+
+| site | was | now |
+|---|---|---|
+| `actions.lua` `centerWindow` | `f.x >= 90000` (**never true**) | `core.isParked(win)` — branch is now reachable |
+| `actions.lua` `toggleFloat` | `f.x < 10000` before caching size | `not core.isParked(...)` + sane w/h |
+| `layout.lua` specialRaiseTimer | `win:frame().x < 90000` | `not core.isParked(win, id)` |
+| `layout.lua` `raiseFloating` (x2) | `win:frame().x < 90000` | `not core.isParked(win)` — also drops an AX `frame()` call per window |
+| `layout.lua` PHASE 2 park test | `f.x < 90000` | removed; `isHidden` already gates the branch |
+| `layout.lua` PHASE 2 cache test | `isFloating and f.x < 10000` | `isFloating` only |
+| `layout.lua` PHASE 4 restore | `saved.x < 10000 and w/h > 0` | `w/h > 0` (x/y were never used as a position) |
+
+The park coordinate is now the named `PARK_COORD = 100000` with a comment stating outright that
+the resulting frame is **not** this value, so nobody re-derives a coordinate test from it.
+
+The bug this closes: a re-park of an already-parked float could write the clamped position
+(x = 1472) into `state.floatingCache`, after which PHASE 4 restored the float against the screen
+edge instead of centred.
+
+### `pass.lua` chooser no longer blocks
+
+`listEntries` used a blocking `hs.execute("find ... | sort")` on the `Alt+Shift+P` path, stalling
+the event loop for a filesystem walk before the chooser appeared. Replaced with
+`listEntriesAsync`, which runs `find` via `hs.task` (no shell at all) and sorts in Lua. The
+chooser now opens immediately with its two action rows and fills in the store entries when find
+returns — the pattern `agents.showMenu` already used.
+
+Blocking shell calls remaining in nanowm, all deliberate:
+
+- `agents.lua:20,26` — `exec`/`sh` behind `focusAgent`. Still to do; see below.
+- `integrations.lua:336` — Kanata reload, documented fire-and-forget, wake/manual only.
+
+### Still open: `agents.focusAgent`
+
+Worth stating the plan rather than just deferring. `focusAgent` runs ~5 sequential blocking
+shell calls (three of them `zsh -lc`, i.e. full login shells): list panes -> switch/select ->
+list clients -> `ps -eo pid,ppid,ucomm` -> walk the process tree in Lua -> focus.
+
+It matters because the sketchybar agent-focus plugin invokes it through `hs -c`, so blocking the
+event loop there is what produced the `hs.ipc: already recursing` floods diagnosed in §8.
+
+Plan: collapse the three tmux steps into one `hs.task` that emits the client pid, then a second
+`hs.task` for the `ps` snapshot, keeping the terminal-detection walk in Lua (so the TERMINALS
+table stays the single definition rather than being duplicated into shell — the mistake that
+made `getAgents` a maintenance problem). Two async steps instead of five blocking ones.
+
+Not bundled here because it changes the behaviour of a path that is triggered externally, and it
+deserves its own verification pass rather than riding along with a layout-engine change.
+
+---
+
+## 16. Regression suite (`nanowm/spec.lua`)
+
+```
+require("nanowm.spec").run()          -- returns immediately
+require("nanowm.spec").report         -- read ~12 s later
+```
+
+**First run: 22 passed, 0 failed.** Verified by running it before deployment (via `dofile` on the
+repo path), and state was clean afterwards: `currentTag=1`, `managed=11 tags=11`,
+`acPower` restored to its real value, breaker not stuck.
+
+### Why integration tests rather than unit tests
+
+Every defect found in this review was an integration or OS-behaviour bug, not a logic bug:
+
+| defect | catchable by a stub-based unit test? |
+|---|---|
+| P9 prune sweep 29 s | No — needed real AX cost (~37 ms per dead-id lookup) |
+| §10 `winMapTTL` staleness | No — needed real event ordering against a live clock |
+| §14 macOS clamping parked windows | No — that is the OS, not our logic |
+| §11 sleep vs stall | No — needed an actual sleep |
+| §8 `hs.application.get` ~50 ms when absent | No — real syscall cost |
+| §13 `tileProtectionWindow` discarding tiles | Maybe, with an injected clock |
+
+So the suite asserts behaviour against the live WM. What it covers, mapped to what it protects:
+
+| assertion group | regression it guards |
+|---|---|
+| tags/managed parity, no dead ids, no phantoms | P9 / M1 leak, P8 floating-in-stack |
+| full enumeration is cheap | P9 sweep cost |
+| `classifyWindow` vs `isParked` never disagree | M15 classifier drift |
+| parked windows are *not* at `PARK_COORD` | §14 — fails loudly if anyone reintroduces a coordinate sentinel |
+| 7 floating-title cases incl. "General Information" | P6 — the live false positive |
+| AX probe < 25 ms, breaker not stuck | §9 wake probe stays cheap enough to poll |
+| scoped scan ≪ full sweep, cooldown works | P3 (measured 1.2 ms vs 31.6 ms) |
+| tile debounce matches the live power profile | P4 (measured 51 ms against an expected 50 ms) |
+| first window on an empty tag is laid out immediately | §10 **and** §13 — both causes of the reported bug |
+
+### Design notes
+
+- **Chained async, never overlapping.** Sync suites run first; the three that wait on real events
+  (`ax` -> `perf` -> `first_window`) are chained through callbacks so their side effects cannot
+  interleave.
+- **No blocking sleeps.** The first draft used `hs.timer.usleep(1.1s)` to wait out
+  `FULL_AUGMENT_COOLDOWN`, which would have stalled the very event loop these tests exist to keep
+  responsive. Replaced with `hs.timer.doAfter`.
+- **Teardown always runs**, via `pcall` plus a `finished` flag so a wrapper and its safety-net
+  timer cannot both complete a suite. The power-profile suite restores `state.acPower` and
+  rebuilds the timer; the tiling suite closes its window and returns to the original tag.
+- **Non-destructive where it counts.** The prune suite asserts the *invariants* the sweep
+  maintains rather than firing it, so running the tests cannot delete persisted tag state.
+- **One genuinely pure suite:** `isFloating` only calls `id/application/title/isStandard`, so the
+  title cases use a stub window with ids at 900000+ and clear the cache afterwards.
+
+### Worth adding later
+
+Pure geometry tests for `layout.applyLayout` (given N stub windows and a frame, assert the
+computed frames for vertical/horizontal/mono/scrolling) and the overview grid math — both are
+genuinely pure, need ~100 lines of `hs` stub, and geometry regressions are easy to introduce.
+M18 (overview wrap) is exactly that class of bug.
+
+---
+
+## 17. `agents.focusAgent` async — the last blocking path
+
+`focusAgent` made **four blocking subprocess calls on the main thread**, three of them
+`zsh -lc` (full login shells that source the whole profile):
+
+```
+sh("tmux list-panes …")     -> resolve pane/session/window
+sh("tmux switch-client … ; select-window … ; select-pane …")
+sh("tmux list-clients …")   -> controlling client pid
+exec("ps -eo pid,ppid,ucomm")  -> process table for the terminal walk
+```
+
+This mattered more than an ordinary hotkey path because `dotfiles/sketchybar/plugins/
+ai_agents_focus.sh` invokes it through `hs -c`. Blocking the event loop while an IPC request is
+in flight is exactly what produced the `hs.ipc: already recursing` floods diagnosed in §8.
+
+**Now:** one `hs.task` runs all the tmux work and prints the client pid, then a second runs `ps`.
+The terminal-detection walk stays in Lua so `TERMINALS` remains a single definition rather than
+being duplicated into shell — the mistake that made the deleted `getAgents()` a maintenance
+burden. `paneId` is passed as a shell *argument*, so there is no quoting or escaping at all.
+
+Both blocking helpers (`exec`, `sh`) are now unreferenced and deleted, and `getProcessTable` is
+replaced by a pure `parseProcessTable(psOut)`. **`agents.lua` no longer touches the main thread
+with a subprocess.**
+
+### A zsh bug caught only by running it
+
+The first version used `set -- $info` to split `"%1 0 1"` into pane/session/window. Testing the
+script standalone against a real pane:
+
+```
+resolved: %1 0 1
+would: switch-client -t  ; select-window -t : ; select-pane -t %1 0 1
+```
+
+**zsh does not word-split unquoted expansions** (unlike sh/bash), so `$1` held the entire line
+and `$2`/`$3` were empty — every `tmux` call would have received an empty target and pane
+focusing would have silently stopped working. The original code split in Lua, which is why it
+worked.
+
+Fixed with `set -- ${=info}` (zsh's explicit split flag), verified against a live pane:
+
+```
+split -> pane=[%1] session=[0] window=[1]
+```
+
+Worth recording as a method note: this was pure logic in a shell string, so it compiled fine, and
+no Lua-level test would have caught it. Only executing the script against real tmux state did.
+
+### Blocking calls remaining in nanowm
+
+| site | why it stays |
+|---|---|
+| `integrations.lua:336` | Kanata reload — documented fire-and-forget, wake/manual only |
+| `dotfiles/hammerspoon/init.lua:27` | emergency `pkill kanata` hotkey — deliberate escape hatch |
+| `profiler.lua` | the instrumentation itself, and only while profiling is enabled |
+
+---
+
+## 18. Spec flake, and paying an extension load up front
+
+First run of the suite against deployed code came back **21 passed, 1 failed**:
+
+```
+FAIL AX health probe is sub-millisecond-ish  -- 28.09ms (limit 25.00ms)
+```
+
+Not a regression — the console showed `-- Loading extension: axuielement` immediately before it.
+The measurement included Hammerspoon's one-time lazy load of the extension. Measured warm,
+straight afterwards:
+
+```
+warm probe (ms): 0.188 / 0.077 / 0.065 / 0.071 / 0.069 / 0.068
+```
+
+So steady-state is ~0.07 ms, and production was never at risk: `AX_PROBE_OK` is 250 ms, which even
+the 28 ms cold call clears by ~9x. **My assertion was measuring the wrong thing.**
+
+Two fixes:
+
+1. **Spec warms up before measuring**, and the assertion is now named and bounded against
+   something meaningful — `< 5 ms`, which is ~70x headroom over the observed steady state and 50x
+   under the real production threshold. Re-run: **22 passed, 0 failed**, probe at 0.13 ms.
+2. **`watchers.lua` touches `hs.axuielement` at load time**, so the extension is resolved during
+   config load instead of lazily inside the first post-wake probe — where it added ~28 ms to the
+   very call whose latency decides whether AX is healthy. One line, and it removes the cold-start
+   cost from the one place it could actually matter.
+
+### `focusAgent` verified live
+
+```
+pane=%1 | focus Alacritty -> Alacritty | tag 1 -> 1 | terminal focused=true
+```
+
+The async chain completes and lands on a terminal with no error alert. Caveat: focus was already
+on Alacritty, so this confirms "completes and ends on a terminal" rather than "picked the right
+one". The stronger evidence is the standalone shell run, which resolved
+`pane=[%1] session=[0] window=[1]` and returned a real client pid — that is the part that was
+actually broken by the zsh splitting bug.
+
+### Method note
+
+Both defects this round were in the *test*, not the code: an assertion measuring a cold start,
+and (last round) a shell string that compiled fine but did the wrong thing. A suite is only worth
+what its assertions assert — worth re-reading a failure to ask "is the test wrong?" before
+assuming the code is.
+
+---
+
+## 19. M18 fixed, pure suites added, and three bugs in the test harness
+
+### M18 — overview grid navigation
+
+The navigation math was modular arithmetic over the item count:
+
+```lua
+right -> (i % 11) + 1        down -> (i + 3) % 11 + 1
+left  -> (i - 2) % 11 + 1    up   -> (i - 5) % 11 + 1
+```
+
+Left/right were fine (linear next/previous with wrap). Up/down wrapped *linearly* rather than by
+column, so at the edges they landed on non-adjacent cells — "up" from cell 1 gave **8** instead
+of 9.
+
+Extracted as `overview.gridStep(index, dir, cells, cols)` — pure and exported, so it is testable
+without a canvas. Up/down now move by whole rows and wrap within the same column, skipping the
+gap in the partially-filled last row (11 cells over 4 columns leaves row 2 = 9,10,11). Verified:
+
+```
+1 up->9   9 down->1   8 down->4   4 up->8   11 up->7
+11 down->3   11 right->1   1 left->11   1 right->2   5 up->1
+```
+
+Also replaced the hardcoded `11` / `4` / `3` literals scattered across the render and hit-test
+loops with `CELLS` / `COLS` / `ROWS`.
+
+### Two pure suites added
+
+- **`suite_grid`** — 10 `gridStep` cases, including every edge wrap.
+- **`suite_geometry`** — `applyLayout` against stub windows on scratch tag 99, asserting
+  *invariants* rather than magic numbers: exactly one gap between panes, stacks reach the far
+  edge, equal heights in vertical, every window fills the area in mono, and a single window
+  fills the work area (the case that regressed in §10). Saves and restores
+  `gap`/`bordersEnabled`/`isFullscreen`/`tagLayouts`/`masterWidths`.
+
+This is the narrow band where classic unit tests genuinely pay: pure geometry, no AX.
+
+### Three bugs found in the harness itself
+
+Worth recording, because a test suite that fails quietly is worse than no suite.
+
+1. **Async errors silently killed the run.** An error inside `hs.timer.doAfter` is logged to the
+   HS console and the continuation simply never fires — so `M.report` stayed `nil` with no
+   indication of where it stopped. Added `safely(label, fn, onErr)` to wrap callback *bodies*, a
+   30 s watchdog that always renders a report, and `M.progress` breadcrumbs. The breadcrumb is
+   what localised it: `progress=perf done` pinpointed the tiling suite immediately.
+2. **`guarded()` only protected the synchronous part.** `pcall(suite, done)` cannot catch a throw
+   from a timer callback scheduled inside `suite`. That was the actual reason the chain died.
+3. **`safely` was declared after its use site.** Lua locals scope forward only, so
+   `suite_first_window_tiles` saw `nil` — reported as
+   `attempt to call a nil value (global 'safely')` once the guards were in place. Moved up with
+   the other helpers.
+
+Current status: **34 passed, 1 failed**, the single failure being `overview.gridStep exists --
+not exported` because only the repo copy has it. After the next rebuild the grid suite runs its
+10 cases and the expected total is 44 passing.
+
+---
+
+## 20. Cosmetic tail: M19, M20, M2
+
+Spec after the previous rebuild: **44 passed, 0 failed**, as predicted.
+
+### M19 — overview could not reach tags 11-20
+
+Tags map to monitors in tens (`state.getScreenForTag`), and `Ctrl+Alt+1-9`/`0` reach tags 11-20 —
+observed live as `activeTags = 1,13`. But the overview always rendered tags 1-10 and did:
+
+```lua
+selectedIndex = state.currentTag
+if selectedIndex > 10 then selectedIndex = 1 end
+```
+
+So on tag 13 it highlighted **tag 1** and offered no way to view or reach that bank.
+
+Added a `bankBase` (0 for tags 1-10, 10 for 11-20, …) and a `cellTag(index)` mapping. `show()`
+derives the bank from the current tag, so the grid displays the bank you are actually in, with
+correct labels. Every navigation path — mouse click, digit keys, `0`, and confirm — now goes
+through `cellTag`/`bankBase` rather than treating the cell index as the tag.
+
+### M20 — keybind help menu drift
+
+- **Two `category = "System"` sections** merged into one; `Ctrl+Alt+U` (Sync Dashboard) folded in.
+- **Mangled indentation** around the old duplicate block cleaned up (it was valid Lua but
+  unsafe to edit).
+- **`Alt+1-9` called `gotoTag(1)`** — selecting a *range* row from the help menu jumped to tag 1
+  regardless of intent. Now informational (`fn = nil`), which the chooser already handles.
+
+### M2 — no longer destroys hand-curated tag memory
+
+Was:
+
+```lua
+if #keys > 1000 then M.appTagMemory = {} end
+```
+
+A silent, total wipe of user-curated data at an arbitrary threshold. Replaced with a warning at
+5000.
+
+Justified by checking the growth drivers rather than assuming: the map is written only by
+`saveCurrentWindowTag` (`Alt+Shift+M`) and `saveAllWindowTags`, both explicit user actions, so it
+grows at human speed — it currently holds **5 entries** against the old cap of 1000. The one
+automatic writer, `rememberWindowTag()`, turned out to have **zero callers repo-wide** (checked
+`.lua`, `.sh` and `.nix`) and has been deleted.
+
+Everything in the original review's fix-first list and the M-series that was worth acting on is
+now either done or explicitly closed as rejected/deferred.
