@@ -2,11 +2,12 @@
 
 Consolidated, source-verified review of the Hammerspoon setup, focused on **nanowm**.
 
-Supersedes `nanowm_code_review(claude).md` and `nanowm-code-review(deepseek).md`. Every
-finding below was re-checked by reading the cited code; findings from those two documents
-that did not survive verification are listed in
-[§4 Rejected findings](#4-rejected-findings-do-not-re-raise) with the reason, so they don't
-get re-raised.
+Supersedes and replaces two earlier reviews (`nanowm_code_review(claude).md` and
+`nanowm-code-review(deepseek).md`), both **deleted** once their content was folded in — they are
+in git history if ever needed. Every finding below was re-checked against the actual code;
+the ~6 findings from those documents that did not survive verification are recorded in
+[§4 Rejected findings](#4-rejected-findings-do-not-re-raise) with the reason, so nobody spends
+time re-raising them.
 
 **Scope:** `dotfiles/hammerspoon/init.lua` and all of `dotfiles/hammerspoon/nanowm/`
 (config, state, core, layout, actions, tags, watchers, integrations, keybinds, menus,
@@ -22,6 +23,93 @@ claims verified by repo-wide grep including the sketchybar plugins and the tmux 
 is the right design. The most valuable findings below are places where that model has
 **gaps the design already anticipates elsewhere** (P2), and one perf profile that silently
 never activates (P4). Line numbers are as of this review.
+
+
+---
+
+## 0. Status and what's left
+
+**Read this section first if you are picking this up cold.**
+
+### Where things stand
+
+| | |
+|---|---|
+| Regression suite | **44 assertions, 0 failures** (`nanowm/spec.lua`) |
+| Genuine freezes | **none** since the two-clock fix in §11 — nothing in the `blocked (+Ns asleep)` format |
+| `AX circuit open` | never fired once, across the whole profiling period |
+| `state.tags` vs live windows | exact parity (was 799 vs 10) |
+| Blocking shell calls on the main thread | 2 left, both deliberate (see below) |
+| Profiler | **off** — opt-in via `hs.settings` |
+| nanowm LOC | **6,861** excluding the 555-line test suite |
+
+Everything in [§1 Fix first](#1-fix-first) (P1-P9) is done. All of §2's M-series is done except the
+nine items listed below.
+
+Note on that LOC figure: the simplification pass in §8 deleted ~185 lines of genuinely dead code,
+but the fixes after it — plus fairly heavy explanatory comments on the non-obvious parts — put the
+total slightly *above* where it started. Line count is not a useful measure of this work; the
+measured behaviour changes are (§0 table above, and the per-section measurements in the log).
+
+### Running the tests
+
+```lua
+require("nanowm.spec").run()      -- returns immediately
+require("nanowm.spec").report     -- read ~12 s later
+```
+
+Integration tests against the live WM: they open and close one window and briefly switch tags,
+with teardown via `pcall`. They cannot run in CI (need a GUI session + Accessibility permission).
+Rationale for that choice, and what each assertion guards, is in [§16](#16-regression-suite-nanowmspeclua).
+
+### Enabling the profiler when investigating
+
+```lua
+hs.settings.set("nanowm_profiler", true);  hs.reload()   -- on
+hs.settings.set("nanowm_profiler", false); hs.reload()   -- off
+```
+
+Log: `~/.hammerspoon/nanowm_slow.log`. Rare events (`AX circuit open`, `suppress start/lifted`)
+always reach the HS console regardless.
+
+### What's left — 9 items, all minor
+
+Worth doing for polish:
+
+| id | item | why it is low priority |
+|---|---|---|
+| **M6** | `toggleSketchybar` has no concurrency guard; rapid toggling can stack `sketchybar &` starts | needs deliberate mashing |
+| **M16** | built-in display detected by hardcoded name in **4 sites** (`actions.lua`, `layout.lua` x2, `watchers.lua`) | works on current hardware. **Needs a decision**: which screens actually carry the sketchybar? The original "the polarity is backwards" claim was never verified — see [R7](#4-rejected-findings-do-not-re-raise) |
+| **M3** | `_resync` drops minimized windows; untracked until the next focus event or 60 s resync | self-heals |
+| **M5** | PiP resize clamps w/h but not x/y (2 anchor adjustments in `actions.lua`) | only reachable via repeated resizes |
+| **M22** | `profiler.wrap("performTile", ...)` builds two closures per tile fire instead of wrapping once (2 sites in `layout.lua`) | negligible, and only while profiling |
+
+Latent — recommend leaving alone:
+
+| id | item | status |
+|---|---|---|
+| **M9** | rule matching uses `string.match` (Lua patterns) rather than plain find, so `.` `%` `[` in a rule misbehave | `config.rules` is **empty** — a trap for the first rule written, not a live bug |
+| **M4** | `gotoTag(nil)` reachable with 5+ displays (`state.activeTags` has 4 slots); would set `currentTag = nil` | unlikely setup |
+| **M8** | crash-recovery window is 2.0 s (`core.lua`); an app relaunching slower loses its tag | deliberate design choice |
+| **M7** | the confirm-prompt heuristic still exists in **2 copies** inside `showMenu`'s embedded zsh script (the Lua copy went with `getAgents`) | cosmetic: wrong status icon only |
+
+### Blocking calls deliberately left
+
+| site | reason |
+|---|---|
+| `integrations.lua` Kanata reload | documented fire-and-forget; wake/manual only |
+| `dotfiles/hammerspoon/init.lua` emergency `pkill kanata` | deliberate escape hatch, must work when everything else is wedged |
+
+### How this document is organised
+
+- **§1-§6** — the original consolidated review: findings, what to preserve, rejected claims,
+  suggested order, verification checklist.
+- **§7 onwards** — chronological change log, one section per batch of work, each recording what
+  changed, what was measured, and any correction to an earlier claim. Read §0 for state; read the
+  log only when you need the reasoning behind a specific change.
+
+Related: `nanowm_performance.md` holds five older performance ideas, annotated there with current
+status (two are now done, two partly).
 
 ---
 
