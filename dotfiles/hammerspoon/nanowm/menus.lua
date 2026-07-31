@@ -326,7 +326,10 @@ function M.showKeybindMenu()
         {
             category = "Tags",
             binds = {
-                { key = "Alt+1-9", desc = "Go to tag 1-9", fn = function() tags.gotoTag(1) end },
+                -- Informational: a range row must not execute one arbitrary member of the
+                -- range. This used to call gotoTag(1), so selecting "Alt+1-9" from the help
+                -- menu jumped to tag 1 regardless of what the user meant.
+                { key = "Alt+1-9", desc = "Go to tag 1-9", fn = nil },
                 { key = "Alt+0", desc = "Go to tag 10", fn = function() tags.gotoTag(10) end },
                 { key = "Alt+Shift+1-9", desc = "Move window to tag", fn = nil },
                 { key = "Alt+Escape", desc = "Toggle previous tag", fn = tags.togglePrevTag },
@@ -336,23 +339,11 @@ function M.showKeybindMenu()
                 { key = "Alt+U", desc = "Go to urgent tag", fn = tags.gotoUrgent },
                 { key = "Alt+Shift+U", desc = "Undo last move", fn = tags.undoLastMove },
                 { key = "Alt+Shift+M", desc = "Save window tag to memory", fn = tags.saveCurrentWindowTag },
-                },
-                },
-                {
-                category = "System",
-                binds = {
-                {
-                    key = "Ctrl+Alt+U",
-                    desc = "Sync Dashboard (SyncMon)",
-                    fn = function()
-                        hs.alert.show("🚀 Launching Sync Dashboard...")
-                        hs.execute("/bin/zsh -l -c 'alacritty --title \"SyncMon Dashboard\" -e syncmon &' > /tmp/syncmon_hs.log 2>&1")
-                    end,
-                },
-                },
-                },
-                {
-                category = "Layout & Display",            binds = {
+            },
+        },
+        {
+            category = "Layout & Display",
+            binds = {
                 { key = "Cmd+Space", desc = "Cycle layout (vertical/horizontal/mono/scrolling)", fn = actions.toggleLayout },
                 { key = "Alt+G", desc = "Toggle gaps", fn = actions.toggleGaps },
                 { key = "Ctrl+Alt+F", desc = "Toggle free mode", fn = tags.toggleFreeMode },
@@ -412,6 +403,7 @@ function M.showKeybindMenu()
         {
             category = "System",
             binds = {
+                { key = "Ctrl+Alt+U", desc = "Sync Dashboard (SyncMon)", fn = core.launchSyncMon },
                 { key = "Ctrl+Alt+Shift+R", desc = "Reload config", fn = hs.reload },
                 { key = "Ctrl+Alt+Shift+C", desc = "Toggle HS console", fn = hs.toggleConsole },
                 { key = "Cmd+Alt+Shift+C", desc = "Toggle Caffeinate", fn = actions.toggleCaffeinate },

@@ -111,8 +111,7 @@ function M.setup()
 
     -- Sync Dashboard
     hs.hotkey.bind(ctrlAlt, "u", function()
-        hs.alert.show("🚀 Launching Sync Dashboard...")
-        hs.execute("/bin/zsh -l -c 'alacritty --title \"SyncMon Dashboard\" -e syncmon &' > /tmp/syncmon_hs.log 2>&1")
+        core.launchSyncMon()
     end)
 
     -- Tag memory
@@ -522,8 +521,7 @@ function M.setup()
     systemModal:bind("", "p", function() integrations.toggleBatterySaver(); exitAll() end)
     systemModal:bind("", "g", function() integrations.toggleSketchybar(); exitAll() end)
     systemModal:bind("", "d", function()
-        hs.alert.show("🚀 Launching Sync Dashboard...")
-        hs.execute("/bin/zsh -l -c 'alacritty --title \"SyncMon Dashboard\" -e syncmon &' > /tmp/syncmon_hs.log 2>&1")
+        core.launchSyncMon()
         exitAll()
     end)
     systemModal:bind("", "k", function() integrations.toggleKanata(); exitAll() end)
