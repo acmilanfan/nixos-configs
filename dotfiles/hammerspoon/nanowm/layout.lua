@@ -13,6 +13,11 @@ local M = {}
 -- Forward declarations for integration callbacks
 M.onTileComplete = nil -- Set by integrations module
 
+-- Where hidden windows are parked. macOS clamps this to ~40 px of on-screen visibility, so the
+-- resulting frame is NOT this value — never test against it to decide if a window is parked;
+-- use core.isParked() instead.
+local PARK_COORD = 100000
+
 -- =============================================================================
 -- Debounced Tile Timer
 -- =============================================================================
@@ -43,7 +48,7 @@ specialRaiseTimer = hs.timer.delayed.new(0.1, function()
             local isSummoned = (state.lastIntendedFocusId == id)
 
             if onSpecial or isSummoned then
-                if win:frame().x < 90000 then win:raise() end
+                if not core.isParked(win, id) then win:raise() end
             end
         end
     end
@@ -64,37 +69,17 @@ end
 function M.raiseFloating()
     local floatingWins = {}
 
+    -- Set of tags visible right now. core.classifyWindow() adds the special tag itself when
+    -- special mode is active, so it does not need to be injected here.
     local visibleTags = {}
     for _, tag in ipairs(state.activeTags) do
         visibleTags[tag] = true
     end
 
     for _, win in ipairs(require("nanowm.watchers").getManagedWindows()) do
-        local id = win:id()
-        local winTag = state.tags[id]
-        local isSticky = state.sticky[id]
-        local isPip = (win:title() == "Picture-in-Picture")
-        local isFloat = core.isFloating(win)
-
-        local isVisible = false
-        if visibleTags[winTag] then
-            isVisible = true
-        end
-        if state.special.active and winTag == state.special.tag then
-            isVisible = true
-        end
-        if isSticky or isPip then
-            isVisible = true
-        end
-
-        if isFloat and not isSticky and not isPip and not visibleTags[winTag] and winTag ~= state.special.tag then
-            isVisible = false
-        end
-
-        if isVisible and isFloat then
-            if win:frame().x < 90000 then
-                table.insert(floatingWins, win)
-            end
+        local isVisible, isFloat = core.classifyWindow(win, visibleTags)
+        if isVisible and isFloat and not core.isParked(win) then
+            table.insert(floatingWins, win)
         end
     end
 
@@ -103,9 +88,8 @@ function M.raiseFloating()
     end
 
     if state.special.active then
-        local specialWins = core.getTiledWindows(state.special.tag)
-        for _, win in ipairs(specialWins) do
-            if win:frame().x < 90000 then
+        for _, win in ipairs(core.getTiledWindows(state.special.tag)) do
+            if not core.isParked(win) then
                 win:raise()
             end
         end
@@ -185,22 +169,8 @@ function M.performTile()
             core.registerWindow(win)
         end
 
-        local winTag = state.tags[id]
-        local isSticky = state.sticky[id]
-        local isPip = (win:title() == "Picture-in-Picture")
-        local isFloat = core.isFloating(win)
-
-        local isVisible = false
-        if visibleTags[winTag] then
-            isVisible = true
-        end
-        if isSticky or isPip then
-            isVisible = true
-        end
-
-        if isFloat and not isSticky and not isPip and not visibleTags[winTag] then
-            isVisible = false
-        end
+        -- Classified via core so this and raiseFloating() cannot drift apart.
+        local isVisible, isFloat = core.classifyWindow(win, visibleTags)
 
         if not state.windowState[id] then
             state.windowState[id] = { isHidden = false }
@@ -224,18 +194,24 @@ function M.performTile()
             local idStr = tostring(id)
             local f = win:frame()
 
-            if f.x < 90000 then
-                if f.w > 0 and f.h > 0 then
-                    if core.isFloating(win) and f.x < 10000 then
-                        state.floatingCache[idStr] = { x = f.x, y = f.y, w = f.w, h = f.h }
-                    end
-
-                    f.x = 100000
-                    f.y = 100000
-                    win:setFrame(f)
+            -- No coordinate test for "already parked": reaching this branch means
+            -- windowState.isHidden was false, which is the authority. The old `f.x < 90000`
+            -- guard could never fail anyway (macOS clamps parked windows to ~screenWidth-40).
+            if f.w > 0 and f.h > 0 then
+                -- Remember where a floating window really was so PHASE 4 can restore its size.
+                -- Previously gated on `f.x < 10000`, which a clamped parked position (1472)
+                -- also satisfied — so a re-park could overwrite the cache with the parked
+                -- position and the float would come back jammed against the screen edge.
+                if core.isFloating(win) then
+                    state.floatingCache[idStr] = { x = f.x, y = f.y, w = f.w, h = f.h }
                 end
+
+                f.x = PARK_COORD
+                f.y = PARK_COORD
+                win:setFrame(f)
             end
         end
+        state.windowState[id] = state.windowState[id] or {}
         state.windowState[id].isHidden = true
     end
 
@@ -317,7 +293,10 @@ function M.performTile()
                 local winTag = state.tags[id]
                 local targetFrame = visibleTags[winTag] or primaryFrame
 
-                if saved and saved.x < 10000 and saved.w > 0 and saved.h > 0 then
+                -- Only w/h are used below; saved.x/y are not a position source. The old
+                -- `saved.x < 10000` validity test is redundant now that a parked position can
+                -- no longer be written into the cache.
+                if saved and saved.w > 0 and saved.h > 0 then
                     win:setFrame({
                         x = targetFrame.x + (targetFrame.w - saved.w) / 2,
                         y = targetFrame.y + (targetFrame.h - saved.h) / 2,

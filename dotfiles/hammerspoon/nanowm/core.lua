@@ -119,6 +119,51 @@ function M.isFloating(win)
 end
 
 -- =============================================================================
+-- Window Classification
+--
+-- Single source of truth for how a window should be treated during a layout pass. This was
+-- duplicated between layout.performTile (PHASE 1) and layout.raiseFloating, and the two had
+-- already drifted: raiseFloating carried extra special-tag clauses because it builds its
+-- visibleTags from state.activeTags, which excludes the special tag, whereas performTile
+-- injects the special tag into visibleTags before classifying. Same intent, two spellings —
+-- and one of them only became live when raiseFloating gained its first caller.
+--
+-- Both copies also carried a dead `isVisible = false` branch: it required
+-- `not visibleTags[tag] and not sticky and not pip`, which is exactly the case where isVisible
+-- was already false. Dropped.
+--
+-- visibleTags may be a set (tag -> true) or a map (tag -> frame); only key membership is used.
+-- Returns multiple values rather than a table to avoid per-window garbage in the tile loop.
+-- =============================================================================
+
+function M.classifyWindow(win, visibleTags)
+    local id = win:id()
+    local tag = state.tags[id]
+    local isSticky = state.sticky[id] and true or false
+    local isPip = (win:title() == "Picture-in-Picture")
+    local isFloat = M.isFloating(win)
+    local isVisible = (visibleTags[tag] ~= nil)
+        or isSticky
+        or isPip
+        or (state.special.active and tag == state.special.tag)
+    return isVisible, isFloat, isSticky, isPip, tag, id
+end
+
+-- Is this window currently parked off-screen by the layout engine?
+--
+-- state.windowState[id].isHidden is the authority. It has to be: PHASE 2 parks windows at
+-- x = 100000, but macOS refuses to move a window fully off-screen and clamps it to ~40 px of
+-- visibility — so a parked window on a 1512 px display actually reports x = 1472. Every
+-- coordinate test against a 90000 sentinel therefore never matched, leaving
+-- centerWindow()'s restore branch dead and letting a clamped position be cached as a floating
+-- window's "real" position.
+function M.isParked(win, id)
+    id = id or (win and win:id())
+    local st = id and state.windowState[id]
+    return (st and st.isHidden) == true
+end
+
+-- =============================================================================
 -- Window Registration
 -- =============================================================================
 
@@ -398,18 +443,33 @@ end
 -- Dock Detection
 -- =============================================================================
 
--- Cache dock orientation — it changes only when the user moves the dock
-local cachedDockPos = nil
+-- Dock orientation, refreshed asynchronously in the background.
+--
+-- This used to be read on first use with a blocking hs.execute (~34 ms on the main thread,
+-- inside the windowFocused path) and then cached for the entire process lifetime — so moving
+-- the dock silently broke dock-click tag switching until Hammerspoon was reloaded.
+-- Now: never blocks, and picks up a moved dock within DOCK_REFRESH.
+local cachedDockPos = "bottom"
+local DOCK_REFRESH = 600
+local dockPosTimer = nil   -- module-level: Hammerspoon GCs timers without a live reference
+
+local function refreshDockPos()
+    hs.task.new("/usr/bin/defaults", function(_, stdOut)
+        -- Absent key (the default, bottom) yields empty output; keep the previous value then.
+        local v = (stdOut or ""):gsub("%s+", "")
+        if v ~= "" then cachedDockPos = v end
+    end, { "read", "com.apple.dock", "orientation" }):start()
+end
+
+refreshDockPos()
+dockPosTimer = hs.timer.new(DOCK_REFRESH, refreshDockPos)
+dockPosTimer:start()
 
 function M.isMouseInDockArea()
     local mousePos = hs.mouse.absolutePosition()
     local screen = hs.screen.mainScreen()
     local screenFrame = screen:frame()
 
-    if not cachedDockPos then
-        cachedDockPos = hs.execute("defaults read com.apple.dock orientation 2>/dev/null"):gsub("%s+", "")
-        if cachedDockPos == "" then cachedDockPos = "bottom" end
-    end
     local dockPos = cachedDockPos
 
     local dockThreshold = 90
@@ -428,6 +488,14 @@ end
 -- =============================================================================
 -- Utility Functions
 -- =============================================================================
+
+-- Sync dashboard launcher. Was three identical copies of a blocking hs.execute across
+-- keybinds.lua (x2) and menus.lua, each with a leftover > /tmp/syncmon_hs.log redirect.
+function M.launchSyncMon()
+    hs.alert.show("🚀 Launching Sync Dashboard...")
+    hs.task.new("/bin/zsh", nil,
+        { "-l", "-c", 'alacritty --title "SyncMon Dashboard" -e syncmon &' }):start()
+end
 
 function M.launchTask(cmd, args)
     state.launching = true

@@ -30,7 +30,9 @@ function M.toggleFloat()
     if currentlyFloating then
         -- Float -> Tile
         local f = win:frame()
-        if f.x < 10000 then
+        -- Remember the floating size, unless the window is parked (in which case the frame is
+        -- the clamped parked one, not a size worth restoring).
+        if f.w > 0 and f.h > 0 and not core.isParked(win, id) then
             state.sizeCache[idStr] = { w = f.w, h = f.h }
         end
         if not state.stacks[tag] then
@@ -372,8 +374,9 @@ function M.centerWindow()
     local win = hs.window.focusedWindow()
     if win then
         local f = win:frame()
-        if f.x >= 90000 then
-            -- Window is hidden, pull it back first
+        if core.isParked(win) then
+            -- Window is parked off-screen: pull it back to a sane frame instead of nudging the
+            -- clamped one. This branch was previously unreachable (`f.x >= 90000` never held).
             local screen = win:screen():frame()
             local w, h = screen.w * 0.7, screen.h * 0.7
             local x = screen.x + (screen.w - w) / 2
