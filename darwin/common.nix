@@ -159,7 +159,7 @@ in
   '';
 
   launchd.agents.darwin-startup = {
-    command = "${startupScript}/bin/darwin-startup";
+    command = "/bin/bash ${startupScript}/bin/darwin-startup";
     serviceConfig = {
       Label = "local.darwin-startup";
       RunAtLoad = true;
@@ -324,11 +324,11 @@ in
     # We use kickstart to run the agent in the proper GUI session context
     echo "Triggering user-level startup script via launchd..."
     USER_ID=$(id -u ${user})
-    sudo -u ${user} launchctl kickstart -k "gui/$USER_ID/local.darwin-startup" || sudo -u ${user} "${startupScript}/bin/darwin-startup"
+    sudo -u ${user} launchctl kickstart -k "gui/$USER_ID/local.darwin-startup" || sudo -u ${user} /bin/bash "${startupScript}/bin/darwin-startup"
 
     # Safely set cursor settings via defaults write as the user
     echo "Setting cursor size, colors, and other universal access settings..."
-    sudo -u ${user} bash -c '
+    sudo -u ${user} /bin/bash -c '
       export PATH=$PATH:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/opt/homebrew/bin
       defaults write com.apple.universalaccess cursorIsCustomized -bool true
 
