@@ -12,7 +12,61 @@ local M = {}
 
 local overviewCanvas = nil
 local overviewModal = nil
-local selectedIndex = 1 -- 1-10 are tags, 11 is Special
+-- Grid geometry. Cells 1..CELLS are laid out COLS wide; the last row is partially filled.
+local COLS  = 4
+local CELLS = 11   -- tags 1-10 plus Special
+local ROWS  = math.ceil(CELLS / COLS)
+
+local selectedIndex = 1 -- cell index: 1-10 are tags, 11 is Special
+
+-- Which bank of ten tags the grid is showing: 0 for tags 1-10, 10 for 11-20, and so on.
+-- Tags map to monitors in tens (see state.getScreenForTag), and Ctrl+Alt+1-9/0 reach the
+-- 11-20 bank, but the overview always rendered 1-10 and silently collapsed a current tag
+-- above 10 to cell 1 — so on tag 13 it highlighted tag 1 and offered no way to see that bank.
+local bankBase = 0
+
+-- Cell index -> real tag ("special" for the last cell).
+local function cellTag(index)
+    if index == CELLS then return "special" end
+    return bankBase + index
+end
+
+-- Move the selection one step. Pure and exported so it can be tested without a canvas.
+--
+-- The previous implementation was modular arithmetic over the item count:
+--     right -> (i % 11) + 1        down -> (i + 3) % 11 + 1
+--     left  -> (i - 2) % 11 + 1    up   -> (i - 5) % 11 + 1
+-- Left/right were fine (linear next/previous with wrap), but up/down produced non-adjacent
+-- cells at the edges: "up" from cell 1 landed on 8 rather than 9, because it wrapped linearly
+-- instead of by column. Now up/down move by whole rows and wrap within the same column,
+-- skipping the gap in the partially-filled last row.
+function M.gridStep(index, dir, cells, cols)
+    cells = cells or CELLS
+    cols  = cols  or COLS
+    local rows = math.ceil(cells / cols)
+
+    if dir == "right" then
+        return (index % cells) + 1
+    elseif dir == "left" then
+        return ((index - 2) % cells) + 1
+    end
+
+    local col = (index - 1) % cols
+    local row = math.floor((index - 1) / cols)
+
+    if dir == "down" then
+        for step = 1, rows do
+            local candidate = ((row + step) % rows) * cols + col + 1
+            if candidate <= cells then return candidate end
+        end
+    elseif dir == "up" then
+        for step = 1, rows do
+            local candidate = ((row - step) % rows) * cols + col + 1
+            if candidate <= cells then return candidate end
+        end
+    end
+    return index
+end
 
 local COLORS = {
     highlight = { red = 0.2, green = 0.6, blue = 1.0, alpha = 0.8 },
@@ -31,8 +85,8 @@ local function getGridIndexAt(x, y)
     local screen = hs.screen.mainScreen()
     local frame = screen:frame()
     
-    local cols = 4
-    local rows = 3
+    local cols = COLS
+    local rows = ROWS
     local margin = 60
     local spacing = 30
     
@@ -41,7 +95,7 @@ local function getGridIndexAt(x, y)
 
     -- Important: Coordinates from mouseCallback are relative to canvas.
     -- Since canvas matches screen frame, we use screen relative coordinates.
-    for i = 1, 11 do
+    for i = 1, CELLS do
         local col = (i - 1) % cols
         local row = math.floor((i - 1) / cols)
         local tx = margin + col * (cardW + spacing)
@@ -60,8 +114,8 @@ local function render()
     local screen = hs.screen.mainScreen()
     local frame = screen:frame()
     
-    local cols = 4
-    local rows = 3
+    local cols = COLS
+    local rows = ROWS
     local margin = 60
     local spacing = 30
     
@@ -80,7 +134,7 @@ local function render()
     })
 
     -- 2. Grid of tags (1-11, where 11 is special)
-    for i = 1, 11 do
+    for i = 1, CELLS do
         local col = (i - 1) % cols
         local row = math.floor((i - 1) / cols)
         
@@ -98,7 +152,7 @@ local function render()
         })
 
         -- Snapshot or Placeholder
-        local tagKey = i == 11 and "special" or i
+        local tagKey = cellTag(i)
         local snapshot = state.tagSnapshots[tagKey]
         
         if snapshot then
@@ -148,7 +202,7 @@ local function render()
         })
         table.insert(elements, {
             type = "text",
-            text = (i == 11) and "S" or tostring(i),
+            text = (i == CELLS) and "S" or tostring(bankBase + i),
             textSize = 24,
             textColor = COLORS.text,
             textAlignment = "center",
@@ -168,10 +222,13 @@ function M.show()
     
     -- Determine starting index
     if state.special.active then
-        selectedIndex = 11
+        selectedIndex = CELLS
     else
-        selectedIndex = state.currentTag
-        if selectedIndex > 10 then selectedIndex = 1 end
+        -- Show the bank containing the current tag, and select that tag within it.
+        local cur = tonumber(state.currentTag) or 1
+        bankBase = math.floor((cur - 1) / 10) * 10
+        selectedIndex = cur - bankBase
+        if selectedIndex < 1 or selectedIndex > 10 then selectedIndex = 1 end
     end
 
     local screen = hs.screen.mainScreen()
@@ -194,10 +251,10 @@ function M.show()
             if index then
                 -- Hide FIRST to prevent taking a snapshot of the overview
                 M.hide()
-                if index == 11 then
+                if index == CELLS then
                     if not state.special.active then tags.toggleSpecial() end
                 else
-                    tags.gotoTag(index)
+                    tags.gotoTag(cellTag(index))
                 end
             end
         end
@@ -214,11 +271,7 @@ function M.show()
     
     -- 1. Grid Navigation (hjkl + Arrows)
     local function move(dir)
-        if dir == "right" then selectedIndex = (selectedIndex % 11) + 1
-        elseif dir == "left" then selectedIndex = (selectedIndex - 2) % 11 + 1
-        elseif dir == "down" then selectedIndex = (selectedIndex + 3) % 11 + 1
-        elseif dir == "up" then selectedIndex = (selectedIndex - 5) % 11 + 1
-        end
+        selectedIndex = M.gridStep(selectedIndex, dir)
         render()
     end
 
@@ -234,14 +287,14 @@ function M.show()
     
     -- 2. Direct Access (1-9, 0, s)
     for i = 1, 9 do
-        overviewModal:bind({}, tostring(i), function() 
+        overviewModal:bind({}, tostring(i), function()
             M.hide()
-            tags.gotoTag(i)
+            tags.gotoTag(bankBase + i)
         end)
     end
     overviewModal:bind({}, "0", function() 
         M.hide()
-        tags.gotoTag(10)
+        tags.gotoTag(bankBase + 10)
     end)
     overviewModal:bind({}, "s", function()
         M.hide()
@@ -252,10 +305,10 @@ function M.show()
     local confirm = function() 
         local target = selectedIndex
         M.hide() 
-        if target == 11 then
+        if target == CELLS then
             if not state.special.active then tags.toggleSpecial() end
         else
-            tags.gotoTag(target)
+            tags.gotoTag(cellTag(target))
         end
     end
     overviewModal:bind({}, "return", confirm)
