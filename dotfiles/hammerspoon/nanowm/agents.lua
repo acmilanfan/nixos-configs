@@ -15,25 +15,16 @@ local TERMINALS = {
     Hyper = true,
 }
 
--- Direct execute for system-path tools (ps, lsof, awk, find).
-local function exec(cmd)
-    return (hs.execute(cmd)) or ""
-end
-
--- Zsh login shell for nix-PATH tools (tmux, sketchybar).
-local function sh(cmd)
-    local escaped = cmd:gsub("'", "'\\''")
-    return (hs.execute("/bin/zsh -lc '" .. escaped .. "'")) or ""
-end
-
 -- =============================================================================
 -- Process helpers
 -- =============================================================================
 
-local function getProcessTable()
-    local out = exec("ps -eo pid,ppid,ucomm")
+-- Parse `ps -eo pid,ppid,ucomm` output. Pure: the caller supplies the text, so the subprocess
+-- can be run asynchronously. The blocking exec()/sh() helpers this module used to carry are
+-- gone — nothing here touches the main thread with a subprocess any more.
+local function parseProcessTable(psOut)
     local procs = {}
-    for line in out:gmatch("[^\n]+") do
+    for line in (psOut or ""):gmatch("[^\n]+") do
         local pid, ppid, comm = line:match("^%s*(%d+)%s+(%d+)%s+(%S+)")
         if pid then procs[pid] = { ppid = ppid, ucomm = comm } end
     end
@@ -97,26 +88,46 @@ end
 -- =============================================================================
 
 function M.focusAgent(paneId)
-    local paneOut = sh("tmux list-panes -a -F '#{pane_id} #{session_name} #{window_index}' -f '#{m:#{pane_id}," .. paneId .. "}' 2>/dev/null")
-    local pId, session, winIdx = paneOut:match("^(%%%d+) (%S+) (%d+)")
+    -- All the tmux work happens in ONE shell invocation, which prints the controlling client's
+    -- pid. This used to be four blocking calls -- three of them `zsh -lc`, i.e. full login
+    -- shells that source the entire profile -- run directly on the Hammerspoon main thread.
+    --
+    -- It matters more than an ordinary hotkey path: the sketchybar agent-focus plugin invokes
+    -- this via `hs -c`, and blocking the event loop while an IPC request is in flight is what
+    -- produced the `hs.ipc: already recursing` floods.
+    --
+    -- paneId is passed as an argument rather than interpolated, so no quoting or escaping.
+    local script = [==[
+        pane_target="$1"
+        info=$(tmux list-panes -a -F '#{pane_id} #{session_name} #{window_index}' \
+                    -f "#{m:#{pane_id},$pane_target}" 2>/dev/null)
+        [ -z "$info" ] && exit 1
+        # ${=info} forces word splitting: zsh, unlike sh/bash, does NOT split unquoted
+        # expansions, so a plain `set -- $info` leaves $1 holding the whole line and $2/$3
+        # empty — every tmux call below would then get an empty target.
+        set -- ${=info}
+        tmux switch-client -t "$2"    2>/dev/null
+        tmux select-window -t "$2:$3" 2>/dev/null
+        tmux select-pane   -t "$1"    2>/dev/null
+        tmux list-clients  -t "$2" -F '#{client_pid}' 2>/dev/null | head -1
+    ]==]
 
-    if pId then
-        sh(
-            "tmux switch-client -t '" .. session .. "' 2>/dev/null; " ..
-            "tmux select-window  -t '" .. session .. ":" .. winIdx .. "' 2>/dev/null; " ..
-            "tmux select-pane    -t '" .. pId .. "' 2>/dev/null"
-        )
-        local clientOut = sh("tmux list-clients -t '" .. session .. "' -F '#{client_pid}' 2>/dev/null")
-        local clientPid = clientOut:match("^(%d+)")
-
-        if clientPid then
-            local procs = getProcessTable()
-            local termPid = findTerminalPid(clientPid, procs)
-            if termPid then focusByPid(termPid) end
+    hs.task.new("/bin/zsh", function(exitCode, stdOut)
+        if exitCode ~= 0 then
+            hs.alert.show("Could not locate tmux pane " .. tostring(paneId))
+            return
         end
-    else
-        hs.alert.show("Could not locate tmux pane " .. paneId)
-    end
+        local clientPid = (stdOut or ""):match("(%d+)")
+        if not clientPid then return end
+
+        -- Process table, also async. The terminal-detection walk stays in Lua so TERMINALS
+        -- remains the single definition instead of being duplicated into shell -- the mistake
+        -- that made the deleted getAgents() a maintenance burden.
+        hs.task.new("/bin/ps", function(_, psOut)
+            local termPid = findTerminalPid(clientPid, parseProcessTable(psOut))
+            if termPid then focusByPid(termPid) end
+        end, { "-eo", "pid,ppid,ucomm" }):start()
+    end, { "-lc", script, "nanowm-focus-agent", tostring(paneId) }):start()
 end
 
 -- =============================================================================
