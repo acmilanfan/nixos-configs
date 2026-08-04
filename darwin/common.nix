@@ -61,7 +61,7 @@ let
       "AutoRaise"
       "Syncthing"
       "Warpd"
-      "FineTune"
+      # "FineTune" - prevent audio source switching, disabled until fixed
     )
 
     for app in "''${ensure_apps[@]}"; do
