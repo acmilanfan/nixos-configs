@@ -81,16 +81,61 @@ let
   # `serve-qwen` / `serve-gemma` (below); the provider just points at the
   # local port, so it's a no-op entry until a server is actually running.
   localProviders = {
+    ollama = {
+      npm = "@ai-sdk/openai-compatible";
+      name = "Ollama (local)";
+      options = {
+        baseURL = "http://127.0.0.1:11434/v1";
+        apiKey = "local";
+      };
+      models = {
+        "gemma4:26b-mlx" = {
+          name = "Gemma 4 26B MoE MLX (Ollama)";
+        };
+        "gemma4:12b-mlx" = {
+          name = "Gemma 4 12B MLX (Ollama)";
+        };
+        "gemma4:31b-mlx" = {
+          name = "Gemma 4 31B MLX (Ollama)";
+        };
+        "qwen3.6:27b-mlx" = {
+          name = "Qwen 3.6 27B MLX (Ollama)";
+        };
+        "qwen3.6:35b-mlx" = {
+          name = "Qwen 3.6 35B MoE MLX (Ollama)";
+        };
+        "hf.co/unsloth/Llama-3_3-Nemotron-Super-49B-v1_5-GGUF:Q4_K_M" = {
+          name = "Nemotron Super 49B (Ollama)";
+        };
+      };
+    };
+
     mlx = {
       npm = "@ai-sdk/openai-compatible";
-      name = "MLX (local)";
+      name = "MLX 31B (local)";
       options = {
         baseURL = "http://127.0.0.1:8080/v1";
         apiKey = "local";
       };
       models = {
-        "mlx-community/gemma-4-31b-it-4bit" = {
-          name = "Gemma 4 31B Dense (MLX, local)";
+        "mlx-community/gemma-4-31b-it-6bit" = {
+          name = "Gemma 4 31B 6-bit (MLX, local)";
+        };
+      };
+    };
+
+    mlxSmall = {
+      npm = "@ai-sdk/openai-compatible";
+      name = "MLX 12B (local, vision)";
+      options = {
+        baseURL = "http://127.0.0.1:8082/v1";
+        apiKey = "local";
+      };
+      models = {
+        "mlx-community/gemma-4-12B-it-6bit" = {
+          name = "Gemma 4 12B 6-bit (MLX, local, vision)";
+          attachment = true;
+          modalities.input = ["text" "image"];
         };
       };
     };
@@ -103,8 +148,8 @@ let
         apiKey = "local";
       };
       models = {
-        "qwen3.6-mtp" = {
-          name = "Qwen3.6 (MTPLX, MTP, local)";
+        "mtplx-qwen36-27b-optimized-speed-v2" = {
+          name = "Qwen3.6 27B (MTPLX Optimized Speed V2, local)";
         };
       };
     };
@@ -210,39 +255,81 @@ let
   serveQwen = pkgs.writeShellScriptBin "serve-qwen" ''
     set -euo pipefail
 
-    # MTPLX uses MLX-formatted Hugging Face repos instead of GGUF files
-    MODEL="''${QWEN_MLX:-samwang0041/Qwen3.6-27B-MLX-4bit-MTP}"
+    # MTPLX uses MLX-formatted Hugging Face repos instead of GGUF files.
+    # Official models from MTPLX author: huggingface.co/Youssofal
+    MODEL="''${QWEN_MLX:-Youssofal/Qwen3.6-27B-MTPLX-Optimized-Speed-V2}"
+    CACHE_DIR="$HOME/ai/models"
 
-    echo "Starting MTPLX (Qwen 3.6, native MLX MTP) on :8081 ..."
+    echo "Starting MTPLX (Qwen 3.6 Optimized Speed V2) on :8081 ..."
+
+    mkdir -p "$CACHE_DIR"
 
     # `mtplx quickstart` is the headless OpenAI/Anthropic server entry point;
     # `mtplx start` is interactive-only (picks model/mode/surface, then drops
     # into chat). `pull` is a separate explicit step so first-run downloads
     # happen predictably rather than inline during quickstart.
-    ${unstable.mtplx}/bin/mtplx pull "$MODEL"
+    ${unstable.mtplx}/bin/mtplx pull "$MODEL" --cache-dir "$CACHE_DIR"
     exec ${unstable.mtplx}/bin/mtplx quickstart \
       --model "$MODEL" \
+      --cache-dir "$CACHE_DIR" \
       --host 127.0.0.1 \
       --port 8081 \
       --yes
   '';
 
-  # Tried swapping to nixpkgs' python312Packages.mlx-lm for the same
-  # reproducibility reason as serveQwen above, but a real build showed its
-  # runtime deps (transformers/datasets/huggingface-hub) each default
-  # doCheck=true independently of mlx-lm's own doCheck, pulling in a
-  # from-source PyTorch plus ~60 unrelated test-only packages
-  # (elasticsearch, redis, flask, scipy...). Disabling checks correctly
-  # would mean overriding doCheck across that whole transitive chain, which
-  # isn't worth it for a manually-run dev script — kept on uvx.
-  serveGemma = pkgs.writeShellScriptBin "serve-gemma" ''
+  # Smaller Gemma 4 12B (~6.7 GB), can coexist with Qwen 27B on 48 GB.
+  serveGemmaSmall = pkgs.writeShellScriptBin "serve-gemma-small" ''
     set -euo pipefail
+
     export PATH="${pkgs.uv}/bin:$PATH"
-    echo "Starting MLX (Gemma 4 31B Dense) on :8080 ..."
-    exec uvx --from mlx-lm mlx_lm.server \
-      --model "''${GEMMA_MODEL:-mlx-community/gemma-4-31b-it-4bit}" \
-      --port 8080
+    export HF_HOME="$HOME/ai/models/huggingface"
+
+    echo "Starting MLX (Gemma 4 12B vision) on :8082 ..."
+    exec uvx --python 3.11 --from mlx-vlm mlx_vlm.server \
+      --model "''${GEMMA_SMALL_MODEL:-mlx-community/gemma-4-12B-it-6bit}" \
+      --port 8082 \
+      --max-kv-size "$((4 * 1024 * 1024 * 1024))"
   '';
+
+  # Ollama: runs the bundled llama.cpp server + pulls the model on first use.
+  # Models are stored in ~/ai/models/ollama (set via OLLAMA_MODELS).
+  serveOllama = pkgs.writeShellScriptBin "serve-ollama" ''
+    set -euo pipefail
+
+    export OLLAMA_MODELS="$HOME/ai/models/ollama"
+    export OLLAMA_HOST="127.0.0.1:11434"
+
+    if ! ollama list &>/dev/null; then
+      echo "Starting ollama serve..." >&2
+      ollama serve &>/dev/null &
+      sleep 2
+    fi
+
+    MODEL="''${OLLAMA_MODEL:-gemma4:26b-mlx}"
+    EXTRA_MODELS="''${OLLAMA_EXTRA_MODELS:-gemma4:12b-mlx qwen3.6:27b-mlx hf.co/unsloth/Llama-3_3-Nemotron-Super-49B-v1_5-GGUF:Q4_K_M}"
+    echo "Ollama: pulling ''${MODEL} (one-time) ..."
+    ollama pull "$MODEL"
+
+    if [ -n "$EXTRA_MODELS" ]; then
+      echo "Ollama: pulling extra models: $EXTRA_MODELS"
+      for m in $EXTRA_MODELS; do
+        ollama pull "$m"
+      done
+    fi
+
+    echo "Ollama ready on http://127.0.0.1:11434"
+  '';
+
+  # Quick shortcuts for common Ollama MLX models.
+  # Usage: opencode-qwen "refactor this file"
+  ocOllama = model: name: pkgs.writeShellScriptBin "oc-${name}" ''
+    exec opencode run -m "ollama/${model}" "''${@}"
+  '';
+  ocQwen27b   = ocOllama "qwen3.6:27b-mlx"    "qwen27b";
+  ocQwen35b   = ocOllama "qwen3.6:35b-mlx"    "qwen35b";
+  ocGemma26b  = ocOllama "gemma4:26b-mlx"     "gemma26b";
+  ocGemma31b  = ocOllama "gemma4:31b-mlx"     "gemma31b";
+  ocNemotron  = ocOllama "hf.co/unsloth/Llama-3_3-Nemotron-Super-49B-v1_5-GGUF:Q4_K_M" "nemotron";
 
   # Puts both on-demand local model servers in one detached tmux session
   # (one window each) instead of tying up a foreground pane, and
@@ -254,7 +341,8 @@ let
 
     if ! ${pkgs.tmux}/bin/tmux has-session -t="$SESSION" 2>/dev/null; then
       ${pkgs.tmux}/bin/tmux new-session -ds "$SESSION" -n qwen "serve-qwen; exec $SHELL"
-      ${pkgs.tmux}/bin/tmux new-window -t "$SESSION" -n gemma "serve-gemma; exec $SHELL"
+      ${pkgs.tmux}/bin/tmux new-window -t "$SESSION" -n gemma12b "serve-gemma-small; exec $SHELL"
+      ${pkgs.tmux}/bin/tmux new-window -t "$SESSION" -n ollama "serve-ollama; exec $SHELL"
     fi
 
     if [ -n "''${TMUX:-}" ]; then
@@ -491,7 +579,13 @@ in
     # (unstable.mtplx, unstable.python312Packages.mlx-lm) — this file is
     # shared with Linux hosts, which must never force those derivations.
     serveQwen
-    serveGemma
+    serveGemmaSmall
+    serveOllama
+    ocQwen27b
+    ocQwen35b
+    ocGemma26b
+    ocGemma31b
+    ocNemotron
   ];
 
   # Workspace + opencode asset directories always exist, reproducibly.

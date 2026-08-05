@@ -67,6 +67,11 @@ function M.setup()
         hs.task.new("/bin/zsh", nil, { "-c", "sketchybar --set ai_agents popup.drawing=toggle 2>/dev/null" }):start()
     end)
 
+    -- Ollama models (Ctrl+Alt+Shift+O)
+    hs.hotkey.bind(ctrlAltShift, "o", function()
+        hs.urlevent.openURL("raycast://extensions/massimiliano_pasquini/raycast-ollama/ollama-models")
+    end)
+
     -- Forward Cmd+Shift+/ to app (Help menu)
     hs.hotkey.bind(altShift, "/", function()
         hs.eventtap.keyStroke({ "cmd", "shift" }, "/")

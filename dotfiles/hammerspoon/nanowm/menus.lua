@@ -378,6 +378,7 @@ function M.showKeybindMenu()
             binds = {
                 { key = "Alt+A",      desc = "Agent chooser (focus running agent)", fn = function() require("nanowm.agents").showMenu() end },
                 { key = "Ctrl+Alt+A", desc = "Toggle SketchyBar agent popup",       fn = function() hs.task.new("/bin/zsh", nil, { "-c", "sketchybar --set ai_agents popup.drawing=toggle 2>/dev/null" }):start() end },
+                { key = "Ctrl+Alt+Shift+O", desc = "Ollama models (Raycast)",     fn = function() hs.urlevent.openURL("raycast://extensions/massimiliano_pasquini/raycast-ollama/ollama-models") end },
             },
         },
         {

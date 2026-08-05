@@ -209,6 +209,7 @@ in
       "docker"
       "wifitui"
       "k06a/tap/macpow"
+      "ollama"
     ];
 
     taps = [
