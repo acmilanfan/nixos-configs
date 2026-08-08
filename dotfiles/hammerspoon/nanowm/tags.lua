@@ -237,11 +237,22 @@ function M.gotoTag(i)
     layout.tile()
 
     local wins = core.getTiledWindows(i)
-    if #wins > 0 then
-        hs.timer.doAfter(0.15, function()
-            local lastFocusedId = state.tagLastFocused[i]
-            local targetWin = nil
+    local lastFocusedId = state.tagLastFocused[i]
 
+    -- Check if the last focused was a floating window on this tag
+    local floatTarget = nil
+    if lastFocusedId then
+        local w = hs.window(lastFocusedId)
+        if w and state.tags[lastFocusedId] == i and core.isFloating(w) then
+            floatTarget = w
+        end
+    end
+
+    if floatTarget then
+        hs.timer.doAfter(0.15, function() floatTarget:focus() end)
+    elseif #wins > 0 then
+        hs.timer.doAfter(0.15, function()
+            local targetWin = nil
             if lastFocusedId then
                 for _, w in ipairs(wins) do
                     if w:id() == lastFocusedId then
@@ -250,7 +261,6 @@ function M.gotoTag(i)
                     end
                 end
             end
-
             if targetWin then
                 targetWin:focus()
             else
@@ -374,6 +384,32 @@ function M.moveWindowToTag(destTag, win)
     local id = win:id()
     local currentTag = state.tags[id]
 
+    -- Capture position for proportional remapping when crossing screens
+    local oldWf, oldScreen
+    if currentTag and core.isFloating(win) then
+        if state.windowState[id] and state.windowState[id].isHidden then
+            local cached = state.floatingCache[tostring(id)]
+            if cached and cached.w and cached.h then
+                -- Reject parked positions (macOS clamps to ~40px of bottom-right corner)
+                local cs = state.getScreenForTag(currentTag)
+                if cs then
+                    local sf = cs:frame()
+                    if cached.x > sf.x + sf.w - 100 and cached.y > sf.y + sf.h - 100 then
+                        -- Parked: keep w/h only, x/y will be centered later
+                        cached = nil
+                    end
+                end
+            end
+            if cached then
+                oldWf = cached
+                oldScreen = state.getScreenForTag(currentTag)
+            end
+        else
+            oldWf = win:frame()
+            oldScreen = state.getScreenForTag(currentTag)
+        end
+    end
+
     -- Record move for undo (if not already there)
     if currentTag ~= destTag then
         state.lastMove = { winId = id, fromTag = currentTag, toTag = destTag }
@@ -424,6 +460,28 @@ function M.moveWindowToTag(destTag, win)
 
     state.triggerSave()
     layout.tile()
+
+    -- Remap position proportionally when crossing screens, and prevent
+    -- PHASE 4 from re-centering floating windows moved to another tag.
+    if oldWf and oldScreen then
+        local targetScreen = state.getScreenForTag(destTag)
+        if targetScreen and oldScreen ~= targetScreen then
+            local of = oldScreen:frame()
+            local sf = targetScreen:frame()
+            local rx = (oldWf.x - of.x) / of.w
+            local ry = (oldWf.y - of.y) / of.h
+            local newX = sf.x + rx * sf.w
+            local newY = sf.y + ry * sf.h
+            local newWf = { x = newX, y = newY, w = oldWf.w, h = oldWf.h }
+            win:setFrame(newWf)
+        elseif targetScreen then
+            win:setFrame(oldWf)
+        end
+        if state.windowState[id] and state.windowState[id].isHidden then
+            local wf = win:frame()
+            state.floatingCache[tostring(id)] = { x = wf.x, y = wf.y, w = wf.w, h = wf.h }
+        end
+    end
 
     -- Focus management: Always handle if moving into view or away from view
     local activeTag = state.special.active and state.special.tag or state.currentTag

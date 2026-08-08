@@ -297,9 +297,12 @@ function M.performTile()
                 -- `saved.x < 10000` validity test is redundant now that a parked position can
                 -- no longer be written into the cache.
                 if saved and saved.w > 0 and saved.h > 0 then
+                    -- Use saved x/y when not parked (parked coords are near bottom-right corner)
+                    local useSavedXY = saved.x and saved.x < targetFrame.x + targetFrame.w - 100
+                        and saved.y and saved.y < targetFrame.y + targetFrame.h - 100
                     win:setFrame({
-                        x = targetFrame.x + (targetFrame.w - saved.w) / 2,
-                        y = targetFrame.y + (targetFrame.h - saved.h) / 2,
+                        x = useSavedXY and saved.x or (targetFrame.x + (targetFrame.w - saved.w) / 2),
+                        y = useSavedXY and saved.y or (targetFrame.y + (targetFrame.h - saved.h) / 2),
                         w = saved.w,
                         h = saved.h
                     })

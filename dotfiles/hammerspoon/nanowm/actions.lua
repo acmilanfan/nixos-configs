@@ -117,11 +117,18 @@ function M.toggleFullscreen()
 
     if core.isFloating(win) then
         if state.fullscreenCache[idStr] then
-            win:setFrame(state.fullscreenCache[idStr])
+            local cached = state.fullscreenCache[idStr]
+            if cached.x ~= nil and cached.y ~= nil and cached.w ~= nil and cached.h ~= nil then
+                win:setFrame(cached)
+            end
             state.fullscreenCache[idStr] = nil
         else
             local f = win:frame()
-            state.fullscreenCache[idStr] = { x = f.x, y = f.y, w = f.w, h = f.h }
+            local x, y = tonumber(f.x), tonumber(f.y)
+            local w, h = tonumber(f.w), tonumber(f.h)
+            if x ~= nil and y ~= nil and w ~= nil and h ~= nil then
+                state.fullscreenCache[idStr] = { x = x, y = y, w = w, h = h }
+            end
             local frame = hs.screen.mainScreen():frame()
             if state.sketchybarEnabled then
                 local name = hs.screen.mainScreen():name()
@@ -155,28 +162,29 @@ function M.bringWindowToCurrentContext(win, sizeFactor)
 
     -- Initialize state to prevent layout engine interference or "restoring" to old hidden position
     state.windowState[id] = state.windowState[id] or {}
-    state.windowState[id].isHidden = false
     state.lastIntendedFocusId = id
 
     if sizeFactor then
         state.floatingOverrides[id] = true
     end
 
-    -- Use the centralized move method
-    local tags = require("nanowm.tags")
-    tags.moveWindowToTag(targetTag, win)
-
-    -- Handle sizing if floating
-    if sizeFactor and core.isFloating(win) then
-        local screen = hs.screen.mainScreen():frame()
-        local newW = screen.w * sizeFactor
-        local newH = screen.h * sizeFactor
-        local newX = screen.x + (screen.w - newW) / 2
-        local newY = screen.y + (screen.h - newH) / 2
+    -- Double-press on an already-focused floating window: reset to default size/position
+    local focused = hs.window.focusedWindow()
+    if sizeFactor and core.isFloating(win) and focused and focused:id() == id then
+        local targetScreen = state.getScreenForTag(targetTag) or hs.screen.mainScreen()
+        local sf = targetScreen:frame()
+        local newW = sf.w * sizeFactor
+        local newH = sf.h * sizeFactor
+        local newX = sf.x + (sf.w - newW) / 2
+        local newY = sf.y + (sf.h - newH) / 2
         win:setFrame({ x = newX, y = newY, w = newW, h = newH })
+        win:raise()
+        return
     end
 
-    -- Explicit raise to be extra safe
+    -- Use the centralized move method (handles proportional remapping internally)
+    local tags = require("nanowm.tags")
+    tags.moveWindowToTag(targetTag, win)
     win:raise()
 end
 
