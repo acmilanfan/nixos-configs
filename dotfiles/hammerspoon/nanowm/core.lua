@@ -103,10 +103,17 @@ function M.isFloating(win)
             else
                 pattern = entry
             end
-            if pattern and (not scope or scope == appName)
-                and string.find(title, pattern:lower(), 1, true) then
-                result = true
-                break
+            if pattern and (not scope or scope == appName) then
+                local matched
+                if entry.exact then
+                    matched = (title == pattern:lower())
+                else
+                    matched = string.find(title, pattern:lower(), 1, true) ~= nil
+                end
+                if matched then
+                    result = true
+                    break
+                end
             end
         end
         if not result then

@@ -81,7 +81,7 @@ M.floatingTitles = {
     { app = "Alacritty", title = "SyncMon Dashboard" },
     -- App-specific windows
     { app = "FineTune", title = "FineTune" },
-    { app = "Firefox",  title = "weekenduo" },
+    { app = "Firefox",  title = "Weekenduo", exact = true },
     -- Specific enough to leave unscoped (PiP can come from any browser)
     "Picture-in-Picture",
     "Task Switcher",

@@ -161,7 +161,9 @@ local function suite_floating_titles()
         -- name, app, title, expected
         { "Alacritty ORGINDEX floats",        "Alacritty", "ORGINDEX-WORK",                          true  },
         { "Alacritty YAZI floats",            "Alacritty", "YAZI",                                   true  },
-        { "Firefox weekenduo floats",         "Firefox",   "weekenduo.app - Mozilla Firefox",        true  },
+        { "Firefox weekenduo exact title floats", "Firefox", "Weekenduo",                            true  },
+        -- Exact match prevents substring false positives from Render/Supabase/GitLab
+        { "Firefox weekenduo substring does NOT float", "Firefox", "Weekenduo Dashboard",             false },
         -- The live false positive that motivated scoping: bare "Info" matched "Information".
         { "Firefox 'Information' does NOT float", "Firefox", "Cost effective - General Information", false },
         { "Firefox 'Copy' does NOT float",     "Firefox",  "How to Copy Files in Bash",              false },

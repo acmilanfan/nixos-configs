@@ -26,7 +26,7 @@ local weekenduoTimeout = nil
 
 local function weekenduoCleanup()
     if weekenduoFilter then
-        weekenduoFilter:unsubscribe()
+        weekenduoFilter:unsubscribe(hs.window.filter.windowAllowed)
         weekenduoFilter = nil
     end
     if weekenduoTimeout then
@@ -327,24 +327,19 @@ function M.setup()
     end)
 
     hs.hotkey.bind(altShift, "z", function()
-        -- 1. Try to find existing window by stored ID
         local existingWin = state.weekenduoWinId and hs.window(state.weekenduoWinId)
         if existingWin and (not existingWin:application() or not hs.window(state.weekenduoWinId)) then
             existingWin = nil
             state.weekenduoWinId = nil
         end
 
-        -- 2. If ID is missing, try to find by title pattern among all windows (even if launching)
-        -- This helps if the marking was missed or we are spaming the keybind
         if not existingWin then
             local allWins = require("nanowm.watchers").getManagedWindows()
             for _, win in ipairs(allWins) do
                 local title = (win:title() or ""):lower()
                 local app = win:application()
                 local appName = app and app:name() or ""
-
-                -- Match Firefox windows that specifically have 'weekenduo' in the title
-                if appName == "Firefox" and string.find(title, "weekenduo", 1, true) then
+                if appName == "Firefox" and title == "weekenduo" then
                     existingWin = win
                     state.weekenduoWinId = win:id()
                     state.weekenduoLaunching = false
@@ -355,14 +350,12 @@ function M.setup()
             end
         end
 
-        -- 3. If found, focus it
         if existingWin then
-            state.weekenduoLaunching = false -- Reset flag if we found the window
+            state.weekenduoLaunching = false
             actions.bringWindowToCurrentContext(existingWin, 0.8)
             return
         end
 
-        -- 4. If not found and not already launching, launch a new one
         if state.weekenduoLaunching then
             print("[NanoWM] Already launching weekenduo, please wait...")
             return
@@ -371,33 +364,31 @@ function M.setup()
         state.weekenduoLaunching = true
         local sizeFactor = 0.8
         local appName = "Firefox"
-        local titlePattern = "weekenduo"
+        local titlePattern = "^[Ww]eekenduo$"
         local launchCmd = '/Applications/Firefox.app/Contents/MacOS/firefox --new-window "https://weekenduo.app"'
 
-        -- Drop any watcher left over from a previous attempt before creating a new one.
         weekenduoCleanup()
         weekenduoFilter = hs.window.filter.new(false):setAppFilter(appName, {allowTitles = titlePattern})
-        -- Use windowAllowed instead of windowCreated to catch when title changes during load
         weekenduoFilter:subscribe(hs.window.filter.windowAllowed, function(newWin)
             weekenduoCleanup()
-            state.weekenduoLaunching = false -- Reset launching flag
+            state.weekenduoLaunching = false
+            local winId = newWin:id()
             hs.timer.doAfter(1.0, function()
-                if newWin:isValid() and newWin:application() then
-                    local screen = newWin:screen():frame()
+                local win = hs.window(winId)
+                if win and win:application() then
+                    local screen = win:screen():frame()
                     local newW = screen.w * sizeFactor
                     local newH = screen.h * sizeFactor
                     local newX = screen.x + (screen.w - newW) / 2
                     local newY = screen.y + (screen.h - newH) / 2
-                    newWin:setFrame({ x = newX, y = newY, w = newW, h = newH })
-                    newWin:raise()
-                    newWin:focus()
+                    win:setFrame({ x = newX, y = newY, w = newW, h = newH })
+                    win:raise()
+                    win:focus()
                     layout.tile()
                 end
             end)
         end)
 
-        -- Safety timer: on timeout, tear the watcher down as well as resetting the flag.
-        -- Resetting the flag alone was what leaked the filter.
         weekenduoTimeout = hs.timer.doAfter(5, function()
             weekenduoTimeout = nil
             weekenduoCleanup()
