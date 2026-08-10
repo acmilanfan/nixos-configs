@@ -164,7 +164,7 @@ in
     %admin ALL=(ALL) NOPASSWD: /bin/launchctl
     %admin ALL=(ALL) NOPASSWD: /usr/bin/pkill
     %admin ALL=(ALL) NOPASSWD: /usr/bin/pmset
-    %admin ALL=(ALL) NOPASSWD: /bin/chmod
+    %admin ALL=(ALL) NOPASSWD: SETENV: /bin/chmod
     %admin ALL=(ALL) NOPASSWD: /usr/bin/log
   '';
 
