@@ -23,6 +23,15 @@ final: prev: {
     then final.callPackage ./pkgs/blueutil-tui.nix { }
     else prev.blueutil-tui or null;
 
+  # arrow-azurefs-test tries to send Azure SDK telemetry over HTTPS
+  # but the sandbox has no CA certs, causing "unable to get local issuer certificate"
+  arrow-cpp = prev.arrow-cpp.overrideAttrs (old: {
+    installCheckPhase = builtins.replaceStrings
+      [ "--exclude-regex '^(" ]
+      [ "--exclude-regex '^(arrow-azurefs-test|" ]
+      old.installCheckPhase;
+  });
+
   syncmon = final.callPackage ./pkgs/syncmon.nix { };
 
   mtplx = if final.stdenv.hostPlatform.isDarwin
