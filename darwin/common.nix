@@ -69,9 +69,19 @@ let
         if [ -d "/Applications/$app.app" ] || [ -d "/Applications/Nix Apps/$app.app" ] || [ -d "$USER_HOME/Applications/$app.app" ] || [ -d "$USER_HOME/Applications/Home Manager Apps/$app.app" ]; then
           echo "Starting $app (was not running)..."
 
-          # If we are starting Hammerspoon, we might want a clean sketchybar
+          # If we are starting Hammerspoon, we need sketchybar running first.
+          # HS's integrations.init() checks pgrep and only schedules updates if
+          # sketchybar is alive. If HS launches sketchybar itself, the init
+          # holds the AX lock and freezes HS's event loop.
           if [ "$app" == "Hammerspoon" ]; then
              pkill -x "sketchybar" 2>/dev/null || true
+             sleep 0.5
+             /bin/zsh -lc "sketchybar >/dev/null 2>&1 & disown" 2>/dev/null
+             # Post-boot event-tap fix: HS's event tap (hotkeys) often fails
+             # silently when the TCC/Accessibility service hasn't fully initialized
+             # yet at login. Reload HS after a grace period — IPC reload if the
+             # module loaded successfully, else kill+restart.
+             (sleep 5; /opt/homebrew/bin/hs -c 'hs.reload()' 2>/dev/null || { pkill -x Hammerspoon; sleep 1; open -a Hammerspoon; }) &
           fi
 
           open -a "$app"
@@ -159,7 +169,7 @@ in
   '';
 
   launchd.agents.darwin-startup = {
-    command = "/bin/bash ${startupScript}/bin/darwin-startup";
+    command = "/usr/local/bin/darwin-startup";
     serviceConfig = {
       Label = "local.darwin-startup";
       RunAtLoad = true;
@@ -321,12 +331,6 @@ in
       sudo -u ${user} /bin/zsh -lc "nvim --headless '+call firenvim#install(0)' +quit" 2>/dev/null || true
     fi
 
-    # Run user-level startup tasks (apps, drivers)
-    # We use kickstart to run the agent in the proper GUI session context
-    echo "Triggering user-level startup script via launchd..."
-    USER_ID=$(id -u ${user})
-    sudo -u ${user} launchctl kickstart -k "gui/$USER_ID/local.darwin-startup" || sudo -u ${user} /bin/bash "${startupScript}/bin/darwin-startup"
-
     # Safely set cursor settings via defaults write as the user
     echo "Setting cursor size, colors, and other universal access settings..."
     sudo -u ${user} /bin/bash -c '
@@ -374,6 +378,24 @@ in
       chmod 755 /usr/local/bin/warpd-nix
       codesign --force -s - /usr/local/bin/warpd-nix 2>/dev/null || true
     fi
+
+    # Setup darwin-startup stable path to prevent Gatekeeper prompts.
+    # The launchd plist at /Library/LaunchAgents/local.darwin-startup.plist is
+    # regenerated on every rebuild with a Nix-store ProgramArguments hash. macOS
+    # provenance tracking flags the changed executable, triggering a "security
+    # permissions" dialog. Copying to a stable path decouples the plist contents
+    # from Nix rebuilds.
+    echo "Ensuring darwin-startup stable path..."
+    DARWIN_STARTUP_DEST=/usr/local/bin/darwin-startup
+    if ! cmp -s ${startupScript}/bin/darwin-startup "$DARWIN_STARTUP_DEST"; then
+      cp -f ${startupScript}/bin/darwin-startup "$DARWIN_STARTUP_DEST"
+      chmod 755 "$DARWIN_STARTUP_DEST"
+    fi
+
+    # Trigger user-level startup script now that the stable path exists.
+    echo "Triggering user-level startup script via launchd..."
+    USER_ID=$(id -u ${user})
+    sudo -u ${user} launchctl kickstart -k "gui/$USER_ID/local.darwin-startup" || sudo -u ${user} /usr/local/bin/darwin-startup
 
     pkill -x warpd || true
     pkill -9 kanata || true

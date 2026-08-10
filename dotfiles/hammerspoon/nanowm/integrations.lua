@@ -138,7 +138,10 @@ end
 function M.toggleSketchybar()
     hs.task.new("/bin/zsh", function(exitCode)
         if exitCode ~= 0 then
-            hs.task.new("/bin/zsh", nil, { "-l", "-c", "sketchybar &" }):start()
+            -- MUST redirect all output: sketchybar spawns system_info_daemon.sh
+            -- (infinite macmon pipe loop) which inherits hs.task's stdout pipe.
+            -- NSTask then waits for EOF forever, blocking the HS main thread.
+            hs.task.new("/bin/zsh", nil, { "-l", "-c", "sketchybar >/dev/null 2>&1 & disown" }):start()
             state.sketchybarEnabled = true
             state.triggerSave()
             hs.alert.show("Sketchybar: ON (started)")
@@ -178,7 +181,7 @@ function M.toggleBatterySaver()
         hs.alert.show("🔋 Battery Saver: ON\nSketchybar disabled", 2)
     else
         if state.batterySaverPreviousState.sketchybar then
-            hs.task.new("/bin/zsh", nil, { "-l", "-c", "sketchybar &" }):start()
+            hs.task.new("/bin/zsh", nil, { "-l", "-c", "sketchybar >/dev/null 2>&1 & disown" }):start()
             state.sketchybarEnabled = true
             hs.timer.doAfter(1, function()
                 M.updateSketchybar()
@@ -464,7 +467,10 @@ function M.init()
         else
             -- It's NOT running. Check if it's supposed to be.
             if state.sketchybarEnabled then
-                hs.task.new("/bin/zsh", nil, { "-l", "-c", "sketchybar &" }):start()
+                -- Redirect all output: sketchybar's system_info_daemon.sh plugin
+                -- runs forever and would keep hs.task's pipe open, blocking the
+                -- HS main thread in read() until HS is killed.
+                hs.task.new("/bin/zsh", nil, { "-l", "-c", "sketchybar >/dev/null 2>&1 & disown" }):start()
                 scheduleInit(2, function()
                     M.updateSketchybar()
                     scheduleInit(0.5, function()
