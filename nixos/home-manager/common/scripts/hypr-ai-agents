@@ -91,7 +91,7 @@ focus_agent() {
     tmux select-pane -t "$p_id"
     client_pid=$(tmux list-clients -t "$session" -F '#{client_pid}' 2>/dev/null | head -1)
     if [ -n "$client_pid" ]; then
-      hyprctl dispatch focuswindow pid:"$client_pid"
+      hyprctl dispatch "hl.dsp.focus({window = 'pid:$client_pid'})"
     fi
   fi
 }

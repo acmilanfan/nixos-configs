@@ -50,11 +50,11 @@
       slurp
       playerctl
       pavucontrol
-      wineWowPackages.full
+      wineWow64Packages.full
       winetricks
       thinkfan
       lm_sensors
-      protonvpn-gui
+      proton-vpn
       zenity
       onboard
     ] ++ lib.optionals pkgs.stdenv.isDarwin [

@@ -19,6 +19,7 @@
     "clock"
   ],
   "modules-right": [
+    "custom/kanata",
     "custom/layout",
     "custom/power",
     "custom/timer",
@@ -30,6 +31,15 @@
     "memory",
     "tray"
   ],
+  "custom/kanata": {
+      "format": "{}",
+      "interval": 5,
+      "return-type": "json",
+      "exec": "hypr-kanata-status",
+      "on-click": "switch-kanata.sh homerow",
+      "on-click-right": "switch-kanata.sh disabled",
+      "tooltip": true
+  },
   "custom/layout": {
       "format": "{}",
       "interval": 2,

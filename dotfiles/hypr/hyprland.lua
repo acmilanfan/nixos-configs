@@ -10,8 +10,7 @@ hl.env("HYPRCURSOR_SIZE", "28")
 
 -- --- MONITORS ---
 -- Not predefined: auto-detect on startup, then hypr-profile restore applies the saved layout.
--- Scripts manage monitors via hyprctl keyword monitor. The old source = ~/.cache/hypr-monitors.conf
--- is no longer needed since scripts apply monitors directly.
+-- Scripts manage monitors via hyprctl eval hl.monitor().
 
 -- --- DEVICE CONFIG ---
 hl.device({
@@ -51,7 +50,7 @@ hl.config({
   input = {
     kb_layout = "us,de,ru",
     follow_mouse = 1,
-    kb_options = "grp:rctrl_rshift_toggle",
+    kb_options = "grp:lctrl_lshift_toggle",
     touchpad = {
       natural_scroll = true,
     },
@@ -97,11 +96,11 @@ hl.config({
 -- Animation curves
 hl.curve("ease", { type = "bezier", points = { {0.4, 0.02}, {0.21, 1} } })
 
--- Animation presets (all use the built-in "default" curve)
-hl.animation({ leaf = "windows", enabled = true, speed = 1, curve = "default" })
-hl.animation({ leaf = "fade", enabled = true, speed = 1, curve = "default" })
-hl.animation({ leaf = "workspaces", enabled = true, speed = 1, curve = "default" })
-hl.animation({ leaf = "zoomFactor", enabled = true, speed = 4, curve = "default" })
+-- Animation presets (all use the built-in "default" bezier)
+hl.animation({ leaf = "windows", enabled = true, speed = 1, bezier = "default" })
+hl.animation({ leaf = "fade", enabled = true, speed = 1, bezier = "default" })
+hl.animation({ leaf = "workspaces", enabled = true, speed = 1, bezier = "default" })
+hl.animation({ leaf = "zoomFactor", enabled = true, speed = 4, bezier = "default" })
 
 hl.config({
   binds = {
@@ -118,6 +117,7 @@ hl.on("hyprland.start", function()
   hl.exec_cmd("hyprctl setcursor breeze_cursors 28")
   hl.exec_cmd("hypr-profile restore")
   hl.exec_cmd("bash -c 'sleep 3 && sync-volume'")
+  hl.exec_cmd("bash -c 'sleep 4 && brightness-ctl restore &'")
   hl.exec_cmd("ln -sf /run/user/1000/ssh-agent ~/.ssh/ssh_auth_sock")
   hl.exec_cmd("ssh-add-login")
 end)
@@ -205,21 +205,26 @@ hl.bind(mod .. " + CTRL + X", hl.dsp.exec_cmd('pkill -USR1 -f "waybar.*external"
 hl.bind(mod .. " + SHIFT + CTRL + X", hl.dsp.exec_cmd("hypr-waybar-toggle"))
 
 -- Orgmode/terminal
-hl.bind(mod .. " + SHIFT + O", hl.dsp.exec_cmd(
-  [[hypr-focus-or-spawn orgindex "AGENDA" "alacritty -o 'window.dimensions.lines=20' -o 'window.dimensions.columns=100' --class orgindex --title ORGINDEX-AGENDA -e zsh -c 'nvim --cmd \"cd ~/org/life\" -c \"lua require(\\\"orgmode.api.agenda\\\").agenda({span = 1})\" -c \"autocmd VimEnter * ++once lua vim.defer_fn(function() for _, buf in ipairs(vim.api.nvim_list_bufs()) do if vim.api.nvim_buf_get_option(buf, \\\"filetype\\\") ~= \\\"orgagenda\\\" then vim.api.nvim_buf_delete(buf, {force = true}) end end end, 200)\""]]))
+hl.bind(mod .. " + SHIFT + O", function()
+  hl.dispatch(hl.dsp.exec_cmd([=[hypr-focus-or-spawn orgindex AGENDA "alacritty -o 'window.dimensions.lines=20' -o 'window.dimensions.columns=100' --class orgindex --title ORGINDEX-AGENDA -e zsh -c 'nvim --cmd \"cd ~/org/life\" -c \"lua require(\\\"orgmode.api.agenda\\\").agenda({span = 1})\" -c \"autocmd VimEnter * ++once lua vim.defer_fn(function() for _, buf in ipairs(vim.api.nvim_list_bufs()) do if vim.api.nvim_buf_get_option(buf, \\\"filetype\\\") ~= \\\"orgagenda\\\" then vim.api.nvim_buf_delete(buf, {force = true}) end end end, 200)\"'"]=]))
+end)
 
-hl.bind(mod .. " + SHIFT + W", hl.dsp.exec_cmd(
-  [[hypr-focus-or-spawn orgindex "WORK" "alacritty -o 'window.dimensions.lines=20' -o 'window.dimensions.columns=100' --class orgindex --title ORGINDEX-WORK -e zsh -c 'cd ~/org/life && vim ~/org/life/work/work.org'"]]))
+hl.bind(mod .. " + SHIFT + W", function()
+  hl.dispatch(hl.dsp.exec_cmd([=[hypr-focus-or-spawn orgindex WORK "alacritty -o 'window.dimensions.lines=20' -o 'window.dimensions.columns=100' --class orgindex --title ORGINDEX-WORK -e zsh -c 'cd ~/org/life && vim ~/org/life/work/work.org'"]=]))
+end)
 
-hl.bind(mod .. " + SHIFT + D", hl.dsp.exec_cmd(
-  [[hypr-focus-or-spawn orgindex "DUMP" "alacritty -o 'window.dimensions.lines=20' -o 'window.dimensions.columns=100' --class orgindex --title ORGINDEX-DUMP -e zsh -c 'cd ~/org/life && vim ~/org/life/dump.org'"]]))
+hl.bind(mod .. " + SHIFT + D", function()
+  hl.dispatch(hl.dsp.exec_cmd([=[hypr-focus-or-spawn orgindex DUMP "alacritty -o 'window.dimensions.lines=20' -o 'window.dimensions.columns=100' --class orgindex --title ORGINDEX-DUMP -e zsh -c 'cd ~/org/life && vim ~/org/life/dump.org'"]=]))
+end)
 
-hl.bind(mod .. " + SHIFT + Y", hl.dsp.exec_cmd(
-  [[hypr-focus-or-spawn orgindex "YOUTUBE" "alacritty -o 'window.dimensions.lines=20' -o 'window.dimensions.columns=100' --class orgindex --title ORGINDEX-YOUTUBE -e zsh -c 'cd ~/org/consume && vim ~/org/consume/youtube/youtube1.org'"]]))
+hl.bind(mod .. " + SHIFT + Y", function()
+  hl.dispatch(hl.dsp.exec_cmd([=[hypr-focus-or-spawn orgindex YOUTUBE "alacritty -o 'window.dimensions.lines=20' -o 'window.dimensions.columns=100' --class orgindex --title ORGINDEX-YOUTUBE -e zsh -c 'cd ~/org/consume && vim ~/org/consume/youtube/youtube1.org'"]=]))
+end)
 
 -- PWA
-hl.bind(mod .. " + SHIFT + Z", hl.dsp.exec_cmd(
-  [[hypr-focus-or-spawn firefox "weekenduo" "firefox --new-window 'https://weekenduo.app'"]]))
+hl.bind(mod .. " + SHIFT + Z", function()
+  hl.dispatch(hl.dsp.exec_cmd([[hypr-focus-or-spawn firefox weekenduo "firefox --new-window 'https://weekenduo.app'"]]))
+end)
 
 -- Window management
 hl.bind(mod .. " + SHIFT + Q", hl.dsp.window.close())
@@ -236,7 +241,7 @@ hl.bind(mod .. " + SHIFT + S", hl.dsp.window.move({ workspace = "special silent"
 hl.bind(mod .. " + U", hl.dsp.focus({ urgent_or_last = true }))
 
 hl.bind(mod .. " + C", hl.dsp.window.center())
-hl.bind(mod .. " + SHIFT + C", hl.dsp.window.resize({ width = "60%", height = "70%" }))
+hl.bind(mod .. " + SHIFT + C", hl.dsp.exec_cmd("hyprctl dispatch resizeactive exact \"60% 70%\""))
 hl.bind(mod .. " + CTRL + C", function()
   hl.dispatch(hl.dsp.window.float({ action = "toggle" }))
   hl.dispatch(hl.dsp.window.center())
@@ -248,22 +253,28 @@ hl.bind(mod .. " + CTRL + A", hl.dsp.exec_cmd(
 
 -- Workspaces (tags)
 for i = 1, 10 do
-  hl.bind(mod .. " + " .. i, hl.dsp.focus({ workspace = tostring(i) }))
+  local key = i % 10
+  hl.bind(mod .. " + " .. key, hl.dsp.focus({ workspace = tostring(i) }))
 end
 for i = 11, 20 do
-  hl.bind(mod .. " + CTRL + " .. (i - 10), hl.dsp.focus({ workspace = tostring(i) }))
+  local key = (i - 10) % 10
+  hl.bind(mod .. " + CTRL + " .. key, hl.dsp.focus({ workspace = tostring(i) }))
 end
 for i = 1, 10 do
-  hl.bind(mod .. " + SHIFT + " .. i, hl.dsp.window.move({ workspace = tostring(i) }))
+  local key = i % 10
+  hl.bind(mod .. " + SHIFT + " .. key, hl.dsp.window.move({ workspace = tostring(i) }))
 end
 for i = 1, 10 do
-  hl.bind(mod .. " + SUPER + SHIFT + " .. i, hl.dsp.window.move({ workspace = tostring(i) .. " silent" }))
+  local key = i % 10
+  hl.bind(mod .. " + SUPER + SHIFT + " .. key, hl.dsp.window.move({ workspace = tostring(i) .. " silent" }))
 end
 for i = 11, 20 do
-  hl.bind(mod .. " + SHIFT + CTRL + " .. (i - 10), hl.dsp.window.move({ workspace = tostring(i) }))
+  local key = (i - 10) % 10
+  hl.bind(mod .. " + SHIFT + CTRL + " .. key, hl.dsp.window.move({ workspace = tostring(i) }))
 end
 for i = 11, 20 do
-  hl.bind(mod .. " + SUPER + SHIFT + CTRL + " .. (i - 10), hl.dsp.window.move({ workspace = tostring(i) .. " silent" }))
+  local key = (i - 10) % 10
+  hl.bind(mod .. " + SUPER + SHIFT + CTRL + " .. key, hl.dsp.window.move({ workspace = tostring(i) .. " silent" }))
 end
 
 hl.bind(mod .. " + Escape", hl.dsp.exec_cmd("hypr-previous-workspace"))
@@ -301,11 +312,21 @@ hl.bind(mod .. " + F5", _toggle_animations)
 hl.bind(mod .. " + SHIFT + R", hl.dsp.exec_cmd("hypr-iio-toggle"))
 hl.bind(mod .. " + Space", hl.dsp.exec_cmd("hypr-touch-menu"))
 
--- Resize (repeating keybinds: binde equivalent)
-hl.bind(mod .. " + H", hl.dsp.window.resize({ x = -40, y = 0, relative = true }), { repeating = true })
-hl.bind(mod .. " + L", hl.dsp.window.resize({ x = 40, y = 0, relative = true }), { repeating = true })
-hl.bind(mod .. " + CTRL + K", hl.dsp.window.resize({ x = 0, y = -40, relative = true }), { repeating = true })
-hl.bind(mod .. " + CTRL + J", hl.dsp.window.resize({ x = 0, y = 40, relative = true }), { repeating = true })
+-- Resize helpers (Hyprland 0.55.4: hl.dsp.window.resize broken — uses absolute not incremental)
+-- Master layout: adjust mfact via layout toggle
+-- Dwindle layout: resizeactive is broken in Lua binding, no workaround
+local _mfact = 0.5
+local function adjust_mfact(delta)
+  _mfact = math.max(0.05, math.min(0.95, _mfact + delta))
+  hl.config({ master = { mfact = _mfact }, general = { layout = "dwindle" } })
+  hl.config({ general = { layout = "master" } })
+end
+
+-- Resize binds (master layout)
+hl.bind(mod .. " + H", function() adjust_mfact(-0.02) end, { repeating = true })
+hl.bind(mod .. " + L", function() adjust_mfact(0.02) end, { repeating = true })
+hl.bind(mod .. " + CTRL + K", hl.dsp.layout("orientationleft"))
+hl.bind(mod .. " + CTRL + J", hl.dsp.layout("orientationright"))
 
 -- Mouse drag/resize (bindm equivalent)
 hl.bind(mod .. " + mouse:272", hl.dsp.window.drag(), { mouse = true })
@@ -313,7 +334,7 @@ hl.bind(mod .. " + mouse:273", hl.dsp.window.resize(), { mouse = true })
 
 -- Move window
 hl.bind(mod .. " + SHIFT + J", hl.dsp.window.swap({ next = true }))
-hl.bind(mod .. " + SHIFT + K", hl.dsp.window.swap({ next = false }))
+hl.bind(mod .. " + SHIFT + K", hl.dsp.window.swap({ prev = true }))
 
 -- Floating move (10px steps, repeating)
 hl.bind(mod .. " + SHIFT + CTRL + J", hl.dsp.window.move({ x = 0, y = 10, relative = true }), { repeating = true })
@@ -362,8 +383,8 @@ for _, entry in ipairs({
   { "XF86AudioPlay", "playerctl play-pause" },
   { "XF86AudioNext", "playerctl next" },
   { "XF86AudioPrev", "playerctl previous" },
-  { "XF86MonBrightnessUp", "adjust-sync-brightness +5%" },
-  { "XF86MonBrightnessDown", "adjust-sync-brightness 5%-" },
+  { "XF86MonBrightnessUp", "brightness-ctl up 5" },
+  { "XF86MonBrightnessDown", "brightness-ctl down 5" },
 }) do
   hl.bind(entry[1], hl.dsp.exec_cmd(entry[2]), { locked = true })
 end
@@ -457,52 +478,51 @@ hl.layer_rule({ match = { namespace = "wvkbd" }, above_lock = 2 })
 hl.layer_rule({ match = { namespace = "wvkbd-mobintl" }, above_lock = 2 })
 
 -- ================================================================================
--- --- PLUGIN: TOUCH GESTURES (built-in as of Hyprland 0.55+) ---
+-- --- PLUGIN: TOUCH GESTURES (TODO: fix API for this Hyprland version) ---
 -- ================================================================================
--- The touch_gestures plugin settings go through hl.config({ plugin = { ... } }).
--- hyprgrass-bind entries are placed under the plugin config as an array of strings.
--- If the built-in plugin uses a different API (e.g., hl.plugin.touch_gestures.bind()),
--- these entries may need adjustment.
+-- The plugin config format below is NOT compatible with this version.
+-- hl.gesture() supports simple swipe gestures (see example config).
+-- Complex edge swipes/taps may need hyprgrass plugin or different API.
 
-hl.config({
-  plugin = {
-    touch_gestures = {
-      sensitivity = 4.0,
-      edge_margin = 100,
-
-      workspace_swipe = true,
-      workspace_swipe_cancel_ratio = 0.15,
-
-      -- Edge swipes
-      ["hyprgrass-bind"] = {
-        "edge:u:d, exec, nwg-drawer",
-        "edge:d:u, togglespecialworkspace",
-        "edge:r:l, workspace, +1",
-        "edge:l:r, workspace, -1",
-        "edge:l:u, exec, change-volume +4",
-        "edge:l:d, exec, change-volume -4",
-        "edge:r:u, exec, adjust-sync-brightness +5%",
-        "edge:r:d, exec, adjust-sync-brightness 5%-",
-        -- Taps
-        "tap:3, exec, hypr-touch-action",
-        "tap:4, exec, hypr-touch-menu",
-        "tap:5, exec, hypr-toggle-kb",
-        -- Swipes
-        "swipe:3:d, exec," .. browser,
-        "swipe:4:d, exec, hypr-iio-toggle",
-        "swipe:5:d, exec, hypr-profile",
-        "swipe:5:u, exec, wlogout",
-        -- Long presses (non-mouse)
-        "longpress:5, exec, wlogout",
-      },
-      -- Longpress mouse binds
-      ["hyprgrass-bindm"] = {
-        "longpress:2, movewindow",
-        "longpress:3, resizewindow",
-      },
-    },
-  },
-})
+-- hl.config({
+--   plugin = {
+--     touch_gestures = {
+--       sensitivity = 4.0,
+--       edge_margin = 100,
+--
+--       workspace_swipe = true,
+--       workspace_swipe_cancel_ratio = 0.15,
+--
+--       -- Edge swipes
+--       ["hyprgrass-bind"] = {
+--         "edge:u:d, exec, nwg-drawer",
+--         "edge:d:u, togglespecialworkspace",
+--         "edge:r:l, workspace, +1",
+--         "edge:l:r, workspace, -1",
+--         "edge:l:u, exec, change-volume +4",
+--         "edge:l:d, exec, change-volume -4",
+--         "edge:r:u, exec, adjust-sync-brightness +5%",
+--         "edge:r:d, exec, adjust-sync-brightness 5%-",
+--         -- Taps
+--         "tap:3, exec, hypr-touch-action",
+--         "tap:4, exec, hypr-touch-menu",
+--         "tap:5, exec, hypr-toggle-kb",
+--         -- Swipes
+--         "swipe:3:d, exec," .. browser,
+--         "swipe:4:d, exec, hypr-iio-toggle",
+--         "swipe:5:d, exec, hypr-profile",
+--         "swipe:5:u, exec, wlogout",
+--         -- Long presses (non-mouse)
+--         "longpress:5, exec, wlogout",
+--       },
+--       -- Longpress mouse binds
+--       ["hyprgrass-bindm"] = {
+--         "longpress:2, movewindow",
+--         "longpress:3, resizewindow",
+--       },
+--     },
+--   },
+-- })
 
 -- Commented out: hyprexpo plugin
 -- hl.config({

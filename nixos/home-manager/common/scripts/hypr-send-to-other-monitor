@@ -18,16 +18,13 @@ fi
 
 # 3. Execute Move
 if [[ "$is_pinned" == "true" ]]; then
-    # Pinned windows must be moved by Monitor Name
-    hyprctl dispatch movewindow mon:"$target_mon_name"
+    hyprctl dispatch "hl.dsp.window.move({monitor = '$target_mon_name'})"
 else
-    # Standard windows move to the Active Workspace of the target monitor
     target_ws=$(hyprctl monitors -j | jq -r --arg name "$target_mon_name" '.[] | select(.name == $name) | .activeWorkspace.id')
-    hyprctl dispatch movetoworkspace "$target_ws"
+    hyprctl dispatch "hl.dsp.window.move({workspace = '$target_ws'})"
 fi
 
-# 4. Safety Net: Ensure PiP stays visible
-# If we just moved the PiP window, force it to a safe coordinate (Top-Right)
+# PiP window: center it on the target monitor (exact positioning not available in 0.55.4)
 if [[ "$title" == "Picture-in-Picture" ]]; then
-    hyprctl dispatch movewindowpixel exact 65% 5%
+    hyprctl dispatch "hl.dsp.window.center()"
 fi

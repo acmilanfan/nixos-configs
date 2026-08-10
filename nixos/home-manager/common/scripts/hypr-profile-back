@@ -1,32 +1,20 @@
 #!/usr/bin/env bash
 
-choice=$(printf "Vertical (stacked)
-Horizontal (wide)
-Single screen top
-Single screen top (tablet)
-Desk (external)" | rofi -dmenu -p "Display mode")
-
+choice=$(printf "Vertical (stacked)\nHorizontal (wide)\nSingle screen top\nSingle screen top (tablet)\nDesk (external)" | rofi -dmenu -p "Display mode")
 
 case "$choice" in
 "Vertical (stacked)")
-hyprctl keyword monitor "eDP-1,2880x1800@120,0x0,1.6"
-hyprctl keyword monitor "eDP-2,2880x1800@120,0x1800,1.6"
-;;
+hyprctl eval "hl.monitor({output='eDP-1',mode='2880x1800@120',position='0x0',scale=1.6})"
+hyprctl eval "hl.monitor({output='eDP-2',mode='2880x1800@120',position='0x1800',scale=1.6})" ;;
 "Horizontal (wide)")
-hyprctl keyword monitor "eDP-1,2880x1800@120,0x0,1.6"
-hyprctl keyword monitor "eDP-2,2880x1800@120,2880x0,1.6"
-;;
+hyprctl eval "hl.monitor({output='eDP-1',mode='2880x1800@120',position='0x0',scale=1.6})"
+hyprctl eval "hl.monitor({output='eDP-2',mode='2880x1800@120',position='2880x0',scale=1.6})" ;;
 "Single screen top")
-hyprctl keyword monitor "eDP-1,2880x1800@120,0x0,1.6"
-hyprctl keyword monitor "eDP-2,disable"
-;;
+hyprctl eval "hl.monitor({output='eDP-1',mode='2880x1800@120',position='0x0',scale=1.6})"
+hyprctl eval "hl.monitor({output='eDP-2',disabled=true})" ;;
 "Single screen top (tablet)")
-hyprctl keyword monitor "eDP-1,2880x1800@120,0x0,1.8"
-hyprctl keyword monitor "eDP-2,disable"
-;;
+hyprctl eval "hl.monitor({output='eDP-1',mode='2880x1800@120',position='0x0',scale=1.8})"
+hyprctl eval "hl.monitor({output='eDP-2',disabled=true})" ;;
 "Desk (external)")
-hyprctl keyword monitor "DP-1,3840x2160@120,0x0,2"
-hyprctl keyword monitor "DP-2,3840x2160@120,0x0,2"
-hyprctl keyword monitor "DP-3,3840x2160@120,0x0,2"
-;;
+for m in DP-1 DP-2 DP-3; do hyprctl eval "hl.monitor({output='$m',mode='3840x2160@120',position='0x0',scale=2})"; done ;;
 esac

@@ -1,21 +1,13 @@
 #!/usr/bin/env bash
 
-# Device names
 TOUCH_TOP="ingenic-gadget-serial-and-keyboard-touchscreen-top"
 STYLUS_TOP="ingenic-gadget-serial-and-keyboard-stylus-top"
 
-hyprctl keyword "device[$TOUCH_TOP]:output" "eDP-1"
-hyprctl keyword "device[$STYLUS_TOP]:output" "eDP-1"
-
-# Monitor is rotated 180 degrees (transform 2)
-hyprctl keyword monitor "eDP-1,2880x1800@120,0x0,1.8,transform,2"
-
-hyprctl keyword "device[$TOUCH_TOP]:transform" 2
-hyprctl keyword "device[$STYLUS_TOP]:transform" 2
-
-hyprctl keyword monitor "eDP-2,disable"
-hyprctl keyword monitor "DP-1,disable"
-hyprctl keyword monitor "DP-2,disable"
-hyprctl keyword monitor "DP-3,disable"
+hyprctl eval "hl.device({name='$TOUCH_TOP',output='eDP-1'})"
+hyprctl eval "hl.device({name='$STYLUS_TOP',output='eDP-1'})"
+hyprctl eval "hl.monitor({output='eDP-1',mode='2880x1800@120',position='0x0',scale=1.8,transform=2})"
+hyprctl eval "hl.device({name='$TOUCH_TOP',transform=2})"
+hyprctl eval "hl.device({name='$STYLUS_TOP',transform=2})"
+for m in eDP-2 DP-1 DP-2 DP-3; do hyprctl eval "hl.monitor({output='$m',disabled=true})"; done
 
 hypr-powersave-mode off

@@ -48,6 +48,7 @@
 }
 
 #custom-music,
+#custom-kanata,
 #tray,
 #backlight,
 #clock,
@@ -138,8 +139,14 @@
   color: #e78284;
 }
 
-#tray {
-  margin-right: 1rem;
-  margin-left: 1rem;
-  border-radius: 5px;
+#custom-kanata.kanata-homerow {
+  color: #7b5cff;
+}
+
+#custom-kanata.kanata-disabled {
+  color: #f7768e;
+}
+
+#custom-kanata.kanata-unknown {
+  color: #e0af68;
 }

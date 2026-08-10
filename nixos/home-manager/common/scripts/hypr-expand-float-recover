@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 
-hyprctl setprop active noborder 0
-hyprctl dispatch togglefloating active
+hyprctl eval 'hl.dsp.window.set_prop({prop = "noborder", value = 0})'
+hyprctl dispatch "hl.dsp.window.float({action = 'toggle'})"

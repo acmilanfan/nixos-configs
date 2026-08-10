@@ -4,7 +4,7 @@
     wine-staging
     winetricks
     #appimage-run
-    wineWowPackages.full
+    wineWow64Packages.full
     lutris
     #lutris-free
 

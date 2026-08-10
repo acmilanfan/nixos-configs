@@ -1,0 +1,37 @@
+;; Kanata disabled mode for Linux (Yoga Book 9i Bluetooth keyboard)
+;; Blocks all keyboard input - useful when cleaning or using external keyboard
+(defcfg
+  process-unmapped-keys yes
+  concurrent-tap-hold yes
+  linux-dev-names-include (
+    "Yoga Book 9 14 Bluetooth KB Keyboard"
+  )
+  linux-dev-names-exclude (
+    "Aurora Sweep"
+    "Charybdis"
+    "INGENIC Gadget Serial and keyboard Keyboard"
+    "INGENIC Gadget Serial and keyboard Emulated Touchpad"
+    "Power Button"
+    "Sleep Button"
+    "Video Bus"
+    "kanata"
+  )
+)
+
+(defsrc
+  esc    f1    f2    f3    f4    f5    f6    f7    f8    f9    f10   f11   f12
+  grv    1     2     3     4     5     6     7     8     9     0     -     =     bspc
+  tab    q     w     e     r     t     y     u     i     o     p     [     ]
+  caps   a     s     d     f     g     h     j     k     l     ;     '     \     ret
+  lsft   z     x     c     v     b     n     m     ,     .     /     rsft
+  lctl   lalt  lmet  spc    rmet  ralt  rctl  left  up    down  rght
+)
+
+(deflayer base
+  XX     XX    XX    XX    XX    XX    XX    XX    XX    XX    XX    XX    XX
+  XX     XX    XX    XX    XX    XX    XX    XX    XX    XX    XX    XX    XX    XX
+  XX     XX    XX    XX    XX    XX    XX    XX    XX    XX    XX    XX    XX
+  XX     XX    XX    XX    XX    XX    XX    XX    XX    XX    XX    XX    XX    XX
+  XX     XX    XX    XX    XX    XX    XX    XX    XX    XX    XX    XX    XX
+  XX     XX    XX    XX    XX    XX    XX    XX    XX    XX    XX
+)

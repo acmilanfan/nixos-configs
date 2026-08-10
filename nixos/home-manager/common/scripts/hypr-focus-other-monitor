@@ -15,4 +15,4 @@ else
   TARGET="${MONS[0]}"
 fi
 
-hyprctl dispatch focusmonitor "$TARGET"
+hyprctl dispatch "hl.dsp.focus({monitor = $TARGET})"

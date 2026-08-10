@@ -5,20 +5,20 @@ CHOICE=$(echo -e "Close\nFullscreen\nFloat\nMove\nThrow" | fuzzel --dmenu --icon
 
 case "$CHOICE" in
     "Close")
-        hyprctl dispatch closewindow active
+        hyprctl dispatch "hl.dsp.window.close()"
         ;;
     "Fullscreen")
-        hyprctl dispatch fullscreen 1
+        hyprctl dispatch "hl.dsp.window.fullscreen_state({internal = 1, client = 1})"
         ;;
     "Float")
-        hyprctl dispatch togglefloating active
+        hyprctl dispatch "hl.dsp.window.float({action = 'toggle'})"
         ;;
     "Move")
         # Generates numbers 1-20
         WORKSP=$(seq 1 20 | fuzzel --dmenu -l 20 -w 10 -p "Move > ")
 
         if [[ -n "$WORKSP" ]]; then
-            hyprctl dispatch movetoworkspace "$WORKSP"
+            hyprctl dispatch "hl.dsp.window.move({workspace = '$WORKSP'})"
         fi
         ;;
     "Throw")
@@ -26,7 +26,7 @@ case "$CHOICE" in
         WORKSP=$(seq 1 20 | fuzzel --dmenu -l 20 -w 10 -p "Throw > ")
 
         if [[ -n "$WORKSP" ]]; then
-            hyprctl dispatch movetoworkspacesilent "$WORKSP"
+            hyprctl dispatch "hl.dsp.window.move({workspace = '$WORKSP', silent = true})"
         fi
         ;;
 esac

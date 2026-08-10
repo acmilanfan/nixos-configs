@@ -13,5 +13,5 @@ CHOICE=$(echo "$WINDOWS" | fuzzel -d --width 60 --placeholder "Switch to window.
 if [ -n "$CHOICE" ]; then
   # Extract PID and focus
   PID=$(echo "$CHOICE" | rev | cut -d ' ' -f 1 | rev)
-  hyprctl dispatch focuswindow pid:$PID
+  hyprctl dispatch "hl.dsp.focus({window = 'pid:$PID'})"
 fi

@@ -7,7 +7,7 @@
 MON_COUNT=$(hyprctl monitors -j | jq '. | length')
 
 if [ "$MON_COUNT" -le 1 ]; then
-    hyprctl dispatch workspace previous
+    hyprctl dispatch "hl.dsp.focus({workspace = 'previous'})"
 else
-    hyprctl dispatch workspace previous_per_monitor
+    hyprctl dispatch "hl.dsp.focus({workspace = 'previous_per_monitor'})"
 fi

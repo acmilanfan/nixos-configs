@@ -32,10 +32,11 @@ in
     plugins = with pkgs; [
       # No plugins needed — touch_gestures is built-in as of Hyprland 0.55+
     ];
-    extraConfig = "";  # Lua config is loaded via xdg.configFile below
+    extraConfig = "# See hypr/hyprland.lua loaded via xdg.configFile below";
   };
 
   xdg.configFile."hypr/hyprland.lua".source = ../../../dotfiles/hypr/hyprland.lua;
+  xdg.configFile."hypr/hyprsunset.conf".source = ../../../dotfiles/hypr/hyprsunset.conf;
 
   home.file = {
     ".config/waybar/config".source = ../../../dotfiles/waybar/config;
@@ -239,6 +240,21 @@ in
     enable = true;
   };
 
+  systemd.user.services.cliphist = {
+    Unit = {
+      After = lib.mkForce [ "graphical-session.target" ];
+      PartOf = lib.mkForce [ "graphical-session.target" ];
+    };
+    Install = {
+      WantedBy = lib.mkForce [ "graphical-session.target" ];
+    };
+    Service = {
+      ExecStart = lib.mkForce "${pkgs.wl-clipboard}/bin/wl-paste --watch ${pkgs.cliphist}/bin/cliphist -max-dedupe-search 10 -max-items 500 store";
+      Restart = "on-failure";
+      RestartSec = 3;
+    };
+  };
+
   programs.satty = {
     enable = true;
     settings = {
@@ -350,7 +366,8 @@ in
     waybar
     swaynotificationcenter
     brightnessctl
-    swww
+    hyprsunset
+    awww
     wl-clipboard
     grim
     slurp

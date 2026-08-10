@@ -1,18 +1,6 @@
 { config, ... }:
 {
-  services.gammastep = {
-    enable = config.wayland.windowManager.hyprland.enable;
-    provider = "manual";
-    latitude = 52.494865;
-    longitude = 13.353801;
-    tray = true;
-    temperature = {
-      day = 6000;
-      night = 2400;
-    };
-    settings = {
-      general.adjustment-method = "wayland";
-    };
-  };
-
+  # Disabled: replaced by hyprsunset (see brightness-ctl.sh).
+  # Night mode not yet ported — hyprsunset lacks automatic scheduling.
+  services.gammastep.enable = false;
 }

@@ -3,5 +3,5 @@
 FLOATING=$(hyprctl -j activewindow | jq -r '.floating')
 
 if [ "$FLOATING" = "true" ]; then
-  hyprctl dispatch centerwindow
+  hyprctl dispatch "hl.dsp.window.center()"
 fi

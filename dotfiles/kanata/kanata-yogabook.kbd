@@ -1,0 +1,173 @@
+;; Kanata configuration for Yoga Book 9i Bluetooth keyboard (Linux)
+;; Home row mods + mouse keys layer (based on ZMK/QMK patterns)
+  (defcfg
+    process-unmapped-keys yes
+    concurrent-tap-hold yes
+    linux-dev-names-include (
+      "Yoga Book 9 14 Bluetooth KB Keyboard"
+    )
+    linux-dev-names-exclude (
+      ;; Ferris Sweep (Aurora Sweep) - do NOT intercept
+      "Aurora Sweep"
+      ;; Charybdis Nano - do NOT intercept
+      "Charybdis"
+      ;; Internal USB gadget devices - already ignored via udev, just in case
+      "INGENIC Gadget Serial and keyboard Keyboard"
+      "INGENIC Gadget Serial and keyboard Emulated Touchpad"
+      "Power Button"
+      "Sleep Button"
+      "Video Bus"
+      ;; Kanata's own virtual device - prevent infinite loop
+      "kanata"
+    )
+  )
+
+(defchordsv2
+  ;; ESC combos (from homerow config)
+  (w e)    esc      50 all-released ()
+  (a ;)    esc      50 all-released ()
+  ;; Colon combo
+  (o p)    S-;      50 all-released ()
+  ;; Clipboard combos (Ctrl-based on Linux)
+  (c v)    (multi lctl v)    50 all-released ()
+  (x c)    (multi lctl c)    50 all-released ()
+  (z x)    (multi lctl x)    50 all-released ()
+  ;; Language switch (matches Hyprland grp:lctrl_lshift_toggle)
+  (y u)    @lang             50 all-released ()
+)
+
+(defsrc
+  esc    f1    f2    f3    f4    f5    f6    f7    f8    f9    f10   f11   f12
+  grv    1     2     3     4     5     6     7     8     9     0     -     =     bspc
+  tab    q     w     e     r     t     y     u     i     o     p     [     ]
+  caps   a     s     d     f     g     h     j     k     l     ;     '     \     ret
+  lsft   z     x     c     v     b     n     m     ,     .     /     rsft
+  lctl   lmet  lalt  spc    rmet  ralt  rctl  left  up    down  rght
+)
+
+(deflayer base
+  _       _     _     _     _     _     _     _     _     _     _     _     _
+  _       _     _     _     _     _     _     _     _     _     _     _     _     _
+  _       _     _     _     _     _     _     _     _     _     _     _     _
+  @capsfn @a    @s    @d    @f    @g-mouse _   @j    @k    @l    @;    _     _     _
+  _       _     _     _     @v    @b    @n    @m    _     _     _     _
+  _       _     _     @spc  _     _     rctl  _     _     _     _
+)
+
+(deflayer fn
+  _       f1    f2    f3    f4    f5    f6    f7    f8    f9    f10   f11   f12
+  _       _     _     _     _     _     _     _     _     _     _     _     _     del
+  _       f12   f7    f8    f9    @scr  @redo @paste @copy @cut  @undo _     _
+  _       f11   f4    f5    f6    caps  _     lctl  lsft  lalt  lmet  del   _     _
+  _       f10   f1    f2    f3    @scrm _     _     _     _     _     _
+  _       _     _     _     _     _     pgup  home  end   pgdn  _
+)
+
+(deflayer numbers
+  _       _     _     _     _     _     _     _     _     _     _     _     _
+  _       _     _     _     _     _     _     _     _     _     _     _     _     _
+  _       [     7     8     9     ]     _     _     _     _     _     _     _
+  _       '     4     5     6     =     _     @j    @k    @l    @;    _     _     _
+  _       `     1     2     3     \     _     _     _     _     _     _
+  _       _     _     0     _     _     _     _     _     _     _
+)
+
+(deflayer symbols
+  _       _     _     _     _     _     _     _     _     _     _     _     _
+  _       _     _     _     _     _     _     _     _     _     _     _     _     _
+  _       S-[   S-7   S-8   S-9   S-]   _     _     _     _     _     _     _
+  _       S-'   S-4   S-5   S-6   S-=   _     @j    @k    @l    @;    _     _     _
+  _       S-`   S-1   S-2   S-3   S-\   _     _     _     _     _     _
+  _       _     _     S-0   _     _     _     _     _     _     _
+)
+
+(deflayer arrows
+  _       _     _     _     _     _     _     _     _     _     _     _     _
+  _       _     _     _     _     _     _     _     _     _     _     _     _     _
+  _       _     _     _     _     _     @redo @paste @copy @cut  @undo _     _
+  _       lmet  lalt  lsft  lctl  _     left  down  up    rght  bspc  _     _     _
+  _       _     _     _     _     _     ins   pgdn  pgup  home  end   _
+  _       _     _     ret   _     _     _     _     _     _     _
+)
+
+(deflayer mouse
+  _       _     _     _     _     _     _     _     _     _     _     _     _
+  _       _     _     _     _     _     _     _     _     _     _     _     _     _
+  _       _     _     _     _     _     @redo @paste @copy @cut  @undo _     _
+  _       lmet  lalt  lsft  lctl  _     @mlft @mdn  @mup  @mrgt del   _     _     _
+  _       _     _     _     _     _     @ms-l @ms-d @ms-u @ms-r @mb-m _
+  _       _     _     @mb-l @mb-r _     _     _     _     _     _
+)
+
+(deflayer media
+  _       _     _     _     _     _     _     _     _     _     _     _     _
+  _       _     _     _     _     _     _     _     _     _     _     _     _     _
+  _       _     _     _     _     _     _     brdn  brup  _     _     _     _
+  _       lmet  lalt  lsft  lctl  _     prev  vold  volu  next  mute  _     _     _
+  _       _     _     _     _     _     _     _     _     _     _     _
+  _       _     _     pp    _     _     _     _     _     _     _
+)
+
+(defvar
+  tap-time 200
+  hold-time 200
+)
+
+(defalias
+  ;; Home row mods
+  a (tap-hold-release $tap-time $hold-time a lmet)
+  s (tap-hold-release $tap-time $hold-time s lalt)
+  d (tap-hold-release $tap-time $hold-time d lsft)
+  f (tap-hold-release $tap-time $hold-time f lctl)
+
+  j (tap-hold-release $tap-time $hold-time j rctl)
+  k (tap-hold-release $tap-time $hold-time k rsft)
+  l (tap-hold-release $tap-time $hold-time l ralt)
+  ; (tap-hold-release $tap-time $hold-time ; rmet)
+
+  ;; Caps Lock toggles fn layer (caps is handled via chords)
+  capsfn (tap-hold-release $tap-time $hold-time caps (layer-toggle fn))
+
+  ;; Space alias to trigger fn layer
+  spc (tap-hold-release $tap-time $hold-time spc (layer-while-held fn))
+
+  ;; Layer toggle keys
+  n (tap-hold-release $tap-time $hold-time n (layer-while-held numbers))
+  m (tap-hold-release $tap-time $hold-time m (layer-while-held symbols))
+  v (tap-hold-release $tap-time $hold-time v (layer-while-held arrows))
+  b (tap-hold-release $tap-time $hold-time b (layer-while-held media))
+
+  ;; G key activates mouse layer (close to V/B)
+  g-mouse (tap-hold-release $tap-time $hold-time g (layer-while-held mouse))
+
+  ;; Mouse actions (QMK-like acceleration: slow precise start, ramps up on hold)
+  ;; movemouse-accel-*: interval-ms, accel-time-ms, min-distance-px, max-distance-px
+  ;; Single click = 1px. Hold = ramps 1→30px over 400ms.
+  mup (movemouse-accel-up 20 400 1 30)
+  mdn (movemouse-accel-down 20 400 1 30)
+  mlft (movemouse-accel-left 20 400 1 30)
+  mrgt (movemouse-accel-right 20 400 1 30)
+  ;; Scroll (QMK: WHEEL_DELAY=100ms, WHEEL_DELTA=50, max 8x after 100ms)
+  ms-u (mwheel-up 100 50)
+  ms-d (mwheel-down 100 50)
+  ms-l (mwheel-left 100 50)
+  ms-r (mwheel-right 100 50)
+  ;; Buttons
+  mb-l mouseleft
+  mb-r mouseright
+  mb-m mousemid
+
+  ;; Linux shortcuts (Ctrl-based instead of Cmd-based)
+  redo (multi lctl lsft z)
+  paste (multi lctl v)
+  copy (multi lctl c)
+  cut (multi lctl x)
+  undo (multi lctl z)
+
+  ;; Screenshot aliases (Linux: use grim or hyprshot instead of macOS shortcuts)
+  scr (multi lsft lctl s)
+  scrm (multi lsft lctl lalt s)
+
+  ;; Language switch (matches Hyprland kb_options = grp:lctrl_lshift_toggle)
+  lang (multi lctl lsft)
+)

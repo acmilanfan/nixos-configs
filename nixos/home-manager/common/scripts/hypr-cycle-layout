@@ -3,8 +3,8 @@
 CURRENT=$(hyprctl -j activeworkspace | jq -r '.layout')
 
 if [ "$CURRENT" = "dwindle" ]; then
-  hyprctl dispatch layoutmsg swapwithmaster
-  hyprctl keyword general:layout master
+  hyprctl eval "hl.dispatch(hl.dsp.layout('swapwithmaster master'))"
+  hyprctl eval "hl.config({general={layout='master'}})"
 else
-  hyprctl keyword general:layout dwindle
+  hyprctl eval "hl.config({general={layout='dwindle'}})"
 fi

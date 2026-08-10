@@ -3,7 +3,7 @@
   services.xserver.displayManager.sessionCommands = ''
     xinput --set-prop '2.4G Mouse' 'libinput Natural Scrolling Enabled' 0
     xinput --set-prop '2.4G Mouse Mouse' 'libinput Natural Scrolling Enabled' 0
-    ${pkgs.xorg.xrdb}/bin/xrdb -merge <<EOF
+    ${pkgs.xrdb}/bin/xrdb -merge <<EOF
       ! Nightfox colors for Xresources
       ! Style: nightfox
       ! Upstream: https://github.com/edeneast/nightfox.nvim/raw/main/extra/nightfox/nightfox.Xresources

@@ -19,21 +19,13 @@ WINDOW=$(hyprctl clients -j | jq -r ".[] | select(.class == \"$CLASS\" and .mapp
 if [ -n "$WINDOW" ] && [ "$WINDOW" != "null" ]; then
     echo "Action: Bringing window $WINDOW to current workspace" >> $LOG_FILE
 
-    # 1. Get current workspace
     CUR_WS=$(hyprctl activeworkspace -j | jq -r ".id")
 
-    # 2. Move window to current workspace
-    hyprctl dispatch movetoworkspace "$CUR_WS,address:$WINDOW"
-
-    # 3. Ensure it is floating (parity with NanoWM bringWindowToCurrentContext)
-    hyprctl dispatch setfloating "address:$WINDOW"
-
-    # 4. Focus it
-    hyprctl dispatch focuswindow "address:$WINDOW"
-
-    # 5. Center it
-    hyprctl dispatch centerwindow "address:$WINDOW"
+    hyprctl dispatch "hl.dsp.focus({window = 'address:$WINDOW'})"
+    hyprctl dispatch "hl.dsp.window.move({workspace = '$CUR_WS'})"
+    hyprctl dispatch "hl.dsp.window.float()"
+    hyprctl dispatch "hl.dsp.window.center()"
 else
     echo "Action: Spawning new instance" >> $LOG_FILE
-    hyprctl dispatch exec "$CMD"
+    setsid /bin/sh -c "$CMD" &>/dev/null & disown
 fi

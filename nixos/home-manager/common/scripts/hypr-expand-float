@@ -1,25 +1,9 @@
 #!/bin/bash
 
-coords=$(hyprctl monitors -j | jq -r '
-  map({
-    l: .x,
-    t: .y,
-    r: (.x + (.width / .scale)),
-    b: (.y + (.height / .scale))
-  }) |
-  {
-    min_x: (map(.l) | min),
-    min_y: (map(.t) | min),
-    max_x: (map(.r) | max),
-    max_y: (map(.b) | max)
-  } |
-  "\(.min_x) \(.min_y) \(.max_x - .min_x) \(.max_y - .min_y)"
-')
+# Hyprland 0.55.4: exact positioning/resizing not available via Lua API.
+# Use fullscreen + float + noborder as equivalent.
 
-read -r X Y W H <<< "$coords"
-
-hyprctl dispatch fullscreen 0
-hyprctl dispatch setfloating active
-hyprctl setprop active noborder 1
-hyprctl dispatch moveactive exact $X $Y
-hyprctl dispatch resizeactive exact $W $H
+hyprctl dispatch "hl.dsp.window.fullscreen_state({internal = 0, client = 0})"
+hyprctl dispatch "hl.dsp.window.float()"
+hyprctl eval 'hl.dsp.window.set_prop({prop = "noborder", value = 1})'
+hyprctl dispatch "hl.dsp.window.fullscreen_state({internal = 1, client = 1})"
