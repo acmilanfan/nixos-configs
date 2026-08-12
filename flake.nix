@@ -94,6 +94,7 @@
     let
       linuxSystem = "x86_64-linux";
       macSystem = "aarch64-darwin";
+      vmSystem = "aarch64-linux";
 
       sudoUser = builtins.getEnv "SUDO_USER";
       isDarwin = builtins.pathExists "/Users";
@@ -244,6 +245,27 @@
             )
           ];
         };
+
+        vm-hyprland = inputs.nixpkgs.lib.nixosSystem {
+          system = vmSystem;
+          specialArgs = { inherit inputs; };
+          modules = [
+            ./nixos/vm-hyprland/configuration.nix
+            home-manager.nixosModules.home-manager
+            {
+              home-manager.useUserPackages = true;
+              home-manager.backupFileExtension = "backup";
+              home-manager.users.gentooway = import ./nixos/vm-hyprland/home.nix;
+              home-manager.extraSpecialArgs = {
+                pkgs = pkgsFor vmSystem;
+                unstable = unstableFor vmSystem;
+                inherit inputs secrets;
+                linuxSystem = vmSystem;
+              };
+            }
+            ({ ... }: { nixpkgs.overlays = [ overlay-howdy ]; })
+          ];
+        };
       };
 
       darwinConfigurations = {
@@ -317,5 +339,8 @@
           ];
         };
       };
+
+      packages.aarch64-darwin.vm-hyprland-image =
+        self.nixosConfigurations.vm-hyprland.config.system.build.images.qemu-efi;
     };
 }

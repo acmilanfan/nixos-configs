@@ -1,0 +1,28 @@
+{ secrets, ... }:
+
+{
+  programs.git = {
+    enable = true;
+    settings = {
+      user.email = secrets.homeEmail;
+      core = {
+        sshCommand = "ssh -i ~/.ssh/id_ed25519 -o 'IdentitiesOnly yes'";
+      };
+    };
+    includes = [
+      {
+        condition = "gitdir:~/Work/";
+        contents = {
+          user = {
+            email = secrets.workEmail;
+            name = "Andrei Shumailov";
+          };
+          core = {
+            sshCommand = "ssh -i ~/.ssh/id_rsa -o 'IdentitiesOnly yes'";
+          };
+        };
+      }
+    ];
+  };
+
+}

@@ -209,6 +209,7 @@ in
       "middleclick"
       "cursorcerer"
       "finetune"
+      "utm"
     ];
 
     brews = [

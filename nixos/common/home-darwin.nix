@@ -26,6 +26,10 @@ in
       colima # Container runtime for macOS
       lazydocker # Terminal UI for docker
 
+      # Not preinstalled on macOS (only ships as part of NixOS itself); needed
+      # here purely to drive remote deploys to vm-hyprland (sup-vm-hyprland).
+      nixos-rebuild
+
       # Additional macOS tools
       duti # Default application handler
 
@@ -67,6 +71,9 @@ in
         cd "$SCRATCH_DIR"
         nvim -c 'startinsert' "$SCRATCH_FILE" && /usr/bin/pbcopy < "$SCRATCH_FILE"
       '')
+
+      (pkgs.writeShellScriptBin "create-utm-vm-hyprland"
+        (lib.readFile ../vm-hyprland/scripts/create-utm-vm.sh))
     ]
     ++ lib.optionals pkgs.stdenv.isDarwin [
       # Darwin-specific packages
@@ -77,6 +84,13 @@ in
     {
       # macOS-specific aliases
       sup = "sudo darwin-rebuild switch --flake $HOME/configs/nixos-configs --impure";
+
+      # Remote-deploy config changes to the vm-hyprland UTM VM: build here
+      # (via nix.linux-builder, since this Mac can't build aarch64-linux
+      # natively) and push+activate over SSH, without touching the VM's own
+      # clone. Override the target with VM_HYPRLAND_HOST=<ip> sup-vm-hyprland
+      # if "vm-hyprland" isn't resolvable (no mDNS/SSH config alias set up).
+      sup-vm-hyprland = "nixos-rebuild switch --flake $HOME/configs/nixos-configs#vm-hyprland --target-host \"\${VM_HYPRLAND_HOST:-vm-hyprland}\" --build-host localhost --use-remote-sudo --impure";
 
       # macOS system management
       flush-dns = "sudo dscacheutil -flushcache && sudo killall -HUP mDNSResponder";

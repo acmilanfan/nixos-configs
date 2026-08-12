@@ -27,13 +27,10 @@
         (lib.readFile ./scripts/screen-toggle))
       (writeShellScriptBin "touch-toggle" (lib.readFile ./scripts/touch-toggle))
       (writeShellScriptBin "try-lock" (lib.readFile ./scripts/try-lock))
-      vial
       (python3.withPackages (ps: with ps; [ evdev ]))
       qmk-udev-rules
       vlc
-      lutris
       google-chrome
-      alsa-scarlett-gui
       android-tools
       mpv
       audacious
@@ -50,15 +47,23 @@
       slurp
       playerctl
       pavucontrol
-      wineWow64Packages.full
-      winetricks
-      thinkfan
       lm_sensors
-      proton-vpn
       zenity
       onboard
     ] ++ lib.optionals pkgs.stdenv.isDarwin [
 
+    ] ++ lib.optionals (pkgs.stdenv.hostPlatform.system == "x86_64-linux") [
+      # Real-hardware/gaming-focused packages that either only support
+      # x86_64-linux (vial, libstrangle via lutris) or are meaningless on a VM
+      # (thinkfan: real ThinkPad fan control; alsa-scarlett-gui: USB audio
+      # interface hardware).
+      vial
+      lutris
+      wineWow64Packages.full
+      winetricks
+      thinkfan
+      proton-vpn
+      alsa-scarlett-gui
     ];
 
   # TODO move
