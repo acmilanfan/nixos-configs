@@ -397,11 +397,43 @@ in
     USER_ID=$(id -u ${user})
     sudo -u ${user} launchctl kickstart -k "gui/$USER_ID/local.darwin-startup" || sudo -u ${user} /usr/local/bin/darwin-startup
 
+    # Bootstrap a persistent local code-signing identity for kanata-nix so
+    # Input Monitoring / Accessibility TCC grants survive future binary
+    # updates. Ad-hoc signing ("codesign -s -") on a bare (non-bundled)
+    # binary auto-generates a fresh identifier+CDHash on every signature, and
+    # TCC pins its designated requirement to that CDHash - any rebuild that
+    # changes the binary's content invalidates the existing grant. A
+    # self-signed certificate anchors the designated requirement to
+    # "identifier + certificate leaf" instead, which stays stable across
+    # content changes. The key is generated locally, imported straight into
+    # the System keychain, and never written to the repo or leaves this Mac -
+    # each machine bootstraps (and trusts) its own local-only identity.
+    KANATA_CODESIGN_IDENTITY="kanata-local-codesign"
+    if ! security find-identity -v -p codesigning /Library/Keychains/System.keychain 2>/dev/null | grep -q "$KANATA_CODESIGN_IDENTITY"; then
+      echo "Bootstrapping persistent local code-signing identity ($KANATA_CODESIGN_IDENTITY)..."
+      CERT_DIR=$(mktemp -d)
+      ${pkgs.openssl}/bin/openssl req -x509 -newkey rsa:2048 \
+        -keyout "$CERT_DIR/key.pem" -out "$CERT_DIR/cert.pem" -days 3650 -nodes \
+        -subj "/CN=$KANATA_CODESIGN_IDENTITY" \
+        -addext "keyUsage=critical,digitalSignature" \
+        -addext "extendedKeyUsage=critical,codeSigning" >/dev/null 2>&1
+      P12_PASS=$(${pkgs.openssl}/bin/openssl rand -base64 24)
+      ${pkgs.openssl}/bin/openssl pkcs12 -export -legacy \
+        -out "$CERT_DIR/cert.p12" -inkey "$CERT_DIR/key.pem" -in "$CERT_DIR/cert.pem" \
+        -passout "pass:$P12_PASS" >/dev/null 2>&1
+      security import "$CERT_DIR/cert.p12" -k /Library/Keychains/System.keychain -P "$P12_PASS" -T /usr/bin/codesign -A
+      security add-trusted-cert -d -r trustRoot -p codeSign "$CERT_DIR/cert.pem"
+      rm -rf "$CERT_DIR"
+      echo "> Created and trusted $KANATA_CODESIGN_IDENTITY for local code signing."
+    fi
+
     pkill -x warpd || true
     pkill -9 kanata || true
     # Setup kanata stable path for Input Monitoring permissions
-    # Binary update is opt-in to preserve TCC Input Monitoring permission across nix updates.
-    # macOS ties the permission to the binary's code signature hash, which changes on every update.
+    # Binary update is opt-in to avoid unnecessary rebuild churn.
+    # Signed with the persistent "kanata-local-codesign" identity (System keychain) so the
+    # designated requirement is "identifier + certificate leaf", not a raw content hash -
+    # Input Monitoring permission survives binary updates instead of needing to be re-granted.
     # To update kanata: touch ~/.config/kanata/update-kanata && darwin-rebuild switch
     echo "Ensuring kanata stable binary path for Input Monitoring permissions..."
     mkdir -p /usr/local/bin
@@ -410,22 +442,24 @@ in
       echo "User requested kanata update. Copying binary..."
       cp -f ${unstable.kanata}/bin/kanata /usr/local/bin/kanata-nix
       chmod 755 /usr/local/bin/kanata-nix
-      codesign --force -s - /usr/local/bin/kanata-nix 2>/dev/null || true
+      codesign --force -s "kanata-local-codesign" -i "local.kanata.kanata-nix" /usr/local/bin/kanata-nix 2>/dev/null || true
       rm -f "$KANATA_UPDATE_FLAG"
-      echo "> IMPORTANT: You MUST re-grant Input Monitoring permission to /usr/local/bin/kanata-nix"
-      echo "> Open: System Settings > Privacy & Security > Input Monitoring"
-      echo "> Toggle OFF then ON for /usr/local/bin/kanata-nix (or re-add it)"
     elif [ ! -f /usr/local/bin/kanata-nix ]; then
       echo "First install: copying kanata-nix binary..."
       cp -f ${unstable.kanata}/bin/kanata /usr/local/bin/kanata-nix
       chmod 755 /usr/local/bin/kanata-nix
-      codesign --force -s - /usr/local/bin/kanata-nix 2>/dev/null || true
+      codesign --force -s "kanata-local-codesign" -i "local.kanata.kanata-nix" /usr/local/bin/kanata-nix 2>/dev/null || true
       echo "> Grant Input Monitoring permission to /usr/local/bin/kanata-nix in System Settings"
     else
-      if ! cmp -s ${unstable.kanata}/bin/kanata /usr/local/bin/kanata-nix; then
-        echo "> Kanata update available but NOT applied (to preserve Input Monitoring permission)."
+      # Compare --version output rather than raw bytes: codesign embeds a
+      # signature into the local copy after it's copied, so its bytes never
+      # match the pristine (unsigned) store binary even when the version is
+      # identical - a raw `cmp` here always false-positives on "update available".
+      STORE_KANATA_VERSION=$(${unstable.kanata}/bin/kanata --version 2>/dev/null || echo "unknown")
+      LOCAL_KANATA_VERSION=$(/usr/local/bin/kanata-nix --version 2>/dev/null || echo "unknown")
+      if [ "$STORE_KANATA_VERSION" != "$LOCAL_KANATA_VERSION" ]; then
+        echo "> Kanata update available ($LOCAL_KANATA_VERSION -> $STORE_KANATA_VERSION) but NOT applied."
         echo "> To update: touch ~/.config/kanata/update-kanata && darwin-rebuild switch"
-        echo "> After updating, re-grant Input Monitoring permission to /usr/local/bin/kanata-nix"
       fi
     fi
 
