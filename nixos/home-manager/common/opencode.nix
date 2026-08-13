@@ -104,6 +104,9 @@ let
         "qwen3.6:35b-mlx" = {
           name = "Qwen 3.6 35B MoE MLX (Ollama)";
         };
+        "muse-glimmer:30b-mlx" = {
+          name = "Muse Glimmer 30B MLX (Ollama)";
+        };
         "hf.co/unsloth/Llama-3_3-Nemotron-Super-49B-v1_5-GGUF:Q4_K_M" = {
           name = "Nemotron Super 49B (Ollama)";
         };
