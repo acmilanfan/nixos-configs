@@ -47,7 +47,7 @@ local managedAllowed = {
     ["IntelliJ IDEA"] = true, Marta = true, Nextcloud = true,
     ["Photo Booth"] = true, Preview = true, Safari = true,
     Slack = true, Syncthing = true, ["System Settings"] = true,
-    Telegram = true, VLC = true, ["Visual Studio Code"] = true,
+    Telegram = true, UTM = true, VLC = true, ["Visual Studio Code"] = true,
     Zed = true, ["Force Quit Applications"] = true,
 }
 
