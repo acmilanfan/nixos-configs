@@ -1,0 +1,191 @@
+{
+  "layer": "top",
+  "height": 20,
+  "output": "Virtual-1",
+  "bar_id": "bar-0",
+  "ipc": true,
+  "position": "top",
+  "modules-left": [
+    "hyprland/workspaces",
+    "hyprland/window",
+    "custom/touch_menu",
+    "idle_inhibitor"
+  ],
+  "modules-center": [
+    "clock"
+  ],
+  "modules-right": [
+    "custom/kanata",
+    "custom/layout",
+    "custom/power",
+    "custom/timer",
+    "custom/ai_agents",
+    "pulseaudio",
+    "battery",
+    "network",
+    "cpu",
+    "memory",
+    "tray"
+  ],
+  "custom/kanata": {
+      "format": "{}",
+      "interval": 5,
+      "return-type": "json",
+      "exec": "hypr-kanata-status",
+      "on-click": "switch-kanata.sh homerow",
+      "on-click-right": "switch-kanata.sh disabled",
+      "tooltip": true
+  },
+  "custom/layout": {
+      "format": "{}",
+      "interval": 2,
+      "return-type": "json",
+      "exec": "hypr-layout-status"
+  },
+  "custom/power": {
+      "format": "{}",
+      "interval": 30,
+      "return-type": "json",
+      "exec": "hypr-power-watts"
+  },
+  "custom/timer": {
+      "format": "{}",
+      "interval": 1,
+      "return-type": "json",
+      "exec": "hypr-timer output",
+      "on-click": "hypr-timer stop",
+      "on-click-right": "hypr-timer reset",
+      "on-click-middle": "hypr-timer start 25",
+      "tooltip": true
+  },
+  "custom/ai_agents": {
+      "format": "{}",
+      "interval": 10,
+      "return-type": "json",
+      "exec": "hypr-ai-agents",
+      "on-click": "hypr-ai-agents --menu",
+      "tooltip": true
+  },
+  "hyprland/window": {
+      "format": "{}",
+      "max-length": 50,
+      "separate-outputs": true
+  },
+  "idle_inhibitor": {
+    "format": "{icon}",
+    "format-icons": {
+      "activated": "",
+      "deactivated": ""
+    }
+  },
+  "hyprland/workspaces": {
+    "format": "{name}: {icon}",
+    "all-outputs": false,
+    "format-icons": {
+      "active": "",
+      "default": ""
+    }
+  },
+  "tray": {
+    "icon-size": 21,
+    "spacing": 10
+  },
+  "clock": {
+    "timezone": "Europe/Berlin",
+    "tooltip-format": "<big>{:%Y %B}</big>\n<tt><small>{calendar}</small></tt>",
+    // "format": "{:%d - %H:%M}"
+    "format": "{:%Y-%m-%d %H:%M}",
+    "format-alt": "{:%Y-%m-%d}"
+  },
+  "network": {
+    "format-wifi": "󰤢 ",
+    "format-ethernet": "󰈀 ",
+    "format-disconnected": "󰤠 ",
+    "interval": 5,
+    "tooltip": false
+  },
+  "cpu": {
+    "interval": 1,
+    "format": "  {icon0}{icon1}{icon2}{icon3} {usage:>2}%",
+    "format-icons": [
+      "▁",
+      "▂",
+      "▃",
+      "▄",
+      "▅",
+      "▆",
+      "▇",
+      "█"
+    ]
+  },
+  "memory": {
+    "interval": 30,
+    // "format": "  {used:0.1f}G/{total:0.1f}G",
+    "format": "{}% "
+  },
+  "pulseaudio": {
+    "format": "{volume}% {icon} {format_source}",
+    "format-bluetooth": "{volume}% {icon} {format_source}",
+    "format-muted": " {format_source}",
+    "format-source": "{volume}% ",
+    "format-source-muted": "",
+    "format-icons": {
+      "headphones": "",
+      "handsfree": "",
+      "headset": "",
+      "phone": "",
+      "portable": "",
+      "car": "",
+      "default": [
+        "",
+        "",
+        ""
+      ]
+    },
+    "on-click": "pavucontrol"
+  },
+  "custom/lock": {
+    "tooltip": false,
+    // "on-click": "sh -c hyprlock & disown",
+    "on-click": "wlogout",
+    "format": "🔐"
+  },
+  "later": {
+    "format": "<span class='icon'>{icon}</span> <span class='text'>{text}</span>"
+  },
+  "custom/touch_menu": {
+    "tooltip": false,
+    "format": "󰀻",
+    "on-click": "hypr-touch-menu"
+  },
+  "custom/screen_toggle": {
+    "tooltip": false,
+    "format": "💻",
+    "on-click": "hypr-profile"
+  },
+  "custom/rotation": {
+    "tooltip": false,
+    "on-click": "hypr-iio-toggle",
+    "format": "🔄"
+  },
+  "battery": {
+    "bat": "BAT0",
+    "states": {
+      "good": 95,
+      "warning": 30,
+      "critical": 15
+    },
+    "format": "{capacity}% {icon}",
+    "format-charging": "{capacity}% ",
+    "format-plugged": "{capacity}% ",
+    "format-alt": "{time} {icon}",
+    "format-full": "",
+    "format-icons": [
+      "",
+      "",
+      "",
+      "",
+      ""
+    ]
+  },
+}

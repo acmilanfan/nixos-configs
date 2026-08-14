@@ -90,7 +90,7 @@ in
       # natively) and push+activate over SSH, without touching the VM's own
       # clone. Override the target with VM_HYPRLAND_HOST=<ip> sup-vm-hyprland
       # if "vm-hyprland" isn't resolvable (no mDNS/SSH config alias set up).
-      sup-vm-hyprland = "nixos-rebuild switch --flake $HOME/configs/nixos-configs#vm-hyprland --target-host \"\${VM_HYPRLAND_HOST:-vm-hyprland}\" --build-host localhost --use-remote-sudo --impure";
+      sup-vm-hyprland = "nixos-rebuild switch --flake $HOME/configs/nixos-configs#vm-hyprland --target-host \"\${VM_HYPRLAND_HOST:-vm-hyprland}\" --build-host localhost --sudo --ask-sudo-password --impure";
 
       # macOS system management
       flush-dns = "sudo dscacheutil -flushcache && sudo killall -HUP mDNSResponder";

@@ -7,6 +7,13 @@
   services.qemuGuest.enable = true;
   hardware.graphics.enable = true;
 
+  # UTM's "Auto Resolution" (dynamic display resize to follow the VM window)
+  # works via the SPICE guest agent: without spice-vdagent running inside the
+  # guest, the display stays stuck at the initial EDID mode (1280x800) and
+  # higher DRM modes are rejected. This is what enables the display to follow
+  # the UTM window size. (See UTM docs: guest-support/dynamic-resolution.)
+  services.spice-vdagentd.enable = true;
+
   # Matches what nixpkgs' virtualisation/disk-image.nix module (used only
   # when building the initial .qcow2 via system.build.images.qemu-efi) sets
   # for its root/ESP partitions. Declared here too so the plain
