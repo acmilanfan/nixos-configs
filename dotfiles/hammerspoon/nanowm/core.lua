@@ -170,6 +170,47 @@ function M.isParked(win, id)
     return (st and st.isHidden) == true
 end
 
+-- How much of win's frame overlaps the union of the visible screen bounds, as a
+-- fraction of the frame's own area. Used to tell a genuinely-parked window apart
+-- from one that some other party moved back on-screen.
+--
+-- isParked() trusts windowState[id].isHidden as the authority because PHASE 2 parks
+-- windows at PARK_COORD and macOS clamps that to a ~40 px on-screen corner (so a raw
+-- coordinate test against PARK_COORD would never match). That trust is only valid for
+-- windows nanowm itself parked. The OS can move a window back on-screen without a
+-- nanowm setFrame -- the canonical case is exiting native full-screen, which macOS
+-- undoes with no frame event to us -- leaving isHidden true while the window sits
+-- on-screen. A genuine park's corner barely grazes the screen (overlap ~0.004 of the
+-- frame); an on-screen window overlaps >=0.5. 0.2 sits cleanly between the two, so a
+-- correctly-parked window is never mistaken for one that needs re-parking.
+function M.overlapsScreen(win, f, screenFrames)
+    f = f or win:frame()
+    if not f or f.w <= 0 or f.h <= 0 then return 0 end
+    local area = f.w * f.h
+    if area <= 0 then return 0 end
+    -- The caller builds the screen frame list once per tile and reads the window
+    -- frame once; falling back to a self-contained read keeps the helper usable on
+    -- its own, at the cost of re-enumerating screens for a single call.
+    if not screenFrames then
+        screenFrames = {}
+        for _, s in ipairs(hs.screen.allScreens()) do
+            screenFrames[#screenFrames + 1] = s:frame()
+        end
+    end
+    local total = 0
+    for _, fr in ipairs(screenFrames) do
+        local ox = math.min(f.x + f.w, fr.x + fr.w) - math.max(f.x, fr.x)
+        local oy = math.min(f.y + f.h, fr.y + fr.h) - math.max(f.y, fr.y)
+        if ox > 0 and oy > 0 then
+            total = total + ox * oy
+        end
+    end
+    if total <= 0 then return 0 end
+    local r = total / area
+    if r > 1 then r = 1 end
+    return r
+end
+
 -- =============================================================================
 -- Window Registration
 -- =============================================================================
