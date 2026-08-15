@@ -12,7 +12,16 @@ let
         hooks = [
           {
             type = "command";
-            command = "agent-state --agent ${agent} --state needs-input &";
+            # Claude Code fires Notification for both real permission prompts and the
+            # routine "waiting for your input" idle nudge (notificationType:"idle_prompt").
+            # Only the former should flip the sketchybar/Hammerspoon indicator red.
+            command = ''
+              input=$(cat)
+              type=$(printf '%s' "$input" | ${pkgs.jq}/bin/jq -r '.notificationType // empty' 2>/dev/null)
+              if [ "$type" != "idle_prompt" ]; then
+                agent-state --agent ${agent} --state needs-input &
+              fi
+            '';
           }
         ];
       }

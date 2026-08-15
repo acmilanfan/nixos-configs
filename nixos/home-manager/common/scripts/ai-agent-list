@@ -1,0 +1,137 @@
+#!/usr/bin/env bash
+
+# ═══════════════════════════════════════════════════════════════
+# ai-agent-list — shared AI agent pane detection
+#
+# Prints one line per tracked agent pane to stdout:
+#   pane_id|state|type|project|cwd
+# state ∈ running|needs-input|done|idle
+# type  = capitalized agent name (Claude, Gemini, Antigravity, OpenCode, ...)
+#
+# Consumed by: ai_agents.sh (sketchybar), nanowm/agents.lua (Hammerspoon
+# chooser), hypr-ai-agents (waybar/fuzzel), tmux-agent-switcher (fzf popup).
+# ═══════════════════════════════════════════════════════════════
+
+AGENT_PROCESSES="claude .claude-wrapped gemini aider cursor antigravity agy opencode"
+
+# Return 0 (true) if the given pane content shows a confirmation prompt.
+content_is_confirm() {
+  local content="$1"
+  printf '%s\n' "$content" | grep -qF 'Allow once' && return 0
+  printf '%s\n' "$content" | grep -qF 'Allow for this session' && return 0
+  printf '%s\n' "$content" | grep -qF 'Allow in project' && return 0
+  printf '%s\n' "$content" | grep -qF 'Do you want to proceed?' && return 0
+  printf '%s\n' "$content" | grep -qiE '^[[:space:]]*(❯|›)[[:space:]]*(yes|no|deny)[[:space:]]*$' && return 0
+  printf '%s\n' "$content" | grep -qE '\[y/n\]|\[Y/n\]|\(y/n\)' && return 0
+  local tail5
+  tail5=$(printf '%s\n' "$content" | tail -5)
+  [ "$(printf '%s\n' "$tail5" | grep -cE '^\s*[0-9]+\. ')" -ge 2 ] && return 0
+  return 1
+}
+
+capitalize_type() {
+  case "$1" in
+    *Claude*|*claude*) echo "Claude" ;;
+    *Gemini*|*gemini*|*Test*) echo "Gemini" ;;
+    *Antigravity*|*antigravity*|*agy*) echo "Antigravity" ;;
+    *OpenCode*|*opencode*) echo "OpenCode" ;;
+    *) echo "${1^}" ;;
+  esac
+}
+
+AGENT_ENV=$(tmux show-environment -g 2>/dev/null | grep '^TMUX_AGENT_PANE_')
+ALL_PANES=$(tmux list-panes -a -F '#{pane_id}|#{pane_pid}|#{pane_tty}|#{pane_current_path}' 2>/dev/null)
+
+if [ -z "$AGENT_ENV" ] && [ -z "$ALL_PANES" ]; then
+  exit 0
+fi
+
+PROCESSED_PANES=""
+
+# Phase 1: env-tracked panes (hooks), verified against a live process
+if [ -n "$AGENT_ENV" ]; then
+  PANE_IDS_ENV=$(echo "$AGENT_ENV" | grep -o '%[0-9]*' | sort -u)
+  for pane_id in $PANE_IDS_ENV; do
+    status=$(echo "$AGENT_ENV" | grep "^TMUX_AGENT_PANE_${pane_id}_STATE=" | cut -d= -f2)
+    agent_name=$(echo "$AGENT_ENV" | grep "^TMUX_AGENT_PANE_${pane_id}_AGENT=" | cut -d= -f2)
+
+    [ -z "$status" ] || [ "$status" = "off" ] && continue
+
+    PANE_INFO=$(echo "$ALL_PANES" | grep "^${pane_id}|" | head -1)
+    if [ -z "$PANE_INFO" ]; then
+      tmux set-environment -ug "TMUX_AGENT_PANE_${pane_id}_STATE" 2>/dev/null
+      tmux set-environment -ug "TMUX_AGENT_PANE_${pane_id}_AGENT" 2>/dev/null
+      continue
+    fi
+
+    tty=$(echo "$PANE_INFO" | cut -d'|' -f3)
+    tty_short=${tty#/dev/}
+    TTY_PROCS_P1=$(ps -t "$tty_short" -o command= 2>/dev/null)
+    found_proc=0
+    if [ -n "$TTY_PROCS_P1" ]; then
+      for proc in $AGENT_PROCESSES; do
+        if echo "$TTY_PROCS_P1" | grep -qw "$proc"; then
+          found_proc=1; break
+        fi
+      done
+    else
+      # ps found nothing at all for this tty (not even a shell) -- that's a
+      # sign the tty lookup itself failed, not proof the agent process died.
+      # Leave the tracked hook state alone rather than risk deleting it.
+      continue
+    fi
+
+    if [ "$found_proc" -eq 0 ]; then
+      tmux set-environment -ug "TMUX_AGENT_PANE_${pane_id}_STATE" 2>/dev/null
+      tmux set-environment -ug "TMUX_AGENT_PANE_${pane_id}_AGENT" 2>/dev/null
+      continue
+    fi
+
+    PROCESSED_PANES="$PROCESSED_PANES $pane_id"
+
+    cwd=$(echo "$PANE_INFO" | cut -d'|' -f4 | tr -d '|\n')
+    project=$(basename "$cwd" 2>/dev/null || echo "?")
+    project=$(printf '%s' "$project" | tr -d '|\n')
+
+    PANE_CONTENT=$(tmux capture-pane -t "$pane_id" -p 2>/dev/null | tail -20)
+    if [ -n "$PANE_CONTENT" ] && content_is_confirm "$PANE_CONTENT"; then
+      status="needs-input"
+    fi
+
+    type=$(capitalize_type "$agent_name")
+    echo "${pane_id}|${status}|${type}|${project}|${cwd}"
+  done
+fi
+
+# Phase 2: process/CPU fallback for panes not already covered by phase 1
+while IFS='|' read -r pane_id pid tty cwd; do
+  [[ " $PROCESSED_PANES " == *" $pane_id "* ]] && continue
+
+  tty_short=${tty#/dev/}
+  TTY_PROCS=$(ps -t "$tty_short" -o command= 2>/dev/null)
+  [ -z "$TTY_PROCS" ] && continue
+
+  found_agent=""
+  for proc in $AGENT_PROCESSES; do
+    if echo "$TTY_PROCS" | grep -qw "$proc"; then
+      found_agent="$proc"
+      break
+    fi
+  done
+  [ -z "$found_agent" ] && continue
+
+  cpu_sum=$(ps -t "$tty_short" -o %cpu= 2>/dev/null | awk '{s+=$1}END{printf "%.0f", s*10}')
+  status="idle"
+  [ "${cpu_sum:-0}" -gt 10 ] && status="running"   # > 1.0% CPU total on TTY
+
+  PANE_CONTENT=$(tmux capture-pane -t "$pane_id" -p 2>/dev/null | tail -20)
+  if [ -n "$PANE_CONTENT" ] && content_is_confirm "$PANE_CONTENT"; then
+    status="needs-input"
+  fi
+
+  type=$(capitalize_type "$found_agent")
+  project=$(basename "$cwd" 2>/dev/null || echo "?")
+  project=$(printf '%s' "$project" | tr -d '|\n')
+  cwd=$(printf '%s' "$cwd" | tr -d '\n')
+  echo "${pane_id}|${status}|${type}|${project}|${cwd}"
+done <<< "$ALL_PANES"

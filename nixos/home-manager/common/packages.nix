@@ -6,6 +6,7 @@
       (writeShellScriptBin "ns" (lib.readFile ./scripts/nixpkgs))
       (writeShellScriptBin "worktree-switch" (lib.readFile ./scripts/worktree-switch))
       (writeShellScriptBin "worktree-remove" (lib.readFile ./scripts/worktree-remove))
+      (writeShellScriptBin "ai-agent-list" (lib.readFile ./scripts/ai-agent-list))
       git
       httpie
       kitty

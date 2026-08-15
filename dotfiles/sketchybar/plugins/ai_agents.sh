@@ -3,8 +3,8 @@
 # ═══════════════════════════════════════════════════════════════
 # ai_agents.sh — AI Coding Assistant Session Monitor
 #
-# Detects sessions using tmux-agent-indicator global environment
-# or process-based fallback (for Gemini/Claude without hooks).
+# Pane detection/classification is shared via ai-agent-list; this script
+# only handles sketchybar-specific presentation (popup slots, counters).
 # ═══════════════════════════════════════════════════════════════
 
 MAX_SLOTS=8
@@ -15,24 +15,12 @@ if [ "$SENDER" = "mouse.exited.global" ]; then
   exit 0
 fi
 
-# ──────────────────────────────────────────────────────────────
-# 1. Detect sessions using tmux-agent-indicator variables (global environment)
-# ──────────────────────────────────────────────────────────────
+AGENT_ROWS=$(ai-agent-list)
 
-# Get global tmux environment variables starting with TMUX_AGENT_PANE_
-AGENT_ENV=$(tmux show-environment -g 2>/dev/null | grep '^TMUX_AGENT_PANE_')
-
-# Get all pane info to match CWD, PID, and TTY for fallback detection
-ALL_PANES=$(tmux list-panes -a -F '#{pane_id}|#{pane_pid}|#{pane_tty}|#{pane_current_path}' 2>/dev/null)
-
-if [ -z "$AGENT_ENV" ] && [ -z "$ALL_PANES" ]; then
+if [ -z "$AGENT_ROWS" ]; then
   sketchybar --set "$NAME" drawing=off background.drawing=off popup.drawing=off
   exit 0
 fi
-
-# ──────────────────────────────────────────────────────────────
-# 2. Per-session status → update popup slots
-# ──────────────────────────────────────────────────────────────
 
 SLOT=0
 # Priority: idle=0 < done=1 < running=2 < needs-input=3
@@ -42,7 +30,6 @@ CLAUDE_ACTIVE=0
 GEMINI_ACTIVE=0
 ANTIGRAVITY_ACTIVE=0
 OPENCODE_ACTIVE=0
-PROCESSED_PANES=""
 
 update_aggregate() {
   local priority="$1" state="$2"
@@ -52,193 +39,40 @@ update_aggregate() {
   fi
 }
 
-# Return 0 (true) if the given pane content shows a confirmation prompt.
-content_is_confirm() {
-  local content="$1"
-  # Claude Code permission dialog button labels
-  printf '%s\n' "$content" | grep -qF 'Allow once' && return 0
-  printf '%s\n' "$content" | grep -qF 'Allow for this session' && return 0
-  printf '%s\n' "$content" | grep -qF 'Allow in project' && return 0
-  printf '%s\n' "$content" | grep -qF 'Do you want to proceed?' && return 0
-  # Gemini cursor or menu options
-  printf '%s\n' "$content" | grep -qiE '^[[:space:]]*(❯|›)[[:space:]]*(yes|no|deny)[[:space:]]*$' && return 0
-  printf '%s\n' "$content" | grep -qE '\[y/n\]|\[Y/n\]|\(y/n\)' && return 0
-  # Gemini numbered menu (require 2+ sequential numbered items in last 5 lines)
-  local tail5
-  tail5=$(printf '%s\n' "$content" | tail -5)
-  [ "$(printf '%s\n' "$tail5" | grep -cE '^\s*[0-9]+\. ')" -ge 2 ] && return 0
-  return 1
-}
-
-# 2a. First, process explicit states from environment (hooks)
-if [ -n "$AGENT_ENV" ]; then
-  PANE_IDS_ENV=$(echo "$AGENT_ENV" | grep -o '%[0-9]*' | sort -u)
-  for pane_id in $PANE_IDS_ENV; do
-    status=$(echo "$AGENT_ENV" | grep "^TMUX_AGENT_PANE_${pane_id}_STATE=" | cut -d= -f2)
-    agent_name=$(echo "$AGENT_ENV" | grep "^TMUX_AGENT_PANE_${pane_id}_AGENT=" | cut -d= -f2)
-
-    [ -z "$status" ] || [ "$status" = "off" ] && continue
-
-    # Get pane info
-    PANE_INFO=$(echo "$ALL_PANES" | grep "^${pane_id}|" | head -1)
-    if [ -z "$PANE_INFO" ]; then
-      # Cleanup stale environment variables
-      tmux set-environment -ug "TMUX_AGENT_PANE_${pane_id}_STATE" 2>/dev/null
-      tmux set-environment -ug "TMUX_AGENT_PANE_${pane_id}_AGENT" 2>/dev/null
-      continue
-    fi
-
-        # Verify process is still there
-    tty=$(echo "$PANE_INFO" | cut -d'|' -f3)
-    tty_short=$(basename "$tty")
-    AGENT_PROCESSES="claude .claude-wrapped gemini aider cursor antigravity agy opencode"
-    found_proc=0
-    for proc in $AGENT_PROCESSES; do
-      if ps -t "$tty_short" -o command= 2>/dev/null | grep -qw "$proc"; then
-        found_proc=1; break
-      fi
-    done
-
-    if [ "$found_proc" -eq 0 ]; then
-       tmux set-environment -ug "TMUX_AGENT_PANE_${pane_id}_STATE" 2>/dev/null
-       tmux set-environment -ug "TMUX_AGENT_PANE_${pane_id}_AGENT" 2>/dev/null
-       continue
-    fi
-
-    PROCESSED_PANES="$PROCESSED_PANES $pane_id"
-    SLOT=$((SLOT + 1))
-    [ "$SLOT" -gt "$MAX_SLOTS" ] && break
-
-    cwd=$(echo "$PANE_INFO" | cut -d'|' -f4)
-    PROJECT=$(basename "$cwd" 2>/dev/null || echo "?")
-
-    # Override status if pane shows a confirm prompt
-    PANE_CONTENT=$(tmux capture-pane -t "$pane_id" -p 2>/dev/null | tail -20)
-    if [ -n "$PANE_CONTENT" ] && content_is_confirm "$PANE_CONTENT"; then
-       status="needs-input"
-    fi
-
-    DOT="" COLOR=""
-    case "$agent_name" in
-      *Claude*|*claude*) TYPE="C" ;;
-      *Gemini*|*gemini*|*Test*) TYPE="G" ;;
-      *Antigravity*|*antigravity*) TYPE="A" ;;
-      *OpenCode*|*opencode*) TYPE="O" ;;
-      *) TYPE="${agent_name:0:1}" ;;
-    esac
-
-    case "$status" in
-      needs-input)
-        DOT="●"; COLOR="0xffe06c75"   # red — needs input
-        update_aggregate 3 "confirm"
-        [[ "$TYPE" == "C" ]] && CLAUDE_ACTIVE=$((CLAUDE_ACTIVE + 1))
-        [[ "$TYPE" == "G" ]] && GEMINI_ACTIVE=$((GEMINI_ACTIVE + 1))
-        [[ "$TYPE" == "A" ]] && ANTIGRAVITY_ACTIVE=$((ANTIGRAVITY_ACTIVE + 1))
-        [[ "$TYPE" == "O" ]] && OPENCODE_ACTIVE=$((OPENCODE_ACTIVE + 1))
-        ;;
-      running)
-        DOT="●"; COLOR="0xffe0af68"   # yellow — working
-        update_aggregate 2 "working"
-        [[ "$TYPE" == "C" ]] && CLAUDE_ACTIVE=$((CLAUDE_ACTIVE + 1))
-        [[ "$TYPE" == "G" ]] && GEMINI_ACTIVE=$((GEMINI_ACTIVE + 1))
-        [[ "$TYPE" == "A" ]] && ANTIGRAVITY_ACTIVE=$((ANTIGRAVITY_ACTIVE + 1))
-        [[ "$TYPE" == "O" ]] && OPENCODE_ACTIVE=$((OPENCODE_ACTIVE + 1))
-        ;;
-      done)
-        DOT="●"; COLOR="0xff7b5cff"   # purple — waiting/recent
-        update_aggregate 1 "recent"
-        [[ "$TYPE" == "C" ]] && CLAUDE_ACTIVE=$((CLAUDE_ACTIVE + 1))
-        [[ "$TYPE" == "G" ]] && GEMINI_ACTIVE=$((GEMINI_ACTIVE + 1))
-        [[ "$TYPE" == "A" ]] && ANTIGRAVITY_ACTIVE=$((ANTIGRAVITY_ACTIVE + 1))
-        [[ "$TYPE" == "O" ]] && OPENCODE_ACTIVE=$((OPENCODE_ACTIVE + 1))
-        ;;
-    esac
-
-    echo "$pane_id" > "/tmp/sketchybar_ai_agent_${SLOT}.pane"
-    sketchybar --set "ai_agents.popup.${SLOT}" drawing=on icon="$DOT" icon.color="$COLOR" label="${TYPE}: $PROJECT"
-  done
-fi
-
-# 2b. Fallback: check all other panes for known agent processes
-AGENT_PROCESSES="claude .claude-wrapped gemini aider cursor antigravity agy opencode"
-while IFS='|' read -r pane_id pid tty cwd; do
-  [[ "$PROCESSED_PANES" =~ "$pane_id" ]] && continue
-  [ "$SLOT" -gt "$MAX_SLOTS" ] && break
-
-  found_agent=""
-  tty_short=$(basename "$tty")
-
-  # Get all processes on this TTY once
-  TTY_PROCS=$(ps -t "$tty_short" -o command= 2>/dev/null)
-  [ -z "$TTY_PROCS" ] && continue
-
-  for proc in $AGENT_PROCESSES; do
-    if echo "$TTY_PROCS" | grep -qw "$proc"; then
-      case "$proc" in
-        *claude*) found_agent="Claude" ;;
-        *gemini*) found_agent="Gemini" ;;
-        *antigravity*|*agy*) found_agent="Antigravity" ;;
-        *opencode*) found_agent="OpenCode" ;;
-        *) found_agent="$proc" ;;
-      esac
-      break
-    fi
-  done
-
-  [ -z "$found_agent" ] && continue
-
+while IFS='|' read -r pane_id status type project cwd; do
+  [ -z "$pane_id" ] && continue
   SLOT=$((SLOT + 1))
   [ "$SLOT" -gt "$MAX_SLOTS" ] && break
 
-  # Use CPU as proxy for working vs idle in fallback loop
-  cpu_sum=$(ps -t "$tty_short" -o %cpu= 2>/dev/null | awk '{s+=$1}END{printf "%.0f", s*10}')
-
-  status="idle"
-  if [ "${cpu_sum:-0}" -gt 10 ]; then # > 1.0% CPU total on TTY
-     status="running"
-  fi
-
-  # Check for confirmation prompts (red overrides yellow/gray)
-  PANE_CONTENT=$(tmux capture-pane -t "$pane_id" -p 2>/dev/null | tail -20)
-  if [ -n "$PANE_CONTENT" ] && content_is_confirm "$PANE_CONTENT"; then
-     status="needs-input"
-  fi
-
-  case "$found_agent" in
-    *Claude*|*claude*) TYPE="C" ;;
-    *Gemini*|*gemini*) TYPE="G" ;;
-    *Antigravity*|*antigravity*) TYPE="A" ;;
-    *OpenCode*|*opencode*) TYPE="O" ;;
-    *) TYPE="${found_agent:0:1}" ;;
-  esac
+  TYPE="${type:0:1}"
 
   DOT="" COLOR=""
   case "$status" in
     needs-input)
       DOT="●"; COLOR="0xffe06c75"   # red — needs input
       update_aggregate 3 "confirm"
-      [[ "$TYPE" == "C" ]] && CLAUDE_ACTIVE=$((CLAUDE_ACTIVE + 1))
-      [[ "$TYPE" == "G" ]] && GEMINI_ACTIVE=$((GEMINI_ACTIVE + 1))
-      [[ "$TYPE" == "A" ]] && ANTIGRAVITY_ACTIVE=$((ANTIGRAVITY_ACTIVE + 1))
-      [[ "$TYPE" == "O" ]] && OPENCODE_ACTIVE=$((OPENCODE_ACTIVE + 1))
       ;;
     running)
       DOT="●"; COLOR="0xffe0af68"   # yellow — working
       update_aggregate 2 "working"
-      [[ "$TYPE" == "C" ]] && CLAUDE_ACTIVE=$((CLAUDE_ACTIVE + 1))
-      [[ "$TYPE" == "G" ]] && GEMINI_ACTIVE=$((GEMINI_ACTIVE + 1))
-      [[ "$TYPE" == "A" ]] && ANTIGRAVITY_ACTIVE=$((ANTIGRAVITY_ACTIVE + 1))
-      [[ "$TYPE" == "O" ]] && OPENCODE_ACTIVE=$((OPENCODE_ACTIVE + 1))
+      ;;
+    done)
+      DOT="●"; COLOR="0xff7b5cff"   # purple — waiting/recent
+      update_aggregate 1 "recent"
       ;;
     idle)
       DOT="○"; COLOR="0xff565f89"   # gray — idle
       ;;
   esac
 
-  PROJECT=$(basename "$cwd" 2>/dev/null || echo "?")
+  [[ "$TYPE" == "C" ]] && CLAUDE_ACTIVE=$((CLAUDE_ACTIVE + 1))
+  [[ "$TYPE" == "G" ]] && GEMINI_ACTIVE=$((GEMINI_ACTIVE + 1))
+  [[ "$TYPE" == "A" ]] && ANTIGRAVITY_ACTIVE=$((ANTIGRAVITY_ACTIVE + 1))
+  [[ "$TYPE" == "O" ]] && OPENCODE_ACTIVE=$((OPENCODE_ACTIVE + 1))
+
   echo "$pane_id" > "/tmp/sketchybar_ai_agent_${SLOT}.pane"
-  sketchybar --set "ai_agents.popup.${SLOT}" drawing=on icon="$DOT" icon.color="$COLOR" label="${TYPE}: $PROJECT"
-done <<< "$ALL_PANES"
+  sketchybar --set "ai_agents.popup.${SLOT}" drawing=on icon="$DOT" icon.color="$COLOR" label="${TYPE}: $project"
+done <<< "$AGENT_ROWS"
 
 # Hide unused slots and clear their PANE files
 i=$((SLOT + 1))
@@ -249,7 +83,7 @@ while [ "$i" -le "$MAX_SLOTS" ]; do
 done
 
 # ──────────────────────────────────────────────────────────────
-# 3. Update bar item (count + aggregate color)
+# Update bar item (count + aggregate color)
 # ──────────────────────────────────────────────────────────────
 
 LABEL=""

@@ -190,7 +190,11 @@ function M.showMenu()
     chooser:choices({{text = "Loading agents...", uuid = "loading"}})
     chooser:show()
 
-    -- Async execution
+    -- ai-agent-list is the shared detection script (Nix-installed via
+    -- home.packages), also used by the sketchybar popup and the tmux fzf
+    -- switcher. Using "-lc" (login shell) for consistency with
+    -- M.focusAgent's zsh invocation above and as a safety margin against
+    -- PATH resolution depending on profile sourcing in other environments.
     hs.task.new("/bin/zsh", function(exitCode, stdOut)
         if not chooser:isVisible() then return end
 
@@ -213,82 +217,7 @@ function M.showMenu()
         else
             chooser:choices(choices)
         end
-    end, {"-c", [=[
-        agents=""
-
-        # Explicit env
-        env=$(tmux show-environment -g 2>/dev/null | grep '^TMUX_AGENT_PANE_')
-        panes=$(tmux list-panes -a -F '#{pane_id}|#{pane_pid}|#{pane_tty}|#{pane_current_path}' 2>/dev/null)
-
-        echo "$env" | while read -r line; do
-            if [[ $line == TMUX_AGENT_PANE_*_STATE=* ]]; then
-                id=$(echo "$line" | sed 's/TMUX_AGENT_PANE_\(.*\)_.*/\1/' | sed 's/_STATE.*//')
-                state=$(echo "$line" | cut -d= -f2)
-
-                if [[ "$state" != "off" ]]; then
-                    name=$(echo "$env" | grep "TMUX_AGENT_PANE_${id}_AGENT" | cut -d= -f2)
-                    [[ -z "$name" ]] && name="Agent"
-
-                    paneInfo=$(echo "$panes" | grep "^${id}|")
-                    if [[ -n "$paneInfo" ]]; then
-                        tty=$(echo "$paneInfo" | cut -d'|' -f3)
-                        ttyShort=$(basename "$tty")
-                        cmd=$(ps -t "$ttyShort" -o command= 2>/dev/null)
-
-                        # Verify the tracked agent process is still actually running on
-                        # this tty (hooks can leave stale state if a session exits
-                        # without a SessionEnd hook firing, e.g. a forced kill).
-                        if echo "$cmd" | grep -q "$name"; then
-                            cwd=$(echo "$paneInfo" | cut -d'|' -f4)
-                            proj=$(basename "$cwd")
-
-                            # capture content
-                            content=$(tmux capture-pane -t "$id" -p 2>/dev/null | tail -20)
-                            if echo "$content" | grep -qE "Allow once|Allow for this session|Allow in project|Do you want to proceed?|\[y/n\]"; then
-                                state="needs-input"
-                            fi
-
-                            echo "${id}|${state}|${name}|${proj}|${cwd}"
-                        else
-                            tmux set-environment -ug "TMUX_AGENT_PANE_${id}_STATE" 2>/dev/null
-                            tmux set-environment -ug "TMUX_AGENT_PANE_${id}_AGENT" 2>/dev/null
-                        fi
-                    fi
-                fi
-            fi
-        done
-
-        # Implicit process check fallback
-        echo "$panes" | while IFS='|' read -r id pid tty cwd; do
-            # Skip if already found in env
-            if ! echo "$env" | grep -q "TMUX_AGENT_PANE_${id}_STATE"; then
-                ttyShort=$(basename "$tty")
-                cmd=$(ps -t "$ttyShort" -o command= 2>/dev/null)
-
-                foundAgent=""
-                for proc in claude .claude-wrapped gemini aider cursor antigravity agy opencode; do
-                    if echo "$cmd" | grep -q "$proc"; then
-                        foundAgent=$proc
-                        break
-                    fi
-                done
-
-                if [[ -n "$foundAgent" ]]; then
-                    cpu=$(ps -t "$ttyShort" -o %cpu= 2>/dev/null | awk '{s+=$1}END{print s}')
-                    state="idle"
-                    if (( $(echo "$cpu > 1.0" | bc -l) )); then state="running"; fi
-
-                    content=$(tmux capture-pane -t "$id" -p 2>/dev/null | tail -20)
-                    if echo "$content" | grep -qE "Allow once|Allow for this session|Allow in project|Do you want to proceed?|\[y/n\]"; then
-                        state="needs-input"
-                    fi
-
-                    proj=$(basename "$cwd")
-                    echo "${id}|${state}|${foundAgent}|${proj}|${cwd}"
-                fi
-            fi
-        done
-    ]=]}):start()
+    end, {"-lc", "ai-agent-list"}):start()
 end
 
 return M
