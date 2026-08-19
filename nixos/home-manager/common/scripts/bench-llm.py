@@ -205,6 +205,7 @@ def stream_chat(endpoint, model, prompt, max_tokens, timeout):
     t_first_content = None
     t_last = None
     usage = None
+    stream_error = None
     n_content_chunks = 0
 
     resp = _post(endpoint, "/chat/completions", payload, timeout)
@@ -225,6 +226,13 @@ def stream_chat(endpoint, model, prompt, max_tokens, timeout):
                 t_first_chunk = now
             if chunk.get("usage"):
                 usage = chunk["usage"]
+            # Servers may refuse in-stream with HTTP 200 + an error payload
+            # (oMLX does this for prefill-memory-guard rejections), which no
+            # HTTP-level handler would ever see.
+            if chunk.get("error"):
+                err = chunk["error"]
+                stream_error = (err.get("message") if isinstance(err, dict)
+                                else str(err))
             for ch in chunk.get("choices") or []:
                 delta = ch.get("delta") or {}
                 text = delta.get("content") or ""
@@ -242,6 +250,7 @@ def stream_chat(endpoint, model, prompt, max_tokens, timeout):
         "t_last_s": t_last,
         "total_s": total,
         "usage": usage,
+        "stream_error": stream_error,
         "n_content_chunks": n_content_chunks,
     }
 
@@ -458,6 +467,13 @@ def measure_ctx(args, model, ctx, chars_per_token, sampler_pid):
         rec["status"], rec["error"] = classify_error(e)
         return rec
 
+    if pf.get("stream_error"):
+        if sampler:
+            rec["memory"] = sampler.stop()
+        rec["status"] = "REJECTED"
+        rec["error"] = pf["stream_error"][:400]
+        return rec
+
     usage = pf.get("usage") or {}
     ptok = usage.get("prompt_tokens")
     ttft = pf.get("ttft_s")
@@ -466,9 +482,27 @@ def measure_ctx(args, model, ctx, chars_per_token, sampler_pid):
     rec["prompt_tokens"] = ptok
     rec["ttft_s"] = round(ttft, 3) if ttft else None
     rec["prefill_tok_s"] = round(prefill_tok_s, 1) if prefill_tok_s else None
-    if prefill_tok_s:
-        flops = 2.0 * args.params * prefill_tok_s
-        rec["mfu_pct"] = round(100.0 * flops / args.peak_flops, 1)
+    if ptok and ttft:
+        # Prefill FLOPs = dense term + attention term.
+        #
+        # The dense term (2 x params x tokens) is all that matters at small
+        # context. The attention term grows as n^2 and is emphatically NOT
+        # negligible at long context: for this model it is ~3% of the total at
+        # 4k but ~40% at 94k. Omitting it (as this script originally did) makes
+        # MFU look like it collapses with context - 83% at 4k down to 28% at
+        # 94k - when much of that "collapse" is just unaccounted work.
+        #
+        # Per full-attention layer: QK^T and AV are each 2 x n^2 x heads x
+        # head_dim FLOPs. Layers using linear attention are excluded, since
+        # their cost is linear in n and already close enough to the dense term.
+        dense = 2.0 * args.params * ptok
+        attn = 4.0 * (ptok ** 2) * args.attn_heads * args.attn_head_dim \
+            * args.attn_full_layers
+        total = dense + attn
+        rec["mfu_pct"] = round(100.0 * total / (ttft * args.peak_flops), 1)
+        rec["mfu_dense_only_pct"] = round(
+            100.0 * dense / (ttft * args.peak_flops), 1)
+        rec["attn_share_pct"] = round(100.0 * attn / total, 1)
 
     # --- decode: separate request, same prompt (now warm), longer generation ---
     try:
@@ -571,6 +605,13 @@ def main():
                     help="model parameter count, for MFU")
     ap.add_argument("--peak-flops", type=float, default=8e12,
                     help="GPU peak FLOPS estimate (M4 Pro default ~8e12)")
+    # Qwen3.8-27B defaults, from its config.json: 24 heads, head_dim 256, and
+    # layer_types repeating [linear, linear, linear, full] over 64 layers, so
+    # only 16 layers do quadratic attention.
+    ap.add_argument("--attn-heads", type=int, default=24)
+    ap.add_argument("--attn-head-dim", type=int, default=256)
+    ap.add_argument("--attn-full-layers", type=int, default=16,
+                    help="layers doing full (quadratic) attention, not linear")
     ap.add_argument("--timeout", type=float, default=1800.0,
                     help="per-request timeout in seconds")
     ap.add_argument("--assume-tok-s", type=float, default=50.0,
