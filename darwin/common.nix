@@ -229,7 +229,10 @@ in
       "FelixKratz/formulae"
       "dimentium/autoraise"
       "k06a/tap"
-      "jundot/omlx"
+      {
+        name = "jundot/omlx";
+        clone_target = "https://github.com/jundot/omlx";
+      }
     ];
   };
 
