@@ -573,6 +573,9 @@ def main():
                     help="GPU peak FLOPS estimate (M4 Pro default ~8e12)")
     ap.add_argument("--timeout", type=float, default=1800.0,
                     help="per-request timeout in seconds")
+    ap.add_argument("--assume-tok-s", type=float, default=50.0,
+                    help="pessimistic prefill rate used only to pre-check that "
+                         "--timeout is large enough for the requested contexts")
     ap.add_argument("--jit-warmup", action="store_true",
                     help="cold mode only: run a discarded same-length prefill "
                          "first. Measured JIT cost is negligible (the warmup "
@@ -590,6 +593,25 @@ def main():
     if pid is None:
         print("WARNING: could not find server pid; memory will not be sampled",
               file=sys.stderr)
+
+    # A client-side timeout does NOT cancel the request server-side: oMLX keeps
+    # prefilling and the orphan then contends with every later measurement.
+    # Refuse up front rather than silently poisoning the run. The floor is
+    # deliberately pessimistic (prefill tok/s falls with context: ~123 at 4k,
+    # ~86 at 64k, ~65 at 125k).
+    targets = parse_ctx(args.ctx)
+    slowest = max(targets)
+    needed = slowest / args.assume_tok_s
+    if needed > args.timeout:
+        raise SystemExit(
+            "--timeout %.0fs is too short for ctx=%d: at a pessimistic "
+            "%.0f prompt tok/s that prefill needs ~%.0fs (%.0f min).\n"
+            "A client timeout does not cancel the server-side request, so the "
+            "orphan would contend with later rows.\n"
+            "Re-run with --timeout %d"
+            % (args.timeout, slowest, args.assume_tok_s, needed, needed / 60,
+               int(needed * 1.5))
+        )
 
     chars_per_token = calibrate(args.endpoint, model, args.timeout)
 
