@@ -1,3 +1,10 @@
+-- Must be set before any plugin file below defines a <leader> keymap: <leader>
+-- is resolved to the current mapleader at the moment a mapping is created,
+-- not lazily, so setting this later (e.g. in config.lua) is too late for
+-- every keymap defined in plugins/*.lua.
+vim.g.mapleader = " "
+vim.g.maplocalleader = " "
+
 -- Defensive patch for Treesitter API changes/bugs in Neovim (fix for "range" nil value)
 if vim.treesitter.get_node_text then
   local old_get_node_text = vim.treesitter.get_node_text
@@ -66,6 +73,7 @@ require("plugins.snacks")
 require("plugins.oil-nvim")
 require("plugins.avante")
 require("plugins.minuet-ai")
+require("plugins.glow")
 
 -- Main configuration (keymaps, options, LSP, etc.)
 require("config")

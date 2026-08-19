@@ -58,6 +58,7 @@ in
     eslint
     graphql-language-service-cli
     fixjson
+    glow
     # vscode-extensions.vscjava.vscode-java-test
   ];
 
@@ -198,6 +199,7 @@ in
       oil-nvim
       avante-nvim
       minuet-ai-nvim
+      glow-nvim
     ];
     # Load the main init.lua which requires all other modules
     initLua = ''

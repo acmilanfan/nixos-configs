@@ -1,5 +1,5 @@
-vim.g.mapleader = " "
-vim.g.maplocalleader = " "
+-- mapleader/maplocalleader are set at the top of init.lua, before plugin
+-- requires; see the comment there for why.
 -- vim.o.clipboard = "unnamedplus"
 vim.o.breakindent = true
 vim.o.undofile = true
