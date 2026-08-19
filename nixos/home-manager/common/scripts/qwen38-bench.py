@@ -1,5 +1,34 @@
 #!/usr/bin/env python3
-"""Benchmark Qwen 3.8 local inference servers (mtplx / oMLX).
+"""RETRACTED - superseded by bench-llm. Its prefill numbers are invalid.
+
+Do not run this to measure prompt processing, and do not cite figures it
+produced. Two defects, both confirmed by reading the code below:
+
+  1. `build_prompt()` is fully deterministic (its own docstring advertises
+     "cacheable across runs"), so every run after the first hit the engine's
+     prefix cache. The reported TTFT is a cache-hit latency, not a prefill.
+     This is why the 2026-08-19 report shows 0.007-0.034s TTFT at 32k context
+     (~1e6 prompt tok/s, physically impossible) next to a genuine cold prefill
+     of 42,440 tokens in 454.9s (~93 tok/s).
+  2. `prefill_tok_s` is computed from `count_tokens_estimate()` = len//4 rather
+     than the server's `usage.prompt_tokens`, which is how a run labelled
+     "ctx=32k" actually sent ~42k tokens.
+
+The memory methodology is also weak: `model_idle_gb` is sampled after a warmup
+request, so for engines that pre-allocate a paged-KV arena it measures
+model+arena, and "context growth" was only ever tested over 4k->8k.
+
+The `--ssd-cache` mode is the one part that remains sound (it restarts the
+server between passes), though it does not clear the cache before pass 1.
+
+Kept only so the previous report's provenance stays auditable.
+See docs/superpowers/specs/2026-08-19-local-llm-prefill-design.md.
+
+---
+
+Original docstring follows.
+
+Benchmark Qwen 3.8 local inference servers (mtplx / oMLX).
 
 Correctly separates the two things people actually care about:
 

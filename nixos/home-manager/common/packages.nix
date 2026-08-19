@@ -31,6 +31,15 @@
           install -m644 ${./scripts/omlx-context-probe.py} $out/bin/omlx-context-probe.py
         '';
       })
+      # bench-llm / llm-tap supersede ai-bench + omlx-context-probe above,
+      # whose prompt-processing numbers are invalid (deterministic prompts hit
+      # the engine prefix cache, so TTFT measured a cache hit, not a prefill).
+      # See docs/superpowers/specs/2026-08-19-local-llm-prefill-design.md.
+      # Stdlib-only, so no uvx/openai runtime dependency.
+      (writers.writePython3Bin "bench-llm" { flakeIgnore = [ "E501" ]; }
+        (lib.readFile ./scripts/bench-llm.py))
+      (writers.writePython3Bin "llm-tap" { flakeIgnore = [ "E501" ]; }
+        (lib.readFile ./scripts/llm-tap.py))
       git
       httpie
       kitty

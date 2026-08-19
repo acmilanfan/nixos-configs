@@ -1,5 +1,29 @@
 #!/usr/bin/env python3
-"""Probe how large a context oMLX can serve on this machine.
+"""RETRACTED - superseded by bench-llm. Its TTFT numbers are invalid.
+
+The claim below that it "sends a fresh (non-SSD-cached) prefill" is false:
+`build_prompt()` is fully deterministic, so repeat invocations at the same
+size replay a byte-identical prompt and hit oMLX's SSD prefix cache. The
+2026-08-19 report ran this probe three times (omlx-context-probe.json,
+omlx-ceiling-probe.json, omlx-ceiling2.json) over overlapping sizes, so runs
+2 and 3 were cache hits. That is why it reports 148k tokens prefilled in
+42.6s (~3500 prompt tok/s, impossible on an M4 Pro).
+
+It does read `usage.prompt_tokens` (line ~75), which is where the accurate
+"actual tokens" column came from - but that count was never used to compute a
+prefill rate, and the prompts overshot their targets by ~30%.
+
+The REJECTED/OK ceiling column is still directionally useful: those rejections
+came from oMLX's prefill memory-guard estimate, not real RAM.
+
+Kept only so the previous report's provenance stays auditable.
+See docs/superpowers/specs/2026-08-19-local-llm-prefill-design.md.
+
+---
+
+Original docstring follows.
+
+Probe how large a context oMLX can serve on this machine.
 
 For each target context size, sends a fresh (non-SSD-cached) prefill with
 max_tokens=1 and reports success, TTFT, and peak phys_footprint. Steps up

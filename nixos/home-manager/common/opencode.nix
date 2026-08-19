@@ -353,12 +353,22 @@ m["turboquant_kv_bits"] = 4
 json.dump(data, open(path, "w"), indent=2)
 ' "$MODEL_ID"
 
-    echo "Starting oMLX (Qwen 3.8 oQ4e-MTP) on :8083 ..."
+    # The context ceiling here is set by oMLX's prefill *memory-guard estimate*,
+    # not by real RAM: requests at 120k+ tokens were rejected while actual peak
+    # phys_footprint sat at ~32 GB under a 46 GB wired limit (see
+    # darwin/common.nix). The guard assumes ~9 MB/token where TurboQuant KV
+    # really costs ~0.1 MB/token, so it is ~90x too conservative — raising it is
+    # the one direct lever on usable context. 44 leaves ~4 GB under the wired
+    # limit. Overridable so `bench-llm` runs can sweep it:
+    #   OMLX_MEMORY_GUARD_GB=46 serve-omlx
+    GUARD_GB="''${OMLX_MEMORY_GUARD_GB:-44}"
+
+    echo "Starting oMLX (Qwen 3.8 oQ4e-MTP) on :8083, memory guard ''${GUARD_GB}GB ..."
     exec "$OMLX_BIN" serve \
       --model-dir "$OMLX_MODEL_DIR" \
       --host 127.0.0.1 \
       --port 8083 \
-      --memory-guard-gb 40
+      --memory-guard-gb "$GUARD_GB"
   '';
 
   # Smaller Gemma 4 12B (~6.7 GB), can coexist with Qwen 27B on 48 GB.
