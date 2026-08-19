@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Probe how large a context an oMLX server can serve (steps up until failure).
+# See the sibling .py for details.
+set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export PATH="/etc/profiles/per-user/gentooway/bin:$PATH"
+exec uvx --from openai python "$SCRIPT_DIR/omlx-context-probe.py" "$@"

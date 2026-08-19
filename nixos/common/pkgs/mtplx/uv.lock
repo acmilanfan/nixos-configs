@@ -291,7 +291,7 @@ wheels = [
 
 [[package]]
 name = "mtplx"
-version = "2.5.2"
+version = "2.8.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "fastapi" },
@@ -308,9 +308,9 @@ dependencies = [
     { name = "transformers", marker = "platform_machine == 'arm64' and sys_platform == 'darwin'" },
     { name = "uvicorn" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/14/c7/b520d41629ddf173985947075754f949586e508683387f78f4865078186f/mtplx-2.5.2.tar.gz", hash = "sha256:74127c43a5e3348c9bfcc0f7ea8d59ab19df4de8607293d04ce309d276badc09", size = 2641483, upload-time = "2026-08-04T05:16:10.447Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/4f/f5/d37376717e7773ddc7a52faa49a9d198d62edaaed11a20ee1f8b32263741/mtplx-2.8.2.tar.gz", hash = "sha256:539d628011ff7537f4558dce06740409a15afa553b1607d8dc27a5399fbc49b1", size = 3093695, upload-time = "2026-08-17T19:30:09.12Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/85/05/06f92e53894cc726a60a934cdcdd044a56366ed462e478676429647e3ede/mtplx-2.5.2-py3-none-any.whl", hash = "sha256:e344c9f2f795a0ddb19ad8d57592240b52cca79e11915ac9d602cf47eca54fbe", size = 1862840, upload-time = "2026-08-04T05:16:08.806Z" },
+    { url = "https://files.pythonhosted.org/packages/9e/54/0899147964db584805e22d0f6531e2a2842e9569e0bb15d03e5f80ddd126/mtplx-2.8.2-py3-none-any.whl", hash = "sha256:7435eaebebb41924891169c25345f24c179386610769368d0a7f15a6ac567771", size = 2078808, upload-time = "2026-08-17T19:30:06.998Z" },
 ]
 
 [[package]]
@@ -322,7 +322,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "mtplx", specifier = ">=2.5.2,<3" }]
+requires-dist = [{ name = "mtplx", specifier = ">=2.8.2,<3" }]
 
 [[package]]
 name = "nanobind"

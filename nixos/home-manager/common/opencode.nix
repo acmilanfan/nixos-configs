@@ -151,8 +151,24 @@ let
         apiKey = "local";
       };
       models = {
-        "mtplx-qwen36-27b-optimized-speed-v2" = {
-          name = "Qwen3.6 27B (MTPLX Optimized Speed V2, local)";
+        "mtplx-qwen38-27b-optimized-speed" = {
+          name = "Qwen3.8 27B (MTPLX Optimized Speed, local)";
+        };
+      };
+    };
+
+    # Second MTP engine for A/B testing (Homebrew CLI, not in nixpkgs). Same
+    # Qwen 3.8 27B class, different quant/runtime. Serve on :8083.
+    omlx = {
+      npm = "@ai-sdk/openai-compatible";
+      name = "oMLX Qwen (local, MTP)";
+      options = {
+        baseURL = "http://127.0.0.1:8083/v1";
+        apiKey = "local";
+      };
+      models = {
+        "Huihui-Qwen3.8-27B-abliterated-oQ4e-mtp" = {
+          name = "Qwen3.8 27B oQ4e-MTP (oMLX, local)";
         };
       };
     };
@@ -260,10 +276,10 @@ let
 
     # MTPLX uses MLX-formatted Hugging Face repos instead of GGUF files.
     # Official models from MTPLX author: huggingface.co/Youssofal
-    MODEL="''${QWEN_MLX:-Youssofal/Qwen3.6-27B-MTPLX-Optimized-Speed-V2}"
+    MODEL="''${QWEN_MLX:-Youssofal/Qwen3.8-27B-MTPLX-Optimized-Speed}"
     CACHE_DIR="$HOME/ai/models"
 
-    echo "Starting MTPLX (Qwen 3.6 Optimized Speed V2) on :8081 ..."
+    echo "Starting MTPLX (Qwen 3.8 Optimized Speed) on :8081 ..."
 
     mkdir -p "$CACHE_DIR"
 
@@ -271,13 +287,74 @@ let
     # `mtplx start` is interactive-only (picks model/mode/surface, then drops
     # into chat). `pull` is a separate explicit step so first-run downloads
     # happen predictably rather than inline during quickstart.
+    #
+    # `--paged-kv-quantization q4` is the TurboQuant-style KV cache: attention
+    # Keys stay at 8-bit while Values are crushed to 4-bit, which is what
+    # stretches the 27B model to a huge context window on 48 GB of RAM.
+    # (Only honored by mtplx >= 2.8.0 for Qwen 3.8.)
     ${unstable.mtplx}/bin/mtplx pull "$MODEL" --cache-dir "$CACHE_DIR"
     exec ${unstable.mtplx}/bin/mtplx quickstart \
       --model "$MODEL" \
       --cache-dir "$CACHE_DIR" \
       --host 127.0.0.1 \
       --port 8081 \
+      --paged-kv-quantization q4 \
       --yes
+  '';
+
+  # oMLX (Homebrew CLI, not in nixpkgs) as a second MTP test engine: same
+  # Qwen 3.8 27B class as serve-qwen but a different runtime, for A/B
+  # testing. Serves on :8083 (mtplx=8081, gemma=8082). Two 27B servers
+  # can't share 48 GB — run this instead of serve-qwen, not alongside it.
+  serveOmlx = pkgs.writeShellScriptBin "serve-omlx" ''
+    set -euo pipefail
+
+    export OMLX_MODEL_DIR="$HOME/ai/models/omlx"
+    MODEL_REPO="''${OMLX_MODEL_REPO:-root4k/Huihui-Qwen3.8-27B-abliterated-oQ4e-mtp}"
+    NAME="''${MODEL_REPO##*/}"
+    MODEL_ID="''${OMLX_MODEL_ID:-$NAME}"
+
+    OMLX_BIN="''${OMLX_BIN:-}"
+    if [ -z "$OMLX_BIN" ]; then
+      OMLX_BIN="$(command -v omlx 2>/dev/null || true)"
+      [ -z "$OMLX_BIN" ] && OMLX_BIN="/opt/homebrew/opt/omlx/bin/omlx"
+    fi
+
+    mkdir -p "$OMLX_MODEL_DIR/$NAME"
+    if [ ! -f "$OMLX_MODEL_DIR/$NAME/config.json" ]; then
+      echo "oMLX: downloading $MODEL_REPO (~17 GB, one-time) ..."
+      export PATH="${pkgs.uv}/bin:$PATH"
+      uvx --from huggingface_hub hf download "$MODEL_REPO" --local-dir "$OMLX_MODEL_DIR/$NAME"
+    fi
+
+    # oMLX enables MTP and TurboQuant per model via ~/.omlx/model_settings.json
+    # (read at startup). Pre-seed both: combining native MTP with TurboQuant on
+    # the Qwen 3.8 oQ4e-MTP build crashed in 0.6.1 ('TurboQuantMSEState' no
+    # 'ndim') but is fixed in 0.6.2 (MTP verify falls back to the compatible
+    # attention path). Requires omlx >= 0.6.2.
+    ${pkgs.python3}/bin/python3 -c '
+import json, os, sys
+mid = sys.argv[1]
+path = os.path.expanduser("~/.omlx/model_settings.json")
+data = {}
+if os.path.exists(path):
+    try:
+        data = json.load(open(path))
+    except Exception:
+        pass
+m = data.setdefault("models", {}).setdefault(mid, {})
+m["mtp_enabled"] = True
+m["turboquant_kv_enabled"] = True
+m["turboquant_kv_bits"] = 4
+json.dump(data, open(path, "w"), indent=2)
+' "$MODEL_ID"
+
+    echo "Starting oMLX (Qwen 3.8 oQ4e-MTP) on :8083 ..."
+    exec "$OMLX_BIN" serve \
+      --model-dir "$OMLX_MODEL_DIR" \
+      --host 127.0.0.1 \
+      --port 8083 \
+      --memory-guard-gb 40
   '';
 
   # Smaller Gemma 4 12B (~6.7 GB), can coexist with Qwen 27B on 48 GB.
@@ -346,6 +423,7 @@ let
       ${pkgs.tmux}/bin/tmux new-session -ds "$SESSION" -n qwen "serve-qwen; exec $SHELL"
       ${pkgs.tmux}/bin/tmux new-window -t "$SESSION" -n gemma12b "serve-gemma-small; exec $SHELL"
       ${pkgs.tmux}/bin/tmux new-window -t "$SESSION" -n ollama "serve-ollama; exec $SHELL"
+      ${pkgs.tmux}/bin/tmux new-window -t "$SESSION" -n omlx "serve-omlx; exec $SHELL"
     fi
 
     if [ -n "''${TMUX:-}" ]; then
@@ -582,6 +660,7 @@ in
     # (unstable.mtplx, unstable.python312Packages.mlx-lm) — this file is
     # shared with Linux hosts, which must never force those derivations.
     serveQwen
+    serveOmlx
     serveGemmaSmall
     serveOllama
     ocQwen27b

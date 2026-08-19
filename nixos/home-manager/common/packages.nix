@@ -1,4 +1,4 @@
-{ pkgs, ... }: {
+{ pkgs, lib, ... }: {
 
   home.packages = with pkgs;
     [
@@ -7,6 +7,30 @@
       (writeShellScriptBin "worktree-switch" (lib.readFile ./scripts/worktree-switch))
       (writeShellScriptBin "worktree-remove" (lib.readFile ./scripts/worktree-remove))
       (writeShellScriptBin "ai-agent-list" (lib.readFile ./scripts/ai-agent-list))
+      # Python-backed AI tools: bundle the .py with its wrapper so the store
+      # package is self-contained (uvx provides the `openai` SDK at runtime).
+      (stdenv.mkDerivation {
+        pname = "ai-bench";
+        version = "0.1.0";
+        src = ./.;
+        dontUnpack = true;
+        installPhase = ''
+          mkdir -p $out/bin
+          install -m755 ${./scripts/ai-bench} $out/bin/ai-bench
+          install -m644 ${./scripts/qwen38-bench.py} $out/bin/qwen38-bench.py
+        '';
+      })
+      (stdenv.mkDerivation {
+        pname = "omlx-context-probe";
+        version = "0.1.0";
+        src = ./.;
+        dontUnpack = true;
+        installPhase = ''
+          mkdir -p $out/bin
+          install -m755 ${./scripts/omlx-context-probe} $out/bin/omlx-context-probe
+          install -m644 ${./scripts/omlx-context-probe.py} $out/bin/omlx-context-probe.py
+        '';
+      })
       git
       httpie
       kitty

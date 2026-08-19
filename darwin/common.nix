@@ -166,6 +166,7 @@ in
     %admin ALL=(ALL) NOPASSWD: /usr/bin/pmset
     %admin ALL=(ALL) NOPASSWD: SETENV: /bin/chmod
     %admin ALL=(ALL) NOPASSWD: /usr/bin/log
+    %admin ALL=(ALL) NOPASSWD: /usr/sbin/sysctl
   '';
 
   launchd.agents.darwin-startup = {
@@ -221,18 +222,20 @@ in
       "wifitui"
       "k06a/tap/macpow"
       "ollama"
+      "jundot/omlx/omlx"
     ];
 
     taps = [
       "FelixKratz/formulae"
       "dimentium/autoraise"
       "k06a/tap"
+      "jundot/omlx"
     ];
   };
 
   system.activationScripts.homebrew.text = lib.mkBefore ''
     echo "Trusting third-party Homebrew taps..."
-    sudo -u ${user} HOME=/Users/${user} /opt/homebrew/bin/brew trust dimentium/autoraise felixkratz/formulae k06a/tap || true
+    sudo -u ${user} HOME=/Users/${user} /opt/homebrew/bin/brew trust dimentium/autoraise felixkratz/formulae k06a/tap jundot/omlx || true
     sudo -u ${user} HOME=/Users/${user} /opt/homebrew/bin/brew trust --formula k06a/tap/macpow || true
   '';
 
@@ -293,6 +296,29 @@ in
   };
 
   system.activationScripts.postActivation.text = ''
+    # oMLX tuning (see nixos/home-manager/common/opencode.nix: serve-omlx).
+    # 1) Raise the Metal wired limit so oMLX can serve large contexts instead of
+    #    being capped at Apple's default 37.4 GB. 2) Set prefill_priority=speed
+    #    so the adaptive prefill throttle doesn't needlessly slow/stop big-context
+    #    prefills (it over-estimates per-token KV; real TurboQuant KV is ~0.1
+    #    MB/token vs its ~9 MB/token guess). Both are idempotent.
+    echo "Configuring oMLX (Metal wired limit + prefill speed priority)..."
+    sudo sysctl iogpu.wired_limit_mb=46000 2>/dev/null || true
+    sudo -u ${user} mkdir -p "/Users/${user}/.omlx" 2>/dev/null || true
+    ${pkgs.python3}/bin/python3 - "/Users/${user}/.omlx/settings.json" <<'PY'
+import json, os, sys
+path = sys.argv[1]
+data = {}
+if os.path.exists(path):
+    try:
+        data = json.load(open(path))
+    except Exception:
+        pass
+data.setdefault("scheduler", {})["prefill_priority"] = "speed"
+json.dump(data, open(path, "w"), indent=2)
+PY
+    chown ${user}:staff "/Users/${user}/.omlx/settings.json" 2>/dev/null || true
+
     # Setup Kanata configuration
     echo "Setting up Kanata configuration..."
     mkdir -p "/Users/${user}/.config/kanata"
