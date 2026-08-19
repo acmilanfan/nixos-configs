@@ -178,8 +178,12 @@ let
     "$schema" = "https://opencode.ai/config.json";
 
     # model = if isWork then "anthropic/claude-sonnet-5" else "opencode-go/deepseek-v4-pro";
-    model = if isWork then "self-hosted/Qwen/Qwen3.6-35B-A3B-FP8" else "opencode-go/deepseek-v4-pro";
-    small_model = if isWork then "self-hosted/Qwen/Qwen3.6-35B-A3B-FP8" else "opencode-go/deepseek-v4-flash";
+    # DeepSeek's Aug 16 2026 pricing cut moved it to a much lower Go usage
+    # tier (peak/off-peak, far fewer requests/month); mimo-v2.5 kept the
+    # higher tier and is now the better high-volume default. Switch to
+    # opencode-go/qwen3.7-plus manually for harder reasoning/refactor tasks.
+    model = if isWork then "self-hosted/Qwen/Qwen3.6-35B-A3B-FP8" else "opencode-go/mimo-v2.5";
+    small_model = if isWork then "self-hosted/Qwen/Qwen3.6-35B-A3B-FP8" else "opencode-go/mimo-v2.5";
 
     provider = localProviders // (if isWork then remoteProviders else { });
 
