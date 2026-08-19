@@ -157,11 +157,12 @@ let
       };
     };
 
-    # Second MTP engine for A/B testing (Homebrew CLI, not in nixpkgs). Same
-    # Qwen 3.8 27B class, different quant/runtime. Serve on :8083.
+    # Preferred local engine on mac-home (Homebrew CLI, not in nixpkgs). Serves
+    # on :8083 with TurboQuant q4 KV and MTP disabled — see serve-omlx for why
+    # that combination wins on a 48 GB box. ~9 tok/s generation, 80k+ context.
     omlx = {
       npm = "@ai-sdk/openai-compatible";
-      name = "oMLX Qwen (local, MTP)";
+      name = "oMLX Qwen (local, TurboQuant)";
       options = {
         baseURL = "http://127.0.0.1:8083/v1";
         apiKey = "local";
@@ -393,10 +394,13 @@ let
     # head_dim x 16 full-attention layers of 64). Being ~13x over that suggests
     # KV is not actually being quantised while MTP is on.
     #
-    # That makes MTP-vs-context a real trade rather than a free win, so both
-    # are switchable for A/B with `bench-llm`:
-    #   OMLX_MTP=0 serve-omlx            # favour context (TurboQuant only)
-    #   OMLX_TURBOQUANT=0 serve-omlx     # favour decode  (MTP only)
+    # CONFIRMED 2026-08-19 by A/B on a real opencode session: with MTP off,
+    # TurboQuant engages and 80k+ context works, where MTP-on had failed at
+    # 72k needing 43.55 GB. Generation drops ~12.4 -> ~9 tok/s. On a 48 GB box
+    # the memory headroom is worth far more than the decode, so MTP is OFF by
+    # default here. Flip it back per-run if a short-context task wants speed:
+    #   OMLX_MTP=1 serve-omlx            # favour decode  (MTP, unquantised KV)
+    #   OMLX_TURBOQUANT=0 serve-omlx     # disable TurboQuant entirely
     ${pkgs.python3}/bin/python3 -c '
 import json, os, sys
 mid, mtp, tq, bits = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
@@ -414,7 +418,7 @@ m["turboquant_kv_bits"] = int(bits)
 json.dump(data, open(path, "w"), indent=2)
 print("model_settings: mtp=%s turboquant=%s bits=%s"
       % (m["mtp_enabled"], m["turboquant_kv_enabled"], m["turboquant_kv_bits"]))
-' "$MODEL_ID" "''${OMLX_MTP:-1}" "''${OMLX_TURBOQUANT:-1}" "''${OMLX_TURBOQUANT_BITS:-4}"
+' "$MODEL_ID" "''${OMLX_MTP:-0}" "''${OMLX_TURBOQUANT:-1}" "''${OMLX_TURBOQUANT_BITS:-4}"
 
     # oMLX derives its caps as a fraction of min(this guard, the Metal wired
     # limit): soft = 85%, hard = 95%. Confirmed against its dashboard on
@@ -438,11 +442,13 @@ print("model_settings: mtp=%s turboquant=%s bits=%s"
     # lever on context is cutting KV cost per token (see OMLX_MTP above), not
     # this ceiling.
     #
-    # Note that ~240 KB/token is far above the ~16 KB/token the attention KV
-    # alone should cost (2 x 4 kv_heads x 256 head_dim x 16 full-attention
-    # layers of 64, at q4). Most of the growth is prefill working memory and
-    # linear-attention state, not stored KV — do not size context from the KV
-    # figure. Overridable so `bench-llm` runs can sweep it:
+    # STALE FIGURES WARNING: the ~240 KB/token above was measured with MTP on,
+    # i.e. with TurboQuant suppressed. With MTP off (the default now) KV is
+    # actually quantised and the real cost per token is much lower — 80k+
+    # context fits where 72k previously failed. The numbers here have not been
+    # re-measured; re-run `bench-llm --mode cold --ctx 16k,64k` and compare
+    # peak GB against the old 35 GB at 64k before relying on them.
+    # Overridable so those runs can sweep it:
     #   OMLX_MEMORY_GUARD_GB=46 serve-omlx
     GUARD_GB="''${OMLX_MEMORY_GUARD_GB:-46}"
 
@@ -475,6 +481,25 @@ print("model_settings: mtp=%s turboquant=%s bits=%s"
 
     export OLLAMA_MODELS="$HOME/ai/models/ollama"
     export OLLAMA_HOST="127.0.0.1:11434"
+
+    # KV cache quantisation. Unlike oMLX/mtplx — where quantised KV collides
+    # with MTP speculative verify and gets silently skipped — ollama has no MTP,
+    # so this actually applies. q8_0 halves KV vs f16 with negligible quality
+    # loss; q4_0 quarters it with a modest loss that shows up more at long
+    # context. Keys are far more sensitive to quantisation than values, and
+    # ollama only exposes a uniform setting (llama.cpp's separate
+    # --cache-type-k/--cache-type-v is not plumbed through), so q8_0 is the
+    # safer default and q4_0 the memory-desperate one.
+    #
+    # Requires flash attention, which recent ollama enables automatically where
+    # supported; if the backend does not support it the cache type is ignored
+    # silently. NOTE: this is a llama.cpp-backend mechanism — whether it takes
+    # effect under ollama's MLX backend (preview, needs >=32 GB) is unverified.
+    # Check actual memory use rather than assuming it applied.
+    #
+    # TurboQuant is NOT available here: the llama.cpp TurboQuant PR (#21089)
+    # was closed unmerged, so nothing downstream of llama.cpp has it.
+    export OLLAMA_KV_CACHE_TYPE="''${OLLAMA_KV_CACHE_TYPE:-q8_0}"
 
     if ! ollama list &>/dev/null; then
       echo "Starting ollama serve..." >&2

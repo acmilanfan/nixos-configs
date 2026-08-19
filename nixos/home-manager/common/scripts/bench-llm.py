@@ -23,9 +23,14 @@ What this script does differently:
   * Prefill and decode are measured separately, in separate requests.
   * MFU is computed, which is the number that decides whether prefill tuning
     is worth doing at all on this hardware.
-  * JIT kernel compilation is warmed with a same-length, different-nonce
-    prompt, so it is excluded from the measurement without warming the cache.
+  * Warm mode replays an identical prompt and reports cache_speedup_x against
+    its own cold first pass, so cache behaviour is measured on purpose rather
+    than contaminating cold numbers.
   * Two assertions reject bad data instead of publishing it (see validate()).
+    The contamination bound applies to cold runs only - in warm mode a fast
+    prefill is the desired result.
+  * Server refusals (context-ceiling probes) are recorded as REJECTED with the
+    server's message, distinct from client-side TIMEOUT.
 
 Usage
 -----
@@ -354,6 +359,22 @@ def calibrate(endpoint, model, timeout):
     return cpt
 
 
+def classify_error(e):
+    """Distinguish a server refusal from a client-side timeout.
+
+    Context-ceiling probes are expected to end in refusals ("Prefill capacity
+    rejected ... exceeds prefill safety cap"), which arrive as HTTP 4xx/5xx.
+    Labelling those TIMEOUT would hide the very thing being measured.
+    """
+    if isinstance(e, urllib.error.HTTPError):
+        try:
+            body = e.read().decode("utf-8", "replace")[:400]
+        except Exception:
+            body = ""
+        return "REJECTED", "HTTP %s: %s" % (e.code, body or str(e)[:200])
+    return "TIMEOUT", "%s: %s" % (type(e).__name__, str(e)[:200])
+
+
 def validate(target, prompt_tokens, prefill_tok_s, mode="cold"):
     """Return (status, notes). This is the heart of the rewrite.
 
@@ -419,8 +440,7 @@ def measure_ctx(args, model, ctx, chars_per_token, sampler_pid):
             stream_chat(args.endpoint, model, warm_prompt, 1, args.timeout)
         except (urllib.error.URLError, TimeoutError, OSError) as e:
             rec["first_pass_s"] = round(time.perf_counter() - t0, 2)
-            rec["status"] = "TIMEOUT"
-            rec["error"] = "%s: %s" % (type(e).__name__, str(e)[:200])
+            rec["status"], rec["error"] = classify_error(e)
             return rec
         key = "cold_baseline_s" if args.mode == "warm" else "jit_warmup_s"
         rec[key] = round(time.perf_counter() - t0, 2)
@@ -435,8 +455,7 @@ def measure_ctx(args, model, ctx, chars_per_token, sampler_pid):
     except (urllib.error.URLError, TimeoutError, OSError) as e:
         if sampler:
             rec["memory"] = sampler.stop()
-        rec["status"] = "TIMEOUT"
-        rec["error"] = "%s: %s" % (type(e).__name__, str(e)[:200])
+        rec["status"], rec["error"] = classify_error(e)
         return rec
 
     usage = pf.get("usage") or {}
