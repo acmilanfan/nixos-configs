@@ -167,7 +167,7 @@ let
         apiKey = "local";
       };
       models = {
-        "Huihui-Qwen3.8-27B-abliterated-oQ4e-mtp" = {
+        "Qwen3.8-27B-oQ4e-mtp" = {
           name = "Qwen3.8 27B oQ4e-MTP (oMLX, local)";
         };
       };
@@ -314,7 +314,33 @@ let
     set -euo pipefail
 
     export OMLX_MODEL_DIR="$HOME/ai/models/omlx"
-    MODEL_REPO="''${OMLX_MODEL_REPO:-root4k/Huihui-Qwen3.8-27B-abliterated-oQ4e-mtp}"
+
+    # Was root4k/Huihui-Qwen3.8-27B-abliterated-oQ4e-mtp. Abliteration removes
+    # the refusal direction from the weights — a lossy edit that costs
+    # instruction-following for a property agentic coding never uses (you don't
+    # get refused writing Nix modules). This is the first-party oQ4e build from
+    # the oMLX author (HF Jundot = github.com/jundot/omlx, the same upstream as
+    # the Homebrew tap in darwin/common.nix). Identical spec to the abliterated
+    # build it replaces — 4-bit affine, group 64, the same 166 tensors promoted
+    # to 5-bit, MTP with 1 nextn layer, 262144 native context, 17.0 GB — so the
+    # only difference is the base weights.
+    #
+    # NOTE ON MTP: it does not currently buy anything here (11.0 vs 9.6 tok/s
+    # baseline is noise, versus 18.3 for mtplx). Qwen3.8-27B *is* a VLM —
+    # every build on HF, including Qwen/Qwen3.8-27B itself, is
+    # Qwen3_5ForConditionalGeneration with a vision tower — so oMLX routes it
+    # down the VLM engine path where draft acceptance is poor. Switching oQ4e
+    # publishers does not change that; they are all the same architecture.
+    #
+    # The one candidate that might change it is a vision-stripped build:
+    #   OMLX_MODEL_REPO=lukaskremla/Qwen3.8-27B-4bit-MLX-TextOnly serve-omlx
+    # (15.2 GB, vision_config removed, mtp_num_hidden_layers still 1). Whether
+    # oMLX then picks its text engine is unverified — the architecture string
+    # is unchanged, so it may not. It is also plain MLX 4-bit rather than oQ4e,
+    # i.e. no imatrix 5-bit promotions, so quality may be slightly lower.
+    # Worth an A/B with `bench-llm` before adopting; that is exactly the
+    # decode-vs-quality question the harness exists to answer.
+    MODEL_REPO="''${OMLX_MODEL_REPO:-Jundot/Qwen3.8-27B-oQ4e-mtp}"
     NAME="''${MODEL_REPO##*/}"
     MODEL_ID="''${OMLX_MODEL_ID:-$NAME}"
 
@@ -356,10 +382,19 @@ json.dump(data, open(path, "w"), indent=2)
     # The context ceiling here is set by oMLX's prefill *memory-guard estimate*,
     # not by real RAM: requests at 120k+ tokens were rejected while actual peak
     # phys_footprint sat at ~32 GB under a 46 GB wired limit (see
-    # darwin/common.nix). The guard assumes ~9 MB/token where TurboQuant KV
-    # really costs ~0.1 MB/token, so it is ~90x too conservative — raising it is
-    # the one direct lever on usable context. 44 leaves ~4 GB under the wired
-    # limit. Overridable so `bench-llm` runs can sweep it:
+    # darwin/common.nix).
+    #
+    # The guard assumes ~9 MB/token, which this architecture nowhere near
+    # spends. Qwen3.5/3.8 is hybrid-attention: layer_types repeats
+    # [linear, linear, linear, full], so only 16 of 64 layers carry a growing
+    # KV cache at all. Those cost 2 (K+V) x 4 kv_heads x 256 head_dim x 16
+    # layers = 32768 values/token, i.e. ~16 KB/token at TurboQuant q4 — so even
+    # 148k tokens of attention KV is ~2.4 GB, not the ~1.3 TB the guard's
+    # estimate implies. (Measured footprint growth is higher than the raw KV
+    # figure once linear-attention state and paging overhead are counted, but
+    # still orders of magnitude under the guard.) Raising it is the one direct
+    # lever on usable context; 44 leaves ~4 GB under the wired limit.
+    # Overridable so `bench-llm` runs can sweep it:
     #   OMLX_MEMORY_GUARD_GB=46 serve-omlx
     GUARD_GB="''${OMLX_MEMORY_GUARD_GB:-44}"
 
