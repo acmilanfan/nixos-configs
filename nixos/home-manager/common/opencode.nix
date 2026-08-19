@@ -295,7 +295,31 @@ let
     # `--paged-kv-quantization q4` is the TurboQuant-style KV cache: attention
     # Keys stay at 8-bit while Values are crushed to 4-bit, which is what
     # stretches the 27B model to a huge context window on 48 GB of RAM.
-    # (Only honored by mtplx >= 2.8.0 for Qwen 3.8.)
+    #
+    # CAVEAT (observed 2.8.2, 2026-08-19): with MTP on, startup logs
+    #   compiled-verify prewarm {"buckets": [], "skipped": ["quantized_paged_kv"]}
+    # i.e. the quantised paged-KV variant is skipped in the compiled verify
+    # path, so this flag is at best partially in effect. oMLX hits the same
+    # collision from the other side (its MTP verify falls back on TurboQuant
+    # layers), which suggests speculative verify over a quantised KV cache is
+    # an inherent conflict rather than a bug in either engine. Treat MTP and
+    # cheap KV as mutually exclusive until measured otherwise.
+    # mtplx's prefix cache is its "session bank". By default it auto-sizes to
+    # half the post-model RAM surplus — logged at startup as e.g.
+    #   session-bank budget: 14.1G total, 8.0G per-session cap, 24 entries max
+    # That answers a question the engine A/B needed: mtplx DOES do prefix
+    # caching, so oMLX's SSD cache is not a unique advantage.
+    #
+    # It is also a large standing reservation on a 48 GB box: 19.8G of weights
+    # plus a 14.1G bank leaves noticeably less room for context than oMLX's
+    # ~16.0G model. Shrink the bank to trade cache capacity for context, or
+    # grow it to hold more sessions:
+    #   MTPLX_SESSION_BANK_MAX_BYTES=8G MTPLX_SESSION_BANK_PER_SESSION_BYTES=4G serve-qwen
+    export MTPLX_SESSION_BANK_MAX_BYTES="''${MTPLX_SESSION_BANK_MAX_BYTES:-}"
+    export MTPLX_SESSION_BANK_PER_SESSION_BYTES="''${MTPLX_SESSION_BANK_PER_SESSION_BYTES:-}"
+    [ -n "$MTPLX_SESSION_BANK_MAX_BYTES" ] || unset MTPLX_SESSION_BANK_MAX_BYTES
+    [ -n "$MTPLX_SESSION_BANK_PER_SESSION_BYTES" ] || unset MTPLX_SESSION_BANK_PER_SESSION_BYTES
+
     ${unstable.mtplx}/bin/mtplx pull "$MODEL" --cache-dir "$CACHE_DIR"
     exec ${unstable.mtplx}/bin/mtplx quickstart \
       --model "$MODEL" \
@@ -358,13 +382,24 @@ let
     fi
 
     # oMLX enables MTP and TurboQuant per model via ~/.omlx/model_settings.json
-    # (read at startup). Pre-seed both: combining native MTP with TurboQuant on
-    # the Qwen 3.8 oQ4e-MTP build crashed in 0.6.1 ('TurboQuantMSEState' no
-    # 'ndim') but is fixed in 0.6.2 (MTP verify falls back to the compatible
-    # attention path). Requires omlx >= 0.6.2.
+    # (read at startup). Combining them on the Qwen 3.8 oQ4e-MTP build crashed
+    # in 0.6.1 ('TurboQuantMSEState' has no 'ndim'); 0.6.2 made it not crash by
+    # having MTP verify fall back to the compatible attention path — which is
+    # NOT the same as the two stacking.
+    #
+    # Evidence they do not stack: oMLX rejected a 72k-token prefill on
+    # 2026-08-19 needing "KV+SDPA 15.40 GB", i.e. ~213 KB/token. TurboQuant q4
+    # KV on this architecture should cost ~16 KB/token (2 x 4 kv_heads x 256
+    # head_dim x 16 full-attention layers of 64). Being ~13x over that suggests
+    # KV is not actually being quantised while MTP is on.
+    #
+    # That makes MTP-vs-context a real trade rather than a free win, so both
+    # are switchable for A/B with `bench-llm`:
+    #   OMLX_MTP=0 serve-omlx            # favour context (TurboQuant only)
+    #   OMLX_TURBOQUANT=0 serve-omlx     # favour decode  (MTP only)
     ${pkgs.python3}/bin/python3 -c '
 import json, os, sys
-mid = sys.argv[1]
+mid, mtp, tq, bits = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 path = os.path.expanduser("~/.omlx/model_settings.json")
 data = {}
 if os.path.exists(path):
@@ -373,30 +408,43 @@ if os.path.exists(path):
     except Exception:
         pass
 m = data.setdefault("models", {}).setdefault(mid, {})
-m["mtp_enabled"] = True
-m["turboquant_kv_enabled"] = True
-m["turboquant_kv_bits"] = 4
+m["mtp_enabled"] = mtp not in ("0", "false", "no")
+m["turboquant_kv_enabled"] = tq not in ("0", "false", "no")
+m["turboquant_kv_bits"] = int(bits)
 json.dump(data, open(path, "w"), indent=2)
-' "$MODEL_ID"
+print("model_settings: mtp=%s turboquant=%s bits=%s"
+      % (m["mtp_enabled"], m["turboquant_kv_enabled"], m["turboquant_kv_bits"]))
+' "$MODEL_ID" "''${OMLX_MTP:-1}" "''${OMLX_TURBOQUANT:-1}" "''${OMLX_TURBOQUANT_BITS:-4}"
 
-    # The context ceiling here is set by oMLX's prefill *memory-guard estimate*,
-    # not by real RAM: requests at 120k+ tokens were rejected while actual peak
-    # phys_footprint sat at ~32 GB under a 46 GB wired limit (see
-    # darwin/common.nix).
+    # oMLX derives its caps as a fraction of min(this guard, the Metal wired
+    # limit): soft = 85%, hard = 95%. Confirmed against its dashboard on
+    # 2026-08-19, which read "37.4 GB soft / 41.8 GB hard" — exactly 44 x 0.85
+    # and 44 x 0.95, so this guard is what binds today, not Metal.
     #
-    # The guard assumes ~9 MB/token, which this architecture nowhere near
-    # spends. Qwen3.5/3.8 is hybrid-attention: layer_types repeats
-    # [linear, linear, linear, full], so only 16 of 64 layers carry a growing
-    # KV cache at all. Those cost 2 (K+V) x 4 kv_heads x 256 head_dim x 16
-    # layers = 32768 values/token, i.e. ~16 KB/token at TurboQuant q4 — so even
-    # 148k tokens of attention KV is ~2.4 GB, not the ~1.3 TB the guard's
-    # estimate implies. (Measured footprint growth is higher than the raw KV
-    # figure once linear-attention state and paging overhead are counted, but
-    # still orders of magnitude under the guard.) Raising it is the one direct
-    # lever on usable context; 44 leaves ~4 GB under the wired limit.
-    # Overridable so `bench-llm` runs can sweep it:
+    # (37.4 GB is also, coincidentally, Apple's default wired limit on a 48 GB
+    # machine. Do not read that number as evidence the sysctl in
+    # darwin/common.nix failed to apply — verify with `sysctl
+    # iogpu.wired_limit_mb` instead, which reports 46000 = 44.9 GiB.)
+    #
+    # Default raised 44 -> 46 so the Metal ceiling binds instead, giving a
+    # prefill cap of 42.7 GB rather than 41.8 GB. That is only ~4k extra tokens
+    # at the measured ~240 KB/token, but it is free.
+    #
+    # It is NOT enough to rescue a real failure seen on 2026-08-19: a 72k-token
+    # opencode session was rejected needing 43.55 GB (current 28.14 + KV+SDPA
+    # 15.40) against a 41.80 GB ceiling. Even with Metal binding, 42.66 GB
+    # falls short. Reaching 43.55 GB would need iogpu.wired_limit_mb ~46940,
+    # leaving ~2 GiB for all of macOS — not worth the instability. The real
+    # lever on context is cutting KV cost per token (see OMLX_MTP above), not
+    # this ceiling.
+    #
+    # Note that ~240 KB/token is far above the ~16 KB/token the attention KV
+    # alone should cost (2 x 4 kv_heads x 256 head_dim x 16 full-attention
+    # layers of 64, at q4). Most of the growth is prefill working memory and
+    # linear-attention state, not stored KV — do not size context from the KV
+    # figure. Overridable so `bench-llm` runs can sweep it:
     #   OMLX_MEMORY_GUARD_GB=46 serve-omlx
-    GUARD_GB="''${OMLX_MEMORY_GUARD_GB:-44}"
+    GUARD_GB="''${OMLX_MEMORY_GUARD_GB:-46}"
 
     echo "Starting oMLX (Qwen 3.8 oQ4e-MTP) on :8083, memory guard ''${GUARD_GB}GB ..."
     exec "$OMLX_BIN" serve \

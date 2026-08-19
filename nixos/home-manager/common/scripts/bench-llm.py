@@ -154,6 +154,16 @@ def _post(endpoint, path, payload, timeout):
 
 
 def discover_model(endpoint, timeout=30):
+    """Resolve the model id, refusing to guess when the choice is ambiguous.
+
+    oMLX is served with `--model-dir <dir>`, i.e. it offers every model in that
+    directory and picks per request. Silently taking data[0] means benchmarking
+    whichever model happens to sort first - e.g. an old
+    Huihui-...-abliterated-... build left on disk - and labelling the results
+    with whatever tag was passed. That is the same class of error as the
+    cache-contaminated numbers this tool was written to replace, so it is a
+    hard failure rather than a warning.
+    """
     url = endpoint.rstrip("/") + "/models"
     req = urllib.request.Request(url, headers={"Authorization": "Bearer local"})
     with urllib.request.urlopen(req, timeout=timeout) as r:
@@ -161,6 +171,12 @@ def discover_model(endpoint, timeout=30):
     items = data.get("data") or []
     if not items:
         raise SystemExit("no models reported by " + url)
+    if len(items) > 1:
+        listing = "\n".join("  --model %s" % i["id"] for i in items)
+        raise SystemExit(
+            "%d models are being served; refusing to guess which one to "
+            "benchmark.\nRe-run with one of:\n%s" % (len(items), listing)
+        )
     return items[0]["id"]
 
 
@@ -338,8 +354,13 @@ def calibrate(endpoint, model, timeout):
     return cpt
 
 
-def validate(target, prompt_tokens, prefill_tok_s):
-    """Return (status, notes). This is the heart of the rewrite."""
+def validate(target, prompt_tokens, prefill_tok_s, mode="cold"):
+    """Return (status, notes). This is the heart of the rewrite.
+
+    The contamination bound applies to COLD runs only. In warm mode a prefill
+    rate far above the dense-model bound is the whole point - it means the
+    prefix cache engaged - so flagging it would mark success as failure.
+    """
     notes = []
     status = "OK"
     if prompt_tokens:
@@ -353,13 +374,22 @@ def validate(target, prompt_tokens, prefill_tok_s):
     else:
         status = "INVALID"
         notes.append("server reported no prompt_tokens")
-    if prefill_tok_s and prefill_tok_s > CONTAMINATION_TOK_S:
-        status = "INVALID"
-        notes.append(
-            "cache contamination suspected: %.0f prompt tok/s exceeds the "
-            "%.0f tok/s plausibility bound for a dense model"
-            % (prefill_tok_s, CONTAMINATION_TOK_S)
-        )
+
+    if mode == "cold":
+        if prefill_tok_s and prefill_tok_s > CONTAMINATION_TOK_S:
+            status = "INVALID"
+            notes.append(
+                "cache contamination suspected: %.0f prompt tok/s exceeds the "
+                "%.0f tok/s plausibility bound for a dense model"
+                % (prefill_tok_s, CONTAMINATION_TOK_S)
+            )
+    else:
+        if prefill_tok_s and prefill_tok_s < CONTAMINATION_TOK_S:
+            notes.append(
+                "no cache speedup: %.0f prompt tok/s is within cold-prefill "
+                "range, so the prefix cache did not engage"
+                % prefill_tok_s
+            )
     return status, notes
 
 
@@ -367,25 +397,33 @@ def measure_ctx(args, model, ctx, chars_per_token, sampler_pid):
     rng = random.Random()
     rec = {"context_target": ctx, "mode": args.mode}
 
-    # Warm JIT with a same-length, DIFFERENT-nonce prompt. Same kernel shapes
-    # get compiled, but the measured prefix stays cold.
-    jit_prompt = build_prompt(ctx, chars_per_token, nonce=make_nonce(rng))
-    t0 = time.perf_counter()
-    try:
-        stream_chat(args.endpoint, model, jit_prompt, 1, args.timeout)
-        rec["jit_warmup_s"] = round(time.perf_counter() - t0, 2)
-    except (urllib.error.URLError, TimeoutError, OSError) as e:
-        rec["jit_warmup_s"] = round(time.perf_counter() - t0, 2)
-        rec["status"] = "TIMEOUT"
-        rec["error"] = "%s: %s" % (type(e).__name__, str(e)[:200])
-        return rec
+    # A first pass is only worth paying for in warm mode, where it IS the cold
+    # baseline the cache speedup is measured against.
+    #
+    # It was originally a JIT-compile warmup for cold mode too, on the
+    # assumption that kernel compilation was a large one-time cost per context
+    # length. Measurement killed that assumption: the warmup takes the same
+    # time as the run it precedes (34.17s vs 34.17s at 4k, 722.5s vs 727.4s at
+    # 64k), i.e. it is just a second full prefill and JIT is negligible. In
+    # cold mode it doubles runtime for nothing, so it is now opt-in.
+    prompt = build_prompt(ctx, chars_per_token, nonce=make_nonce(rng))
+    first_pass = args.mode == "warm" or args.jit_warmup
 
-    # In cold mode use a fresh nonce so nothing can be cached. In warm mode
-    # reuse the JIT prompt on purpose, to measure the cache hit.
-    if args.mode == "warm":
-        prompt = jit_prompt
-    else:
-        prompt = build_prompt(ctx, chars_per_token, nonce=make_nonce(rng))
+    if first_pass:
+        # In warm mode the measured request must replay this exact prompt.
+        # In cold mode use a different nonce so the measured prefix stays cold.
+        warm_prompt = prompt if args.mode == "warm" else build_prompt(
+            ctx, chars_per_token, nonce=make_nonce(rng))
+        t0 = time.perf_counter()
+        try:
+            stream_chat(args.endpoint, model, warm_prompt, 1, args.timeout)
+        except (urllib.error.URLError, TimeoutError, OSError) as e:
+            rec["first_pass_s"] = round(time.perf_counter() - t0, 2)
+            rec["status"] = "TIMEOUT"
+            rec["error"] = "%s: %s" % (type(e).__name__, str(e)[:200])
+            return rec
+        key = "cold_baseline_s" if args.mode == "warm" else "jit_warmup_s"
+        rec[key] = round(time.perf_counter() - t0, 2)
 
     sampler = MemorySampler(sampler_pid) if sampler_pid else None
     if sampler:
@@ -429,7 +467,13 @@ def measure_ctx(args, model, ctx, chars_per_token, sampler_pid):
     if sampler:
         rec["memory"] = sampler.stop()
 
-    rec["status"], rec["notes"] = validate(ctx, ptok, prefill_tok_s)
+    # Cache speedup comes free in warm mode: the first pass was the cold
+    # prefill of this same prompt, so no separate cold run is needed.
+    base = rec.get("cold_baseline_s")
+    if base and ttft:
+        rec["cache_speedup_x"] = round(base / ttft, 1)
+
+    rec["status"], rec["notes"] = validate(ctx, ptok, prefill_tok_s, args.mode)
     return rec
 
 
@@ -453,25 +497,29 @@ def markdown(results):
     lines.append("- params assumed: %.3g" % results["params"])
     lines.append("- model idle footprint: %s GB" % results.get("idle_footprint_gb"))
     lines.append("")
+    warm = results["mode"] == "warm"
+    last = "cold base s | speedup" if warm else "MFU %"
     header = (
-        "| ctx target | prompt tok | TTFT s | prefill tok/s | MFU % | "
-        "decode tok/s | peak GB | JIT s | status |"
+        "| ctx target | prompt tok | TTFT s | prefill tok/s | "
+        "decode tok/s | peak GB | %s | status |" % last
     )
     lines.append(header)
-    lines.append("|---|---|---|---|---|---|---|---|---|")
+    lines.append("|---|---|---|---|---|---|---|---|" + ("---|" if warm else ""))
     for r in results["runs"]:
         mem = r.get("memory") or {}
+        tail = ("%s | %sx" % (r.get("cold_baseline_s", "-"),
+                              r.get("cache_speedup_x", "-"))
+                if warm else str(r.get("mfu_pct", "-")))
         lines.append(
-            "| %s | %s | %s | %s | %s | %s | %s | %s | %s |"
+            "| %s | %s | %s | %s | %s | %s | %s | %s |"
             % (
                 r.get("context_target"),
                 r.get("prompt_tokens", "-"),
                 r.get("ttft_s", "-"),
                 r.get("prefill_tok_s", "-"),
-                r.get("mfu_pct", "-"),
                 r.get("decode_tok_s", "-"),
                 mem.get("max_gb", "-"),
-                r.get("jit_warmup_s", "-"),
+                tail,
                 r.get("status", "-"),
             )
         )
@@ -506,6 +554,11 @@ def main():
                     help="GPU peak FLOPS estimate (M4 Pro default ~8e12)")
     ap.add_argument("--timeout", type=float, default=1800.0,
                     help="per-request timeout in seconds")
+    ap.add_argument("--jit-warmup", action="store_true",
+                    help="cold mode only: run a discarded same-length prefill "
+                         "first. Measured JIT cost is negligible (the warmup "
+                         "takes as long as the run), so this just doubles "
+                         "runtime; off by default.")
     ap.add_argument("--server-pid", type=int, default=None,
                     help="override server pid for footprint sampling")
     ap.add_argument("--out-dir",
