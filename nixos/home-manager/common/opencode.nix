@@ -158,11 +158,10 @@ let
     };
 
     # Preferred local engine on mac-home (Homebrew CLI, not in nixpkgs). Serves
-    # on :8083 with TurboQuant q4 KV and MTP disabled — see serve-omlx for why
-    # that combination wins on a 48 GB box. ~9 tok/s generation, 80k+ context.
+    # on :8083, TurboQuant q4 KV, MTP off — see serve-omlx for the tradeoff.
     omlx = {
       npm = "@ai-sdk/openai-compatible";
-      name = "oMLX Qwen (local, TurboQuant)";
+      name = "oMLX (local, TurboQuant)";
       options = {
         baseURL = "http://127.0.0.1:8083/v1";
         apiKey = "local";
@@ -170,6 +169,18 @@ let
       models = {
         "Qwen3.8-27B-oQ4e-mtp" = {
           name = "Qwen3.8 27B oQ4e-MTP (oMLX, local)";
+        };
+        "Qwen3.6-35B-A3B-oQ4e-mtp" = {
+          name = "Qwen3.6 35B A3B oQ4e (oMLX, local)";
+        };
+        "gemma-4-26B-A4B-it-oQ4e-mtp" = {
+          name = "Gemma 4 26B A4B oQ4e (oMLX, local)";
+        };
+        "gemma-4-31B-it-oQ4e-mtp" = {
+          name = "Gemma 4 31B oQ4e (oMLX, local)";
+        };
+        "gemma-4-12B-it-qat-oQ4e-mtp" = {
+          name = "Gemma 4 12B QAT oQ4e (oMLX, local)";
         };
       };
     };
@@ -272,15 +283,12 @@ let
   # opencode provider.
   # -------------------------------------------------------------------------
 
-  # Built via uv2nix (nixos/common/pkgs/mtplx) instead of `uvx --from mtplx`,
-  # so it's a real Nix-store package pinned by uv.lock rather than a
-  # runtime PyPI fetch. Darwin-only (see overlays.nix); do not reference
-  # unstable.mtplx outside of a Darwin-guarded context.
+  # Built via uv2nix (nixos/common/pkgs/mtplx) — a real Nix-store package
+  # pinned by uv.lock, not a runtime PyPI fetch. Darwin-only (see overlays.nix).
   serveQwen = pkgs.writeShellScriptBin "serve-qwen" ''
     set -euo pipefail
 
-    # MTPLX uses MLX-formatted Hugging Face repos instead of GGUF files.
-    # Official models from MTPLX author: huggingface.co/Youssofal
+    # MTPLX uses MLX-format HF repos (official: huggingface.co/Youssofal).
     MODEL="''${QWEN_MLX:-Youssofal/Qwen3.8-27B-MTPLX-Optimized-Speed}"
     CACHE_DIR="$HOME/ai/models"
 
@@ -288,34 +296,14 @@ let
 
     mkdir -p "$CACHE_DIR"
 
-    # `mtplx quickstart` is the headless OpenAI/Anthropic server entry point;
-    # `mtplx start` is interactive-only (picks model/mode/surface, then drops
-    # into chat). `pull` is a separate explicit step so first-run downloads
-    # happen predictably rather than inline during quickstart.
-    #
-    # `--paged-kv-quantization q4` is the TurboQuant-style KV cache: attention
-    # Keys stay at 8-bit while Values are crushed to 4-bit, which is what
-    # stretches the 27B model to a huge context window on 48 GB of RAM.
-    #
-    # CAVEAT (observed 2.8.2, 2026-08-19): with MTP on, startup logs
-    #   compiled-verify prewarm {"buckets": [], "skipped": ["quantized_paged_kv"]}
-    # i.e. the quantised paged-KV variant is skipped in the compiled verify
-    # path, so this flag is at best partially in effect. oMLX hits the same
-    # collision from the other side (its MTP verify falls back on TurboQuant
-    # layers), which suggests speculative verify over a quantised KV cache is
-    # an inherent conflict rather than a bug in either engine. Treat MTP and
-    # cheap KV as mutually exclusive until measured otherwise.
-    # mtplx's prefix cache is its "session bank". By default it auto-sizes to
-    # half the post-model RAM surplus — logged at startup as e.g.
-    #   session-bank budget: 14.1G total, 8.0G per-session cap, 24 entries max
-    # That answers a question the engine A/B needed: mtplx DOES do prefix
-    # caching, so oMLX's SSD cache is not a unique advantage.
-    #
-    # It is also a large standing reservation on a 48 GB box: 19.8G of weights
-    # plus a 14.1G bank leaves noticeably less room for context than oMLX's
-    # ~16.0G model. Shrink the bank to trade cache capacity for context, or
-    # grow it to hold more sessions:
-    #   MTPLX_SESSION_BANK_MAX_BYTES=8G MTPLX_SESSION_BANK_PER_SESSION_BYTES=4G serve-qwen
+    # `--paged-kv-quantization q4` is TurboQuant-style KV cache (keys 8-bit,
+    # values 4-bit), stretching the 27B model's context on 48 GB. NOTE: with MTP
+    # on (observed 2.8.2) the quantised paged-KV variant is skipped in the
+    # compiled-verify path, so the flag is only partially in effect — treat MTP
+    # and cheap KV as mutually exclusive until measured otherwise.
+    # mtplx's "session bank" prefix cache auto-sizes to half the post-model RAM
+    # surplus (e.g. 14.1G) — a large standing reservation. Shrink it to trade
+    # cache for context, or grow it for more sessions.
     export MTPLX_SESSION_BANK_MAX_BYTES="''${MTPLX_SESSION_BANK_MAX_BYTES:-}"
     export MTPLX_SESSION_BANK_PER_SESSION_BYTES="''${MTPLX_SESSION_BANK_PER_SESSION_BYTES:-}"
     [ -n "$MTPLX_SESSION_BANK_MAX_BYTES" ] || unset MTPLX_SESSION_BANK_MAX_BYTES
@@ -331,43 +319,35 @@ let
       --yes
   '';
 
-  # oMLX (Homebrew CLI, not in nixpkgs) as a second MTP test engine: same
-  # Qwen 3.8 27B class as serve-qwen but a different runtime, for A/B
-  # testing. Serves on :8083 (mtplx=8081, gemma=8082). Two 27B servers
-  # can't share 48 GB — run this instead of serve-qwen, not alongside it.
+  # oMLX (Homebrew CLI, not in nixpkgs): multi-model MLX server on :8083.
+  # Serves the oQ4e MLX builds of the same models Ollama provides (qwen 3.6
+  # 35B, gemma4 12B/26B/31B) plus the Qwen 3.8 27B. Models download on first
+  # run into ~/ai/models/omlx/. Two 27B-class servers can't share 48 GB — run
+  # this instead of serve-qwen, not alongside it.
   serveOmlx = pkgs.writeShellScriptBin "serve-omlx" ''
     set -euo pipefail
 
     export OMLX_MODEL_DIR="$HOME/ai/models/omlx"
 
-    # Was root4k/Huihui-Qwen3.8-27B-abliterated-oQ4e-mtp. Abliteration removes
-    # the refusal direction from the weights — a lossy edit that costs
-    # instruction-following for a property agentic coding never uses (you don't
-    # get refused writing Nix modules). This is the first-party oQ4e build from
-    # the oMLX author (HF Jundot = github.com/jundot/omlx, the same upstream as
-    # the Homebrew tap in darwin/common.nix). Identical spec to the abliterated
-    # build it replaces — 4-bit affine, group 64, the same 166 tensors promoted
-    # to 5-bit, MTP with 1 nextn layer, 262144 native context, 17.0 GB — so the
-    # only difference is the base weights.
-    #
-    # NOTE ON MTP: it does not currently buy anything here (11.0 vs 9.6 tok/s
-    # baseline is noise, versus 18.3 for mtplx). Qwen3.8-27B *is* a VLM —
-    # every build on HF, including Qwen/Qwen3.8-27B itself, is
-    # Qwen3_5ForConditionalGeneration with a vision tower — so oMLX routes it
-    # down the VLM engine path where draft acceptance is poor. Switching oQ4e
-    # publishers does not change that; they are all the same architecture.
-    #
-    # The one candidate that might change it is a vision-stripped build:
-    #   OMLX_MODEL_REPO=lukaskremla/Qwen3.8-27B-4bit-MLX-TextOnly serve-omlx
-    # (15.2 GB, vision_config removed, mtp_num_hidden_layers still 1). Whether
-    # oMLX then picks its text engine is unverified — the architecture string
-    # is unchanged, so it may not. It is also plain MLX 4-bit rather than oQ4e,
-    # i.e. no imatrix 5-bit promotions, so quality may be slightly lower.
-    # Worth an A/B with `bench-llm` before adopting; that is exactly the
-    # decode-vs-quality question the harness exists to answer.
-    MODEL_REPO="''${OMLX_MODEL_REPO:-Jundot/Qwen3.8-27B-oQ4e-mtp}"
-    NAME="''${MODEL_REPO##*/}"
-    MODEL_ID="''${OMLX_MODEL_ID:-$NAME}"
+    # oQ4e MLX builds of the same models Ollama serves (qwen 3.6 35B, gemma4
+    # 12B/26B/31B) plus the existing Qwen 3.8 27B. First-party oQ4e from the
+    # oMLX author (HF Jundot), except the 12B (no Jundot build; djrsystemservices
+    # QAT oQ4e instead). Each is downloaded on first `serve-omlx` run if its
+    # config.json is absent. OMLX_MODEL_REPO overrides with a single model;
+    # OMLX_MODEL_ID overrides the settings.json ID (defaults to repo basename).
+    DEFAULT_MODELS=(
+      "Jundot/Qwen3.8-27B-oQ4e-mtp"
+      "Jundot/Qwen3.6-35B-A3B-oQ4e-mtp"
+      "Jundot/gemma-4-26B-A4B-it-oQ4e-mtp"
+      "Jundot/gemma-4-31B-it-oQ4e-mtp"
+      "djrsystemservices/gemma-4-12B-it-qat-oQ4e-mtp"
+    )
+
+    if [ -n "''${OMLX_MODEL_REPO:-}" ]; then
+      MODELS=( "$OMLX_MODEL_REPO" )
+    else
+      MODELS=( "''${DEFAULT_MODELS[@]}" )
+    fi
 
     OMLX_BIN="''${OMLX_BIN:-}"
     if [ -z "$OMLX_BIN" ]; then
@@ -375,33 +355,25 @@ let
       [ -z "$OMLX_BIN" ] && OMLX_BIN="/opt/homebrew/opt/omlx/bin/omlx"
     fi
 
-    mkdir -p "$OMLX_MODEL_DIR/$NAME"
-    if [ ! -f "$OMLX_MODEL_DIR/$NAME/config.json" ]; then
-      echo "oMLX: downloading $MODEL_REPO (~17 GB, one-time) ..."
-      export PATH="${pkgs.uv}/bin:$PATH"
-      uvx --from huggingface_hub hf download "$MODEL_REPO" --local-dir "$OMLX_MODEL_DIR/$NAME"
-    fi
+    mkdir -p "$OMLX_MODEL_DIR"
 
-    # oMLX enables MTP and TurboQuant per model via ~/.omlx/model_settings.json
-    # (read at startup). Combining them on the Qwen 3.8 oQ4e-MTP build crashed
-    # in 0.6.1 ('TurboQuantMSEState' has no 'ndim'); 0.6.2 made it not crash by
-    # having MTP verify fall back to the compatible attention path — which is
-    # NOT the same as the two stacking.
-    #
-    # Evidence they do not stack: oMLX rejected a 72k-token prefill on
-    # 2026-08-19 needing "KV+SDPA 15.40 GB", i.e. ~213 KB/token. TurboQuant q4
-    # KV on this architecture should cost ~16 KB/token (2 x 4 kv_heads x 256
-    # head_dim x 16 full-attention layers of 64). Being ~13x over that suggests
-    # KV is not actually being quantised while MTP is on.
-    #
-    # CONFIRMED 2026-08-19 by A/B on a real opencode session: with MTP off,
-    # TurboQuant engages and 80k+ context works, where MTP-on had failed at
-    # 72k needing 43.55 GB. Generation drops ~12.4 -> ~9 tok/s. On a 48 GB box
-    # the memory headroom is worth far more than the decode, so MTP is OFF by
-    # default here. Flip it back per-run if a short-context task wants speed:
-    #   OMLX_MTP=1 serve-omlx            # favour decode  (MTP, unquantised KV)
-    #   OMLX_TURBOQUANT=0 serve-omlx     # disable TurboQuant entirely
-    ${pkgs.python3}/bin/python3 -c '
+    for MODEL_REPO in "''${MODELS[@]}"; do
+      NAME="''${MODEL_REPO##*/}"
+      MODEL_ID="''${OMLX_MODEL_ID:-$NAME}"
+
+      if [ ! -f "$OMLX_MODEL_DIR/$NAME/config.json" ]; then
+        echo "oMLX: downloading $MODEL_REPO (one-time) ..."
+        export PATH="${pkgs.uv}/bin:$PATH"
+        uvx --from huggingface_hub hf download "$MODEL_REPO" --local-dir "$OMLX_MODEL_DIR/$NAME"
+      fi
+
+      # MTP and TurboQuant are set per model in ~/.omlx/model_settings.json
+      # (read at startup). They don't stack on this arch: MTP-on suppresses KV
+      # quantisation (~213 KB/token vs ~16 KB for q4), so a 72k prefill needed
+      # 43.55 GB. Confirmed 2026-08-19 by A/B — with MTP off, TurboQuant engages
+      # and 80k+ context works (~12.4 -> ~9 tok/s). MTP is OFF by default here;
+      # flip per-run with OMLX_MTP=1 (speed) or OMLX_TURBOQUANT=0.
+      ${pkgs.python3}/bin/python3 -c '
 import json, os, sys
 mid, mtp, tq, bits = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 path = os.path.expanduser("~/.omlx/model_settings.json")
@@ -416,43 +388,19 @@ m["mtp_enabled"] = mtp not in ("0", "false", "no")
 m["turboquant_kv_enabled"] = tq not in ("0", "false", "no")
 m["turboquant_kv_bits"] = int(bits)
 json.dump(data, open(path, "w"), indent=2)
-print("model_settings: mtp=%s turboquant=%s bits=%s"
-      % (m["mtp_enabled"], m["turboquant_kv_enabled"], m["turboquant_kv_bits"]))
+print("model_settings: %s mtp=%s turboquant=%s bits=%s"
+      % (mid, m["mtp_enabled"], m["turboquant_kv_enabled"], m["turboquant_kv_bits"]))
 ' "$MODEL_ID" "''${OMLX_MTP:-0}" "''${OMLX_TURBOQUANT:-1}" "''${OMLX_TURBOQUANT_BITS:-4}"
+    done
 
-    # oMLX derives its caps as a fraction of min(this guard, the Metal wired
-    # limit): soft = 85%, hard = 95%. Confirmed against its dashboard on
-    # 2026-08-19, which read "37.4 GB soft / 41.8 GB hard" — exactly 44 x 0.85
-    # and 44 x 0.95, so this guard is what binds today, not Metal.
-    #
-    # (37.4 GB is also, coincidentally, Apple's default wired limit on a 48 GB
-    # machine. Do not read that number as evidence the sysctl in
-    # darwin/common.nix failed to apply — verify with `sysctl
-    # iogpu.wired_limit_mb` instead, which reports 46000 = 44.9 GiB.)
-    #
-    # Default raised 44 -> 46 so the Metal ceiling binds instead, giving a
-    # prefill cap of 42.7 GB rather than 41.8 GB. That is only ~4k extra tokens
-    # at the measured ~240 KB/token, but it is free.
-    #
-    # It is NOT enough to rescue a real failure seen on 2026-08-19: a 72k-token
-    # opencode session was rejected needing 43.55 GB (current 28.14 + KV+SDPA
-    # 15.40) against a 41.80 GB ceiling. Even with Metal binding, 42.66 GB
-    # falls short. Reaching 43.55 GB would need iogpu.wired_limit_mb ~46940,
-    # leaving ~2 GiB for all of macOS — not worth the instability. The real
-    # lever on context is cutting KV cost per token (see OMLX_MTP above), not
-    # this ceiling.
-    #
-    # STALE FIGURES WARNING: the ~240 KB/token above was measured with MTP on,
-    # i.e. with TurboQuant suppressed. With MTP off (the default now) KV is
-    # actually quantised and the real cost per token is much lower — 80k+
-    # context fits where 72k previously failed. The numbers here have not been
-    # re-measured; re-run `bench-llm --mode cold --ctx 16k,64k` and compare
-    # peak GB against the old 35 GB at 64k before relying on them.
-    # Overridable so those runs can sweep it:
-    #   OMLX_MEMORY_GUARD_GB=46 serve-omlx
+    # oMLX caps = fraction of min(this guard, Metal wired limit): soft 85%,
+    # hard 95%. Raised 44 -> 46 so the Metal ceiling binds (prefill cap 42.7
+    # GB). Note the ~240 KB/token figure in older comments was measured with MTP
+    # on (TurboQuant suppressed); with MTP off KV is quantised and much cheaper.
+    # Override to sweep: OMLX_MEMORY_GUARD_GB=46 serve-omlx.
     GUARD_GB="''${OMLX_MEMORY_GUARD_GB:-46}"
 
-    echo "Starting oMLX (Qwen 3.8 oQ4e-MTP) on :8083, memory guard ''${GUARD_GB}GB ..."
+    echo "Starting oMLX on :8083, memory guard ''${GUARD_GB}GB ..."
     exec "$OMLX_BIN" serve \
       --model-dir "$OMLX_MODEL_DIR" \
       --host 127.0.0.1 \
@@ -482,23 +430,14 @@ print("model_settings: mtp=%s turboquant=%s bits=%s"
     export OLLAMA_MODELS="$HOME/ai/models/ollama"
     export OLLAMA_HOST="127.0.0.1:11434"
 
-    # KV cache quantisation. Unlike oMLX/mtplx — where quantised KV collides
-    # with MTP speculative verify and gets silently skipped — ollama has no MTP,
-    # so this actually applies. q8_0 halves KV vs f16 with negligible quality
-    # loss; q4_0 quarters it with a modest loss that shows up more at long
-    # context. Keys are far more sensitive to quantisation than values, and
-    # ollama only exposes a uniform setting (llama.cpp's separate
-    # --cache-type-k/--cache-type-v is not plumbed through), so q8_0 is the
-    # safer default and q4_0 the memory-desperate one.
-    #
-    # Requires flash attention, which recent ollama enables automatically where
-    # supported; if the backend does not support it the cache type is ignored
-    # silently. NOTE: this is a llama.cpp-backend mechanism — whether it takes
-    # effect under ollama's MLX backend (preview, needs >=32 GB) is unverified.
-    # Check actual memory use rather than assuming it applied.
-    #
-    # TurboQuant is NOT available here: the llama.cpp TurboQuant PR (#21089)
-    # was closed unmerged, so nothing downstream of llama.cpp has it.
+    # KV cache quantisation. Unlike oMLX/mtplx (where quantised KV collides with
+    # MTP verify), ollama has no MTP so this actually applies. q8_0 halves KV vs
+    # f16 with negligible quality loss; q4_0 quarters it with a modest loss that
+    # shows more at long context. Keys are more sensitive than values, and ollama
+    # only exposes a uniform setting, so q8_0 is the safer default. Requires
+    # flash attention; whether it takes effect under ollama's MLX backend
+    # (preview) is unverified — check actual memory use. TurboQuant is NOT
+    # available here (the llama.cpp PR was closed unmerged).
     export OLLAMA_KV_CACHE_TYPE="''${OLLAMA_KV_CACHE_TYPE:-q8_0}"
 
     if ! ollama list &>/dev/null; then
