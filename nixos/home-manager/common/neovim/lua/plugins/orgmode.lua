@@ -686,22 +686,27 @@ vim.api.nvim_create_autocmd("FileType", {
   group = vim.api.nvim_create_augroup("orgmode_calorie_tracker", { clear = true }),
   callback = function()
     pcall(vim.cmd, "TableModeEnable")
-    vim.keymap.set(
-      "n",
-      "<leader>od",
-      "<cmd>lua _G.create_calorie_day()<CR>",
-      { buffer = 0, desc = "New calorie day" }
-    )
-    vim.keymap.set("n", "<leader>of", "<cmd>lua _G.add_food_row()<CR>", { buffer = 0, desc = "Add food" })
-    vim.keymap.set("n", "<leader>ol", "<cmd>lua _G.calc_daily_totals()<CR>", { buffer = 0, desc = "Calc totals" })
-    vim.keymap.set("n", "<leader>or", "<cmd>lua _G.recalc_current_row()<CR>", { buffer = 0, desc = "Recalc row" })
-    vim.keymap.set("n", "<leader>on", "<cmd>lua _G.goto_today()<CR>", { buffer = 0, desc = "Go to today" })
     vim.keymap.set("n", "<leader>op", require("telescope").extensions.orgmode.refile_heading)
     vim.keymap.set("n", "<leader>os", require("telescope").extensions.orgmode.search_headings)
-    vim.keymap.set("n", "<leader>oyt", ":OrgYoutube<CR>", { desc = "YouTube All" })
-    vim.keymap.set("n", "<leader>oys", ":OrgYoutube Duration<600<CR>", { desc = "YouTube Short" })
-    vim.keymap.set("n", "<leader>oyi", ":OrgYoutube Importance=5<CR>", { desc = "YouTube Important" })
-    vim.keymap.set("n", "<leader>oyr", ":OrgYoutubeRandom<CR>", { desc = "YouTube Random" })
-    vim.keymap.set("n", "<leader>oyR", ":OrgYoutubeRandom Duration<600", { desc = "YouTube Random Query" })
+    vim.keymap.set("n", "<leader>oyt", ":OrgYoutube<CR>", { buffer = 0, desc = "YouTube All" })
+    vim.keymap.set("n", "<leader>oys", ":OrgYoutube Duration<600<CR>", { buffer = 0, desc = "YouTube Short" })
+    vim.keymap.set("n", "<leader>oyi", ":OrgYoutube Importance=5<CR>", { buffer = 0, desc = "YouTube Important" })
+    vim.keymap.set("n", "<leader>oyr", ":OrgYoutubeRandom<CR>", { buffer = 0, desc = "YouTube Random" })
+    vim.keymap.set("n", "<leader>oyR", ":OrgYoutubeRandom Duration<600", { buffer = 0, desc = "YouTube Random Query" })
+
+    -- Calorie tracker keymaps — only in calories.org
+    local filepath = vim.api.nvim_buf_get_name(0)
+    if filepath:match("calories%.org$") or filepath:match("calories%.org/") then
+      vim.keymap.set(
+        "n",
+        "<leader>od",
+        "<cmd>lua _G.create_calorie_day()<CR>",
+        { buffer = 0, desc = "New calorie day" }
+      )
+      vim.keymap.set("n", "<leader>of", "<cmd>lua _G.add_food_row()<CR>", { buffer = 0, desc = "Add food" })
+      vim.keymap.set("n", "<leader>ol", "<cmd>lua _G.calc_daily_totals()<CR>", { buffer = 0, desc = "Calc totals" })
+      vim.keymap.set("n", "<leader>or", "<cmd>lua _G.recalc_current_row()<CR>", { buffer = 0, desc = "Recalc row" })
+      vim.keymap.set("n", "<leader>on", "<cmd>lua _G.goto_today()<CR>", { buffer = 0, desc = "Go to today" })
+    end
   end,
 })
