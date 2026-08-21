@@ -190,6 +190,25 @@ let
         };
       };
     };
+
+    # DwarfStar (antirez/ds4) on :8000 — DeepSeek V4 Flash 284B-A13B, q2 GGUF
+    # (~81 GB) streamed from SSD with an in-RAM expert cache. Start with
+    # `serve-ds4`; must run alone (the expert cache takes most of the 48 GB).
+    # "deepseek-v4-flash" is ds4-server's compatibility alias — it always maps
+    # to whatever GGUF the server was started with.
+    ds4 = {
+      npm = "@ai-sdk/openai-compatible";
+      name = "ds4 DeepSeek V4 Flash (local, SSD-streamed)";
+      options = {
+        baseURL = "http://127.0.0.1:8000/v1";
+        apiKey = "local";
+      };
+      models = {
+        "deepseek-v4-flash" = {
+          name = "DeepSeek V4 Flash q2 (ds4, SSD-streamed)";
+        };
+      };
+    };
   };
 
   opencodeSettings = {
@@ -412,6 +431,87 @@ print("model_settings: %s mtp=%s turboquant=%s bits=%s"
       --host 127.0.0.1 \
       --port 8083 \
       --memory-guard-gb "$GUARD_GB"
+  '';
+
+  # DwarfStar (antirez/ds4): DeepSeek V4 Flash 284B (13B active) via SSD expert
+  # streaming — the only local path to a frontier-class MoE on 48 GB. Not in
+  # nixpkgs or brew; cloned + `make`d (Metal) on first run, needs Xcode CLT.
+  # Only the q2 GGUF (~81 GB, routed experts IQ2_XXS/Q2_K, everything else Q8)
+  # is viable at 48 GB — q2-q4/q4 need 128 GB+ even when streamed. The 32 GB
+  # expert cache means this server runs ALONE, never next to serve-omlx or
+  # serve-qwen. No TurboQuant here; instead --kv-disk-dir persists KV to SSD
+  # so agent sessions survive restarts. DSpark speculative decoding (MTP-like)
+  # is opt-in via DS4_DSPARK=1 once its support GGUF is downloaded.
+  serveDs4 = pkgs.writeShellScriptBin "serve-ds4" ''
+    set -euo pipefail
+
+    DS4_DIR="''${DS4_DIR:-$HOME/.local/share/ds4}"
+    MODELS_DIR="$HOME/ai/models/ds4"
+    QUANT="''${DS4_QUANT:-ds4f-q2}"
+
+    export PATH="${pkgs.git}/bin:$PATH:/usr/bin"
+
+    if [ ! -d "$DS4_DIR/.git" ]; then
+      echo "ds4: cloning antirez/ds4 (one-time) ..."
+      git clone https://github.com/antirez/ds4 "$DS4_DIR"
+    elif [ -n "''${DS4_UPDATE:-}" ]; then
+      git -C "$DS4_DIR" pull --ff-only
+      rm -f "$DS4_DIR/ds4-server"
+    fi
+
+    # GGUFs live under ~/ai/models like every other runtime; download_model.sh
+    # hardcodes ./gguf inside the repo, so that path is a symlink.
+    mkdir -p "$MODELS_DIR"
+    [ -e "$DS4_DIR/gguf" ] || ln -sfn "$MODELS_DIR" "$DS4_DIR/gguf"
+
+    cd "$DS4_DIR"
+
+    if [ ! -x ./ds4-server ]; then
+      echo "ds4: building (Metal) ..."
+      make
+    fi
+
+    # First shard of a split GGUF is what the loader expects; the DSpark
+    # support GGUF is a draft model, not a main one.
+    MODEL="''${DS4_MODEL:-}"
+    if [ -z "$MODEL" ]; then
+      MODEL="$(ls gguf/*.gguf 2>/dev/null | grep -iv dspark | head -1 || true)"
+    fi
+    if [ -z "$MODEL" ]; then
+      echo "ds4: downloading $QUANT (one-time, ~81 GB) ..."
+      ./download_model.sh "$QUANT"
+      MODEL="$(ls gguf/*.gguf | grep -iv dspark | head -1)"
+    fi
+
+    EXTRA=()
+    if [ -n "''${DS4_DSPARK:-}" ]; then
+      DSPARK_GGUF="$(ls gguf/*[Dd][Ss]park*.gguf 2>/dev/null | head -1 || true)"
+      if [ -z "$DSPARK_GGUF" ]; then
+        echo "ds4: DS4_DSPARK=1 but no DSpark support GGUF in $MODELS_DIR" >&2
+        echo "ds4: fetch it from huggingface.co/antirez/deepseek-v4-gguf first" >&2
+        exit 1
+      fi
+      EXTRA+=( --mtp "$DSPARK_GGUF" --dspark )
+    fi
+
+    KV_DIR="$MODELS_DIR/kv-cache"
+    mkdir -p "$KV_DIR"
+
+    # 32 GB expert cache + 32k ctx is the README's 48 GB recipe; decode speed
+    # is set by cache misses (SSD reads), so a smaller cache hurts fast.
+    CTX="''${DS4_CTX:-32768}"
+    CACHE="''${DS4_EXPERT_CACHE:-32GB}"
+
+    echo "Starting ds4-server on :8000 (ctx $CTX, expert cache $CACHE, SSD streaming) ..."
+    exec ./ds4-server \
+      -m "$MODEL" \
+      --ssd-streaming \
+      --ssd-streaming-cache-experts "$CACHE" \
+      --ctx "$CTX" \
+      --kv-disk-dir "$KV_DIR" \
+      --kv-disk-space-mb "''${DS4_KV_DISK_MB:-16384}" \
+      --host 127.0.0.1 \
+      "''${EXTRA[@]}"
   '';
 
   # Smaller Gemma 4 12B (~6.7 GB), can coexist with Qwen 27B on 48 GB.
@@ -728,6 +828,7 @@ in
     # shared with Linux hosts, which must never force those derivations.
     serveQwen
     serveOmlx
+    serveDs4
     serveGemmaSmall
     serveOllama
     ocQwen27b
