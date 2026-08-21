@@ -153,6 +153,9 @@ let
       models = {
         "mtplx-qwen38-27b-optimized-speed" = {
           name = "Qwen3.8 27B (MTPLX Optimized Speed, local)";
+          # Default reasoning effort is high; medium is enough for this
+          # model's typical local-dev usage and noticeably faster.
+          options.reasoningEffort = "medium";
         };
       };
     };
@@ -169,6 +172,9 @@ let
       models = {
         "Qwen3.8-27B-oQ4e-mtp" = {
           name = "Qwen3.8 27B oQ4e-MTP (oMLX, local)";
+          # Default reasoning effort is high; medium is enough for this
+          # model's typical local-dev usage and noticeably faster.
+          options.reasoningEffort = "medium";
         };
         "Qwen3.6-35B-A3B-oQ4e-mtp" = {
           name = "Qwen3.6 35B A3B oQ4e (oMLX, local)";
