@@ -88,9 +88,13 @@ in
       # Remote-deploy config changes to the vm-hyprland UTM VM: build here
       # (via nix.linux-builder, since this Mac can't build aarch64-linux
       # natively) and push+activate over SSH, without touching the VM's own
-      # clone. Override the target with VM_HYPRLAND_HOST=<ip> sup-vm-hyprland
-      # if "vm-hyprland" isn't resolvable (no mDNS/SSH config alias set up).
-      sup-vm-hyprland = "nixos-rebuild switch --flake $HOME/configs/nixos-configs#vm-hyprland --target-host \"\${VM_HYPRLAND_HOST:-vm-hyprland}\" --build-host localhost --sudo --ask-sudo-password --impure";
+      # clone. Target user must be gentooway (the only user vm-hyprland's
+      # own config defines) - without it ssh silently falls back to the
+      # local macOS username, which doesn't exist on the VM and can never
+      # authenticate. Override the host with VM_HYPRLAND_HOST=<ip>
+      # sup-vm-hyprland if "vm-hyprland" isn't resolvable (no mDNS/SSH
+      # config alias set up).
+      sup-vm-hyprland = "nixos-rebuild switch --flake $HOME/configs/nixos-configs#vm-hyprland --target-host \"gentooway@\${VM_HYPRLAND_HOST:-vm-hyprland}\" --build-host localhost --sudo --ask-sudo-password --impure";
 
       # macOS system management
       flush-dns = "sudo dscacheutil -flushcache && sudo killall -HUP mDNSResponder";

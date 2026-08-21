@@ -31,7 +31,7 @@ echo "Creating UTM VM '$VM_NAME' via AppleScript..."
 osascript <<APPLESCRIPT
 on run
 	tell application "UTM"
-		set newVM to make new virtual machine with properties {backend:qemu, configuration:{name:"$VM_NAME", architecture:"aarch64", memory:$MEMORY_MB, cpu cores:$CPU_CORES, hypervisor:true, uefi:true, drives:{{removable:false, source:(POSIX file "$DISK_PATH"), interface:VirtIO}}, network interfaces:{{mode:bridged}}, displays:{{hardware:"virtio-gpu-gl-pci"}}}}
+		set newVM to make new virtual machine with properties {backend:qemu, configuration:{name:"$VM_NAME", architecture:"aarch64", memory:$MEMORY_MB, cpu cores:$CPU_CORES, hypervisor:true, uefi:true, directory share mode:VirtFS, drives:{{removable:false, source:(POSIX file "$DISK_PATH"), interface:VirtIO}}, network interfaces:{{mode:bridged}}, displays:{{hardware:"virtio-gpu-gl-pci", native resolution:true}}}}
 	end tell
 end run
 APPLESCRIPT
@@ -40,4 +40,8 @@ cat <<MSG
 
 Created VM '$VM_NAME'. Open UTM to confirm it boots the built image
 correctly (rather than an empty UEFI shell) before relying on it.
+
+Directory Share Mode is set to VirtFS, but the actual host folder to share
+isn't scriptable - in VM Settings -> Sharing, manually pick
+~/configs/nixos-configs as the shared directory.
 MSG
