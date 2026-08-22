@@ -160,8 +160,10 @@ let
       };
     };
 
-    # Preferred local engine on mac-home (Homebrew CLI, not in nixpkgs). Serves
-    # on :8083, TurboQuant q4 KV, MTP off — see serve-omlx for the tradeoff.
+    # Preferred local engine on mac-home (Homebrew CLI, not in nixpkgs).
+    # Serves on :8083; every -mtp build runs Lightning MTP + TurboQuant q4 KV,
+    # with the extra prefill feature for the two Qwen3.8 27B builds picked
+    # per-run via OMLX_PROFILE (nospec | spec | ane) — see serve-omlx below.
     omlx = {
       npm = "@ai-sdk/openai-compatible";
       name = "oMLX (local, TurboQuant)";
@@ -176,8 +178,23 @@ let
           # model's typical local-dev usage and noticeably faster.
           options.reasoningEffort = "medium";
         };
+        "Qwen3.8-27B-oQ4e-fp16-mtp" = {
+          name = "Qwen3.8 27B ANE oQ4e-MTP (oMLX, local)";
+          # Default reasoning effort is high; medium is enough for this
+          # model's typical local-dev usage and noticeably faster.
+          options.reasoningEffort = "medium";
+        };
+        "Qwen3.8-27B-oQ6e-mtp" = {
+          name = "Qwen3.8 27B oQ6e-MTP (oMLX, local)";
+          # Default reasoning effort is high; medium is enough for this
+          # model's typical local-dev usage and noticeably faster.
+          options.reasoningEffort = "medium";
+        };
         "Qwen3.6-35B-A3B-oQ4e-mtp" = {
           name = "Qwen3.6 35B A3B oQ4e (oMLX, local)";
+        };
+        "Qwen3.6-35B-A3B-oQ6-mtp" = {
+          name = "Qwen3.6 35B A3B oQ6 (oMLX, local)";
         };
         "gemma-4-26B-A4B-it-oQ4e-mtp" = {
           name = "Gemma 4 26B A4B oQ4e (oMLX, local)";
@@ -362,9 +379,13 @@ let
     # OMLX_MODEL_ID overrides the settings.json ID (defaults to repo basename).
     DEFAULT_MODELS=(
       "Jundot/Qwen3.8-27B-oQ4e-mtp"
+      "Jundot/Qwen3.8-27B-oQ4e-fp16-mtp"
+      "Jundot/Qwen3.8-27B-oQ6e-mtp"
       "Jundot/Qwen3.6-35B-A3B-oQ4e-mtp"
+      "Jundot/Qwen3.6-35B-A3B-oQ6-mtp"
       "Jundot/gemma-4-26B-A4B-it-oQ4e-mtp"
       "Jundot/gemma-4-31B-it-oQ4e-mtp"
+      "mlx-community/Qwen3.5-0.8B-MLX-8bit"
       "djrsystemservices/gemma-4-12B-it-qat-oQ4e-mtp"
     )
 
@@ -373,6 +394,25 @@ let
     else
       MODELS=( "''${DEFAULT_MODELS[@]}" )
     fi
+
+    # Feature profiles for the two Qwen3.8 27B builds (pick via OMLX_PROFILE):
+    #   nospec TurboQuant q4 KV + Lightning MTP, SpecPrefill off (default)
+    #   spec   SpecPrefill (draft: Qwen3.5-0.8B-MLX-8bit) + TurboQuant q4 KV
+    #          + Lightning MTP
+    #   ane    ANE prefill + TurboQuant q4 KV + Lightning MTP, SpecPrefill off
+    # Every -mtp model gets TurboQuant q4 KV + Lightning MTP by default; only
+    # the non-MTP draft build (Qwen3.5-0.8B) keeps MTP off.
+    # OMLX_MTP / OMLX_TURBOQUANT still override the base flags per-run;
+    # OMLX_DEFAULT_MODEL picks the no-model-specified fallback (empty = leave
+    # whatever ~/.omlx/model_settings.json already says).
+    PROFILE="''${OMLX_PROFILE:-nospec}"
+    case "$PROFILE" in
+      nospec|spec|ane) ;;
+      *)
+        echo "serve-omlx: unknown OMLX_PROFILE '$PROFILE' (want nospec|spec|ane)" >&2
+        exit 2
+        ;;
+    esac
 
     OMLX_BIN="''${OMLX_BIN:-}"
     if [ -z "$OMLX_BIN" ]; then
@@ -392,15 +432,32 @@ let
         uvx --from huggingface_hub hf download "$MODEL_REPO" --local-dir "$OMLX_MODEL_DIR/$NAME"
       fi
 
-      # MTP and TurboQuant are set per model in ~/.omlx/model_settings.json
-      # (read at startup). They don't stack on this arch: MTP-on suppresses KV
-      # quantisation (~213 KB/token vs ~16 KB for q4), so a 72k prefill needed
-      # 43.55 GB. Confirmed 2026-08-19 by A/B — with MTP off, TurboQuant engages
-      # and 80k+ context works (~12.4 -> ~9 tok/s). MTP is OFF by default here;
-      # flip per-run with OMLX_MTP=1 (speed) or OMLX_TURBOQUANT=0.
+      # Per-model flags are merged into ~/.omlx/model_settings.json (read at
+      # server startup). Lightning MTP and TurboQuant historically didn't stack
+      # on this arch (2026-08-19 A/B: MTP-on suppressed KV quantisation,
+      # ~213 KB/token vs ~16 KB for q4) — these profiles enable both anyway;
+      # watch prefill memory via the guard below before trusting long context.
+      SPEC=0
+      ANE=0
+      case "$NAME" in
+        Qwen3.8-27B-oQ4e-mtp|Qwen3.8-27B-oQ6e-mtp)
+          case "$PROFILE" in
+            spec) SPEC=1 ;;
+            ane)  ANE=1 ;;
+          esac
+          ;;
+      esac
+      # Lightning MTP wherever the build ships MTP weights (Jundot's -mtp
+      # suffix); TurboQuant q4 KV on everywhere.
+      case "$NAME" in
+        *-mtp) MTP="''${OMLX_MTP:-1}" ;;
+        *)     MTP="''${OMLX_MTP:-0}" ;;
+      esac
+      TQ="''${OMLX_TURBOQUANT:-1}"
+
       ${pkgs.python3}/bin/python3 -c '
 import json, os, sys
-mid, mtp, tq, bits = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+mid, mtp, tq, bits, spec, draft, ane = sys.argv[1:8]
 path = os.path.expanduser("~/.omlx/model_settings.json")
 data = {}
 if os.path.exists(path):
@@ -412,11 +469,42 @@ m = data.setdefault("models", {}).setdefault(mid, {})
 m["mtp_enabled"] = mtp not in ("0", "false", "no")
 m["turboquant_kv_enabled"] = tq not in ("0", "false", "no")
 m["turboquant_kv_bits"] = int(bits)
+m["specprefill_enabled"] = spec not in ("0", "false", "no")
+if m["specprefill_enabled"] and draft:
+    m["specprefill_draft_model"] = draft
+m["qwen35_ane_prefill_enabled"] = ane not in ("0", "false", "no")
 json.dump(data, open(path, "w"), indent=2)
-print("model_settings: %s mtp=%s turboquant=%s bits=%s"
-      % (mid, m["mtp_enabled"], m["turboquant_kv_enabled"], m["turboquant_kv_bits"]))
-' "$MODEL_ID" "''${OMLX_MTP:-0}" "''${OMLX_TURBOQUANT:-1}" "''${OMLX_TURBOQUANT_BITS:-4}"
+print("model_settings: %s mtp=%s turboquant=%s bits=%s spec=%s ane=%s"
+      % (mid, m["mtp_enabled"], m["turboquant_kv_enabled"], m["turboquant_kv_bits"],
+         m["specprefill_enabled"], m["qwen35_ane_prefill_enabled"]))
+' "$MODEL_ID" "$MTP" "$TQ" 4 "$SPEC" \
+        "$([ "$SPEC" = 1 ] && printf '%s' "$OMLX_MODEL_DIR/Qwen3.5-0.8B-MLX-8bit")" "$ANE"
     done
+
+    # Default model for requests that don't name one (is_default in
+    # model_settings.json; oMLX keeps the flag exclusive — setting one clears
+    # the rest). Merged here so a fresh install doesn't fall back to whatever
+    # sorts first alphabetically.
+    DEFAULT_MODEL="''${OMLX_DEFAULT_MODEL-Qwen3.8-27B-oQ4e-mtp}"
+    if [ -n "$DEFAULT_MODEL" ]; then
+      ${pkgs.python3}/bin/python3 -c '
+import json, os, sys
+want = sys.argv[1]
+path = os.path.expanduser("~/.omlx/model_settings.json")
+data = {}
+if os.path.exists(path):
+    try:
+        data = json.load(open(path))
+    except Exception:
+        pass
+models = data.setdefault("models", {})
+for mid, m in models.items():
+    m["is_default"] = mid == want
+models.setdefault(want, {})["is_default"] = True
+json.dump(data, open(path, "w"), indent=2)
+print("model_settings: default=%s" % want)
+' "$DEFAULT_MODEL"
+    fi
 
     # oMLX caps = fraction of min(this guard, Metal wired limit): soft 85%,
     # hard 95%. Raised 44 -> 46 so the Metal ceiling binds (prefill cap 42.7
