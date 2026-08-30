@@ -34,6 +34,8 @@ final: prev: {
 
   syncmon = final.callPackage ./pkgs/syncmon.nix { };
 
+  tg2kobo = final.callPackage ./pkgs/tg2kobo.nix { };
+
   mtplx = if final.stdenv.hostPlatform.isDarwin
     then final.callPackage ./pkgs/mtplx { inherit inputs; }
     else prev.mtplx or null;

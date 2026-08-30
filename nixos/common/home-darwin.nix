@@ -47,6 +47,7 @@ in
       jankyborders
       syncthing-macos
       syncmon
+      tg2kobo
       yazi
 
       (pass.withExtensions (exts: [ exts.pass-otp ]))
