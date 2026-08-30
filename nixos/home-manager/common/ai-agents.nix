@@ -59,6 +59,23 @@ let
   };
 
   antigravityHooks = {
+    Notification = [
+      {
+        matcher = "*";
+        hooks = [
+          {
+            type = "command";
+            command = ''
+              input=$(cat)
+              type=$(printf '%s' "$input" | ${pkgs.jq}/bin/jq -r '.notificationType // empty' 2>/dev/null)
+              if [ "$type" != "idle_prompt" ]; then
+                agent-state --agent antigravity --state needs-input &
+              fi
+            '';
+          }
+        ];
+      }
+    ];
     PreToolUse = [
       {
         matcher = "*";
@@ -66,17 +83,6 @@ let
           {
             type = "command";
             command = "agent-state --agent antigravity --state running &";
-          }
-        ];
-      }
-    ];
-    PostToolUse = [
-      {
-        matcher = "*";
-        hooks = [
-          {
-            type = "command";
-            command = "agent-state --agent antigravity --state done &";
           }
         ];
       }
@@ -110,6 +116,17 @@ let
           {
             type = "command";
             command = "agent-state --agent antigravity --state done &";
+          }
+        ];
+      }
+    ];
+    SessionEnd = [
+      {
+        matcher = "*";
+        hooks = [
+          {
+            type = "command";
+            command = "agent-state --agent antigravity --state off &";
           }
         ];
       }
@@ -166,10 +183,12 @@ let
     hooks = mkHooks "claude";
   };
 
+  githubToken = (secrets.github or { }).token or "";
+
   antigravitySettings = {
     colorScheme = "dark";
     enableTelemetry = false;
-    model = "Gemini 3.5 Flash (Medium)";
+    model = "Gemini 3.7 Flash (High)";
     security = {
       auth = {
         selectedType = "oauth-personal";
@@ -185,6 +204,16 @@ let
     mcpServers = {
       nixos = {
         command = "${pkgs.mcp-nixos}/bin/mcp-nixos";
+      };
+      github = {
+        serverUrl = "https://api.githubcopilot.com/mcp/";
+      } // (if githubToken != "" then {
+        headers = {
+          Authorization = "Bearer ${githubToken}";
+        };
+      } else {});
+      context7 = {
+        serverUrl = "https://mcp.context7.com/mcp";
       };
     };
     hooks = antigravityHooks;
