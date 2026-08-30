@@ -10,6 +10,15 @@ if [[ -z $selected ]]; then
   exit 0
 fi
 
+# Ensure the project has a .envrc so direnv picks the right nix devshell
+# (only under project roots - avoid e.g. ~/configs which has a flake.nix
+# but no devshell)
+case "$selected" in
+  "$HOME/Projects"|"$HOME/Projects"/*|"$HOME/IdeaProjects"|"$HOME/IdeaProjects"/*|"$HOME/Work/IdeaProjects"|"$HOME/Work/IdeaProjects"/*)
+    command -v tech-envrc >/dev/null && tech-envrc "$selected"
+    ;;
+esac
+
 selected_name=$(basename "$selected" | tr . _)
 tmux_running=$(pgrep tmux)
 

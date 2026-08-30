@@ -6,6 +6,7 @@
     ./alacritty.nix
     # ./doom.nix
     ./firefox.nix
+    ./direnv.nix
     ./git-common.nix
     ./ideavim.nix
     ./kitty.nix

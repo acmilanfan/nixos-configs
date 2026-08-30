@@ -23,4 +23,12 @@
     };
   };
 
+  # Global gitignore (git reads $XDG_CONFIG_HOME/git/ignore automatically).
+  # nix-direnv drops its flake-profile cache into every project using
+  # `use flake` - keep it out of git status across all repos.
+  home.file.".config/git/ignore".text = ''
+    # nix-direnv cache (flake profile + dumped environment)
+    .direnv/
+  '';
+
 }

@@ -1,0 +1,24 @@
+# direnv stdlib extension: tech-based devshell selection.
+# Put `use_tech` in a project's .envrc and the nix flake is picked from
+# project marker files. Shared devshells live in ~/configs/nixos-configs/shell.
+use_tech() {
+  local shells="$HOME/configs/nixos-configs/shell"
+  local variant=""
+
+  # go-node/java have macOS-specific flakes (the default ones are Linux-oriented)
+  if [[ "$(uname -s)" == "Darwin" ]]; then
+    variant="/darwin"
+  fi
+
+  if [[ -f go.mod ]]; then
+    use flake "$shells/go-node$variant"
+  elif [[ -f package.json ]]; then
+    use flake "$shells/go-node$variant"
+  elif [[ -f pom.xml || -f build.gradle || -f build.gradle.kts ]]; then
+    use flake "$shells/java$variant"
+  elif [[ -f pyproject.toml || -f requirements.txt || -f uv.lock ]]; then
+    use flake "$shells/python"
+  elif [[ -f flake.nix ]]; then
+    use flake
+  fi
+}

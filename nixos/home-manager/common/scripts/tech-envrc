@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Write a one-line .envrc (`use_tech`) into a project dir if it doesn't have one.
+# Called by tmux-sessionizer so newly picked-up projects get their nix devshell
+# applied automatically via direnv on first entry.
+# Usage: tech-envrc [dir]
+
+d="${1:-.}"
+
+[ -f "$d/.envrc" ] && exit 0
+
+if [ -f "$d/go.mod" ] \
+  || [ -f "$d/package.json" ] \
+  || [ -f "$d/pom.xml" ] \
+  || [ -f "$d/build.gradle" ] \
+  || [ -f "$d/build.gradle.kts" ] \
+  || [ -f "$d/pyproject.toml" ] \
+  || [ -f "$d/requirements.txt" ] \
+  || [ -f "$d/uv.lock" ] \
+  || [ -f "$d/flake.nix" ]; then
+  printf 'use_tech\n' > "$d/.envrc"
+  echo "tech-envrc: created $d/.envrc"
+fi

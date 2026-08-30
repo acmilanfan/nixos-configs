@@ -23,26 +23,14 @@ pkgs.mkShell {
     export LANG=en_US.UTF-8
     export TZ=Europe/Berlin
 
-    # Docker/Colima configuration for testcontainers
-    if command -v colima &> /dev/null; then
-      if colima status &> /dev/null; then
-        echo "Colima is running, configuring testcontainers environment..."
-        if [ -x "$HOME/.local/bin/colima-testcontainers-env" ]; then
-          eval "$($HOME/.local/bin/colima-testcontainers-env)"
-        else
-          # Fallback: set basic environment variables
-          export DOCKER_HOST="unix://$HOME/.colima/default/docker.sock"
-          export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE="/var/run/docker.sock"
-          export TESTCONTAINERS_RYUK_DISABLED="false"
-          export TESTCONTAINERS_HOST_OVERRIDE="127.0.0.1"
-        fi
-        echo "Docker is configured with colima"
-      else
-        echo "⚠️  Colima is not running. Start it with: colima start --cpu 4 --memory 8 --disk 60 --network-address"
-        echo "   Then restart this shell or run: eval \"\$(colima-testcontainers-env)\""
-      fi
-    else
-      echo "⚠️  Colima not found. Please install colima for Docker support."
-    fi
+    # Docker/Colima env for testcontainers - static exports only.
+    # nix-direnv re-runs this hook on EVERY shell load (each new tmux
+    # window), so no `colima status` RPC / echoes here - they made every
+    # window start noticeably slow. Docker just errors normally if colima
+    # is down; check with `colima status` manually when in doubt.
+    export DOCKER_HOST="unix://$HOME/.colima/default/docker.sock"
+    export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE="/var/run/docker.sock"
+    export TESTCONTAINERS_RYUK_DISABLED="false"
+    export TESTCONTAINERS_HOST_OVERRIDE="127.0.0.1"
   '';
 }
