@@ -256,7 +256,7 @@ in
     if [ -L "$AGY_SETTINGS" ]; then rm "$AGY_SETTINGS"; fi
 
     # Write managed settings
-    cat > "$AGY_SETTINGS" <<EOF
+    cat > "$AGY_SETTINGS" <<'EOF'
 ${builtins.toJSON antigravitySettings}
 EOF
     chmod 644 "$AGY_SETTINGS"
