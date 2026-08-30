@@ -179,12 +179,24 @@
         if ! tmux has-session -t="$session_name" 2>/dev/null; then
           tmux new-session -ds "$session_name" -c "$worktree_path"
         fi
-        tmux switch-client -t "$session_name"
         case "$agent" in
           claude) tmux send-keys -t "$session_name" "claude" Enter ;;
-          opencode) tmux send-keys -t "$session_name" "opencode" Enter ;;
+          opencode)
+            # Local model servers are on-demand; offer to start one detached
+            # (own ai-models tmux session, no focus steal) before launching.
+            # Prompt runs here, in the still-focused pane — switch-client
+            # happens below, after all prompting is done.
+            engine=$(printf "none\nomlx\nqwen" | fzf --prompt="local models > " --height=5)
+            case "$engine" in
+              omlx|qwen)
+                AI_MODELS_HEADLESS=1 ai-models "$engine"
+                echo "models starting in the ai-models session ..."
+                ;;
+            esac
+            tmux send-keys -t "$session_name" "opencode" Enter ;;
           antigravity) tmux send-keys -t "$session_name" "antigravity" Enter ;;
         esac
+        tmux switch-client -t "$session_name"
       }
       bindkey -s '^xn' 'wt-new\n'
 

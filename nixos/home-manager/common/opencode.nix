@@ -77,9 +77,10 @@ let
     };
   };
 
-  # Local, on-demand OpenAI-compatible servers (both machines). Start with
-  # `serve-qwen` / `serve-gemma` (below); the provider just points at the
-  # local port, so it's a no-op entry until a server is actually running.
+  # Local, on-demand OpenAI-compatible servers (both machines). Start them
+  # with `ai-models` (below) or the individual `serve-*` scripts; each
+  # provider just points at a local port, so it's a no-op entry until a
+  # server is actually running.
   localProviders = {
     ollama = {
       npm = "@ai-sdk/openai-compatible";
@@ -98,8 +99,8 @@ let
         "gemma4:31b-mlx" = {
           name = "Gemma 4 31B MLX (Ollama)";
         };
-        "qwen3.6:27b-mlx" = {
-          name = "Qwen 3.6 27B MLX (Ollama)";
+        "qwen3.8:27b-mlx" = {
+          name = "Qwen 3.8 27B MLX (Ollama)";
         };
         "qwen3.6:35b-mlx" = {
           name = "Qwen 3.6 35B MoE MLX (Ollama)";
@@ -109,20 +110,6 @@ let
         };
         "hf.co/unsloth/Llama-3_3-Nemotron-Super-49B-v1_5-GGUF:Q4_K_M" = {
           name = "Nemotron Super 49B (Ollama)";
-        };
-      };
-    };
-
-    mlx = {
-      npm = "@ai-sdk/openai-compatible";
-      name = "MLX 31B (local)";
-      options = {
-        baseURL = "http://127.0.0.1:8080/v1";
-        apiKey = "local";
-      };
-      models = {
-        "mlx-community/gemma-4-31b-it-6bit" = {
-          name = "Gemma 4 31B 6-bit (MLX, local)";
         };
       };
     };
@@ -153,6 +140,12 @@ let
       models = {
         "mtplx-qwen38-27b-optimized-speed" = {
           name = "Qwen3.8 27B (MTPLX Optimized Speed, local)";
+          # ~80k is the practical context max for this server on 48 GB;
+          # opencode should start compacting before that.
+          limit = {
+            context = 80000;
+            output = 8192;
+          };
           # Default reasoning effort is high; medium is enough for this
           # model's typical local-dev usage and noticeably faster.
           options.reasoningEffort = "medium";
@@ -174,6 +167,12 @@ let
       models = {
         "Qwen3.8-27B-oQ4e-mtp" = {
           name = "Qwen3.8 27B oQ4e-MTP (oMLX, local)";
+          # Ran fine at 155k+ tokens on this machine (MTP off, TurboQuant
+          # KV ~16 KB/token); 200k leaves headroom.
+          limit = {
+            context = 200000;
+            output = 8192;
+          };
           # Default reasoning effort is high; medium is enough for this
           # model's typical local-dev usage and noticeably faster.
           options.reasoningEffort = "medium";
@@ -223,10 +222,21 @@ let
       models = {
         "deepseek-v4-flash" = {
           name = "DeepSeek V4 Flash q2 (ds4, SSD-streamed)";
+          # Matches the DS4_CTX default serve-ds4 passes; the server
+          # hard-caps context there regardless.
+          limit = {
+            context = 32768;
+            output = 8192;
+          };
         };
       };
     };
   };
+
+  # Space-separated model list for serve-ollama's default pull set, kept in
+  # sync automatically with the ollama provider above.
+  ollamaModelList =
+    lib.concatStringsSep " " (builtins.attrNames localProviders.ollama.models);
 
   opencodeSettings = {
     "$schema" = "https://opencode.ai/config.json";
@@ -320,9 +330,8 @@ let
 
   # -------------------------------------------------------------------------
   # Local model runtimes — on-demand wrapper scripts (not always-on daemons,
-  # to preserve RAM on a 48GB machine). Run `serve-qwen`/`serve-gemma`
-  # manually (or wire a launchd agent later) before using the corresponding
-  # opencode provider.
+  # to preserve RAM on a 48GB machine). Run the matching `serve-*` script
+  # (usually via `ai-models`) before using the corresponding opencode provider.
   # -------------------------------------------------------------------------
 
   # Built via uv2nix (nixos/common/pkgs/mtplx) — a real Nix-store package
@@ -344,12 +353,9 @@ let
     # compiled-verify path, so the flag is only partially in effect — treat MTP
     # and cheap KV as mutually exclusive until measured otherwise.
     # mtplx's "session bank" prefix cache auto-sizes to half the post-model RAM
-    # surplus (e.g. 14.1G) — a large standing reservation. Shrink it to trade
-    # cache for context, or grow it for more sessions.
-    export MTPLX_SESSION_BANK_MAX_BYTES="''${MTPLX_SESSION_BANK_MAX_BYTES:-}"
-    export MTPLX_SESSION_BANK_PER_SESSION_BYTES="''${MTPLX_SESSION_BANK_PER_SESSION_BYTES:-}"
-    [ -n "$MTPLX_SESSION_BANK_MAX_BYTES" ] || unset MTPLX_SESSION_BANK_MAX_BYTES
-    [ -n "$MTPLX_SESSION_BANK_PER_SESSION_BYTES" ] || unset MTPLX_SESSION_BANK_PER_SESSION_BYTES
+    # surplus (e.g. 14.1G) — a large standing reservation. Shrink/grow it by
+    # exporting MTPLX_SESSION_BANK_MAX_BYTES / MTPLX_SESSION_BANK_PER_SESSION_BYTES
+    # in the caller's environment; the values pass straight through to mtplx.
 
     ${unstable.mtplx}/bin/mtplx pull "$MODEL" --cache-dir "$CACHE_DIR"
     exec ${unstable.mtplx}/bin/mtplx quickstart \
@@ -433,10 +439,10 @@ let
       fi
 
       # Per-model flags are merged into ~/.omlx/model_settings.json (read at
-      # server startup). Lightning MTP and TurboQuant historically didn't stack
-      # on this arch (2026-08-19 A/B: MTP-on suppressed KV quantisation,
-      # ~213 KB/token vs ~16 KB for q4) — these profiles enable both anyway;
-      # watch prefill memory via the guard below before trusting long context.
+      # server startup). Lightning MTP and TurboQuant q4 stack cleanly on this
+      # arch — 2026-08-22 bench confirmed both engage together (see the MTP
+      # + TurboQuant section in ~/ai/artifacts/qwen38-bench/README.md), so
+      # these profiles enable both by default.
       SPEC=0
       ANE=0
       case "$NAME" in
@@ -508,8 +514,9 @@ print("model_settings: default=%s" % want)
 
     # oMLX caps = fraction of min(this guard, Metal wired limit): soft 85%,
     # hard 95%. Raised 44 -> 46 so the Metal ceiling binds (prefill cap 42.7
-    # GB). Note the ~240 KB/token figure in older comments was measured with MTP
-    # on (TurboQuant suppressed); with MTP off KV is quantised and much cheaper.
+    # GB). The old ~240 KB/token figure was measured when MTP suppressed
+    # TurboQuant (2026-08-19); with MTP + q4 stacking (confirmed 2026-08-22)
+    # KV stays quantised and cheap even with MTP on.
     # Override to sweep: OMLX_MEMORY_GUARD_GB=46 serve-omlx.
     GUARD_GB="''${OMLX_MEMORY_GUARD_GB:-46}"
 
@@ -519,6 +526,61 @@ print("model_settings: default=%s" % want)
       --host 127.0.0.1 \
       --port 8083 \
       --memory-guard-gb "$GUARD_GB"
+  '';
+
+  # Qwen "Sharp" chat template (huggingface.co/peculiar-ragdoll/
+  # Qwen-Sharp-Chat-Templates): drop-in chat_template.jinja for MLX-format
+  # Qwen3.5/3.6/3.8 dirs — froggeric's fixed template (thinking retention,
+  # tool-call fixes) plus a default-on terseness system prompt. Current oMLX
+  # (transformers >= 4.51) prefers the .jinja file over the template embedded
+  # in tokenizer_config.json, so dropping the file in is enough; restart oMLX
+  # afterwards. A model dir re-downloaded from HF ships the stock template and
+  # silently reverts this — re-run after any re-download.
+  applyQwenSharpTemplate = pkgs.writeShellScriptBin "apply-qwen-sharp-template" ''
+    set -euo pipefail
+
+    REPO="peculiar-ragdoll/Qwen-Sharp-Chat-Templates"
+    # Distinctive line of the appended terseness prompt; a download that
+    # lacks it is wrong (wrong file, truncated, HTML error page) — refuse.
+    MARKER="Never: open with preamble or pleasantries"
+
+    if [ "$#" -eq 0 ]; then
+      set -- "$HOME/ai/models/omlx/Qwen3.8-27B-oQ4e-mtp"
+    fi
+
+    for DIR in "$@"; do
+      case "$(basename "$DIR")" in
+        *Qwen*) ;;
+        *)
+          echo "apply-qwen-sharp-template: '$DIR' is not a Qwen model dir (template is Qwen3.5/3.6/3.8-only)" >&2
+          exit 1
+          ;;
+      esac
+      if [ ! -f "$DIR/config.json" ]; then
+        echo "apply-qwen-sharp-template: '$DIR' has no config.json — not a model dir?" >&2
+        exit 1
+      fi
+    done
+
+    TMP="$(mktemp -d)"
+    trap 'rm -rf "$TMP"' EXIT
+
+    echo "Downloading Sharp chat template from $REPO ..."
+    export PATH="${pkgs.uv}/bin:$PATH"
+    uvx --from huggingface_hub hf download \
+      "$REPO" chat_template.jinja --local-dir "$TMP"
+
+    if ! grep -q "$MARKER" "$TMP/chat_template.jinja"; then
+      echo "apply-qwen-sharp-template: downloaded template lacks the terseness marker; nothing installed" >&2
+      exit 1
+    fi
+
+    for DIR in "$@"; do
+      cp "$TMP/chat_template.jinja" "$DIR/chat_template.jinja"
+      echo "applied: $DIR/chat_template.jinja"
+    done
+
+    echo "Done. Restart/rescan oMLX to pick up the new template."
   '';
 
   # DwarfStar (antirez/ds4): DeepSeek V4 Flash 284B (13B active) via SSD expert
@@ -624,8 +686,9 @@ print("model_settings: default=%s" % want)
     export OLLAMA_MODELS="$HOME/ai/models/ollama"
     export OLLAMA_HOST="127.0.0.1:11434"
 
-    # KV cache quantisation. Unlike oMLX/mtplx (where quantised KV collides with
-    # MTP verify), ollama has no MTP so this actually applies. q8_0 halves KV vs
+    # KV cache quantisation. Unlike mtplx (where quantised KV collides with the
+    # MTP verify path), ollama has no MTP so this actually applies. (oMLX stacks
+    # TurboQuant q4 KV with MTP fine — confirmed 2026-08-22.) q8_0 halves KV vs
     # f16 with negligible quality loss; q4_0 quarters it with a modest loss that
     # shows more at long context. Keys are more sensitive than values, and ollama
     # only exposes a uniform setting, so q8_0 is the safer default. Requires
@@ -637,11 +700,17 @@ print("model_settings: default=%s" % want)
     if ! ollama list &>/dev/null; then
       echo "Starting ollama serve..." >&2
       ollama serve &>/dev/null &
-      sleep 2
+      tries=0
+      while ! ollama list &>/dev/null && [ "$tries" -lt 40 ]; do
+        sleep 0.5
+        tries=$((tries + 1))
+      done
     fi
 
     MODEL="''${OLLAMA_MODEL:-gemma4:26b-mlx}"
-    EXTRA_MODELS="''${OLLAMA_EXTRA_MODELS:-gemma4:12b-mlx qwen3.6:27b-mlx hf.co/unsloth/Llama-3_3-Nemotron-Super-49B-v1_5-GGUF:Q4_K_M}"
+    # Default pull list is derived from the ollama provider's model set in
+    # opencode.json, so every model selectable there actually exists locally.
+    EXTRA_MODELS="''${OLLAMA_EXTRA_MODELS:-${ollamaModelList}}"
     echo "Ollama: pulling ''${MODEL} (one-time) ..."
     ollama pull "$MODEL"
 
@@ -660,31 +729,55 @@ print("model_settings: default=%s" % want)
   ocOllama = model: name: pkgs.writeShellScriptBin "oc-${name}" ''
     exec opencode run -m "ollama/${model}" "''${@}"
   '';
-  ocQwen27b   = ocOllama "qwen3.6:27b-mlx"    "qwen27b";
+  ocQwen27b   = ocOllama "qwen3.8:27b-mlx"    "qwen27b";
   ocQwen35b   = ocOllama "qwen3.6:35b-mlx"    "qwen35b";
   ocGemma26b  = ocOllama "gemma4:26b-mlx"     "gemma26b";
   ocGemma31b  = ocOllama "gemma4:31b-mlx"     "gemma31b";
   ocNemotron  = ocOllama "hf.co/unsloth/Llama-3_3-Nemotron-Super-49B-v1_5-GGUF:Q4_K_M" "nemotron";
 
-  # Puts both on-demand local model servers in one detached tmux session
-  # (one window each) instead of tying up a foreground pane, and
-  # switches/attaches to it. Re-running is a no-op if the session already
-  # exists — same idempotency pattern as tmux-sessionizer.
+  # Puts the on-demand local model servers in one detached tmux session (one
+  # window each) instead of tying up a foreground pane, then switches/attaches
+  # to it. The 27B-class engines can't share 48 GB with each other, so pick
+  # one: `ai-models [omlx|qwen]` (default omlx). Re-running with the same
+  # engine is a no-op; switching engines rebuilds the session. Same
+  # idempotency pattern as tmux-sessionizer. AI_MODELS_HEADLESS=1 skips only
+  # the switch/attach tail — used by wt-new to start models behind a fresh
+  # opencode session without yanking focus out of it.
   aiModels = pkgs.writeShellScriptBin "ai-models" ''
     set -euo pipefail
     SESSION=ai-models
+    ENGINE="''${1:-omlx}"
 
-    if ! ${pkgs.tmux}/bin/tmux has-session -t="$SESSION" 2>/dev/null; then
-      ${pkgs.tmux}/bin/tmux new-session -ds "$SESSION" -n qwen "serve-qwen; exec $SHELL"
-      ${pkgs.tmux}/bin/tmux new-window -t "$SESSION" -n gemma12b "serve-gemma-small; exec $SHELL"
-      ${pkgs.tmux}/bin/tmux new-window -t "$SESSION" -n ollama "serve-ollama; exec $SHELL"
-      ${pkgs.tmux}/bin/tmux new-window -t "$SESSION" -n omlx "serve-omlx; exec $SHELL"
+    if [ "$ENGINE" != "omlx" ] && [ "$ENGINE" != "qwen" ]; then
+      echo "Usage: ai-models [omlx|qwen]  (27B engine; default omlx)" >&2
+      exit 1
+    fi
+
+    TMUX_BIN="${pkgs.tmux}/bin/tmux"
+
+    if $TMUX_BIN has-session -t="$SESSION" 2>/dev/null \
+       && ! $TMUX_BIN list-windows -t "$SESSION" -F '#{window_name}' | grep -qx "$ENGINE"; then
+      echo "ai-models: switching engine -> $ENGINE, rebuilding session ..."
+      $TMUX_BIN kill-session -t "$SESSION"
+    fi
+
+    if ! $TMUX_BIN has-session -t="$SESSION" 2>/dev/null; then
+      $TMUX_BIN new-session -ds "$SESSION" -n "$ENGINE" "serve-$ENGINE; exec $SHELL"
+      $TMUX_BIN new-window -t "$SESSION" -n gemma12b "serve-gemma-small; exec $SHELL"
+      $TMUX_BIN new-window -t "$SESSION" -n ollama "serve-ollama; exec $SHELL"
+    fi
+
+    # Headless mode (AI_MODELS_HEADLESS=1, used by wt-new): leave the session
+    # running detached in its own tmux window set, but stay in the caller's
+    # pane instead of switching/attaching to it.
+    if [ -n "''${AI_MODELS_HEADLESS:-}" ]; then
+      exit 0
     fi
 
     if [ -n "''${TMUX:-}" ]; then
-      ${pkgs.tmux}/bin/tmux switch-client -t "$SESSION"
+      $TMUX_BIN switch-client -t "$SESSION"
     else
-      ${pkgs.tmux}/bin/tmux attach -t "$SESSION"
+      $TMUX_BIN attach -t "$SESSION"
     fi
   '';
 
@@ -871,8 +964,9 @@ in
       - Prefer existing skills (the `superpowers` plugin registers its own
         skills directory — use the `skill` tool to discover them) over
         ad-hoc approaches.
-      - Local models (`mlx`, `llamacpp` providers) are on-demand: run
-        `serve-gemma` / `serve-qwen` first, then select the provider.
+      - Local model providers (`omlx`, `mtplx`, `ollama`, `ds4`) are
+        on-demand: run `ai-models` (or the specific `serve-*` script)
+        first, then select the provider.
       - Real project work happens in-place (project root, or a `wt-new`
         worktree sibling) — never stage it under `~/ai/projects/`.
       - Write scratch/debug output (logs, transcripts, one-off dumps) to
@@ -916,6 +1010,7 @@ in
     # shared with Linux hosts, which must never force those derivations.
     serveQwen
     serveOmlx
+    applyQwenSharpTemplate
     serveDs4
     serveGemmaSmall
     serveOllama
