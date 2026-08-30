@@ -1,2 +1,6 @@
 # IDEA files
 .idea
+
+# macOS / nix build junk
+.DS_Store
+/result
