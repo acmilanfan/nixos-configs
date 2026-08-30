@@ -111,7 +111,7 @@
           # Reduce background network activity
           "network.prefetch-next" = false;
           "network.dns.disablePrefetch" = true;
-          "beacon.enabled" = false;
+          # "beacon.enabled" = false;
 
           # Block all autoplay
           "media.autoplay.default" = 5;
