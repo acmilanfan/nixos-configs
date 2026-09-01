@@ -1,18 +1,17 @@
 diff --git a/drivers/hid/hid-multitouch.c b/drivers/hid/hid-multitouch.c
-index 7daa8f6d8187..037a41c62145 100644
+index edb37b4..455ed30 100644
 --- a/drivers/hid/hid-multitouch.c
 +++ b/drivers/hid/hid-multitouch.c
-@@ -431,10 +431,11 @@ static const struct mt_class mt_classes[] = {
- 			MT_QUIRK_CONTACT_CNT_ACCURATE,
+@@ -443,11 +443,11 @@ static const struct mt_class mt_classes[] = {
  	},
  		{ .name = MT_CLS_YOGABOOK9I,
--		.quirks = MT_QUIRK_ALWAYS_VALID |
--			MT_QUIRK_FORCE_MULTI_INPUT |
-+		.quirks = MT_QUIRK_FORCE_MULTI_INPUT |
+ 		.quirks = MT_QUIRK_NOT_SEEN_MEANS_UP |
+-			MT_QUIRK_ALWAYS_VALID |
+ 			MT_QUIRK_CONTACT_CNT_ACCURATE |
+ 			MT_QUIRK_FORCE_MULTI_INPUT |
  			MT_QUIRK_SEPARATE_APP_REPORT |
  			MT_QUIRK_HOVERING |
-+			MT_QUIRK_CONTACT_CNT_ACCURATE |
 +			MT_QUIRK_IGNORE_DUPLICATES |
  			MT_QUIRK_YOGABOOK9I,
+ 		.maxcontacts = 10,
  		.export_all_inputs = true
- 	},
