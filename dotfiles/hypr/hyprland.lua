@@ -64,9 +64,9 @@ hl.config({
     no_hardware_cursors = true,
   },
 
-  misc = {
-    vrr = 1,
-  },
+  -- misc = {
+  --   vrr = 1,
+  -- },
 
   general = {
     gaps_in = 3,
