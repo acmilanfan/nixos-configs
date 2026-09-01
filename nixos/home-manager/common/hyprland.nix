@@ -29,13 +29,15 @@ in
 
     # Whether to enable hyprland-session.target on hyprland startup
     systemd.enable = true;
+    configType = "lua";
     plugins = with pkgs; [
       # No plugins needed — touch_gestures is built-in as of Hyprland 0.55+
     ];
-    extraConfig = "# See hypr/hyprland.lua loaded via xdg.configFile below";
+    # HM generates the config header (incl. the dbus/systemd session
+    # activation hook) and appends our config from dotfiles/
+    extraConfig = lib.readFile ../../../dotfiles/hypr/hyprland.lua;
   };
 
-  xdg.configFile."hypr/hyprland.lua".source = ../../../dotfiles/hypr/hyprland.lua;
   xdg.configFile."hypr/hyprsunset.conf".source = ../../../dotfiles/hypr/hyprsunset.conf;
 
   home.file = {
