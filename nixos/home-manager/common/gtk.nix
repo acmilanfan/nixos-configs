@@ -4,9 +4,9 @@
   gtk = {
     enable = true;
     font = {
-      name = "Roboto Medium";
+      name = "Inter Medium";
       size = 13;
-      package = pkgs.roboto;
+      package = pkgs.inter;
     };
     theme = {
       name = "Adwaita-dark";

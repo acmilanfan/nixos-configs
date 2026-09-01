@@ -18,16 +18,26 @@
     #          })
     #      );
     #package = pkgs.firefox-wayland;
-
     package = if pkgs.stdenv.isDarwin then null else pkgs.firefox;
     # package = pkgs.firefox-bin;
+
+    # nixpkgs' firefox wrapper exports MOZ_LEGACY_PROFILES=1, so Firefox reads
+    # profiles from ~/.mozilla/firefox. HM >= 26.05 defaults to the XDG path,
+    # which Firefox then ignores — pin the legacy path and adopt the existing
+    # profile directory so the managed settings/userChrome actually apply.
+    # On 2026-09-01 we migrated back to the original 'default' profile
+    # (cookies/history richer); 'g68skjlx.default' is kept as a backup.
+    configPath = lib.mkIf pkgs.stdenv.isLinux ".mozilla/firefox";
+
     profiles = {
       default = {
         isDefault = true;
+        path = lib.mkIf pkgs.stdenv.isLinux "default";
         userChrome = ''
           @namespace url("http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"); /* set default namespace to XUL */
           * {
             font-family: Inter !important;
+            font-weight: 500 !important;
           }
           #urlbar {
             font-size: 16pt !important
@@ -45,6 +55,17 @@
           "browser.tabs.closeWindowWithLastTab" = true;
           "toolkit.legacyUserProfileCustomizations.stylesheets" = true;
           "layout.css.devPixelsPerPx" = -1.0;
+
+          # --- Fonts (macOS-style rendering defaults) ---
+          # Web content defaults resolve through fontconfig (sans-serif -> Inter).
+          # UI weight comes from userChrome above; these pin the generic families.
+          "font.name.sans-serif.x-western" = "Inter";
+          "font.name.sans-serif.x-unicode" = "Inter";
+          "font.name.sans-serif.x-cyrillic" = "Inter";
+          "font.default.x-western" = "sans-serif";
+          "font.default.x-unicode" = "sans-serif";
+          "font.default.x-cyrillic" = "sans-serif";
+
           "devtools.theme" = "dark";
           "experiments.activeExperiment" = false;
           "experiments.enabled" = false;
