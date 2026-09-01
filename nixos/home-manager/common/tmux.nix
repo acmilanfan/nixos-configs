@@ -47,9 +47,9 @@ in
         set -g @agent-indicator-notification-command "sketchybar --trigger ai_agent_update; /opt/homebrew/bin/hs -c \"require('nanowm.agents').onAgentStateChange('$AGENT_STATE','$AGENT_NAME')\" 2>/dev/null; case $AGENT_STATE in done|off) sleep 3 && sketchybar --trigger ai_agent_update;; esac"
         # Trigger sketchybar refresh on pane exit (catches agent exits without SessionEnd hooks, e.g. Claude)
         set-hook -g pane-exited "run-shell -b 'sketchybar --trigger ai_agent_update 2>/dev/null'"
-        # AI agent switcher: fzf --tmux popup listing all tracked agent panes
-        bind-key A run-shell -b "tmux-agent-switcher"
       ''}
+      # AI agent switcher: fzf --tmux popup listing all tracked agent panes
+      bind-key A run-shell -b "tmux-agent-switcher"
     '';
     plugins = with pkgs.tmuxPlugins; [
       sensible
@@ -69,6 +69,7 @@ in
 
   home.packages = [
     tmuxUpdateEnv
+    (pkgs.writeShellScriptBin "tmux-agent-switcher" (lib.readFile ./scripts/tmux-agent-switcher))
     (pkgs.writeShellScriptBin "agent-state" ''
       "${tmux-agent-indicator}/share/tmux-plugins/agent-indicator/scripts/agent-state.sh" "$@"
 
@@ -91,8 +92,6 @@ in
         fi
       ''}
     '')
-  ] ++ lib.optionals pkgs.stdenv.isDarwin [
-    (pkgs.writeShellScriptBin "tmux-agent-switcher" (lib.readFile ./scripts/tmux-agent-switcher))
   ];
 
 }

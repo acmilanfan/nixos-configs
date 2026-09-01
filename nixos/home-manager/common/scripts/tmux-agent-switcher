@@ -3,7 +3,7 @@
 # ═══════════════════════════════════════════════════════════════
 # tmux-agent-switcher — fzf --tmux popup listing AI agent panes.
 # Data comes from the shared ai-agent-list script; selecting an entry
-# delegates to Hammerspoon's existing NanoWM tag-aware pane focus.
+# focuses the pane (Hammerspoon/NanoWM on macOS, tmux+hyprctl on Linux).
 # ═══════════════════════════════════════════════════════════════
 
 ROWS=$(ai-agent-list)
@@ -36,4 +36,24 @@ case "$PANE_ID" in
   %[0-9]*) ;;
   *) exit 0 ;;
 esac
-/opt/homebrew/bin/hs -c "require('nanowm.agents').focusAgent('$PANE_ID')" 2>/dev/null
+
+# Focus the selected pane. macOS delegates to Hammerspoon/NanoWM; Linux uses
+# tmux client/window/pane switching (same logic as hypr-ai-agents focus_agent).
+case "$(uname -s)" in
+  Darwin)
+    /opt/homebrew/bin/hs -c "require('nanowm.agents').focusAgent('$PANE_ID')" 2>/dev/null
+    ;;
+  Linux)
+    info=$(tmux list-panes -a -F '#{pane_id} #{session_name} #{window_index}' -f "#{m:#{pane_id},$PANE_ID}" 2>/dev/null)
+    read -r p_id session win_idx <<< "$info"
+    if [ -n "$p_id" ]; then
+      tmux switch-client -t "$session"
+      tmux select-window -t "$session:$win_idx"
+      tmux select-pane -t "$p_id"
+      client_pid=$(tmux list-clients -t "$session" -F '#{client_pid}' 2>/dev/null | head -1)
+      if [ -n "$client_pid" ] && command -v hyprctl >/dev/null 2>&1; then
+        hyprctl dispatch "hl.dsp.focus({window = 'pid:$client_pid'})" >/dev/null 2>&1
+      fi
+    fi
+    ;;
+esac
