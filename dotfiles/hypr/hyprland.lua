@@ -7,6 +7,8 @@ hl.env("XDG_CURRENT_DESKTOP", "Hyprland")
 hl.env("QT_QPA_PLATFORM", "wayland")
 hl.env("XCURSOR_SIZE", "28")
 hl.env("HYPRCURSOR_SIZE", "28")
+-- macOS-style stem darkening for FreeType
+hl.env("FREETYPE_PROPERTIES", "cff:no-stem-darkening=0 autofitter:no-stem-darkening=0 type1:no-stem-darkening=0 t1cid:no-stem-darkening=0")
 
 -- --- MONITORS ---
 -- Not predefined: auto-detect on startup, then hypr-profile restore applies the saved layout.

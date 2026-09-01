@@ -21,6 +21,8 @@ in
     XDG_CURRENT_DESKTOP = "Hyprland";
     XDG_SESSION_TYPE = "wayland";
     QT_QPA_PLATFORM = "wayland";
+    # macOS-style stem darkening (also set system-wide in nixos/common/fonts.nix)
+    FREETYPE_PROPERTIES = "cff:no-stem-darkening=0 autofitter:no-stem-darkening=0 type1:no-stem-darkening=0 t1cid:no-stem-darkening=0";
   };
 
   wayland.windowManager.hyprland = {
