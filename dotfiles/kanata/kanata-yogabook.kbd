@@ -32,7 +32,7 @@
   (c v)    (multi lctl v)    50 all-released ()
   (x c)    (multi lctl c)    50 all-released ()
   (z x)    (multi lctl x)    50 all-released ()
-  ;; Language switch (matches Hyprland grp:lctrl_lshift_toggle)
+  ;; Language switch (matches Hyprland grp:rctrl_rshift_toggle + Sweep RS(RCTRL))
   (y u)    @lang             50 all-released ()
 )
 
@@ -120,8 +120,9 @@
   d (tap-hold-release $tap-time $hold-time d lsft)
   f (tap-hold-release $tap-time $hold-time f lctl)
 
-  j (tap-hold-release $tap-time $hold-time j rctl)
-  k (tap-hold-release $tap-time $hold-time k rsft)
+  ;; Home row mods: left side so j+k hold can't emit the rctl+rsft lang toggle
+  j (tap-hold-release $tap-time $hold-time j lctl)
+  k (tap-hold-release $tap-time $hold-time k lsft)
   l (tap-hold-release $tap-time $hold-time l ralt)
   ; (tap-hold-release $tap-time $hold-time ; rmet)
 
@@ -168,6 +169,6 @@
   scr (multi lsft lctl s)
   scrm (multi lsft lctl lalt s)
 
-  ;; Language switch (matches Hyprland kb_options = grp:lctrl_lshift_toggle)
-  lang (multi lctl lsft)
+  ;; Language switch (matches Hyprland kb_options = grp:rctrl_rshift_toggle)
+  lang (multi rsft rctl)
 )

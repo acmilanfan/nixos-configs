@@ -52,7 +52,7 @@ hl.config({
   input = {
     kb_layout = "us,de,ru",
     follow_mouse = 1,
-    kb_options = "grp:lctrl_lshift_toggle",
+    kb_options = "grp:rctrl_rshift_toggle",
     touchpad = {
       natural_scroll = true,
     },
