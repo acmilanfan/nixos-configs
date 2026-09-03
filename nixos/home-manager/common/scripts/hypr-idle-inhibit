@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Control the manual wayland idle inhibitor.
+# The inhibitor state is the hypr-idle-inhibit.service user unit:
+# active = idle inhibited (hypridle and hyprlock-absence both respect it).
+# UI-agnostic on purpose: driven by waybar now, Quickshell later.
+
+UNIT="hypr-idle-inhibit.service"
+
+is_active() {
+  systemctl --user is-active --quiet "$UNIT"
+}
+
+case "${1:-toggle}" in
+  toggle)
+    if is_active; then
+      systemctl --user stop "$UNIT"
+    else
+      systemctl --user start "$UNIT"
+    fi
+    ;;
+  on)
+    systemctl --user start "$UNIT"
+    ;;
+  off)
+    systemctl --user stop "$UNIT"
+    ;;
+  status)
+    if is_active; then
+      echo on
+      exit 0
+    else
+      echo off
+      exit 1
+    fi
+    ;;
+  *)
+    echo "usage: hypr-idle-inhibit [toggle|on|off|status]" >&2
+    exit 2
+    ;;
+esac

@@ -68,7 +68,7 @@
 }
 
 #custom-touch_menu,
-#idle_inhibitor {
+#custom-idle-inhibit {
   background-color: #101010;
   padding: 0.5rem 1rem;
   margin: 5px 5px;

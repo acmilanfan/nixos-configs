@@ -422,6 +422,8 @@ in
     (writeShellScriptBin "hypr-iio-toggle" (lib.readFile ./scripts/hypr-iio-toggle))
     (writeShellScriptBin "hypr-touch-action" (lib.readFile ./scripts/hypr-touch-action))
     (writeShellScriptBin "hypr-waybar-toggle" (lib.readFile ./scripts/hypr-waybar-toggle))
+    (writeShellScriptBin "hypr-idle-inhibit" (lib.readFile ./scripts/hypr-idle-inhibit))
+    wlinhibit
     wtype
   ];
 
@@ -503,6 +505,83 @@ in
             LAST_TRIGGER_TIME=0
           fi
           sleep 0.5
+        done
+      '';
+      Restart = "always";
+    };
+    Install = {
+      WantedBy = [ "graphical-session.target" ];
+    };
+  };
+
+  # Manual idle inhibitor, started/stopped on demand via the hypr-idle-inhibit
+  # CLI (waybar button now, Quickshell later). Unit active = idle inhibited:
+  # honored by hypridle via the wayland idle-inhibit protocol, and checked by
+  # hyprlock-absence so presence-based locking also respects the toggle.
+  systemd.user.services.hypr-idle-inhibit = {
+    Unit = {
+      Description = "Manual wayland idle inhibitor (wlinhibit)";
+    };
+    Service = {
+      ExecStart = "${pkgs.wlinhibit}/bin/wlinhibit";
+      Restart = "always";
+      RestartSec = 2;
+    };
+  };
+
+  # Lock-on-absence counterpart to hyprlock-proximity (which wakes on approach):
+  # when the HPS sensors report no human presence continuously for
+  # ABSENCE_LOCK_DELAY seconds, lock the screen. No-ops on machines without
+  # these sensors (z16, t480, vm) since the sensor files are missing.
+  systemd.user.services.hyprlock-absence = {
+    Unit = {
+      Description = "Lock hyprlock when human presence sensors report absence";
+      After = [ "graphical-session.target" ];
+    };
+    Service = {
+      ExecStart = pkgs.writeShellScript "absence-trigger" ''
+        SENSOR1="/sys/bus/iio/devices/iio:device1/in_proximity0_raw"
+        SENSOR2="/sys/bus/iio/devices/iio:device2/in_proximity0_raw"
+        ABSENCE_LOCK_DELAY=5
+        POLL_INTERVAL=0.5
+
+        if [ ! -f "$SENSOR1" ] && [ ! -f "$SENSOR2" ]; then
+          echo "No proximity sensors found; exiting."
+          exit 0
+        fi
+
+        ABSENT_SINCE=0
+
+        while true; do
+          if pgrep -x "hyprlock" > /dev/null; then
+            # Already locked; wake-on-approach service handles this side.
+            ABSENT_SINCE=0
+          elif systemctl --user is-active --quiet hypr-idle-inhibit.service; then
+            # Manual idle inhibitor active: user asked not to be locked.
+            ABSENT_SINCE=0
+          else
+            STATE1=0
+            STATE2=0
+            [ -f "$SENSOR1" ] && STATE1=$(cat "$SENSOR1")
+            [ -f "$SENSOR2" ] && STATE2=$(cat "$SENSOR2")
+            # Non-zero = someone present (safer failure mode than ==1: sensor
+            # garbage keeps the screen unlocked and idle-lock stays the fallback)
+            STATE=$((STATE1 | STATE2))
+
+            NOW=$(date +%s)
+            if [ "$STATE" -eq 0 ]; then
+              if [ "$ABSENT_SINCE" -eq 0 ]; then
+                ABSENT_SINCE=$NOW
+              elif [ $((NOW - ABSENT_SINCE)) -ge $ABSENCE_LOCK_DELAY ]; then
+                echo "No presence for $ABSENCE_LOCK_DELAY s; locking..."
+                ${pkgs.hyprlock}/bin/hyprlock
+                ABSENT_SINCE=0
+              fi
+            else
+              ABSENT_SINCE=0
+            fi
+          fi
+          sleep $POLL_INTERVAL
         done
       '';
       Restart = "always";

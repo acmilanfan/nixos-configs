@@ -13,7 +13,7 @@
     "hyprland/workspaces",
     "hyprland/window",
     "custom/touch_menu",
-    "idle_inhibitor"
+    "custom/idle-inhibit"
   ],
   "modules-center": [
     "clock"
@@ -75,12 +75,11 @@
       "max-length": 50,
       "separate-outputs": true
   },
-  "idle_inhibitor": {
-    "format": "{icon}",
-    "format-icons": {
-      "activated": "",
-      "deactivated": ""
-    }
+  "custom/idle-inhibit": {
+    "exec": "hypr-idle-inhibit status > /dev/null && echo '' || echo ''",
+    "interval": 2,
+    "tooltip": false,
+    "on-click": "hypr-idle-inhibit toggle"
   },
   "hyprland/workspaces": {
     "format": "{name}: {icon}",

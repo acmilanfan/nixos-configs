@@ -1,5 +1,14 @@
 #!/usr/bin/env bash
 
+# Resolve the live Hyprland instance if the inherited signature is stale
+# (start-hyprland relaunches after crashes keep old shells pointing at dead
+# instances); waybar's hyprland modules need the current signature.
+SIG_DIR="/run/user/$(id -u)/hypr"
+if [ -n "$HYPRLAND_INSTANCE_SIGNATURE" ] && [ ! -d "$SIG_DIR/$HYPRLAND_INSTANCE_SIGNATURE" ]; then
+    LIVE=$(ls -t "$SIG_DIR" 2>/dev/null | head -1)
+    [ -n "$LIVE" ] && export HYPRLAND_INSTANCE_SIGNATURE="$LIVE"
+fi
+
 # Function to kill waybar instances based on our specific configs
 kill_waybar() {
     pkill -f "waybar -c .*config-hypr" 2>/dev/null
