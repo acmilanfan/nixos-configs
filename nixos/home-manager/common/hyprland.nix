@@ -1,22 +1,12 @@
 {
   pkgs,
   lib,
-  inputs,
   ...
 }:
 let
-  fuzzel-main = pkgs.fuzzel.overrideAttrs (old: {
-    src = pkgs.fetchgit {
-      url = "https://codeberg.org/dnkl/fuzzel.git";
-      rev = "9fb7e6c9604d069b8b0c16871a8d8dc8d6e09973";
-      sha256 = "sha256-rlP2+Okq8TUSfvk63HvjMrDyMDjjbpDxH3buhGi3b3Y=";
-    };
-  });
   hypr-iio-rotate-script = (pkgs.writeShellScriptBin "hypr-iio-rotate" (lib.readFile ./scripts/hypr-iio-rotate));
 in
 {
-  imports = [ inputs.vicinae.homeManagerModules.default ];
-
   home.sessionVariables = {
     XDG_CURRENT_DESKTOP = "Hyprland";
     XDG_SESSION_TYPE = "wayland";
@@ -278,90 +268,6 @@ in
       #     "#008000"
       #   ];
       # };
-    };
-  };
-
-  programs.vicinae = {
-    enable = true;
-    systemd = {
-      enable = true;
-      autoStart = true; # default: false
-      # environment = {
-      #   USE_LAYER_SHELL = 1;
-      # };
-    };
-    settings = {
-      close_on_focus_loss = true;
-      consider_preedit = true;
-      pop_to_root_on_close = true;
-      favicon_service = "twenty";
-      search_files_in_root = true;
-      font = {
-        normal = {
-          size = 13;
-          normal = "Roboto Medium";
-        };
-      };
-      theme = {
-        light = {
-          name = "vicinae-light";
-          icon_theme = "default";
-        };
-        dark = {
-          # name = "vicinae-dark";
-          name = "rose-pine";
-          # name = "ayo-dark";
-          icon_theme = "default";
-        };
-      };
-      launcher_window = {
-        opacity = 0.98;
-      };
-    };
-    extensions = with inputs.vicinae-extensions.packages.${pkgs.stdenv.hostPlatform.system}; [
-      # bluetooth
-      nix
-      hypr-keybinds
-      # Extension names can be found in the link below, it's just the folder names
-    ];
-  };
-
-  programs.fuzzel = {
-    enable = true;
-    package = fuzzel-main;
-    settings = {
-      main = {
-        font = "Roboto Mono:size=20";
-        dpi-aware = false;
-
-        # lines = 8;
-        width = 36;
-
-        horizontal-pad = 20;
-        vertical-pad = 14;
-        inner-pad = 10;
-
-        # layer = "overlay";
-        keyboard-focus = "on-demand";
-        minimal-lines = true;
-      };
-
-      border = {
-        width = 2;
-        radius = 10;
-      };
-
-      colors = {
-        background = "192330ff";
-        text = "cdcecff0";
-        match = "82aaffff";
-
-        selection = "26334dff";
-        selection-text = "cdcecff0";
-        selection-match = "82aaffff";
-
-        border = "719cd6ff";
-      };
     };
   };
 

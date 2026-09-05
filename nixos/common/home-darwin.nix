@@ -226,7 +226,7 @@ in
           hidpi=on \
           active_color=0xff7b5cff \
           inactive_color=0xff3b4261 \
-          blacklist="Raycast,System Settings,Finder,Archive Utility,App Store,Hammerspoon,Disk Utility,Calculator"
+          blacklist="Raycast,Vicinae,System Settings,Finder,Archive Utility,App Store,Hammerspoon,Disk Utility,Calculator"
       '';
     };
 

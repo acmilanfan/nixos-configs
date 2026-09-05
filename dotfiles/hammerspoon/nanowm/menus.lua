@@ -365,8 +365,8 @@ function M.showKeybindMenu()
             binds = {
                 { key = "Alt+Return", desc = "New Alacritty", fn = function() core.launchTask("/usr/bin/open", { "-n", "-a", "Alacritty" }) end },
                 { key = "Alt+B", desc = "New Firefox", fn = function() core.launchTask("/usr/bin/open", { "-n", "-a", "Firefox" }) end },
-                { key = "Alt+D", desc = "Launch Raycast", fn = function() hs.application.launchOrFocus("Raycast") end },
-                { key = "Alt+Shift+V", desc = "Clipboard History", fn = function() hs.task.new("/usr/bin/open", nil, { "raycast://extensions/raycast/clipboard-history/clipboard-history" }):start() end },
+                { key = "Alt+D", desc = "Toggle Vicinae", fn = function() hs.task.new("/opt/homebrew/bin/vicinae", nil, { "toggle" }):start() end },
+                { key = "Alt+Shift+V", desc = "Clipboard History", fn = function() hs.task.new("/opt/homebrew/bin/vicinae", nil, { "vicinae://launch/clipboard/history?toggle=true" }):start() end },
                 { key = "Alt+Shift+W", desc = "Open Work Org", fn = nil },
                 { key = "Alt+Shift+D", desc = "Open Dump Org", fn = nil },
                 { key = "Alt+Shift+Y", desc = "Open YouTube Org", fn = nil },

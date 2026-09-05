@@ -8,7 +8,7 @@ if [ -z "$WINDOWS" ]; then
 fi
 
 # Show menu
-CHOICE=$(echo "$WINDOWS" | fuzzel -d --width 60 --placeholder "Switch to window...")
+CHOICE=$(echo "$WINDOWS" | vicinae dmenu -W 700 -p "Switch to window...")
 
 if [ -n "$CHOICE" ]; then
   # Extract PID and focus

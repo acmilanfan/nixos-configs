@@ -53,9 +53,14 @@ let
     # 3. Ensure apps are running
     # We only start these apps if they are NOT currently running.
     # This prevents flickering and state loss during rebuilds.
+    # Vicinae reads its nix-managed settings from VICINAE_OVERRIDES (the HM
+    # module deploys them to ~/.config/vicinae/nix.json). GUI apps don't
+    # inherit shell env, so publish it into the launchd user domain before
+    # Vicinae starts.
+    launchctl setenv VICINAE_OVERRIDES "$USER_HOME/.config/vicinae/nix.json"
     ensure_apps=(
       "Hammerspoon"
-      "Raycast"
+      "Vicinae"
       "Scroll Reverser"
       "MiddleClick"
       "AutoRaise"
@@ -198,7 +203,8 @@ in
       "google-chrome"
       "firefox"
       "slack"
-      "raycast"
+      "vicinae"
+      "raycast" # kept as fallback while vicinae macOS is in beta
       "karabiner-elements"
       "cleanupbuddy"
       "nextcloud"

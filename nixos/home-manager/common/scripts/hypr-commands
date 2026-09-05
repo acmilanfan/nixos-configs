@@ -23,11 +23,11 @@ COMMANDS=(
   "Animations: Toggle | hypr-animations-toggle"
 )
 
-# Convert to newline separated string for fuzzel
+# Convert to newline separated string for vicinae dmenu
 MENU_INPUT=$(printf "%s\n" "${COMMANDS[@]}")
 
 # Show menu and get choice
-CHOICE=$(echo "$MENU_INPUT" | fuzzel -d --width 50 --placeholder "Search Commands...")
+CHOICE=$(echo "$MENU_INPUT" | vicinae dmenu -W 600 -p "Search Commands...")
 
 if [ -n "$CHOICE" ]; then
   # Extract the command part after the pipe

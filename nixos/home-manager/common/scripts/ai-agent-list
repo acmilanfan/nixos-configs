@@ -9,7 +9,7 @@
 # type  = capitalized agent name (Claude, Gemini, Antigravity, OpenCode, ...)
 #
 # Consumed by: ai_agents.sh (sketchybar), nanowm/agents.lua (Hammerspoon
-# chooser), hypr-ai-agents (waybar/fuzzel), tmux-agent-switcher (fzf popup).
+# chooser), hypr-ai-agents (waybar/vicinae dmenu), tmux-agent-switcher (fzf popup).
 # ═══════════════════════════════════════════════════════════════
 
 AGENT_PROCESSES="claude .claude-wrapped gemini aider cursor antigravity agy opencode"

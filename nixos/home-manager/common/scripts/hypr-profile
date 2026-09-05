@@ -24,12 +24,12 @@ if [[ "$1" == "restore" && -f "$CACHE_FILE" ]]; then
     [[ -z "$choice" ]] && choice="Vertical (stacked)"
 else
     choice=$(echo -e "Vertical (stacked)\nBook Mode (Both)\nBook Mode (Single)\nSingle screen top\nSingle screen bottom\nRotate Active Screens (CW)\nSingle screen top (tablet)\nExternal Only (Strict)\nPower save..." | \
-        fuzzel --dmenu --prompt "Display mode: ")
+        vicinae dmenu -p "Display mode: ")
 fi
 
 if [[ "$choice" == "Power save..." ]]; then
     choice=$(echo -e "Vertical (stacked)\nSingle screen top\nSingle screen top (tablet)" | \
-        fuzzel --dmenu --prompt "Power save mode: ")
+        vicinae dmenu -p "Power save mode: ")
     case "$choice" in
         "Vertical (stacked)") choice="Power save: Vertical (stacked)" ;;
         "Single screen top") choice="Power save: Single screen top" ;;

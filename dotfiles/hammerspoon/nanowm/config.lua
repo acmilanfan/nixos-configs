@@ -44,6 +44,7 @@ M.floatingApps = {
     ["Activity Monitor"] = true,
     ["Calculator"] = true,
     ["Raycast"] = true,
+    ["Vicinae"] = true,
     ["Finder"] = true,
     ["Photo Booth"] = true,
     ["Archive Utility"] = true,

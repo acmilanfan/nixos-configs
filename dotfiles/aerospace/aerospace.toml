@@ -207,11 +207,11 @@ ctrl-alt-shift-0 = 'move-node-to-workspace 20'
 # Launcher (Alt+d for rofi in AwesomeWM) - handled by system keybind
 # System-level Spotlight keybind is configured in nix-darwin configuration
 
-# Alternative launcher using Raycast if installed
-alt-d = 'exec-and-forget open -a "Raycast"'
+# Vicinae launcher (Raycast fallback kept installed while macOS is in beta)
+alt-d = 'exec-and-forget /opt/homebrew/bin/vicinae toggle'
 
-# Clipboard history (Alt+Shift+v matching AwesomeWM greenclip + rofi) - using Raycast
-alt-shift-v = 'exec-and-forget open "raycast://extensions/raycast/clipboard-history/clipboard-history"'
+# Clipboard history (Alt+Shift+v matching AwesomeWM greenclip + rofi) - using Vicinae
+alt-shift-v = 'exec-and-forget /opt/homebrew/bin/vicinae "vicinae://launch/clipboard/history?toggle=true"'
 
 # Org-mode file shortcuts (matching AwesomeWM setup)
 # Open orgmode agenda in floating terminal

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # --- Main Menu ---
-CHOICE=$(echo -e "Close\nFullscreen\nFloat\nMove\nThrow" | fuzzel --dmenu --icon-theme="$ICON_THEME" -p "Action > ")
+CHOICE=$(echo -e "Close\nFullscreen\nFloat\nMove\nThrow" | vicinae dmenu -p "Action > ")
 
 case "$CHOICE" in
     "Close")
@@ -15,7 +15,7 @@ case "$CHOICE" in
         ;;
     "Move")
         # Generates numbers 1-20
-        WORKSP=$(seq 1 20 | fuzzel --dmenu -l 20 -w 10 -p "Move > ")
+        WORKSP=$(seq 1 20 | vicinae dmenu -W 300 -H 600 -p "Move > ")
 
         if [[ -n "$WORKSP" ]]; then
             hyprctl dispatch "hl.dsp.window.move({workspace = '$WORKSP'})"
@@ -23,7 +23,7 @@ case "$CHOICE" in
         ;;
     "Throw")
         # Generates numbers 1-20
-        WORKSP=$(seq 1 20 | fuzzel --dmenu -l 20 -w 10 -p "Throw > ")
+        WORKSP=$(seq 1 20 | vicinae dmenu -W 300 -H 600 -p "Throw > ")
 
         if [[ -n "$WORKSP" ]]; then
             hyprctl dispatch "hl.dsp.window.move({workspace = '$WORKSP', silent = true})"

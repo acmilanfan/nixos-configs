@@ -62,11 +62,11 @@ show_menu() {
   rows=$(ai-agent-list)
 
   if [ -z "$rows" ]; then
-    echo "No AI agents running" | fuzzel -d --width 50 >/dev/null
+    echo "No AI agents running" | vicinae dmenu -W 550 >/dev/null
     return
   fi
 
-  choice=$(printf '%s\n' "$rows" | awk -F'|' '{printf "%s  %s  %s: %s\n", $1, $2, $3, $4}' | fuzzel -d --width 50)
+  choice=$(printf '%s\n' "$rows" | awk -F'|' '{printf "%s  %s  %s: %s\n", $1, $2, $3, $4}' | vicinae dmenu -W 550)
   [ -z "$choice" ] && return
   pane_id=$(echo "$choice" | awk '{print $1}')
   focus_agent "$pane_id"

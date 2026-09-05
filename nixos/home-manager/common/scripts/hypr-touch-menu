@@ -2,7 +2,7 @@
 
 # Main menu items
 choice=$(echo -e "🚀 Apps\n💻 Profiles\n🔄 Auto-rotate: $(systemctl --user is-active hypr-iio-rotate.service >/dev/null && echo "ON" || echo "OFF")\n📊 Waybar Toggle\n⌨️ Keyboard\n📶 Network\n Bluetooth\n💡 Brightness\n🔊 Volume\n🔒 Power" | \
-    fuzzel --dmenu --prompt "Touch Menu: ")
+    vicinae dmenu -p "Touch Menu: ")
 
 case "$choice" in
     "🚀 Apps")
@@ -21,13 +21,13 @@ case "$choice" in
         hypr-toggle-kb
         ;;
     "📶 Network")
-        iwmenu -l fuzzel
+        iwmenu -l custom --launcher-command 'vicinae dmenu -p "{hint}"'
         ;;
     " Bluetooth")
-        bzmenu -l fuzzel
+        bzmenu -l custom --launcher-command 'vicinae dmenu -p "{hint}"'
         ;;
     "💡 Brightness")
-        val=$(echo -e "100%\n80%\n60%\n40%\n20%\n5%" | fuzzel --dmenu --prompt "Brightness: ")
+        val=$(echo -e "100%\n80%\n60%\n40%\n20%\n5%" | vicinae dmenu -p "Brightness: ")
         if [[ -n "$val" ]]; then
             # Remove % for set-sync-brightness
             clean_val="${val%%%}"
@@ -39,7 +39,7 @@ case "$choice" in
         fi
         ;;
     "🔊 Volume")
-        val=$(echo -e "100%\n80%\n60%\n40%\n20%\n0%" | fuzzel --dmenu --prompt "Volume: ")
+        val=$(echo -e "100%\n80%\n60%\n40%\n20%\n0%" | vicinae dmenu -p "Volume: ")
         if [[ -n "$val" ]]; then
              # Remove % for change-volume
              clean_val="${val%%%}"

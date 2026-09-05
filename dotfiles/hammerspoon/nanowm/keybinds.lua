@@ -68,6 +68,8 @@ function M.setup()
     end)
 
     -- Ollama models (Ctrl+Alt+Shift+O)
+    -- No vicinae equivalent yet; still routed via Raycast (kept as fallback).
+    -- Try installing raycast-ollama in vicinae before removing Raycast.
     hs.hotkey.bind(ctrlAltShift, "o", function()
         hs.urlevent.openURL("raycast://extensions/massimiliano_pasquini/raycast-ollama/ollama-models")
     end)
@@ -194,10 +196,10 @@ function M.setup()
         hs.application.launchOrFocus("Firefox")
     end)
     hs.hotkey.bind(alt, "d", function()
-        hs.application.launchOrFocus("Raycast")
+        hs.task.new("/opt/homebrew/bin/vicinae", nil, { "toggle" }):start()
     end)
     hs.hotkey.bind(altShift, "v", function()
-        hs.task.new("/usr/bin/open", nil, { "raycast://extensions/raycast/clipboard-history/clipboard-history" }):start()
+        hs.task.new("/opt/homebrew/bin/vicinae", nil, { "vicinae://launch/clipboard/history?toggle=true" }):start()
     end)
 
     -- =========================================================================

@@ -21,6 +21,7 @@
     ./lazygit.nix
     ./ai-agents.nix
     ./opencode.nix
+    ./vicinae.nix
   ]
   ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
     ./awesome.nix

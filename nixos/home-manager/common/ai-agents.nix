@@ -188,7 +188,7 @@ let
   antigravitySettings = {
     colorScheme = "dark";
     enableTelemetry = false;
-    model = "Gemini 3.7 Flash (High)";
+    model = "Gemini 3.8 Flash (High)";
     security = {
       auth = {
         selectedType = "oauth-personal";
