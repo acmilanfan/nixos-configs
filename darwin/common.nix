@@ -270,14 +270,13 @@ in
   nix = {
     enable = true;
     package = pkgs.nix;
-    optimise = {
-      automatic = true;
-      interval = {
-        Weekday = 0;
-        Hour = 4;
-        Minute = 0;
-      };
-    };
+    # Disabled 2026-09-05: nix-store --optimise churns /nix/store/.links, which
+    # invalidates syspolicyd's cached assessments for home-manager-managed scripts
+    # (e.g. sketchybar plugins). Every subsequent exec re-triggers a full failed
+    # assessment that can never be cached, wedging syspolicyd in a retry loop
+    # (nix-darwin#1307) — observed as tag-switch stalls + syspolicyd CPU/watts
+    # spikes every Sunday. Keep off unless macOS fixes the cache invalidation.
+    optimise.automatic = false;
     settings = {
       # Enable flakes and new command-line interface
       experimental-features = [
