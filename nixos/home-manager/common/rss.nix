@@ -1,5 +1,12 @@
 { pkgs, ... }: {
 
+  # Wrapper that syncs the cache from/to the Nextcloud folder only while
+  # newsboat is not running, so the SQLite file is never copied mid-write.
+  home.packages = [
+    (pkgs.writeShellScriptBin "newsboat-sync"
+      (builtins.readFile ./newsboat-sync.sh))
+  ];
+
 programs.newsboat = {
     enable = true;
 

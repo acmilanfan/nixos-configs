@@ -35,7 +35,7 @@
       os = "(cd ~/org && git pull)";
       op = ''(cd ~/org && git add . && git commit -m "Sync" && git push)'';
       up = "cd $HOME/configs/nixos-configs && nix flake update";
-      nb = "newsboat --url-file=~/org/rss --cache-file=~/Nextcloud/newsboat/cache.db";
+      nb = "newsboat-sync";
       refresh = "exec zsh";
 
       # Development shells
