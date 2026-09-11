@@ -1,0 +1,62 @@
+#!/bin/sh
+# kb-rescue: list processes holding ACTIVE (event-consuming) keyboard event
+# taps. Those taps sit in the key event path; when buggy or unpermitted they
+# swallow or delay all keyboard input system-wide (mouse unaffected).
+# Known case: AutoRaise's disableKey watcher without an Input Monitoring
+# grant stalled typing to ~1 char per 3 s (2026-09-09).
+#
+# Usage:
+#   kb-rescue         list active key taps (read-only diagnosis)
+#   kb-rescue --kill  kill the processes holding them
+#
+# Notes:
+# - A listed tap is a candidate, not a verdict: Warpd (activation hotkey)
+#   and Hammerspoon (VimMode) normally hold active key taps while typing
+#   works fine. The signal is what appears/differs WHEN typing breaks.
+# - maxLatency is a cumulative lifetime maximum, not current state.
+# - Root-daemon taps (e.g. kanata) only show with sudo: `sudo kb-rescue`.
+set -u
+
+TMP=$(mktemp)
+trap 'rm -f "$TMP"' EXIT
+
+# All active taps that consume keyDown events; dedupe by pid (keep max latency).
+kb-taps 2>/dev/null | awk '
+    /keyDown/ && /enabled=1/ && /options=0/ {
+        match($0, /pid=[0-9]+/);    pid = substr($0, RSTART+4, RLENGTH-4)
+        match($0, /name=[^ ]*/);    name = substr($0, RSTART+5, RLENGTH-5)
+        match($0, /maxLatency=[0-9.]+/)
+        lat = substr($0, RSTART+11, RLENGTH-11) + 0
+        if (!(pid in seen)) { seen[pid] = 1; order[n++] = pid; nm[pid] = name }
+        if (lat > mx[pid]) mx[pid] = lat
+    }
+    END {
+        for (i = 0; i < n; i++) {
+            p = order[i]
+            printf "%s %s %.0f\n", p, nm[p], mx[p]
+        }
+    }' | sort -k3 -rn > "$TMP"
+
+if [ ! -s "$TMP" ]; then
+    echo "No active key taps found."
+    echo "If typing is still broken, try: sudo kb-rescue  (root taps)"
+    exit 0
+fi
+
+rc=0
+pids=""
+while read -r pid name lat; do
+    echo "ACTIVE key tap: pid=$pid name=$name maxLatency=${lat}us"
+    pids="$pids $pid"
+done < "$TMP"
+
+if [ "${1:-}" = "--kill" ]; then
+    for p in $pids; do
+        echo "killing $p"
+        kill "$p" 2>/dev/null || sudo kill "$p" 2>/dev/null || rc=1
+    done
+    echo "Done. Verify typing is normal now."
+else
+    echo "Run 'kb-rescue --kill' to terminate these processes."
+fi
+exit $rc

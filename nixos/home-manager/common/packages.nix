@@ -85,7 +85,22 @@
       zenity
       onboard
     ] ++ lib.optionals pkgs.stdenv.isDarwin [
-
+      # Keyboard-input debugging / rescue tools. kb-taps is a lazy-compiled
+      # Swift binary (CoreGraphics event tap enumeration); kb-rescue kills
+      # processes holding active key-swallowing taps. See scripts/kb-rescue
+      # for the AutoRaise incident that motivated them.
+      (stdenv.mkDerivation {
+        pname = "kb-taps";
+        version = "0.1.0";
+        src = ./.;
+        dontUnpack = true;
+        installPhase = ''
+          mkdir -p $out/bin $out/share
+          install -m755 ${./scripts/kb-taps} $out/bin/kb-taps
+          install -m644 ${./scripts/kb-taps.swift} $out/share/kb-taps.swift
+        '';
+      })
+      (writeShellScriptBin "kb-rescue" (lib.readFile ./scripts/kb-rescue))
     ] ++ lib.optionals (pkgs.stdenv.hostPlatform.system == "x86_64-linux") [
       # Real-hardware/gaming-focused packages that either only support
       # x86_64-linux (vial, libstrangle via lutris) or are meaningless on a VM

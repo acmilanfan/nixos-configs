@@ -1,7 +1,4 @@
-{ ... }:
-
-let secrets = import /Users/andreishumailov/configs/nixos-configs/secrets/secrets.nix;
-in {
+{ secrets, ... }: {
   programs.ssh = {
     enable = true;
     settings."github-work" = {

@@ -1,0 +1,22 @@
+#!/bin/zsh
+# kb-taps: list all CoreGraphics event taps (owner pid/name, tap point,
+# active/listen, enabled, latency stats, event types).
+# Compile-on-first-run wrapper around the bundled Swift source; requires
+# Xcode Command Line Tools. The cached binary is recompiled automatically
+# whenever the source changes (e.g. after a HM rebuild).
+emulate -L zsh
+setopt err_return
+
+SRC_PATH="${0:A:h:h}/share/kb-taps.swift"
+CACHE_DIR="$HOME/.cache/kb-tools"
+BIN="$CACHE_DIR/kb-taps"
+mkdir -p "$CACHE_DIR"
+
+if [[ ! -x "$BIN" ]] || ! cmp -s "$SRC_PATH" "$CACHE_DIR/kb-taps.swift"; then
+  echo "kb-taps: compiling (once per source change, ~10s)..." >&2
+  cp "$SRC_PATH" "$CACHE_DIR/kb-taps.swift"
+  swiftc -O "$CACHE_DIR/kb-taps.swift" -o "$BIN.tmp.$$"
+  mv "$BIN.tmp.$$" "$BIN"
+fi
+
+exec "$BIN" "$@"
