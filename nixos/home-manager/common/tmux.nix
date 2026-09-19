@@ -25,6 +25,191 @@ let
         --replace 'tmux display-message "$message" || true' 'true'
     '';
   };
+
+  # tmux-resurrect patched:
+  #  - src bumped to upstream 2023-03-06 (nixpkgs pins 2022-05-01, which lacks
+  #    the `*` argument restore fixes needed to relaunch agent CLIs)
+  #  - empty pane titles fall back to the cwd in pane_format; otherwise bash
+  #    `read` with IFS=<tab> collapses the empty title field, shifting every
+  #    later column (dir becomes "1"), and restore silently falls back to $HOME
+  resurrectPatched = pkgs.tmuxPlugins.resurrect.overrideAttrs (old: {
+    name = "tmuxplugin-resurrect-unstable-2023-03-06";
+    src = pkgs.fetchFromGitHub {
+      owner = "tmux-plugins";
+      repo = "tmux-resurrect";
+      rev = "cff343cf9e81983d3da0c8562b01616f12e8d548";
+      hash = "sha256-FcSjYyWjXM1B+WmiK2bqUNJYtH7sJBUsY2IjSur5TjY=";
+    };
+    # upstream tests symlink into the tmux-test submodule, which GitHub
+    # archives do not include; drop them before fixup flags broken symlinks
+    postInstall = (old.postInstall or "") + ''
+      rm -rf $out/share/tmux-plugins/resurrect/tests $out/share/tmux-plugins/resurrect/run_tests
+    '';
+    postPatch = (old.postPatch or "") + ''
+      substituteInPlace scripts/save.sh \
+        --replace-fail 'format+="#{pane_title}"' 'format+="#{?pane_title,#{pane_title},#{pane_current_path}}"'
+    '';
+  });
+
+  # Relaunch agent CLIs from tmux-resurrect: pass through an explicit resume
+  # argument (opencode -s/--session, claude -r/--resume, agy --conversation)
+  # if one was saved, otherwise continue the most recent conversation in the
+  # pane's directory.
+  #
+  # opencode's saved argv does not name the conversation that was on screen
+  # (launched bare => `opencode`), so `--continue` can pick a different, more
+  # recently updated session in the same project. Resolve the exact session
+  # from the restored pane title (`OC | <title>`, set from the save before the
+  # command runs) via `opencode session list --format json`; fall back to
+  # --continue when the title is missing, truncated or unknown. A saved
+  # `--continue` is treated as fallback (not as explicit) for opencode.
+  agentResume = pkgs.writeShellScriptBin "agent-resume" ''
+    set -u
+    cmd="''${1:-}"
+    if [ -z "$cmd" ]; then
+      echo "usage: agent-resume <agent-cli> [args...]" >&2
+      exit 1
+    fi
+    shift
+
+    # an explicit session/conversation id wins; --continue does not, since it
+    # is exactly the ambiguous fallback we are trying to replace
+    explicit=""
+    continue_seen=""
+    for arg in "$@"; do
+      case "$arg" in
+        -c|--continue) continue_seen=1 ;;
+        -s|--session|--session=*|-r|--resume|--resume=*|--conversation|--conversation=*)
+          explicit=1
+          ;;
+      esac
+    done
+    if [ -n "$explicit" ]; then
+      exec "$cmd" "$@"
+    fi
+
+    if [ "''${cmd##*/}" = "opencode" ] && [ -n "''${TMUX_PANE:-}" ] && command -v jq >/dev/null 2>&1; then
+      pane_title="$(tmux display-message -p -t "$TMUX_PANE" '#{pane_title}' 2>/dev/null || true)"
+      case "$pane_title" in
+        "OC | "*)
+          want="''${pane_title#OC | }"
+          want="''${want%…}"
+          sessions="$("$cmd" session list --format json 2>/dev/null || true)"
+          id="$(printf '%s' "$sessions" | jq -r --arg want "$want" '
+            (map(select(.title == $want)) | .[0].id) //
+            (map(select(.title | startswith($want))) | .[0].id) // empty' 2>/dev/null || true)"
+          if [ -n "$id" ] && [ "$id" != "null" ]; then
+            args=()
+            for arg in "$@"; do
+              case "$arg" in
+                -c|--continue) ;;
+                *) args+=("$arg") ;;
+              esac
+            done
+            exec "$cmd" -s "$id" "''${args[@]}"
+          fi
+          ;;
+      esac
+    fi
+
+    if [ -n "$continue_seen" ]; then
+      exec "$cmd" "$@"
+    fi
+    exec "$cmd" --continue "$@"
+  '';
+
+  # Rewrite tmux-resurrect save files so agent panes carry their exact
+  # conversation id instead of relying on `--continue` guessing the most
+  # recently updated one:
+  #  - claude: ~/.claude/sessions/<pid>.json records sessionId + the tmux pane
+  #  - agy: the running process holds <data>/presence/<conversation-id>.lock
+  # Runs as @resurrect-hook-post-save-layout with the save file as $1.
+  agentPinSessions = pkgs.writeShellScriptBin "agent-pin-sessions" ''
+    set -u
+
+    save_file="''${1:?usage: agent-pin-sessions <resurrect-save-file>}"
+    [ -f "$save_file" ] || exit 0
+
+    jq="${pkgs.jq}/bin/jq"
+    pane_map="$(mktemp)"
+    pins="$(mktemp)"
+    trap 'rm -f "$pane_map" "$pins"' EXIT
+
+    tmux list-panes -a -F '#{session_name}:#{window_index}.#{pane_index}	#{pane_id}	#{pane_pid}' >"$pane_map" 2>/dev/null || exit 0
+    [ -s "$pane_map" ] || exit 0
+
+    pane_key_for_pid() {
+      local pid="$1" key
+      while [ -n "$pid" ] && [ "$pid" != 0 ] && [ "$pid" != 1 ]; do
+        key="$(awk -F'\t' -v p="$pid" '$3 == p { print $1; exit }' "$pane_map")"
+        if [ -n "$key" ]; then
+          printf '%s' "$key"
+          return 0
+        fi
+        pid="$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')"
+      done
+      return 1
+    }
+
+    if [ -x "$jq" ]; then
+      for session_json in "$HOME"/.claude/sessions/*.json; do
+        [ -f "$session_json" ] || continue
+        info="$("$jq" -r '[.pid // "", .sessionId // "", .tmux // ""] | @tsv' "$session_json" 2>/dev/null)" || continue
+        IFS=$'\t' read -r pid session_id tmux_ref <<<"$info"
+        [ -n "$pid" ] && [ -n "$session_id" ] || continue
+        kill -0 "$pid" 2>/dev/null || continue
+        key=""
+        if [ -n "$tmux_ref" ]; then
+          pane_id="''${tmux_ref##*.}"
+          key="$(awk -F'\t' -v id="$pane_id" '$2 == id { print $1; exit }' "$pane_map")"
+        fi
+        [ -n "$key" ] || key="$(pane_key_for_pid "$pid" || true)"
+        [ -n "$key" ] || continue
+        printf '%s\t--resume %s\n' "$key" "$session_id" >>"$pins"
+      done
+    fi
+
+    lsof_bin="$(command -v lsof 2>/dev/null || true)"
+    [ -n "$lsof_bin" ] || [ ! -x /usr/sbin/lsof ] || lsof_bin=/usr/sbin/lsof
+    if [ -n "$lsof_bin" ]; then
+      for pid in $(pgrep -x agy 2>/dev/null); do
+        conversation_id="$("$lsof_bin" -p "$pid" 2>/dev/null | sed -n 's#.*/presence/\([0-9a-fA-F][0-9a-fA-F-]*\)\.lock.*#\1#p' | awk 'NR == 1 { print }')"
+        [ -n "$conversation_id" ] || continue
+        key="$(pane_key_for_pid "$pid" || true)"
+        [ -n "$key" ] || continue
+        printf '%s\t--conversation %s\n' "$key" "$conversation_id" >>"$pins"
+      done
+    fi
+
+    [ -s "$pins" ] || exit 0
+
+    awk -F'\t' -v OFS='\t' -v pins="$pins" '
+      BEGIN {
+        while ((getline line < pins) > 0) {
+          split(line, pair, "\t")
+          pin[pair[1]] = pair[2]
+        }
+      }
+      /^pane/ {
+        key = $2 ":" $3 "." $6
+        extra = pin[key]
+        if (extra != "" && $11 != "" && $11 != ":") {
+          cmd = substr($11, 2)
+          gsub(/[ \t]+(-c|--continue)([ \t]+|$)/, " ", cmd)
+          gsub(/[ \t]+(-r|--resume)[ \t]+[^-][^ \t]*/, " ", cmd)
+          gsub(/[ \t]+(-r|--resume)([ \t]+|$)/, " ", cmd)
+          gsub(/[ \t]+--conversation[ \t]+[^-][^ \t]*/, " ", cmd)
+          gsub(/[ \t]+--(resume|conversation)=[^ \t]*/, " ", cmd)
+          sub(/^[ \t]+/, "", cmd)
+          sub(/[ \t]+$/, "", cmd)
+          $11 = ":" cmd " " extra
+        }
+        print
+        next
+      }
+      { print }
+    ' "$save_file" >"$save_file.tmp.$$" && mv "$save_file.tmp.$$" "$save_file"
+  '';
 in
 {
 
@@ -42,6 +227,9 @@ in
       ${lib.readFile ./tmux/tmux.conf}
       set-hook -g client-attached 'run-shell "${tmuxUpdateEnv}/bin/tmux-update-env"'
 
+      # Pin exact agent conversations (claude/agy) into every resurrect save
+      set -g @resurrect-hook-post-save-layout '${agentPinSessions}/bin/agent-pin-sessions'
+
       ${lib.optionalString pkgs.stdenv.isDarwin ''
         # Tmux Agent Indicator macOS integration
         set -g @agent-indicator-notification-command "sketchybar --trigger ai_agent_update; /opt/homebrew/bin/hs -c \"require('nanowm.agents').onAgentStateChange('$AGENT_STATE','$AGENT_NAME')\" 2>/dev/null; case $AGENT_STATE in done|off) sleep 3 && sketchybar --trigger ai_agent_update;; esac"
@@ -56,7 +244,7 @@ in
       yank
       # vim-tmux-navigator
       tmux-fzf
-      resurrect
+      resurrectPatched
       continuum
       jump
       better-mouse-mode
@@ -69,6 +257,8 @@ in
 
   home.packages = [
     tmuxUpdateEnv
+    agentResume
+    agentPinSessions
     (pkgs.writeShellScriptBin "tmux-agent-switcher" (lib.readFile ./scripts/tmux-agent-switcher))
     (pkgs.writeShellScriptBin "agent-state" ''
       "${tmux-agent-indicator}/share/tmux-plugins/agent-indicator/scripts/agent-state.sh" "$@"
