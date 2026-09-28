@@ -187,7 +187,7 @@ function M.setup()
     -- APPLICATIONS
     -- =========================================================================
     hs.hotkey.bind(alt, "return", function()
-        core.launchTask("/usr/bin/open", { "-n", "-a", "Alacritty" })
+        core.launchTask("/usr/bin/open", { "-n", "-a", "Ghostty" })
     end)
     hs.hotkey.bind(alt, "b", function()
         core.launchTask("/usr/bin/open", { "-n", "-a", "Firefox" })
@@ -267,45 +267,45 @@ function M.setup()
     hs.hotkey.bind(altShift, "o", function()
         focusOrCreateApp(
             "ORGINDEX-AGENDA",
-            string.format('open -n -a Alacritty --args -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-AGENDA" -e zsh -c "nvim --cmd \\"cd %s/org/life\\" -c \\"lua require(\\\\\\"orgmode.api.agenda\\\\\\").agenda({span = 1})\\""', home),
+            string.format('open -n -a Ghostty --args --window-height=20 --window-width=100 --title="ORGINDEX-AGENDA" -e zsh -c "nvim --cmd \\"cd %s/org/life\\" -c \\"lua require(\\\\\\"orgmode.api.agenda\\\\\\").agenda({span = 1})\\""', home),
             0.6,
-            "Alacritty"
+            "Ghostty"
         )
     end)
 
     hs.hotkey.bind(altShift, "w", function()
         focusOrCreateApp(
             "ORGINDEX-WORK",
-            string.format('open -n -a Alacritty --args -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-WORK" -e zsh -c "cd %s/org/life && vim %s/org/life/work/work.org"', home, home),
+            string.format('open -n -a Ghostty --args --window-height=20 --window-width=100 --title="ORGINDEX-WORK" -e zsh -c "cd %s/org/life && vim %s/org/life/work/work.org"', home, home),
             0.6,
-            "Alacritty"
+            "Ghostty"
         )
     end)
 
     hs.hotkey.bind(altShift, "d", function()
         focusOrCreateApp(
             "ORGINDEX-DUMP",
-            string.format('open -n -a Alacritty --args -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-DUMP" -e zsh -c "cd %s/org/life && vim %s/org/life/dump.org"', home, home),
+            string.format('open -n -a Ghostty --args --window-height=20 --window-width=100 --title="ORGINDEX-DUMP" -e zsh -c "cd %s/org/life && vim %s/org/life/dump.org"', home, home),
             0.6,
-            "Alacritty"
+            "Ghostty"
         )
     end)
 
     hs.hotkey.bind(altShift, "y", function()
         focusOrCreateApp(
             "ORGINDEX-YOUTUBE",
-            string.format('open -n -a Alacritty --args -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-YOUTUBE" -e zsh -c "cd %s/org/consume && vim %s/org/consume/youtube/youtube1.org"', home, home),
+            string.format('open -n -a Ghostty --args --window-height=20 --window-width=100 --title="ORGINDEX-YOUTUBE" -e zsh -c "cd %s/org/consume && vim %s/org/consume/youtube/youtube1.org"', home, home),
             0.6,
-            "Alacritty"
+            "Ghostty"
         )
     end)
 
     hs.hotkey.bind(altShift, "f", function()
         focusOrCreateApp(
             "ORGINDEX-CALORIES",
-            string.format('open -n -a Alacritty --args -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "ORGINDEX-CALORIES" -e zsh -c "cd %s/org/life && vim %s/org/life/calories.org"', home, home),
+            string.format('open -n -a Ghostty --args --window-height=20 --window-width=100 --title="ORGINDEX-CALORIES" -e zsh -c "cd %s/org/life && vim %s/org/life/calories.org"', home, home),
             0.6,
-            "Alacritty"
+            "Ghostty"
         )
     end)
 
@@ -313,18 +313,18 @@ function M.setup()
     hs.hotkey.bind({ "cmd", "alt", "ctrl" }, "s", function()
         focusOrCreateApp(
             "SCRATCHPAD",
-            'open -n -a Alacritty --args -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "SCRATCHPAD" -e zsh -lc "nvim-scratchpad"',
+            'open -n -a Ghostty --args --window-height=20 --window-width=100 --title="SCRATCHPAD" -e zsh -lc "nvim-scratchpad"',
             0.6,
-            "Alacritty"
+            "Ghostty"
         )
     end)
 
     hs.hotkey.bind(alt, "y", function()
         focusOrCreateApp(
             "YAZI",
-            string.format('open -n -a Alacritty --args -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "YAZI" -e zsh -c "yazi"', home),
+            string.format('open -n -a Ghostty --args --window-height=20 --window-width=100 --title="YAZI" -e zsh -c "yazi"', home),
             0.8,
-            "Alacritty"
+            "Ghostty"
         )
     end)
 
@@ -486,7 +486,7 @@ function M.setup()
     -- [a]pps Sub-modal
     leader:bind("", "a", function()
         hs.alert.closeAll()
-        hs.alert.show("Apps: [t/a] Alacritty [f/b] Firefox [s] Slack [y] Yazi", 999999)
+        hs.alert.show("Apps: [t/g] Ghostty [a] Alacritty [f/b] Firefox [s] Slack [y] Yazi", 999999)
         appsModal:enter()
     end)
 
@@ -495,13 +495,14 @@ function M.setup()
     appsModal:bind("", "y", function()
         focusOrCreateApp(
             "YAZI",
-            string.format('open -n -a Alacritty --args -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "YAZI" -e zsh -c "yazi"', home),
+            string.format('open -n -a Ghostty --args --window-height=20 --window-width=100 --title="YAZI" -e zsh -c "yazi"', home),
             0.8,
-            "Alacritty"
+            "Ghostty"
         )
         exitAll()
     end)
-    appsModal:bind("", "t", function() core.launchTask("/usr/bin/open", { "-n", "-a", "Alacritty" }); exitAll() end)
+    appsModal:bind("", "t", function() core.launchTask("/usr/bin/open", { "-n", "-a", "Ghostty" }); exitAll() end)
+    appsModal:bind("", "g", function() core.launchTask("/usr/bin/open", { "-n", "-a", "Ghostty" }); exitAll() end)
     appsModal:bind("", "a", function() core.launchTask("/usr/bin/open", { "-n", "-a", "Alacritty" }); exitAll() end)
     appsModal:bind("", "f", function() core.launchTask("/usr/bin/open", { "-n", "-a", "Firefox" }); exitAll() end)
     appsModal:bind("", "b", function() core.launchTask("/usr/bin/open", { "-n", "-a", "Firefox" }); exitAll() end)

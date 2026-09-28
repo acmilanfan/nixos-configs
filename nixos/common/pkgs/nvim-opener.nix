@@ -26,10 +26,13 @@ stdenv.mkDerivation {
 
     @implementation AppDelegate
 
-    - (NSString *)findAlacritty {
+    - (NSString *)findTerminal {
         NSString *home = NSHomeDirectory();
-        NSString *user = NSUserName();
         NSArray *paths = @[
+            [home stringByAppendingString:@"/Applications/Home Manager Apps/Ghostty.app/Contents/MacOS/ghostty"],
+            [home stringByAppendingString:@"/Applications/Ghostty.app/Contents/MacOS/ghostty"],
+            @"/Applications/Ghostty.app/Contents/MacOS/ghostty",
+            @"/Applications/Nix Apps/Ghostty.app/Contents/MacOS/ghostty",
             [home stringByAppendingString:@"/Applications/Home Manager Apps/Alacritty.app/Contents/MacOS/alacritty"],
             [home stringByAppendingString:@"/Applications/Alacritty.app/Contents/MacOS/alacritty"],
             @"/Applications/Alacritty.app/Contents/MacOS/alacritty",
@@ -45,7 +48,7 @@ stdenv.mkDerivation {
     }
 
     - (void)launchNvimWithFile:(NSString *)filename {
-        NSString *alacritty = [self findAlacritty];
+        NSString *terminal = [self findTerminal];
         NSString *userName = NSUserName();
         NSString *home = NSHomeDirectory();
 
@@ -66,9 +69,9 @@ stdenv.mkDerivation {
                 shellCmd = @"nvim";
             }
 
-            if (alacritty) {
+            if (terminal) {
                 char *args[] = {
-                    (char *)[alacritty UTF8String],
+                    (char *)[terminal UTF8String],
                     (char *)"-e",
                     (char *)"zsh",
                     (char *)"-lc",
@@ -81,7 +84,7 @@ stdenv.mkDerivation {
                     (char *)"/usr/bin/open",
                     (char *)"-n",
                     (char *)"-a",
-                    (char *)"Alacritty",
+                    (char *)"Ghostty",
                     (char *)"--args",
                     (char *)"-e",
                     (char *)"zsh",
@@ -219,7 +222,7 @@ stdenv.mkDerivation {
   '';
 
   meta = with lib; {
-    description = "A macOS application wrapper to open files in Alacritty with Neovim";
+    description = "A macOS application wrapper to open files in Ghostty/Alacritty with Neovim";
     platforms = platforms.darwin;
   };
 }

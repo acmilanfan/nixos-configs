@@ -7,6 +7,7 @@ local M = {}
 
 -- Terminal app names (ucomm) we know how to focus
 local TERMINALS = {
+    ghostty = true, Ghostty = true,
     alacritty = true, Alacritty = true,
     kitty = true,
     WezTerm = true, wezterm = true,

@@ -73,7 +73,13 @@ M.floatingApps = {
 -- "How to Copy Files". The result is cached per window id, so a false positive sticks
 -- until the title changes.
 M.floatingTitles = {
-    -- Terminal scratchpads / TUIs, all launched into Alacritty
+    -- Terminal scratchpads / TUIs, launched into Ghostty or Alacritty
+    { app = "Ghostty", title = "ORGINDEX" },
+    { app = "Ghostty", title = "SCRATCHPAD" },
+    { app = "Ghostty", title = "YAZI" },
+    { app = "Ghostty", title = "wifitui" },
+    { app = "Ghostty", title = "btui" },
+    { app = "Ghostty", title = "SyncMon Dashboard" },
     { app = "Alacritty", title = "ORGINDEX" },
     { app = "Alacritty", title = "SCRATCHPAD" },
     { app = "Alacritty", title = "YAZI" },
@@ -114,6 +120,7 @@ M.rules = {
 
 -- Apps excluded from tag memory
 M.excludedFromTagMemory = {
+    ["Ghostty"] = true,
     ["Alacritty"] = true,
     ["Terminal"] = true,
     ["iTerm2"] = true,

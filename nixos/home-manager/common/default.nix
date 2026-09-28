@@ -4,6 +4,7 @@
   imports = [
     ./aerospace.nix
     ./alacritty.nix
+    ./ghostty.nix
     # ./doom.nix
     ./firefox.nix
     ./direnv.nix

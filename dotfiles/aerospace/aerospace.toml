@@ -128,7 +128,8 @@ alt-h = 'resize smart -50'
 alt-l = 'resize smart +50'
 
 # Terminal (Alt+Return in AwesomeWM)
-alt-enter = 'exec-and-forget open -n ~/Applications/Home\ Manager\ Apps/Alacritty.app'
+alt-enter = 'exec-and-forget open -n ~/Applications/Home\ Manager\ Apps/Ghostty.app'
+# alt-enter = 'exec-and-forget open -n ~/Applications/Home\ Manager\ Apps/Alacritty.app'
 
 # Browser (Alt+b in AwesomeWM)
 alt-b = 'exec-and-forget open -n /Applications/Firefox.app'
@@ -277,6 +278,11 @@ if.app-id = 'com.apple.archiveutility'
 run = 'layout floating'
 
 # Org-mode terminal windows (matching AwesomeWM orgindex class)
+[[on-window-detected]]
+if.app-id = 'com.mitchellh.ghostty'
+if.window-title-regex-substring = 'ORGINDEX-'
+run = 'layout floating'
+
 [[on-window-detected]]
 if.app-id = 'org.alacritty'
 if.window-title-regex-substring = 'ORGINDEX-'

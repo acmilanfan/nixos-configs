@@ -555,10 +555,10 @@ end
 
 function M.openInAlacritty(command, sizeFactor)
     -- Include common paths where wifitui or blueutil-tui might be located
-    -- Using -n to ensure a NEW window is opened even if Alacritty is already running
+    -- Using -n to ensure a NEW window is opened even if Ghostty is already running
     -- Using -e to run the command
     local shellCmd = string.format("export PATH=$PATH:/opt/homebrew/bin:/usr/local/bin:/run/current-system/sw/bin; %s; zsh", command)
-    local fullCmd = string.format("/usr/bin/open -n -a Alacritty --args --title '%s' -e zsh -c \"%s\"", command, shellCmd)
+    local fullCmd = string.format("/usr/bin/open -n -a Ghostty --args --title='%s' -e zsh -c \"%s\"", command, shellCmd)
 
     if sizeFactor then
         -- Poll for the window to appear and resize it immediately when found.
@@ -568,7 +568,8 @@ function M.openInAlacritty(command, sizeFactor)
             attempts = attempts + 1
             if attempts > 20 then return end
             for _, app in ipairs(hs.application.runningApplications()) do
-                if app:name() == "Alacritty" then
+                local name = app:name()
+                if name == "Ghostty" or name == "Alacritty" then
                     for _, w in ipairs(app:allWindows()) do
                         local wid = w:id()
                         if wid and wid > 0 then
@@ -597,6 +598,7 @@ function M.openInAlacritty(command, sizeFactor)
 
     hs.task.new("/bin/zsh", nil, { "-c", fullCmd }):start()
 end
+M.openInTerminal = M.openInAlacritty
 
 function M.toggleFineTune()
     -- FineTune is a menu-bar app. We'll try multiple ways to trigger it.

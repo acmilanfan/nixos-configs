@@ -554,7 +554,17 @@ end
 function M.closeWindow()
     local win = hs.window.focusedWindow()
     if win then
-        win:close()
+        if not win:close() then
+            -- Fallback for windows without standard AXCloseButton (e.g. Ghostty or custom titlebars)
+            local app = win:application()
+            if app then
+                if not app:selectMenuItem({ "File", "Close Window" }) then
+                    if not app:selectMenuItem({ "File", "Close" }) then
+                        hs.eventtap.keyStroke({ "cmd" }, "w", 0, app)
+                    end
+                end
+            end
+        end
     end
 end
 

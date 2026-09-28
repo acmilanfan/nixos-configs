@@ -39,7 +39,7 @@ local M = {}
 --         AirPlay Screen Mirroring, CoreLocationAgent, PowerChime, Shortcuts, Wi-Fi, ...
 --     input utilities ................ AutoRaise, Cursorcerer, MiddleClick, Warpd
 local managedAllowed = {
-    ["Activity Monitor"] = true, Alacritty = true, Arc = true,
+    ["Activity Monitor"] = true, Alacritty = true, Arc = true, Ghostty = true,
     ["App Store"] = true, ["Archive Utility"] = true, Brave = true,
     Calculator = true, Cursor = true, ["Disk Utility"] = true,
     Discord = true, Finder = true, FineTune = true,

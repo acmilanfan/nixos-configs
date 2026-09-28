@@ -1,0 +1,58 @@
+# Font
+font-family = "RobotoMono Nerd Font"
+font-style = "Medium"
+font-style-bold = "Bold"
+font-style-italic = "Medium Italic"
+font-style-bold-italic = "Bold Italic"
+font-size = 16
+font-thicken = true
+
+# Window decorations & Titlebar (hides title, proxy icon, and buttons)
+macos-titlebar-style = hidden
+
+# Window padding (matches Alacritty flush layout)
+window-padding-x = 0
+window-padding-y = 0
+window-padding-balance = false
+
+# Lifecycle: quit app when last window closes (prevents lingering dock icons)
+quit-after-last-window-closed = true
+
+# macOS behavior (Kanata home-row mod compatibility)
+macos-option-as-alt = true
+
+# Cursor (follows cell content color like Alacritty)
+cursor-style = block
+cursor-style-blink = false
+cursor-color = cell-foreground
+cursor-text = cell-background
+adjust-cursor-thickness = 3
+
+# Colors (Exact custom TokyoNight palette from alacritty.nix)
+background = #1a1b26
+foreground = #cdcecf
+selection-background = #2b3b51
+selection-foreground = #cdcecf
+
+palette = 0=#393b44
+palette = 1=#c94f6d
+palette = 2=#81b29a
+palette = 3=#dbc074
+palette = 4=#719cd6
+palette = 5=#9d79d6
+palette = 6=#63cdcf
+palette = 7=#dfdfe0
+palette = 8=#575860
+palette = 9=#d16983
+palette = 10=#8ebaa4
+palette = 11=#e0c989
+palette = 12=#86abdc
+palette = 13=#baa1e2
+palette = 14=#7ad5d6
+palette = 15=#e4e4e5
+palette = 16=#f4a261
+palette = 17=#d67ad2
+
+# Clipboard & Surface
+copy-on-select = clipboard
+confirm-close-surface = false

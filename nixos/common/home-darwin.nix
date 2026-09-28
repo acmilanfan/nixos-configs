@@ -125,7 +125,8 @@ in
       reload-kanata-logs = "~/.config/kanata/reload-kanata.sh --show-logs";
 
       # Sync Dashboard
-      syncmon = "alacritty --title 'SyncMon Dashboard' -e syncmon";    }
+      syncmon = "ghostty --title='SyncMon Dashboard' -e syncmon";
+    }
   ];
 
   # macOS-specific programs configuration

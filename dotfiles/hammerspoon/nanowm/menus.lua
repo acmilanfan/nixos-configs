@@ -363,7 +363,7 @@ function M.showKeybindMenu()
         {
             category = "Applications",
             binds = {
-                { key = "Alt+Return", desc = "New Alacritty", fn = function() core.launchTask("/usr/bin/open", { "-n", "-a", "Alacritty" }) end },
+                { key = "Alt+Return", desc = "New Ghostty", fn = function() core.launchTask("/usr/bin/open", { "-n", "-a", "Ghostty" }) end },
                 { key = "Alt+B", desc = "New Firefox", fn = function() core.launchTask("/usr/bin/open", { "-n", "-a", "Firefox" }) end },
                 { key = "Alt+D", desc = "Toggle Vicinae", fn = function() hs.task.new("/opt/homebrew/bin/vicinae", nil, { "toggle" }):start() end },
                 { key = "Alt+Shift+V", desc = "Clipboard History", fn = function() hs.task.new("/opt/homebrew/bin/vicinae", nil, { "vicinae://launch/clipboard/history?toggle=true" }):start() end },
@@ -471,12 +471,12 @@ function M.openControlMenu()
         },
         {
             text = "WiFi Control (wifitui)",
-            subText = "Open TUI for WiFi management in Alacritty",
+            subText = "Open TUI for WiFi management in Ghostty",
             uuid = "wifi",
         },
         {
             text = "Bluetooth Control (btui)",
-            subText = "Open TUI for Bluetooth management in Alacritty",
+            subText = "Open TUI for Bluetooth management in Ghostty",
             uuid = "bluetooth",
         },
     }

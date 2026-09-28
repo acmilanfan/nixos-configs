@@ -159,6 +159,8 @@ end
 local function suite_floating_titles()
     local cases = {
         -- name, app, title, expected
+        { "Ghostty ORGINDEX floats",          "Ghostty",   "ORGINDEX-WORK",                          true  },
+        { "Ghostty YAZI floats",              "Ghostty",   "YAZI",                                   true  },
         { "Alacritty ORGINDEX floats",        "Alacritty", "ORGINDEX-WORK",                          true  },
         { "Alacritty YAZI floats",            "Alacritty", "YAZI",                                   true  },
         { "Firefox weekenduo exact title floats", "Firefox", "Weekenduo",                            true  },
