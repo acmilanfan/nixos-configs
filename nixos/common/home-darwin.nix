@@ -51,6 +51,18 @@ in
         (lib.readFile ../../scripts/update-vicinae-raycast-extensions.sh)
       )
 
+      # Toggle pair for Vicinae. State is preserved across closes by default
+      # (pop_to_root_on_close = false), so:
+      #   vicinae-toggle-reset   — toggle, reset to the root search on open
+      #   vicinae-toggle-preserve — toggle, keep whatever view it was on
+      (pkgs.writeShellScriptBin "vicinae-toggle-reset" ''
+        if /opt/homebrew/bin/vicinae state open >/dev/null 2>&1; then
+          /opt/homebrew/bin/vicinae 'vicinae://close'
+        else
+          /opt/homebrew/bin/vicinae 'vicinae://open?popToRoot=true'
+        fi
+      '')
+
       # Toggle the Vicinae window while preserving whatever view it was on
       # (plain `vicinae toggle` can land on the root search again).
       (pkgs.writeShellScriptBin "vicinae-toggle-preserve" ''

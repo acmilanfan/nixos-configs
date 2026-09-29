@@ -195,12 +195,20 @@ function M.setup()
     hs.hotkey.bind(altShift, "b", function()
         hs.application.launchOrFocus("Firefox")
     end)
+    -- Alt+D: toggle Vicinae, resetting to the root search when it opens.
+    -- State is preserved across closes by default (pop_to_root_on_close =
+    -- false), so the reset has to happen on open.
     hs.hotkey.bind(alt, "d", function()
-        hs.task.new("/opt/homebrew/bin/vicinae", nil, { "toggle" }):start()
+        hs.task.new("/bin/zsh", nil, {
+            "-c",
+            [[if /opt/homebrew/bin/vicinae state open >/dev/null 2>&1; then
+                /opt/homebrew/bin/vicinae 'vicinae://close'
+              else
+                /opt/homebrew/bin/vicinae 'vicinae://open?popToRoot=true'
+              fi]],
+        }):start()
     end)
-    -- Toggle Vicinae while preserving the current view: plain `toggle` can
-    -- land on the root search again, this closes with popToRootType=suspended
-    -- and re-opens with `vicinae://open`.
+    -- Ctrl+Alt+D: toggle Vicinae keeping the current view.
     hs.hotkey.bind(ctrlAlt, "d", function()
         hs.task.new("/bin/zsh", nil, {
             "-c",
