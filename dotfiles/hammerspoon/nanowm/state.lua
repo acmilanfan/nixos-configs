@@ -191,6 +191,12 @@ M.lastManualTagSwitch = 0
 M.lastTileTime = 0
 M.lastMove = nil -- { winId, fromTag, toTag }
 
+-- Vicinae panel tracking. The launcher is a non-activating NSPanel: no app
+-- activation events fire for it, so its window count (observed via a dedicated
+-- hs.window.filter) is the only way to know the panel is showing.
+M.vicinaePanelCount = 0
+M.vicinaePanelClosedAt = 0
+
 -- UI state
 M.actionsCache = {}
 

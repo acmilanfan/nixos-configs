@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Feed a Raycast OAuth redirect URL to Vicinae.
+#
+# When a Raycast extension starts an OAuth flow, the browser ends up on
+# https://www.raycast.com/redirect?...&code=...&state=... which tries to open
+# the Raycast app. Vicinae's CLI accepts raycast:// deeplinks and the server
+# completes the pending auth when it receives:
+#   raycast://oauth?code=<code>&package_name=<name>&state=<state>
+#
+# Usage: vicinae-oauth [redirect-url]
+# With no argument, the URL is read from the clipboard (pbpaste), so after the
+# browser shows "Connected to ...", just Cmd+L, Cmd+C and run `vicinae-oauth`.
+
+VICINAE_BIN="${VICINAE_BIN:-/opt/homebrew/bin/vicinae}"
+
+input="${1:-}"
+if [ -z "$input" ]; then
+  input="$(pbpaste)"
+fi
+
+case "$input" in
+  raycast://oauth\?*)
+    exec "$VICINAE_BIN" "$input"
+    ;;
+  https://www.raycast.com/redirect\?* | https://raycast.com/redirect\?*)
+    ;;
+  *)
+    echo "Not a Raycast redirect URL:" >&2
+    echo "$input" >&2
+    exit 1
+    ;;
+esac
+
+query="${input#*\?}"
+code="" package="" state=""
+IFS='&' read -r -a parts <<< "$query"
+for p in "${parts[@]}"; do
+  case "$p" in
+    code=*) code="${p#code=}" ;;
+    packageName=*) package="${p#packageName=}" ;;
+    state=*) state="${p#state=}" ;;
+  esac
+done
+
+if [ -z "$code" ] || [ -z "$state" ]; then
+  echo "Could not find code/state in the URL" >&2
+  exit 1
+fi
+
+if [ -z "$package" ]; then
+  package="Extension"
+fi
+
+"$VICINAE_BIN" "raycast://oauth?code=$code&package_name=$package&state=$state"
+echo "Sent OAuth callback to Vicinae."
+echo "The waiting overlay should switch to \"You're in!\" — if the log says"
+echo "\"No oauth request for state\", restart the flow in Vicinae (each attempt"
+echo "gets a fresh state; stale browser tabs won't match) and try again."

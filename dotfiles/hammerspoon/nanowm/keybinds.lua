@@ -198,6 +198,19 @@ function M.setup()
     hs.hotkey.bind(alt, "d", function()
         hs.task.new("/opt/homebrew/bin/vicinae", nil, { "toggle" }):start()
     end)
+    -- Toggle Vicinae while preserving the current view: plain `toggle` can
+    -- land on the root search again, this closes with popToRootType=suspended
+    -- and re-opens with `vicinae://open`.
+    hs.hotkey.bind(ctrlAlt, "d", function()
+        hs.task.new("/bin/zsh", nil, {
+            "-c",
+            [[if /opt/homebrew/bin/vicinae state open >/dev/null 2>&1; then
+                /opt/homebrew/bin/vicinae 'vicinae://close?popToRootType=suspended&clearRootSearch=false'
+              else
+                /opt/homebrew/bin/vicinae 'vicinae://open'
+              fi]],
+        }):start()
+    end)
     hs.hotkey.bind(altShift, "v", function()
         hs.task.new("/opt/homebrew/bin/vicinae", nil, { "vicinae://launch/clipboard/history?toggle=true" }):start()
     end)

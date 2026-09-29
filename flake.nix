@@ -41,6 +41,14 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # `gf` CLI used by the Vicinae fuzzy-files extension. The published
+    # v0.1.0 macOS release binary is broken (prints no results), so build it
+    # from source via its flake.
+    goldfish = {
+      url = "github:sameoldlab/goldfish";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     vicinae = {
       url = "github:vicinaehq/vicinae";
       inputs.nixpkgs.follows = "nixpkgs";

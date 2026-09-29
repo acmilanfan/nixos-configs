@@ -19,6 +19,16 @@ M.destructionDelay = 0.5
 M.tagSwitchCooldown = 1.0
 M.tileProtectionWindow = 0.5
 
+-- Browsers whose title changes may indicate an extension-driven tab
+-- activation (see watchers.followTabActivation).
+M.browserApps = {
+    ["Firefox"] = true,
+    ["Google Chrome"] = true,
+    ["Brave Browser"] = true,
+    ["Chromium"] = true,
+    ["Safari"] = true,
+}
+
 -- Performance profiles (switched by battery watcher)
 -- Battery values are the baseline; AC values are more aggressive.
 M.perf = {

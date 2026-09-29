@@ -58,6 +58,12 @@ let
     # inherit shell env, so publish it into the launchd user domain before
     # Vicinae starts.
     launchctl setenv VICINAE_OVERRIDES "$USER_HOME/.config/vicinae/nix.json"
+
+    # GUI apps launched via launchd get a minimal PATH
+    # (/usr/bin:/bin:/usr/sbin:/sbin), so tools installed through Homebrew or
+    # nix are invisible to Vicinae's extensions (e.g. the Mole and
+    # video-downloader extensions shell out to `mole`/`yt-dlp`).
+    launchctl setenv PATH "/opt/homebrew/bin:$USER_HOME/.nix-profile/bin:/etc/profiles/per-user/${user}/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
     ensure_apps=(
       "Hammerspoon"
       "Vicinae"
@@ -185,6 +191,44 @@ in
     };
   };
 
+  # Vicinae's TypeScript extension manager runs from
+  # $TMPDIR/vicinae/extension-manager.js, which macOS's periodic temp cleanup
+  # purges ~3 days after the file's mtime (idle file, written once at app
+  # start). When that happens the next extension worker fails with
+  # "Cannot find module .../extension-manager.js", which kills the manager
+  # process, and vicinae never restarts it (upstream: ExtensionManager::finished
+  # only logs) - all extensions stay broken until the app is restarted.
+  #
+  # runtimeDir() is hardcoded to temp_directory_path()/vicinae with no env
+  # override (checked v0.28.1 + main), and moving TMPDIR would break the
+  # CLI<->app socket agreement, so instead:
+  #   - refresh the file's atime+mtime every 6h so it never looks idle, and
+  #   - if it was purged anyway while Vicinae is running, restart the app so
+  #     startup redeploys the manager bundle.
+  launchd.agents.vicinae-em-keepalive = {
+    command = toString (pkgs.writeShellScript "vicinae-em-keepalive" ''
+      f="''${TMPDIR:-/tmp}/vicinae/extension-manager.js"
+      if [ -s "$f" ]; then
+        touch "$f"
+        echo "$(date) refreshed $f"
+      elif pgrep -x Vicinae >/dev/null; then
+        echo "$(date) $f missing while Vicinae is running; restarting Vicinae"
+        osascript -e 'quit app "Vicinae"' >/dev/null 2>&1 || pkill -x Vicinae || true
+        sleep 3
+        pgrep -x Vicinae >/dev/null || open -a Vicinae
+      else
+        echo "$(date) $f missing (Vicinae not running); nothing to do"
+      fi
+    '');
+    serviceConfig = {
+      Label = "local.vicinae-em-keepalive";
+      RunAtLoad = true;
+      StartInterval = 21600; # 6 hours
+      StandardOutPath = "/tmp/vicinae-em-keepalive.log";
+      StandardErrorPath = "/tmp/vicinae-em-keepalive.err.log";
+    };
+  };
+
   # Homebrew packages that don't work well with nix-darwin
   homebrew = {
     enable = true;
@@ -223,6 +267,7 @@ in
       "mas"
       "scrcpy"
       "kanata"
+      "mole" # CLI used by the Vicinae "Mole" extension (mac cleaner)
       "firefoxpwa"
       "docker"
       "wifitui"

@@ -233,9 +233,10 @@ end
 
 -- Screen and geometry watcher
 local screenWatcher = nil
--- App and caffeinate watchers — must be module-level to avoid GC after M.setup() returns
+--- App and caffeinate watchers — must be module-level to avoid GC after M.setup() returns
 local _appWatcher = nil
 local _cafWatcher = nil
+local _vicFilter = nil
 function M.updateScreenFrames()
     state.screenFrames = {}
     for _, s in ipairs(hs.screen.allScreens()) do
@@ -348,6 +349,127 @@ function M.augmentAllWins(allWins, onlyApp)
     end
 end
 
+-- Follow app activations to the tag where the activated window lives.
+--
+-- Fired from the application watcher's `activated` event, which is cheap (the
+-- focused window is queried directly; no allWindows() sweep). This covers
+-- cmd-tab, Dock clicks, and apps brought forward by something else — e.g. a
+-- Vicinae extension activating the browser or a terminal (opencode-sessions).
+-- Vicinae itself is a non-activating panel on macOS, so "the previously
+-- frontmost app was Vicinae" is NOT a reliable signal; activation of the
+-- target app is.
+function M.followActivatedApp(app, appName)
+    if not app then return end
+    if state.launching then return end
+
+    local attempts = 0
+    local function attempt()
+        attempts = attempts + 1
+
+        local now = hs.timer.secondsSinceEpoch()
+        if now - state.lastTileTime < config.tileProtectionWindow then return end
+        if now - state.lastManualTagSwitch < config.tagSwitchCooldown then return end
+
+        -- The app's key window (and our tag assignment for it) may not be
+        -- visible to the window server yet right at activation, e.g. when
+        -- Firefox focuses a specific tab's window. Retry briefly.
+        local retry = function()
+            if attempts < 4 then hs.timer.doAfter(0.2, attempt) end
+        end
+
+        local win = app:focusedWindow()
+        if not win then return retry() end
+
+        local id = win:id()
+        if not id or id == 0 then return retry() end
+
+        local tag = state.tags[id]
+        if not tag then return retry() end
+
+        if tag == state.currentTag then return end
+        if state.special.active and tag == state.special.tag then return end
+
+        if core.isFloating(win) then
+            -- Floating window parked on another tag: mark urgent instead of raising
+            -- an invisible window (same policy as external focus in windowFocused).
+            tags.markTagUrgent(tag)
+            return
+        end
+
+        print(string.format("[NanoWM] %s activated, switching to tag %s", tostring(appName), tostring(tag)))
+
+        if tag == "special" then
+            if not state.special.active then
+                tags.toggleSpecial()
+            end
+        else
+            tags.gotoTag(tag)
+        end
+
+        hs.timer.doAfter(0.05, function()
+            win:focus()
+        end)
+    end
+
+    attempt()
+end
+
+-- A Vicinae browser command (Search Browser Tabs) activates a tab in a
+-- browser window that may live on another tag. Firefox/Chrome request window
+-- focus, but macOS does not raise a window nanowm parked off-screen, so no
+-- focus or activation event ever fires — the only observable signal is the
+-- browser window's title changing.
+--
+-- Note the browser is usually NOT the frontmost app here: the launcher is a
+-- non-activating panel, so opening it over some other app leaves that app
+-- frontmost, and the extension's focus request does not change that. The
+-- discriminator is therefore the panel state: background tab title updates
+-- (YouTube autoplay in a parked window, unread counters) happen without the
+-- panel, and while the panel is showing the user is deliberately acting on
+-- the browser.
+function M.followTabActivation(win)
+    local app = win:application()
+    local appName = app and app:name() or ""
+    if not config.browserApps[appName] then return end
+
+    local id = win:id()
+    local tag = state.tags[id]
+    if not tag or tag == state.currentTag then return end
+    if state.special.active and tag == state.special.tag then return end
+    if core.isFloating(win) then return end
+
+    -- If the window actually became the global key window, the windowFocused
+    -- / followActivatedApp paths already handled (or deliberately declined) it.
+    local frontmost = hs.application.frontmostApplication()
+    if frontmost then
+        local focused = frontmost:focusedWindow()
+        if focused and focused:id() == id then return end
+    end
+
+    local now = hs.timer.secondsSinceEpoch()
+    if now - state.lastTileTime < config.tileProtectionWindow then return end
+    if now - state.lastManualTagSwitch < config.tagSwitchCooldown then return end
+
+    local panelShowing = (state.vicinaePanelCount or 0) > 0
+        or (now - (state.vicinaePanelClosedAt or 0)) < 1.5
+    if not panelShowing then return end
+
+    print(string.format("[NanoWM] Tab activated in %s window on tag %s (Vicinae panel), switching",
+        appName, tostring(tag)))
+
+    if tag == "special" then
+        if not state.special.active then
+            tags.toggleSpecial()
+        end
+    else
+        tags.gotoTag(tag)
+    end
+
+    hs.timer.doAfter(0.05, function()
+        win:focus()
+    end)
+end
+
 function M.setup()
     M.updateScreenFrames()
     screenWatcher = hs.screen.watcher.new(function()
@@ -413,6 +535,7 @@ function M.setup()
         core.invalidateFloatingCache(win:id())
         core.registerWindow(win)
         layout.tile()
+        M.followTabActivation(win)
     end))
 
     -- =========================================================================
@@ -601,24 +724,27 @@ function M.setup()
             return
         end
 
-        -- Check if triggered by Dock click
-        local isDockClick = core.isMouseInDockArea()
+        -- Cross-tag focus: follow the window to its tag.
+        --
+        -- This used to only follow Dock clicks and mark the tag urgent otherwise.
+        -- But extensions activate hidden windows of an ALREADY frontmost app
+        -- (e.g. the Vicinae browser extension focusing a tab whose window lives
+        -- on another tag): no application activation happens in that case, so
+        -- the app watcher can't see it — the window focus event is the only
+        -- signal. Floating windows on other tags already took the urgent path
+        -- above.
+        print("[NanoWM] Cross-tag focus, switching to tag " .. tostring(tag))
 
-        if isDockClick then
-            print("[NanoWM] Dock click detected, switching to tag " .. tostring(tag))
-            if tag == "special" then
-                if not state.special.active then
-                    tags.toggleSpecial()
-                end
-            else
-                tags.gotoTag(tag)
+        if tag == "special" then
+            if not state.special.active then
+                tags.toggleSpecial()
             end
-            hs.timer.doAfter(0.05, function()
-                win:focus()
-            end)
         else
-            tags.markTagUrgent(tag)
+            tags.gotoTag(tag)
         end
+        hs.timer.doAfter(0.05, function()
+            win:focus()
+        end)
 
         if state.focusTimer then
             state.focusTimer:stop()
@@ -644,8 +770,11 @@ function M.setup()
     hs.timer.new(60, _resync):start()
 
     -- Allow newly launched apps into the filter; trigger a deferred resync for new apps.
-    -- There is deliberately no appActivated hook: app:allWindows() on every Slack activation
-    -- caused 25 s freezes when the AX lock was held. The 60s _resync() covers those windows.
+    -- There is deliberately no window enumeration on activation: app:allWindows() on every
+    -- Slack activation caused 25 s freezes when the AX lock was held. The 60s _resync()
+    -- covers those windows. Activation events are still observed, but they only drive
+    -- M.followActivatedApp (cheap: no window enumeration), which lets tags follow
+    -- extension-driven app activations such as a browser extension focusing a tab.
     _appWatcher = hs.application.watcher.new(function(appName, event, app)
         if event == hs.application.watcher.launched then
             -- Adopt the handle directly so the 1s scanner doesn't wait out FF_LOOKUP_BACKOFF
@@ -658,9 +787,29 @@ function M.setup()
             if managedAllowed[appName] then
                 hs.timer.doAfter(1.5, _resync)
             end
+        elseif event == hs.application.watcher.activated then
+            M.followActivatedApp(app, appName)
         end
     end)
     _appWatcher:start()
+
+    -- Track Vicinae panel visibility by counting its windows. The panel is a
+    -- non-activating NSPanel (0 windows when hidden, 3 when shown) and fires
+    -- no application-activation events, so this is how followTabActivation
+    -- knows the user is interacting with the launcher. Seeded once in case the
+    -- panel is already open; drift is corrected on the next create/destroy.
+    _vicFilter = hs.window.filter.new("Vicinae")
+    _vicFilter:subscribe(hs.window.filter.windowCreated, function()
+        state.vicinaePanelCount = (state.vicinaePanelCount or 0) + 1
+    end)
+    _vicFilter:subscribe(hs.window.filter.windowDestroyed, function()
+        state.vicinaePanelCount = math.max(0, (state.vicinaePanelCount or 0) - 1)
+        state.vicinaePanelClosedAt = hs.timer.secondsSinceEpoch()
+    end)
+    do
+        local vic = hs.application.get("Vicinae")
+        state.vicinaePanelCount = vic and #vic:allWindows() or 0
+    end
 
     -- After any detected freeze >= 5 s, extend the AX suppress guard for 90 s.
     -- Only overrides the current timer when the new deadline would be later, so

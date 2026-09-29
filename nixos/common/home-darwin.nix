@@ -1,4 +1,4 @@
-{ pkgs, lib, unstable, secrets, ... }:
+{ pkgs, lib, unstable, secrets, inputs, ... }:
 
 let
   spoon =
@@ -34,6 +34,32 @@ in
       duti # Default application handler
 
       gh
+
+      # Used by the Vicinae video-downloader extension (via the GUI PATH
+      # published in darwin-startup).
+      yt-dlp
+
+      # Required by the Vicinae fuzzy-files extension, which spawns `gf`
+      # (https://github.com/sameoldlab/goldfish). The published v0.1.0 macOS
+      # release binary prints nothing; build from source instead.
+      inputs.goldfish.packages.${pkgs.stdenv.hostPlatform.system}.goldfish
+
+      # Update the pinned Raycast Store extensions in this repo
+      # (see nixos/home-manager/common/vicinae.nix). Reads the repo via
+      # $VICINAE_CONFIG_ROOT or ~/configs/nixos-configs.
+      (pkgs.writeShellScriptBin "update-vicinae-raycast-extensions"
+        (lib.readFile ../../scripts/update-vicinae-raycast-extensions.sh)
+      )
+
+      # Toggle the Vicinae window while preserving whatever view it was on
+      # (plain `vicinae toggle` can land on the root search again).
+      (pkgs.writeShellScriptBin "vicinae-toggle-preserve" ''
+        if /opt/homebrew/bin/vicinae state open >/dev/null 2>&1; then
+          /opt/homebrew/bin/vicinae 'vicinae://close?popToRootType=suspended&clearRootSearch=false'
+        else
+          /opt/homebrew/bin/vicinae 'vicinae://open'
+        fi
+      '')
 
       # Window management
       sketchybar # Status bar
@@ -75,6 +101,12 @@ in
 
       (pkgs.writeShellScriptBin "create-utm-vm-hyprland"
         (lib.readFile ../vm-hyprland/scripts/create-utm-vm.sh))
+
+      # Feed Raycast OAuth callbacks (https://www.raycast.com/redirect?...)
+      # to Vicinae. Raycast's scheme is owned by the Raycast app, so the
+      # browser redirect can't reach Vicinae directly; run this after the
+      # browser shows "Connected to ..." while the Vicinae overlay is waiting.
+      (pkgs.writeShellScriptBin "vicinae-oauth" (lib.readFile ./scripts/vicinae-oauth))
     ]
     ++ lib.optionals pkgs.stdenv.isDarwin [
       # Darwin-specific packages
