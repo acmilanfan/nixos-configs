@@ -926,9 +926,52 @@ print("model_settings: default=%s" % want)
   superpowersDir = "$HOME/.cache/opencode-superpowers";
 
   aiWorkspaceDirs = [ "projects" "docs" "instructions" "models" "artifacts" ];
+
+  opencodeSettingsJson = builtins.toJSON opencodeSettings;
 in
 {
-  home.file.".config/opencode/opencode.json".text = builtins.toJSON opencodeSettings;
+  # Not a home.file: `opencode plugin <module> --global` writes straight
+  # back into this file (its --help literally says "install plugin and
+  # update config"), so a home.file symlink into the read-only Nix store
+  # would EACCES exactly like Claude Code's settings.json did. Write a real,
+  # writable file instead and diff any live drift against the Nix-managed
+  # content before overwriting, so a runtime change worth keeping (an
+  # installed plugin, a model switch) gets surfaced instead of silently
+  # discarded. See ai-agents.nix's claudeSettings activation for the same
+  # pattern.
+  home.activation.opencodeSettings = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    OPENCODE_DIR="$HOME/.config/opencode"
+    OPENCODE_SETTINGS="$OPENCODE_DIR/opencode.json"
+    mkdir -p "$OPENCODE_DIR"
+
+    NEW_OC_SETTINGS=$(cat <<'EOF'
+${opencodeSettingsJson}
+EOF
+    )
+
+    if [ -L "$OPENCODE_SETTINGS" ]; then
+      rm "$OPENCODE_SETTINGS"
+    elif [ -f "$OPENCODE_SETTINGS" ]; then
+      OLD_OC_SETTINGS=$(cat "$OPENCODE_SETTINGS")
+      OLD_OC_NORM=$(printf '%s' "$OLD_OC_SETTINGS" | ${pkgs.jq}/bin/jq -S .)
+      NEW_OC_NORM=$(printf '%s' "$NEW_OC_SETTINGS" | ${pkgs.jq}/bin/jq -S .)
+      if [ "$OLD_OC_NORM" != "$NEW_OC_NORM" ]; then
+        echo ""
+        echo "==> ~/.config/opencode/opencode.json has drifted from the Nix-managed config (nixos/home-manager/common/opencode.nix)."
+        echo "    Diff (live vs. nix-managed), about to be overwritten by the nix-managed version:"
+        diff <(printf '%s\n' "$OLD_OC_NORM") <(printf '%s\n' "$NEW_OC_NORM") || true
+        OC_BACKUP="$OPENCODE_DIR/opencode.json.drift.$(date +%s).json"
+        printf '%s' "$OLD_OC_SETTINGS" > "$OC_BACKUP"
+        echo "    Live version backed up to: $OC_BACKUP"
+        echo "    If any of these (e.g. an installed plugin or model change) should"
+        echo "    persist, add them to opencodeSettings in nixos/home-manager/common/opencode.nix."
+        echo ""
+      fi
+    fi
+
+    printf '%s' "$NEW_OC_SETTINGS" > "$OPENCODE_SETTINGS"
+    chmod 644 "$OPENCODE_SETTINGS"
+  '';
 
   home.file.".config/opencode/plugins/agent-state.ts".text = ''
     import type { Plugin } from "@opencode-ai/plugin";

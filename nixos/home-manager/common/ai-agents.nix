@@ -183,6 +183,8 @@ let
     hooks = mkHooks "claude";
   };
 
+  claudeSettingsJson = builtins.toJSON claudeSettings;
+
   githubToken = (secrets.github or { }).token or "";
 
   antigravitySettings = {
@@ -230,8 +232,48 @@ let
   antigravity = "${inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.antigravity-cli}/bin/antigravity";
 in
 {
-  home.file.".claude/settings.json".text = builtins.toJSON claudeSettings;
   # opencode config/plugins now live in ./opencode.nix.
+
+  # Claude Code needs to write to its own settings.json at runtime (e.g. `/effort`,
+  # `/model`), so it can't be a symlink into the read-only Nix store like a plain
+  # home.file would create. We write a real, writable file instead (same trick as
+  # the Antigravity settings below) and, before overwriting it on each activation,
+  # diff the live file against the Nix-managed content so any runtime change that
+  # should be made permanent gets surfaced instead of silently discarded.
+  home.activation.claudeSettings = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    CLAUDE_DIR="$HOME/.claude"
+    CLAUDE_SETTINGS="$CLAUDE_DIR/settings.json"
+    mkdir -p "$CLAUDE_DIR"
+
+    NEW_SETTINGS=$(cat <<'EOF'
+${claudeSettingsJson}
+EOF
+    )
+
+    if [ -L "$CLAUDE_SETTINGS" ]; then
+      # Leftover symlink from the old home.file-managed version.
+      rm "$CLAUDE_SETTINGS"
+    elif [ -f "$CLAUDE_SETTINGS" ]; then
+      OLD_SETTINGS=$(cat "$CLAUDE_SETTINGS")
+      OLD_NORM=$(printf '%s' "$OLD_SETTINGS" | ${pkgs.jq}/bin/jq -S .)
+      NEW_NORM=$(printf '%s' "$NEW_SETTINGS" | ${pkgs.jq}/bin/jq -S .)
+      if [ "$OLD_NORM" != "$NEW_NORM" ]; then
+        echo ""
+        echo "==> ~/.claude/settings.json has drifted from the Nix-managed config (nixos/home-manager/common/ai-agents.nix)."
+        echo "    Diff (live vs. nix-managed), about to be overwritten by the nix-managed version:"
+        diff <(printf '%s\n' "$OLD_NORM") <(printf '%s\n' "$NEW_NORM") || true
+        BACKUP="$CLAUDE_DIR/settings.json.drift.$(date +%s).json"
+        printf '%s' "$OLD_SETTINGS" > "$BACKUP"
+        echo "    Live version backed up to: $BACKUP"
+        echo "    If any of these (e.g. an effort-level or model change) should persist,"
+        echo "    add them to claudeSettings in nixos/home-manager/common/ai-agents.nix."
+        echo ""
+      fi
+    fi
+
+    printf '%s' "$NEW_SETTINGS" > "$CLAUDE_SETTINGS"
+    chmod 644 "$CLAUDE_SETTINGS"
+  '';
 
   home.packages = [
       inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.claude-code
@@ -249,16 +291,40 @@ in
 
     # 1. Antigravity Writable Settings Setup
     # We don't use home.file here because antigravity needs to write to its settings
-    # but we still want them managed/reproducible by Nix.
+    # but we still want them managed/reproducible by Nix. Diff any live drift
+    # against the Nix-managed content before overwriting (same as Claude
+    # Code's settings.json activation) so a runtime change worth keeping gets
+    # surfaced instead of silently discarded.
     AGY_DIR="$HOME/.gemini/antigravity-cli"
     AGY_SETTINGS="$AGY_DIR/settings.json"
     mkdir -p "$AGY_DIR"
-    if [ -L "$AGY_SETTINGS" ]; then rm "$AGY_SETTINGS"; fi
 
-    # Write managed settings
-    cat > "$AGY_SETTINGS" <<'EOF'
+    NEW_AGY_SETTINGS=$(cat <<'EOF'
 ${builtins.toJSON antigravitySettings}
 EOF
+    )
+
+    if [ -L "$AGY_SETTINGS" ]; then
+      rm "$AGY_SETTINGS"
+    elif [ -f "$AGY_SETTINGS" ]; then
+      OLD_AGY_SETTINGS=$(cat "$AGY_SETTINGS")
+      OLD_AGY_NORM=$(printf '%s' "$OLD_AGY_SETTINGS" | ${pkgs.jq}/bin/jq -S .)
+      NEW_AGY_NORM=$(printf '%s' "$NEW_AGY_SETTINGS" | ${pkgs.jq}/bin/jq -S .)
+      if [ "$OLD_AGY_NORM" != "$NEW_AGY_NORM" ]; then
+        echo ""
+        echo "==> ~/.gemini/antigravity-cli/settings.json has drifted from the Nix-managed config (nixos/home-manager/common/ai-agents.nix)."
+        echo "    Diff (live vs. nix-managed), about to be overwritten by the nix-managed version:"
+        diff <(printf '%s\n' "$OLD_AGY_NORM") <(printf '%s\n' "$NEW_AGY_NORM") || true
+        AGY_BACKUP="$AGY_DIR/settings.json.drift.$(date +%s).json"
+        printf '%s' "$OLD_AGY_SETTINGS" > "$AGY_BACKUP"
+        echo "    Live version backed up to: $AGY_BACKUP"
+        echo "    If any of these should persist, add them to antigravitySettings in"
+        echo "    nixos/home-manager/common/ai-agents.nix."
+        echo ""
+      fi
+    fi
+
+    printf '%s' "$NEW_AGY_SETTINGS" > "$AGY_SETTINGS"
     chmod 644 "$AGY_SETTINGS"
 
     # 2. Antigravity Plugin Installation
