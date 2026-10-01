@@ -23,10 +23,10 @@ let
         # apiKey = "{env:ANTHROPIC_API_KEY}";
       };
       models = {
-        "claude-opus-4-8" = {
+        "claude-opus-5-5" = {
           name = "Claude Opus";
         };
-        "claude-sonnet-5" = {
+        "claude-sonnet-5-5" = {
           name = "Claude Sonnet";
         };
         "claude-haiku-4-5-20251001" = {
@@ -784,7 +784,7 @@ print("model_settings: default=%s" % want)
   # -------------------------------------------------------------------------
   # Claude agent -> opencode agent frontmatter converter (work only). Reads
   # Claude Code subagent .md files (name/description/model/tools/color/skills
-  # frontmatter) and emits opencode's agent frontmatter (mode/model/tools),
+  # frontmatter) and emits opencode's agent frontmatter (mode/model/permission),
   # keeping the system-prompt body verbatim.
   # -------------------------------------------------------------------------
 
@@ -797,26 +797,50 @@ print("model_settings: default=%s" % want)
     import yaml
 
     MODEL_MAP = {
-        "opus": "anthropic/claude-opus-4-8",
-        "sonnet": "anthropic/claude-sonnet-5",
+        "opus": "anthropic/claude-opus-5-5",
+        "sonnet": "anthropic/claude-sonnet-5-5",
         "haiku": "anthropic/claude-haiku-4-5-20251001",
     }
 
-    # Claude tool name -> opencode tool name. Unrecognized tools are dropped
-    # (with a warning) rather than guessed at.
+    # Claude tool name -> opencode permission key. Unrecognized tools are
+    # dropped (reported in the end-of-run summary) rather than guessed at.
     TOOL_MAP = {
         "Glob": "glob",
         "Grep": "grep",
         "LS": "list",
         "Read": "read",
-        "Write": "write",
+        "Write": "edit",
         "Edit": "edit",
+        "MultiEdit": "edit",
+        "NotebookEdit": "edit",
+        "LSP": "lsp",
         "WebFetch": "webfetch",
         "TodoWrite": "todowrite",
         "Bash": "bash",
         "KillShell": "bash",
         "BashOutput": "bash",
+        "NotebookRead": "read",
+        "WebSearch": "websearch",
+        "Skill": "skill",
+        "Agent": "task",
+        "Task": "task",
     }
+
+    # opencode built-in capability permissions. A Claude `tools:` list is an
+    # allowlist, so every one of these the agent doesn't list is denied.
+    # Listed ones are deliberately NOT emitted as "allow": that would
+    # override the global permission block (bash/edit "ask", read denies on
+    # .env/secrets). MCP/custom tools aren't touched and keep the global
+    # default. question/external_directory/doom_loop are guards, not
+    # capabilities, so they're left alone too.
+    BUILTIN_PERMISSIONS = [
+        "read", "edit", "glob", "grep", "list", "bash", "task",
+        "todowrite", "webfetch", "websearch", "lsp", "skill",
+    ]
+
+    # Unmapped tool names seen across all agents, reported once at the end
+    # instead of one stderr line per agent per tool.
+    UNMAPPED = set()
 
 
     def parse_frontmatter(text):
@@ -828,24 +852,27 @@ print("model_settings: default=%s" % want)
         return fm, body
 
 
-    def convert_tools(raw):
-        if raw is None:
-            return None
+    def convert_permissions(raw):
+        # No (or empty) `tools:` means the Claude agent inherits every tool,
+        # so emit no permission block and let the global config apply.
         if isinstance(raw, str):
             names = [t.strip() for t in raw.split(",") if t.strip()]
         elif isinstance(raw, list):
             names = raw
         else:
             return None
-        tools = {}
+        if not names:
+            return None
+        allowed = set()
         for name in names:
-            mapped = TOOL_MAP.get(name)
+            # Scoped forms like Skill(foo) / Agent(bar) map like the bare tool.
+            mapped = TOOL_MAP.get(name.split("(", 1)[0])
             if mapped is None:
-                msg = f"convert-claude-agent: skipping unmapped tool '{name}'"
-                print(msg, file=sys.stderr)
+                UNMAPPED.add(name)
                 continue
-            tools[mapped] = True
-        return tools or None
+            allowed.add(mapped)
+        denied = {p: "deny" for p in BUILTIN_PERMISSIONS if p not in allowed}
+        return denied or None
 
 
     def convert_one(src, dst):
@@ -863,9 +890,9 @@ print("model_settings: default=%s" % want)
         if model and model != "inherit":
             out_fm["model"] = MODEL_MAP.get(model, model)
 
-        tools = convert_tools(fm.get("tools"))
-        if tools:
-            out_fm["tools"] = tools
+        permission = convert_permissions(fm.get("tools"))
+        if permission:
+            out_fm["permission"] = permission
 
         with open(dst, "w") as f:
             f.write("---\n")
@@ -897,25 +924,40 @@ print("model_settings: default=%s" % want)
         for src in sources:
             by_basename.setdefault(os.path.basename(src), []).append(src)
 
+        prefixed = 0
+        failed = 0
         for src in sources:
             base = os.path.basename(src)
             if len(by_basename[base]) > 1:
                 dst_name = f"{plugin_name_for(src)}-{base}"
-                print(
-                    f"convert-claude-agent: '{base}' is shipped by "
-                    f"{len(by_basename[base])} plugins; disambiguating as "
-                    f"'{dst_name}'",
-                    file=sys.stderr,
-                )
+                prefixed += 1
             else:
                 dst_name = base
             try:
                 convert_one(src, os.path.join(dest_dir, dst_name))
             except Exception as e:
+                failed += 1
                 print(
                     f"convert-claude-agent: failed to convert '{src}': {e}",
                     file=sys.stderr,
                 )
+
+        # MCP tools are expected to be unmapped (opencode names them
+        # differently), so only count them; list the rest by name.
+        mcp = sorted(t for t in UNMAPPED if t.startswith("mcp__"))
+        other = sorted(t for t in UNMAPPED if not t.startswith("mcp__"))
+        print(
+            f"convert-claude-agent: converted {len(sources) - failed}/"
+            f"{len(sources)} agents ({prefixed} plugin-prefixed); "
+            f"dropped {len(mcp)} MCP tool refs",
+            file=sys.stderr,
+        )
+        if other:
+            names = ", ".join(other)
+            print(
+                f"convert-claude-agent: unmapped non-MCP tools: {names}",
+                file=sys.stderr,
+            )
 
 
     if __name__ == "__main__":
@@ -967,6 +1009,7 @@ EOF
         echo "    persist, add them to opencodeSettings in nixos/home-manager/common/opencode.nix."
         echo ""
       fi
+      ls -1t "$OPENCODE_DIR"/opencode.json.drift.*.json 2>/dev/null | tail -n +6 | while read -r f; do rm -f "$f"; done
     fi
 
     printf '%s' "$NEW_OC_SETTINGS" > "$OPENCODE_SETTINGS"
@@ -1079,7 +1122,7 @@ EOF
     export PATH="${pkgs.git}/bin:$PATH:/usr/bin"
 
     if [ -d "${superpowersDir}/.git" ]; then
-      $DRY_RUN_CMD git -C "${superpowersDir}" pull --ff-only || true
+      $DRY_RUN_CMD git -C "${superpowersDir}" pull -q --ff-only || true
     else
       $DRY_RUN_CMD git clone --depth 1 https://github.com/obra/superpowers "${superpowersDir}" || true
     fi
@@ -1107,7 +1150,7 @@ EOF
 
       ${lib.optionalString (workMarketplaceRepo != "") ''
         if [ -d "${workAssetsDir}/.git" ]; then
-          $DRY_RUN_CMD git -C "${workAssetsDir}" pull --ff-only || true
+          $DRY_RUN_CMD git -C "${workAssetsDir}" pull -q --ff-only || true
         else
           $DRY_RUN_CMD git clone "git@github-work:${workMarketplaceRepo}.git" "${workAssetsDir}" || true
         fi

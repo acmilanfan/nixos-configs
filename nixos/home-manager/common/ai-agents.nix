@@ -155,7 +155,13 @@ let
       ];
       ask = [ ];
     };
-    model = "opusplan[1m]";
+    model = "opus";
+    # Per-model effort, as written by `/effort` (keyed by full model id).
+    modelSettings = {
+      "claude-opus-5-5".effortLevel = "high";
+      "claude-sonnet-5-5".effortLevel = "high";
+      "claude-sonnet-5".effortLevel = "high";
+    };
     enabledPlugins = {
       "jdtls-lsp@claude-plugins-official" = true;
       "clangd-lsp@claude-plugins-official" = true;
@@ -269,6 +275,8 @@ EOF
         echo "    add them to claudeSettings in nixos/home-manager/common/ai-agents.nix."
         echo ""
       fi
+      # Keep only the 5 newest drift backups.
+      ls -1t "$CLAUDE_DIR"/settings.json.drift.*.json 2>/dev/null | tail -n +6 | while read -r f; do rm -f "$f"; done
     fi
 
     printf '%s' "$NEW_SETTINGS" > "$CLAUDE_SETTINGS"
@@ -322,6 +330,7 @@ EOF
         echo "    nixos/home-manager/common/ai-agents.nix."
         echo ""
       fi
+      ls -1t "$AGY_DIR"/settings.json.drift.*.json 2>/dev/null | tail -n +6 | while read -r f; do rm -f "$f"; done
     fi
 
     printf '%s' "$NEW_AGY_SETTINGS" > "$AGY_SETTINGS"
