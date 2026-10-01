@@ -159,7 +159,11 @@ local _ffLookupAt = 0
 local FF_LOOKUP_BACKOFF = 10  -- seconds between lookups while Firefox is absent
 -- (the scanner below runs every 3 s; see M._ffScanTimer)
 
+local _inputTap  -- defined with the cross-tag focus policy below
+
 local function _resync()
+    -- macOS disables an event tap whose callback ever times out; re-arm it.
+    if _inputTap and not _inputTap:isEnabled() then _inputTap:start() end
     if _axBlocked() then return end
     local fresh = {}
     for _, app in ipairs(hs.application.runningApplications()) do
@@ -349,69 +353,290 @@ function M.augmentAllWins(allWins, onlyApp)
     end
 end
 
--- Follow app activations to the tag where the activated window lives.
+-- =============================================================================
+-- Cross-tag focus policy
+-- =============================================================================
+-- macOS moves focus on its own all the time: closing a window hands key status to the app's
+-- next window, quitting or hiding an app activates the next app, apps activate themselves.
+-- Whenever that lands on a window parked on another tag, following it is a "random" tag jump,
+-- and NOT following it (the old protection-window early returns) leaves keyboard focus on an
+-- invisible window. Both were observed: closing a Firefox window on tag 8 jumped to tag 9, or,
+-- when a tile had just run, silently focused the tag-9 window in its parked corner.
 --
--- Fired from the application watcher's `activated` event, which is cheap (the
--- focused window is queried directly; no allWindows() sweep). This covers
--- cmd-tab, Dock clicks, and apps brought forward by something else — e.g. a
--- Vicinae extension activating the browser or a terminal (opencode-sessions).
--- Vicinae itself is a non-activating panel on macOS, so "the previously
--- frontmost app was Vicinae" is NOT a reliable signal; activation of the
--- target app is.
-function M.followActivatedApp(app, appName)
-    if not app then return end
-    if state.launching then return end
+-- Policy: focus never leaves the current tag unless the user asked for it. Accepted intents:
+--   * Vicinae  - panel open or just closed (extension activating a window/tab)
+--   * Dock     - a click on a Dock item
+--   * Cmd-Tab  - the macOS app switcher
+--   * link     - a browser activated from another app right after user input (clicked link)
+-- Anything else marks the window's tag urgent and pulls focus back to the current tag's most
+-- recently used window, or the desktop when the tag is empty.
+--
+-- The decision is deferred ~0.2 s (_scheduleResolve) so the app activation that caused a focus
+-- change is seen first, and so a burst of focus events collapses into one decision.
 
-    local attempts = 0
-    local function attempt()
-        attempts = attempts + 1
+local DECISION_DELAY   = 0.2
+local CMD_TAB_WINDOW   = 1.0   -- activation within this long after Cmd-Tab release
+local DOCK_WINDOW      = 1.5   -- ... after a Dock item click
+local LINK_WINDOW      = 2.0   -- browser activation this soon after an activation from another app
+local INPUT_WINDOW     = 3.0   -- ... and this soon after a click or key press
+local FALLTHROUGH_WIN  = 1.0   -- focus changes this soon after a close/quit/hide are the OS's doing
+local HISTORY_MAX      = 16
 
-        local now = hs.timer.secondsSinceEpoch()
-        if now - state.lastTileTime < config.tileProtectionWindow then return end
-        if now - state.lastManualTagSwitch < config.tagSwitchCooldown then return end
+local _cmdTabArmed = false
+local _cmdTabAt = 0
+local _dockClickAt = 0
+local _lastInputAt = 0
+local _fallthroughAt = 0
+local _frontApp = nil
+local _lastActivation = { app = nil, prev = nil, t = 0 }
 
-        -- The app's key window (and our tag assignment for it) may not be
-        -- visible to the window server yet right at activation, e.g. when
-        -- Firefox focuses a specific tab's window. Retry briefly.
-        local retry = function()
-            if attempts < 4 then hs.timer.doAfter(0.2, attempt) end
+-- Per-tag focus history, most recent first. Volatile: state.tagLastFocused is the persisted
+-- fallback after a reload.
+local _focusHistory = {}
+
+local function _pushHistory(tag, id)
+    local list = _focusHistory[tag]
+    if not list then
+        list = {}
+        _focusHistory[tag] = list
+    end
+    if list[1] == id then return end
+    for i = #list, 1, -1 do
+        if list[i] == id then table.remove(list, i) end
+    end
+    table.insert(list, 1, id)
+    if #list > HISTORY_MAX then list[#list] = nil end
+end
+
+local function _dropHistory(id)
+    for _, list in pairs(_focusHistory) do
+        for i = #list, 1, -1 do
+            if list[i] == id then table.remove(list, i) end
         end
+    end
+end
 
-        local win = app:focusedWindow()
-        if not win then return retry() end
+-- Most recently focused window that is still alive, still on `tag`, and not hidden/minimized.
+local function _mruWindow(tag)
+    local function usable(id)
+        local w = id and _trackedWins[id]
+        if w and state.tags[id] == tag and w:isVisible() then return w end
+        return nil
+    end
+    for _, id in ipairs(_focusHistory[tag] or {}) do
+        local w = usable(id)
+        if w then return w end
+    end
+    return usable(state.tagLastFocused[tag])
+end
 
-        local id = win:id()
-        if not id or id == 0 then return retry() end
+local function _vicinaeActive(now)
+    return (state.vicinaePanelCount or 0) > 0
+        or (now - (state.vicinaePanelClosedAt or 0)) < 1.5
+end
 
-        local tag = state.tags[id]
-        if not tag then return retry() end
+-- Why the user wants focus to follow `win` to its tag, or nil when nobody asked for it.
+local function _crossTagIntent(win, now)
+    if _vicinaeActive(now) then return "Vicinae" end
+    if now - _cmdTabAt < CMD_TAB_WINDOW then return "Cmd-Tab" end
+    if now - _dockClickAt < DOCK_WINDOW then return "Dock" end
 
-        if tag == state.currentTag then return end
-        if state.special.active and tag == state.special.tag then return end
+    -- A link opened from another app looks like: browser activated from a different app, with
+    -- recent user input. Closing the last window of an app looks the same (Cmd+W is input too,
+    -- and macOS then activates whatever is next, often the browser), hence the fallthrough guard.
+    if now - _fallthroughAt < FALLTHROUGH_WIN then return nil end
+    local app = win:application()
+    local appName = app and app:name() or ""
+    if config.browserApps[appName]
+        and _lastActivation.app == appName
+        and _lastActivation.prev ~= appName
+        and now - _lastActivation.t < LINK_WINDOW
+        and now - _lastInputAt < INPUT_WINDOW then
+        return "link"
+    end
+    return nil
+end
 
-        if core.isFloating(win) then
-            -- Floating window parked on another tag: mark urgent instead of raising
-            -- an invisible window (same policy as external focus in windowFocused).
-            tags.markTagUrgent(tag)
-            return
+local function _followToTag(tag, win, why)
+    local app = win:application()
+    print(string.format("[NanoWM] Cross-tag focus (%s): %s -> tag %s",
+        why, app and app:name() or "?", tostring(tag)))
+    -- gotoTag focuses tagLastFocused[tag] after a short delay; point it at this window so
+    -- that refocus agrees with ours instead of racing it.
+    state.tagLastFocused[tag] = win:id()
+    if tag == "special" then
+        if not state.special.active then
+            tags.toggleSpecial()
         end
+    else
+        tags.gotoTag(tag)
+    end
+    hs.timer.doAfter(0.05, function()
+        win:focus()
+    end)
+    if state.focusTimer then
+        state.focusTimer:stop()
+        state.focusTimer = nil
+    end
+end
 
-        print(string.format("[NanoWM] %s activated, switching to tag %s", tostring(appName), tostring(tag)))
+-- Focus the context tag's MRU window, or the desktop if the tag is empty. Streak-limited so an
+-- app that keeps re-grabbing focus produces a little flicker, not a focus fight.
+local _pullBackAt = 0
+local _pullBackStreak = 0
 
-        if tag == "special" then
-            if not state.special.active then
-                tags.toggleSpecial()
-            end
-        else
-            tags.gotoTag(tag)
-        end
-
-        hs.timer.doAfter(0.05, function()
-            win:focus()
-        end)
+local function _focusContextTag(ctx)
+    local now = hs.timer.secondsSinceEpoch()
+    if now - _pullBackAt < 2.0 then
+        _pullBackStreak = _pullBackStreak + 1
+    else
+        _pullBackStreak = 1
+    end
+    _pullBackAt = now
+    if _pullBackStreak > 3 then
+        print("[NanoWM] Focus keeps leaving tag " .. tostring(ctx) .. ", giving up refocusing")
+        return
     end
 
-    attempt()
+    local target = _mruWindow(ctx)
+    if not target then
+        target = core.getTiledWindows(ctx)[1]
+    end
+    if target then
+        target:focus()
+    else
+        local desktop = hs.window.desktop()
+        if desktop then desktop:focus() end
+    end
+end
+
+local _resolveTimer = nil
+local _resolveClose = false
+local _resolveRetries = 0
+local _resolveFocus
+
+-- afterClose: a window/app that may have held focus on the current tag went away, so
+-- re-pick focus from the tag's history even if macOS left it somewhere on-tag.
+local function _scheduleResolve(afterClose, delay)
+    if afterClose then _resolveClose = true end
+    if not delay then _resolveRetries = 0 end
+    if _resolveTimer then _resolveTimer:stop() end
+    _resolveTimer = hs.timer.doAfter(delay or DECISION_DELAY, _resolveFocus)
+end
+
+_resolveFocus = function()
+    _resolveTimer = nil
+    if _axBlocked() then
+        _resolveClose = false
+        return
+    end
+    -- Apps launched by nanowm briefly focus an existing window before their new one appears.
+    if state.launching then
+        _scheduleResolve(false, 0.3)
+        return
+    end
+
+    local now = hs.timer.secondsSinceEpoch()
+    local ctx = state.special.active and state.special.tag or state.currentTag
+    local win = hs.window.focusedWindow()
+    local id = win and win:id()
+    local tag = id and state.tags[id]
+
+    -- Right at activation the app's key window may not be known yet (e.g. Firefox focusing a
+    -- specific tab's window). Give it a moment before deciding there is nothing to do.
+    if not tag and not _resolveClose and _resolveRetries < 3 then
+        _resolveRetries = _resolveRetries + 1
+        _scheduleResolve(false, DECISION_DELAY)
+        return
+    end
+    local afterClose = _resolveClose
+    _resolveClose = false
+
+    local offTag = tag and tag ~= ctx and tag ~= state.currentTag and not state.sticky[id]
+
+    if offTag and not core.isParked(win, id) then
+        -- On another tag but on-screen: an active tag on another monitor. Following it changes
+        -- nothing visually, so keep the old behaviour, protections included.
+        if now - state.lastTileTime < config.tileProtectionWindow then return end
+        if now - state.lastManualTagSwitch < config.tagSwitchCooldown then return end
+        _followToTag(tag, win, "other monitor")
+        return
+    end
+
+    if offTag then
+        -- The cooldown stops focus events from the tag just left (still arriving while a switch
+        -- settles) from following straight back, e.g. after a Vicinae-driven tag switch. Focus
+        -- shuffled by our own switch (incl. gotoTag activating Finder on an empty tag) isn't
+        -- news either, so it doesn't mark the tag urgent.
+        local settling = now - state.lastManualTagSwitch < config.tagSwitchCooldown
+        local why = _crossTagIntent(win, now)
+        if why and not settling then
+            _followToTag(tag, win, why)
+            return
+        end
+        local app = win:application()
+        print(string.format("[NanoWM] Cross-tag focus blocked: %s (tag %s), staying on tag %s",
+            app and app:name() or "?", tostring(tag), tostring(ctx)))
+        if not settling then tags.markTagUrgent(tag) end
+        _focusContextTag(ctx)
+        return
+    end
+
+    if afterClose then
+        local target = _mruWindow(ctx)
+        if target and target:id() ~= id then
+            target:focus()
+        end
+    end
+end
+
+local function _clickOnDockItem(pos)
+    if _axBlocked() then return false end
+    local ok, role = pcall(function()
+        local el = hs.axuielement.systemElementAtPosition(pos)
+        return el and el:attributeValue("AXRole")
+    end)
+    return ok and role == "AXDockItem"
+end
+
+-- Cheap input bookkeeping for _crossTagIntent. The callback runs on every key press and click,
+-- so it only records timestamps; the one AX call (Dock hit test) is deferred off the tap.
+local function _startInputTap()
+    local types = hs.eventtap.event.types
+    local tabKey = hs.keycodes.map.tab
+    _inputTap = hs.eventtap.new({ types.keyDown, types.flagsChanged, types.leftMouseDown }, function(e)
+        local t = e:getType()
+        local now = hs.timer.secondsSinceEpoch()
+        if t == types.keyDown then
+            _lastInputAt = now
+            if e:getKeyCode() == tabKey and e:getFlags().cmd then _cmdTabArmed = true end
+        elseif t == types.flagsChanged then
+            if _cmdTabArmed and not e:getFlags().cmd then
+                _cmdTabArmed = false
+                _cmdTabAt = now
+            end
+        else
+            _lastInputAt = now
+            if core.isMouseInDockArea() then
+                local pos = e:location()
+                hs.timer.doAfter(0, function()
+                    if _clickOnDockItem(pos) then _dockClickAt = now end
+                end)
+            end
+        end
+        return false
+    end)
+    _inputTap:start()
+end
+
+-- App activation (cmd-tab, Dock, link, an app activating itself, or macOS activating the next
+-- app after a quit). Cheap: no window enumeration. Records the activation for the link
+-- heuristic, then lets the resolver decide.
+function M.followActivatedApp(app, appName)
+    if not app then return end
+    _lastActivation = { app = appName, prev = _frontApp, t = hs.timer.secondsSinceEpoch() }
+    _frontApp = appName
+    _scheduleResolve(false)
 end
 
 -- A Vicinae browser command (Search Browser Tabs) activates a tab in a
@@ -555,6 +780,15 @@ function M.setup()
         local app = win:application()
         local appName = app and app:name() or "Unknown"
 
+        -- macOS is about to hand focus to whatever it picks next (often this app's window on
+        -- another tag). If this window held focus on the current tag, re-pick from the tag's
+        -- history instead.
+        _fallthroughAt = hs.timer.secondsSinceEpoch()
+        local ctx = state.special.active and state.special.tag or state.currentTag
+        local wasFocused = tag ~= nil and tag == ctx and (_focusHistory[ctx] or {})[1] == id
+        _dropHistory(id)
+        if wasFocused then _scheduleResolve(true) end
+
         -- Cancel any existing pending destruction
         if state.pendingDestruction[id] and state.pendingDestruction[id].timer then
             state.pendingDestruction[id].timer:stop()
@@ -678,41 +912,28 @@ function M.setup()
 
         if tag then
             state.tagLastFocused[tag] = id
+            _pushHistory(tag, id)
         end
 
         -- If it's a window on the current tag (or special), and it's tiled, we might need to re-tile (for scrolling layout)
         local currentContextTag = state.special.active and state.special.tag or state.currentTag
-        if tag == currentContextTag and not core.isFloating(win) then
-            if state.getLayout(tag) == "scrolling" then
-                layout.tile()
+        if tag == currentContextTag then
+            if not core.isFloating(win) then
+                if state.getLayout(tag) == "scrolling" then
+                    layout.tile()
+                end
+                return
             end
-            return
-        end
-
-        -- Anti-jump protection for cross-tag focus.
-        --
-        -- state.launching belongs here rather than at the top of the handler. Its purpose is to
-        -- avoid reacting to focus stolen by an app we just launched; applied to the whole
-        -- handler it also skipped window registration and the state.tagLastFocused bookkeeping
-        -- below for 2 s after every Alt+Return, leaving a stale "last focused" id that later
-        -- tag switches then restore focus to.
-        if state.launching then return end
-
-        local timeSinceTile = hs.timer.secondsSinceEpoch() - state.lastTileTime
-        if timeSinceTile < config.tileProtectionWindow then return end
-
-        local timeSinceSwitch = hs.timer.secondsSinceEpoch() - state.lastManualTagSwitch
-        if timeSinceSwitch < config.tagSwitchCooldown then return end
-
-        if core.isFloating(win) then
-            if tag == currentContextTag then
-                win:raise()
-                integrations.updateSketchybar()
-            else
-                -- Floating window parked off-screen on another tag: mark that tag urgent
-                -- instead of raising an invisible window
-                tags.markTagUrgent(tag)
+            -- Same guards as before the cross-tag policy moved out of this handler: don't
+            -- react to focus stolen by an app we just launched or shuffled by a tile/switch.
+            local now = hs.timer.secondsSinceEpoch()
+            if state.launching
+                or now - state.lastTileTime < config.tileProtectionWindow
+                or now - state.lastManualTagSwitch < config.tagSwitchCooldown then
+                return
             end
+            win:raise()
+            integrations.updateSketchybar()
             return
         end
 
@@ -720,36 +941,11 @@ function M.setup()
             return
         end
 
-        if state.special.active and tag == state.special.tag then
-            return
-        end
-
-        -- Cross-tag focus: follow the window to its tag.
-        --
-        -- This used to only follow Dock clicks and mark the tag urgent otherwise.
-        -- But extensions activate hidden windows of an ALREADY frontmost app
-        -- (e.g. the Vicinae browser extension focusing a tab whose window lives
-        -- on another tag): no application activation happens in that case, so
-        -- the app watcher can't see it — the window focus event is the only
-        -- signal. Floating windows on other tags already took the urgent path
-        -- above.
-        print("[NanoWM] Cross-tag focus, switching to tag " .. tostring(tag))
-
-        if tag == "special" then
-            if not state.special.active then
-                tags.toggleSpecial()
-            end
-        else
-            tags.gotoTag(tag)
-        end
-        hs.timer.doAfter(0.05, function()
-            win:focus()
-        end)
-
-        if state.focusTimer then
-            state.focusTimer:stop()
-            state.focusTimer = nil
-        end
+        -- Cross-tag focus. Extensions can focus hidden windows of an ALREADY frontmost app (the
+        -- Vicinae browser extension focusing a tab whose window lives on another tag) with no
+        -- application activation, so this event is the only signal for those. Whether to
+        -- follow or pull focus back is the resolver's call; see "Cross-tag focus policy".
+        _scheduleResolve(false)
     end))
 
     -- =========================================================================
@@ -789,9 +985,18 @@ function M.setup()
             end
         elseif event == hs.application.watcher.activated then
             M.followActivatedApp(app, appName)
+        elseif event == hs.application.watcher.terminated
+            or event == hs.application.watcher.hidden then
+            -- macOS activates the next app; if it is parked on another tag that is not a
+            -- jump the user asked for. afterClose re-picks focus if this app held it.
+            _fallthroughAt = hs.timer.secondsSinceEpoch()
+            if _frontApp == appName then _frontApp = nil end
+            _scheduleResolve(true)
         end
     end)
     _appWatcher:start()
+
+    _startInputTap()
 
     -- Track Vicinae panel visibility by counting its windows. The panel is a
     -- non-activating NSPanel (0 windows when hidden, 3 when shown) and fires

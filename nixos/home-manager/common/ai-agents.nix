@@ -276,7 +276,7 @@ EOF
         echo ""
       fi
       # Keep only the 5 newest drift backups.
-      ls -1t "$CLAUDE_DIR"/settings.json.drift.*.json 2>/dev/null | tail -n +6 | while read -r f; do rm -f "$f"; done
+      ls -1t "$CLAUDE_DIR"/settings.json.drift.*.json 2>/dev/null | tail -n +6 | while read -r f; do rm -f "$f"; done || true
     fi
 
     printf '%s' "$NEW_SETTINGS" > "$CLAUDE_SETTINGS"
@@ -330,7 +330,7 @@ EOF
         echo "    nixos/home-manager/common/ai-agents.nix."
         echo ""
       fi
-      ls -1t "$AGY_DIR"/settings.json.drift.*.json 2>/dev/null | tail -n +6 | while read -r f; do rm -f "$f"; done
+      ls -1t "$AGY_DIR"/settings.json.drift.*.json 2>/dev/null | tail -n +6 | while read -r f; do rm -f "$f"; done || true
     fi
 
     printf '%s' "$NEW_AGY_SETTINGS" > "$AGY_SETTINGS"

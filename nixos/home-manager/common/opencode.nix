@@ -1009,7 +1009,7 @@ EOF
         echo "    persist, add them to opencodeSettings in nixos/home-manager/common/opencode.nix."
         echo ""
       fi
-      ls -1t "$OPENCODE_DIR"/opencode.json.drift.*.json 2>/dev/null | tail -n +6 | while read -r f; do rm -f "$f"; done
+      ls -1t "$OPENCODE_DIR"/opencode.json.drift.*.json 2>/dev/null | tail -n +6 | while read -r f; do rm -f "$f"; done || true
     fi
 
     printf '%s' "$NEW_OC_SETTINGS" > "$OPENCODE_SETTINGS"

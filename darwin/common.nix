@@ -184,8 +184,10 @@ in
     command = "/usr/local/bin/darwin-startup";
     serviceConfig = {
       Label = "local.darwin-startup";
+      # Runs once per login via RunAtLoad. No LaunchOnlyOnce: launchd drops
+      # such jobs from the gui domain after their first run, which breaks the
+      # `launchctl kickstart` that activation uses to re-run this on rebuild.
       RunAtLoad = true;
-      LaunchOnlyOnce = true;
       StandardOutPath = "/tmp/darwin-startup.log";
       StandardErrorPath = "/tmp/darwin-startup.err.log";
     };
@@ -477,7 +479,7 @@ PY
     # Trigger user-level startup script now that the stable path exists.
     echo "Triggering user-level startup script via launchd..."
     USER_ID=$(id -u ${user})
-    sudo -u ${user} launchctl kickstart -k "gui/$USER_ID/local.darwin-startup" || sudo -u ${user} /usr/local/bin/darwin-startup
+    sudo -u ${user} launchctl kickstart -k "gui/$USER_ID/local.darwin-startup" || sudo -u ${user} /bin/sh -c '/usr/local/bin/darwin-startup >> /tmp/darwin-startup.log 2>&1'
 
     # Bootstrap a persistent local code-signing identity for kanata-nix so
     # Input Monitoring / Accessibility TCC grants survive future binary
