@@ -225,23 +225,32 @@ end
 -- Menu Walker (App Menu Palette)
 -- =============================================================================
 
+-- getMenuItems() returns raw AX attributes: each item has AXTitle/AXEnabled, and a submenu's
+-- items are wrapped in a single AXMenu, i.e. item.AXChildren[1] is the list of children.
+-- Items are selected by full path because titles repeat across menus ("Close", "Show All").
 local walker = {}
 walker.stack = {}
 walker.chooser = hs.chooser.new(function(choice)
     if not choice then
         if #walker.stack > 0 then
             local parent = table.remove(walker.stack)
-            walker.show(parent)
+            walker.show(parent.items, parent.path)
         end
         return
     end
 
     local item = state.actionsCache[choice.uuid]
-    if item.menu then
-        table.insert(walker.stack, walker.currentTable)
-        walker.show(item.menu)
-    else
-        hs.application.frontmostApplication():selectMenuItem(item.title)
+    if not item then return end
+    local path = {}
+    for i, t in ipairs(walker.currentPath) do path[i] = t end
+    table.insert(path, item.AXTitle)
+
+    local children = item.AXChildren and item.AXChildren[1]
+    if children then
+        table.insert(walker.stack, { items = walker.currentTable, path = walker.currentPath })
+        walker.show(children, path)
+    elseif walker.app then
+        walker.app:selectMenuItem(path)
     end
 end)
 walker.chooser:width(40)
@@ -249,20 +258,22 @@ walker.chooser:bgDark(true)
 walker.chooser:fgColor({ hex = "#FFFFFF" })
 walker.chooser:subTextColor({ hex = "#CCCCCC" })
 
-function walker.show(menuTable)
+function walker.show(menuTable, path)
     walker.currentTable = menuTable
+    walker.currentPath = path or {}
     state.actionsCache = {}
     local choices = {}
     local idx = 1
 
     if not menuTable then return end
 
-    for _, item in pairs(menuTable) do
-        if type(item) == "table" and item.title and #item.title > 0 then
+    for _, item in ipairs(menuTable) do
+        local title = type(item) == "table" and item.AXTitle
+        if type(title) == "string" and #title > 0 and item.AXEnabled ~= false then
             local idStr = tostring(idx)
-            local entry = { text = item.title, uuid = idStr }
-            if item.menu then
-                entry.text = item.title .. " ▸"
+            local entry = { text = title, uuid = idStr }
+            if item.AXChildren and item.AXChildren[1] then
+                entry.text = title .. " ▸"
                 entry.subText = "Submenu"
             end
             table.insert(choices, entry)
@@ -277,15 +288,18 @@ end
 
 function M.triggerMenuPalette()
     local app = hs.application.frontmostApplication()
-    if app then
-        local menuStruct = app:getMenuItems()
-        if menuStruct then
-            walker.stack = {}
-            walker.show(menuStruct)
-        else
+    if not app then return end
+    -- The callback form builds the menu tree off the main thread; the plain call blocks
+    -- Hammerspoon for every AX round trip into the target app.
+    app:getMenuItems(function(menuStruct)
+        if not menuStruct then
             hs.alert.show("No menus found")
+            return
         end
-    end
+        walker.app = app
+        walker.stack = {}
+        walker.show(menuStruct, {})
+    end)
 end
 
 -- =============================================================================

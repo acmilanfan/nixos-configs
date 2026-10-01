@@ -273,7 +273,8 @@ local function loadFromData(d)
     M.appTagMemory      = d.appTagMemory or {}
     M.freeTags          = clean(d.freeTags) or {}
     M.freeTagPositions  = cleanNested(d.freeTagPositions) or {}
-    M.activeTags        = clean(d.activeTags) or { 1, 11, 21, 31 }
+    -- clean() always returns a table, so an absent/empty entry must fall back explicitly.
+    M.activeTags        = (d.activeTags and next(d.activeTags)) and clean(d.activeTags) or { 1, 11, 21, 31 }
     M.currentTag        = d.currentTag or 1
     M.prevTag           = d.prevTag or 1
     M.layout            = d.globalLayout or config.layout
@@ -375,6 +376,18 @@ end
 
 function M.triggerSave()
     saveTimer:start()
+end
+
+-- hs.reload() destroys the pending debounce timer, so any change made in the last 2 s
+-- (including "Reset Tags", which reloads right after resetAll) would be lost. Flush it.
+-- Chain rather than replace: profiler.lua also hooks shutdown.
+local _prevShutdown = hs.shutdownCallback
+hs.shutdownCallback = function()
+    if saveTimer:running() then
+        saveTimer:stop()
+        pcall(M.save)
+    end
+    if _prevShutdown then _prevShutdown() end
 end
 
 -- =============================================================================

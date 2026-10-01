@@ -242,7 +242,7 @@ function M.gotoTag(i)
     -- Check if the last focused was a floating window on this tag
     local floatTarget = nil
     if lastFocusedId then
-        local w = hs.window(lastFocusedId)
+        local w = require("nanowm.watchers").getTrackedWindow(lastFocusedId)
         if w and state.tags[lastFocusedId] == i and core.isFloating(w) then
             floatTarget = w
         end
@@ -562,7 +562,7 @@ function M.undoLastMove()
     local fromTag = state.lastMove.fromTag
     local toTag = state.lastMove.toTag
 
-    local win = hs.window(id)
+    local win = require("nanowm.watchers").getTrackedWindow(id)
     if not win then
         hs.alert.show("Window not found")
         state.lastMove = nil

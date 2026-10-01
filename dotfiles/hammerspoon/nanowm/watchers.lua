@@ -272,6 +272,12 @@ function M.getManagedWindows()
     return wins
 end
 
+-- Tracked window by id, without AX calls. Use this instead of hs.window(id), which enumerates
+-- every window of every app (hs.window.find -> allWindows) before comparing ids.
+function M.getTrackedWindow(id)
+    return id and _trackedWins[id] or nil
+end
+
 -- Scans allowlisted apps for unmanaged standard windows and adds them to _trackedWins,
 -- catching windows the hs.window.filter AXObserver missed (e.g. a Firefox tab detached
 -- into a new window).
@@ -552,7 +558,9 @@ _resolveFocus = function()
     local afterClose = _resolveClose
     _resolveClose = false
 
+    -- PiP windows are shown on every tag (core.classifyWindow), so they are never off-tag.
     local offTag = tag and tag ~= ctx and tag ~= state.currentTag and not state.sticky[id]
+        and win:title() ~= "Picture-in-Picture"
 
     if offTag and not core.isParked(win, id) then
         -- On another tag but on-screen: an active tag on another monitor. Following it changes
@@ -963,7 +971,8 @@ function M.setup()
 
     -- Populate _trackedWins at startup, then resync every 60s to catch any drift.
     _resync()
-    hs.timer.new(60, _resync):start()
+    -- Anchored: an unreferenced hs.timer is garbage-collected and silently stops firing.
+    M._resyncTimer = hs.timer.new(60, _resync):start()
 
     -- Allow newly launched apps into the filter; trigger a deferred resync for new apps.
     -- There is deliberately no window enumeration on activation: app:allWindows() on every

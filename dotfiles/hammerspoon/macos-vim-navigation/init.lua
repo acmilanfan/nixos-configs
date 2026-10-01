@@ -126,7 +126,17 @@ function modal:entered()
   _G.vim_nav_overlay:show()
   gResetTap:start()
 end
+local function stopHold(key)
+  local t = holdTimers[key]
+  if t then
+    if t.delayTimer then t.delayTimer:stop() end
+    if t.repeatTimer then t.repeatTimer:stop() end
+    holdTimers[key] = nil
+  end
+end
 function modal:exited()
+  -- exit() disables the modal's hotkeys, so release callbacks of keys still held never fire.
+  for key in pairs(holdTimers) do stopHold(key) end
   gResetTap:stop()
   gPending = false
   if gTimer then gTimer:stop(); gTimer = nil end
@@ -146,19 +156,14 @@ local function bindHoldWithDelay(mod, key, fn, delay, interval)
   modal:bind(mod, key,
     function()
       fn()
-      holdTimers[key] = {}
-      holdTimers[key].delayTimer = timer.doAfter(delay, function()
-        holdTimers[key].repeatTimer = timer.doEvery(interval, fn)
+      stopHold(key)
+      local t = {}
+      holdTimers[key] = t
+      t.delayTimer = timer.doAfter(delay, function()
+        t.repeatTimer = timer.doEvery(interval, fn)
       end)
     end,
-    function()
-      local t = holdTimers[key]
-      if t then
-        if t.delayTimer then t.delayTimer:stop() end
-        if t.repeatTimer then t.repeatTimer:stop() end
-        holdTimers[key] = nil
-      end
-    end
+    function() stopHold(key) end
   )
 end
 local function moveMouseByFraction(xFrac, yFrac)

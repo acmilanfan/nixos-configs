@@ -350,11 +350,12 @@ function M.setup()
     end)
 
     hs.hotkey.bind(altShift, "z", function()
-        local existingWin = state.weekenduoWinId and hs.window(state.weekenduoWinId)
-        if existingWin and (not existingWin:application() or not hs.window(state.weekenduoWinId)) then
+        -- The id is persisted and window ids are reused after a reboot, so re-check the title.
+        local existingWin = require("nanowm.watchers").getTrackedWindow(state.weekenduoWinId)
+        if existingWin and (existingWin:title() or ""):lower() ~= "weekenduo" then
             existingWin = nil
-            state.weekenduoWinId = nil
         end
+        if not existingWin then state.weekenduoWinId = nil end
 
         if not existingWin then
             local allWins = require("nanowm.watchers").getManagedWindows()
@@ -397,7 +398,7 @@ function M.setup()
             state.weekenduoLaunching = false
             local winId = newWin:id()
             hs.timer.doAfter(1.0, function()
-                local win = hs.window(winId)
+                local win = require("nanowm.watchers").getTrackedWindow(winId) or newWin
                 if win and win:application() then
                     local screen = win:screen():frame()
                     local newW = screen.w * sizeFactor
