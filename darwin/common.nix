@@ -188,6 +188,9 @@ in
       # such jobs from the gui domain after their first run, which breaks the
       # `launchctl kickstart` that activation uses to re-run this on rebuild.
       RunAtLoad = true;
+      # The script backgrounds sketchybar and a delayed Hammerspoon reload;
+      # without this launchd kills them when the script exits.
+      AbandonProcessGroup = true;
       StandardOutPath = "/tmp/darwin-startup.log";
       StandardErrorPath = "/tmp/darwin-startup.err.log";
     };
@@ -477,9 +480,18 @@ PY
     fi
 
     # Trigger user-level startup script now that the stable path exists.
+    # It must run inside the user's gui launchd domain: run straight from this
+    # (root) activation it inherits HOME=/var/root, which apps it starts
+    # (sketchybar, Hammerspoon/NanoWM) then use to look up their config/state.
+    # nix-darwin reloads changed agents with a plain root `launchctl load`,
+    # which doesn't put them in the gui domain, and launchd keeps whatever
+    # definition was loaded first. So re-bootstrap it into the gui domain on
+    # every activation; RunAtLoad then runs it with the current plist.
     echo "Triggering user-level startup script via launchd..."
     USER_ID=$(id -u ${user})
-    sudo -u ${user} launchctl kickstart -k "gui/$USER_ID/local.darwin-startup" || sudo -u ${user} /bin/sh -c '/usr/local/bin/darwin-startup >> /tmp/darwin-startup.log 2>&1'
+    launchctl bootout "gui/$USER_ID/local.darwin-startup" 2>/dev/null || true
+    launchctl bootstrap "gui/$USER_ID" /Library/LaunchAgents/local.darwin-startup.plist \
+      || launchctl asuser "$USER_ID" sudo -u ${user} --set-home /bin/sh -c '/usr/local/bin/darwin-startup >> /tmp/darwin-startup.log 2>&1'
 
     # Bootstrap a persistent local code-signing identity for kanata-nix so
     # Input Monitoring / Accessibility TCC grants survive future binary
