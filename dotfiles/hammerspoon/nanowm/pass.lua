@@ -54,6 +54,11 @@ local function buildEntryChoices(entries)
     return choices
 end
 
+-- POSIX single-quoting: nothing inside '...' is expanded by the shell.
+local function shq(s)
+    return "'" .. tostring(s):gsub("'", "'\\''") .. "'"
+end
+
 local function passEnv()
     local user = os.getenv("USER") or ""
     local paths = table.concat({
@@ -63,7 +68,34 @@ local function passEnv()
         "/nix/var/nix/profiles/default/bin",
         "/opt/homebrew/bin",
     }, ":")
-    return string.format('export PATH=%s:$PATH; PASSWORD_STORE_DIR=%q', paths, storeDir())
+    return string.format('export PATH=%s:"$PATH"; PASSWORD_STORE_DIR=%s', shq(paths), shq(storeDir()))
+end
+
+-- Run `pass <args...>`. Arguments (entry names, key ids) are passed to zsh as positional
+-- parameters and expanded as "$@", so they are never parsed as shell code: string.format's
+-- %q is Lua quoting, and inside a shell string "$x" or "$(...)" in an entry name would expand.
+-- `input`, if given, is written to stdin (stdin is closed afterwards), keeping secrets off argv.
+local function passTask(args, callback, input)
+    local argv = { "-c", passEnv() .. ' exec pass "$@"', "pass" }
+    for _, a in ipairs(args) do argv[#argv + 1] = tostring(a) end
+    local task = hs.task.new("/bin/zsh", callback, argv)
+    if input then task:setInput(input) end
+    task:start()
+    return task
+end
+
+local function entryExists(entry)
+    return hs.fs.attributes(storeDir() .. "/" .. entry .. ".gpg") ~= nil
+end
+
+-- pass --force overwrites silently; ask first when the entry already exists.
+local function confirmOverwrite(entry)
+    if not entryExists(entry) then return true end
+    hs.focus()
+    return hs.dialog.blockAlert(
+        "Overwrite Password",
+        "'" .. entry .. "' already exists.\nReplace it? The old password will be lost.",
+        "Overwrite", "Cancel") == "Overwrite"
 end
 
 -- Ensure .gpg-id exists; if not, prompt the user to run pass init first
@@ -79,20 +111,18 @@ local function ensureGpgId(callback)
         "", "Initialize", "Cancel")
     if b ~= "Initialize" or keyId == "" then return end
 
-    local cmd = string.format('%s %s init %q', passEnv(), "pass", keyId)
-    hs.task.new("/bin/zsh", function(exitCode, _, stdErr)
+    passTask({ "init", "--", keyId }, function(exitCode, _, stdErr)
         if exitCode ~= 0 then
             hs.alert.show("pass init failed:\n" .. (stdErr or ""), 4)
             return
         end
         hs.alert.show("Store initialized with: " .. keyId, 2)
         callback()
-    end, { "-c", cmd }):start()
+    end)
 end
 
 local function runPass(entry, callback)
-    local cmd = string.format('%s %s show %q', passEnv(), "pass", entry)
-    hs.task.new("/bin/zsh", function(exitCode, stdOut, stdErr)
+    passTask({ "show", "--", entry }, function(exitCode, stdOut, stdErr)
         if exitCode ~= 0 then
             hs.alert.show("pass: failed — " .. (stdErr or ""), 3)
             return
@@ -103,7 +133,7 @@ local function runPass(entry, callback)
             return
         end
         callback(password, entry)
-    end, { "-c", cmd }):start()
+    end)
 end
 
 local function clipAndClear(password, label)
@@ -151,10 +181,10 @@ function M.generatePassword()
             "Generate Password", "Length:", "20", "Generate", "Cancel")
         if b2 ~= "Generate" then return end
 
-        local length = math.max(8, math.min(tonumber(lengthStr) or 20, 128))
-        local cmd = string.format('%s %s generate --force %q %d', passEnv(), "pass", entryName, length)
+        if not confirmOverwrite(entryName) then return end
 
-        hs.task.new("/bin/zsh", function(exitCode, _, stdErr)
+        local length = math.max(8, math.min(tonumber(lengthStr) or 20, 128))
+        passTask({ "generate", "--force", "--", entryName, math.floor(length) }, function(exitCode, _, stdErr)
             if exitCode ~= 0 then
                 hs.alert.show("pass generate failed:\n" .. (stdErr or ""), 4)
                 return
@@ -162,14 +192,13 @@ function M.generatePassword()
             runPass(entryName, function(password, name)
                 clipAndClear(password, name .. " (generated)")
             end)
-        end, { "-c", cmd }):start()
+        end)
     end)
 end
 
 -- Copy the current TOTP code for an OTP entry
 function M.copyOtp(entry)
-    local cmd = string.format('%s pass otp %q', passEnv(), entry)
-    hs.task.new("/bin/zsh", function(exitCode, stdOut, stdErr)
+    passTask({ "otp", "--", entry }, function(exitCode, stdOut, stdErr)
         if exitCode ~= 0 then
             hs.alert.show("pass otp failed:\n" .. (stdErr or ""), 3)
             return
@@ -180,7 +209,7 @@ function M.copyOtp(entry)
             return
         end
         clipAndClear(code, entry .. " (OTP)")
-    end, { "-c", cmd }):start()
+    end)
 end
 
 -- Remove a password from the store (with confirmation)
@@ -192,14 +221,13 @@ function M.removePassword(entry)
         "Remove", "Cancel")
     if b ~= "Remove" then return end
 
-    local cmd = string.format('%s %s rm --force %q', passEnv(), "pass", entry)
-    hs.task.new("/bin/zsh", function(exitCode, _, stdErr)
+    passTask({ "rm", "--force", "--", entry }, function(exitCode, _, stdErr)
         if exitCode ~= 0 then
             hs.alert.show("pass rm failed:\n" .. (stdErr or ""), 4)
             return
         end
         hs.alert.show("Removed: " .. entry, 2)
-    end, { "-c", cmd }):start()
+    end)
 end
 
 -- Add a password manually (entry path + password typed in a dialog)
@@ -212,31 +240,20 @@ function M.addPassword()
 
         hs.focus()
         local b2, password = hs.dialog.textPrompt(
-            "Add Password", "Password:", "", "Save", "Cancel")
+            "Add Password", "Password:", "", "Save", "Cancel", true)
         if b2 ~= "Save" or password == "" then return end
 
-        -- Write to a temp file so the password never appears in the shell command
-        local tmpFile = os.tmpname()
-        local f = io.open(tmpFile, "w")
-        if not f then
-            hs.alert.show("pass: could not create temp file")
-            return
-        end
-        f:write(password .. "\n")
-        f:close()
+        if not confirmOverwrite(entryName) then return end
 
-        local cmd = string.format(
-            '%s %s insert --echo --force %q < %q; rm -f %q',
-            passEnv(), "pass", entryName, tmpFile, tmpFile)
-
-        hs.task.new("/bin/zsh", function(exitCode, _, stdErr)
+        -- The password goes in over stdin: never on argv, never in a temp file. The exit code
+        -- is pass's own (exec), so a failed insert is reported as a failure.
+        passTask({ "insert", "--echo", "--force", "--", entryName }, function(exitCode, _, stdErr)
             if exitCode ~= 0 then
                 hs.alert.show("pass insert failed:\n" .. (stdErr or ""), 4)
-                os.remove(tmpFile)
                 return
             end
             hs.alert.show("Saved: " .. entryName, 2)
-        end, { "-c", cmd }):start()
+        end, password .. "\n")
     end)
 end
 
