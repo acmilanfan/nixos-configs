@@ -399,6 +399,9 @@ end
 -- event, which fires thousands of times/sec and stresses the Hammerspoon event loop.
 local edgeTriggerTimer = nil
 local lastTriggerTime = 0
+-- Fire once per visit to the corner: re-armed only after the pointer leaves it, so a pointer
+-- resting there no longer toggles the overview on and off every second.
+local edgeArmed = true
 
 function M.setupEdgeTrigger()
     if edgeTriggerTimer then edgeTriggerTimer:stop() end
@@ -412,9 +415,13 @@ function M.setupEdgeTrigger()
         local frame = screen:fullFrame()
         local pos = hs.mouse.absolutePosition()
 
-        if pos.x <= (frame.x + 2) and pos.y <= (frame.y + 2) then
+        local inCorner = pos.x <= (frame.x + 2) and pos.y <= (frame.y + 2)
+        if inCorner and edgeArmed then
+            edgeArmed = false
             lastTriggerTime = now
             require("nanowm").toggleOverview()
+        elseif not inCorner and (pos.x > frame.x + 20 or pos.y > frame.y + 20) then
+            edgeArmed = true
         end
     end)
     edgeTriggerTimer:start()

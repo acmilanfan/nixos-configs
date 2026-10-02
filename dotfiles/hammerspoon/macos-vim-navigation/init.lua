@@ -413,10 +413,7 @@ hs.hotkey.bind({"ctrl","alt","cmd"}, "space", function() modal:enter() end)
 hs.hotkey.bind({"ctrl"}, "=", function() modal:enter() end)
 modal:bind({}, "escape", function() modal:exit() end)
 modal:bind({"ctrl"}, "c", function() modal:exit() end)
--- Reload config
-hs.hotkey.bind({"alt"}, "r", function()
-  hs.reload()
-  hs.alert("Reloaded")
-end)
+-- Reload is Ctrl+Alt+Shift+R (nanowm). An Alt+R reload here was shadowed by nanowm's
+-- Alt+R (cycle window size) and would take over whenever nanowm failed to load.
 -- End of configuration.
 -- Credit: Artur Grochau – github.com/arturgrochau

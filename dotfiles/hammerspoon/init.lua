@@ -53,6 +53,7 @@ if VimMode then
     vimMode:disableForApp('Alacritty')
     vimMode:disableForApp('Ghostty')
     vimMode:bindHotKeys({ enter = { { "alt" }, "e" } })
+    _G.vim = vimMode  -- used by nanowm's Leader+v
 end
 
 -- =============================================================================

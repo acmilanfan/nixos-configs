@@ -447,6 +447,18 @@ function M.setup()
     -- TIMER MODAL
     -- =========================================================================
     local timerModal = hs.hotkey.modal.new(alt, "t")
+    -- Without a hint and a timeout an accidental Alt+T silently swallowed the next 1-4/n/r/c
+    -- typed into any app. Only our own alert is closed on exit: "r" shows the remaining time
+    -- right before exiting.
+    local timerAlert, timerAutoExit = nil, nil
+    function timerModal:entered()
+        timerAlert = hs.alert.show("Timer: [1] 5m [2] 10m [3] 1h [4] 2h [n] custom [r] remaining [c] cancel", 999999)
+        timerAutoExit = hs.timer.doAfter(5, function() timerModal:exit() end)
+    end
+    function timerModal:exited()
+        if timerAutoExit then timerAutoExit:stop(); timerAutoExit = nil end
+        if timerAlert then hs.alert.closeSpecific(timerAlert); timerAlert = nil end
+    end
     timerModal:bind("", "1", function() integrations.startTimer(5); timerModal:exit() end)
     timerModal:bind("", "2", function() integrations.startTimer(10); timerModal:exit() end)
     timerModal:bind("", "3", function() integrations.startTimer(60); timerModal:exit() end)
@@ -504,8 +516,11 @@ function M.setup()
     end)
 
     -- [c]ontrol Sub-modal
+    -- Each sub-modal exits the leader first. Otherwise the leader's keys stay enabled
+    -- underneath, and any key the sub-modal doesn't bind falls through to it (e.g. "r" in
+    -- Apps reloaded Hammerspoon). leader:exited() also closes the leader's alert.
     leader:bind("", "c", function()
-        hs.alert.closeAll()
+        leader:exit()
         hs.alert.show("Control: [m] Mixer [a] FineTune [w] WiFi [b] Bluetooth", 999999)
         controlModal:enter()
     end)
@@ -525,7 +540,7 @@ function M.setup()
 
     -- [a]pps Sub-modal
     leader:bind("", "a", function()
-        hs.alert.closeAll()
+        leader:exit()
         hs.alert.show("Apps: [t/g] Ghostty [a] Alacritty [f/b] Firefox [s] Slack [y] Yazi", 999999)
         appsModal:enter()
     end)
@@ -550,7 +565,7 @@ function M.setup()
 
     -- [s]ystem Sub-modal
     leader:bind("", "s", function()
-        hs.alert.closeAll()
+        leader:exit()
         hs.alert.show("System: [p] Battery [g] Bar [o] Borders [d] Sync [k/K] Kanata [l] Lock", 999999)
         systemModal:enter()
     end)
