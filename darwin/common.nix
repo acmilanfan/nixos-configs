@@ -10,8 +10,12 @@
 let
   user = config.system.primaryUser;
 
-  # Dedicated startup script for GUI apps and driver initialization
-  startupScript = pkgs.writeShellScriptBin "darwin-startup" ''
+  # Dedicated startup script for GUI apps and driver initialization.
+  # Runs under Apple's /bin/bash, not nix bash: launchd makes the interpreter
+  # the TCC-responsible process, and every new nix bash store path triggered a
+  # fresh Accessibility prompt. Keep the body bash 3.2 compatible.
+  startupScript = pkgs.writeScriptBin "darwin-startup" ''
+    #!/bin/bash
     USER_HOME="/Users/${user}"
     export PATH=$PATH:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/opt/homebrew/bin
 
