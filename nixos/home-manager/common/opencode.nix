@@ -249,7 +249,11 @@ let
     model = if isWork then "self-hosted/Qwen/Qwen3.6-35B-A3B-FP8" else "opencode-go/mimo-v2.5";
     small_model = if isWork then "self-hosted/Qwen/Qwen3.6-35B-A3B-FP8" else "opencode-go/mimo-v2.5";
 
-    provider = localProviders // (if isWork then remoteProviders else { });
+    provider = localProviders // (if isWork then remoteProviders else { }) // {
+      # Built-in provider; this only overrides per-model options. DeepSeek
+      # defaults agent traffic to max effort, high is enough and faster.
+      "opencode-go".models."deepseek-v4.1-flash".options.reasoningEffort = "high";
+    };
 
     # Work: point at the existing hand-written ~/Work/CLAUDE.md (kept outside
     # the repo, never committed). Home: a small generic AGENTS.md we manage.
