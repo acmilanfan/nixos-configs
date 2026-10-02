@@ -386,6 +386,7 @@ local DOCK_WINDOW      = 1.5   -- ... after a Dock item click
 local LINK_WINDOW      = 2.0   -- browser activation this soon after an activation from another app
 local INPUT_WINDOW     = 3.0   -- ... and this soon after a click or key press
 local FALLTHROUGH_WIN  = 1.0   -- focus changes this soon after a close/quit/hide are the OS's doing
+local LAUNCH_WINDOW    = 10.0  -- a window of an app launched via core.launchApp this soon after
 local HISTORY_MAX      = 16
 
 local _cmdTabArmed = false
@@ -441,11 +442,21 @@ local function _vicinaeActive(now)
         or (now - (state.vicinaePanelClosedAt or 0)) < 1.5
 end
 
+-- True when `win` belongs to the app just launched via core.launchApp (e.g. Slack from the leader).
+local function _isLaunchTarget(win, now)
+    local li = state.launchIntent
+    if not (li and win and now - li.t < LAUNCH_WINDOW) then return false end
+    local app = win:application()
+    return app ~= nil and app:name() == li.app
+end
+
 -- Why the user wants focus to follow `win` to its tag, or nil when nobody asked for it.
 local function _crossTagIntent(win, now)
     if _vicinaeActive(now) then return "Vicinae" end
     if now - _cmdTabAt < CMD_TAB_WINDOW then return "Cmd-Tab" end
     if now - _dockClickAt < DOCK_WINDOW then return "Dock" end
+
+    if _isLaunchTarget(win, now) then return "launch" end
 
     -- A link opened from another app looks like: browser activated from a different app, with
     -- recent user input. Closing the last window of an app looks the same (Cmd+W is input too,
@@ -467,6 +478,8 @@ local function _followToTag(tag, win, why)
     local app = win:application()
     print(string.format("[NanoWM] Cross-tag focus (%s): %s -> tag %s",
         why, app and app:name() or "?", tostring(tag)))
+    -- A launch intent is good for one follow; later focus changes of that app are judged afresh.
+    if why == "launch" then state.launchIntent = nil end
     -- gotoTag focuses tagLastFocused[tag] after a short delay; point it at this window so
     -- that refocus agrees with ours instead of racing it.
     state.tagLastFocused[tag] = win:id()
@@ -536,15 +549,17 @@ _resolveFocus = function()
         _resolveClose = false
         return
     end
-    -- Apps launched by nanowm briefly focus an existing window before their new one appears.
-    if state.launching then
-        _scheduleResolve(false, 0.3)
-        return
-    end
-
     local now = hs.timer.secondsSinceEpoch()
     local ctx = state.special.active and state.special.tag or state.currentTag
     local win = hs.window.focusedWindow()
+
+    -- Apps launched by nanowm briefly focus an existing window before their new one appears.
+    -- Not so for a launch intent (core.launchApp): there the existing window is the target, and
+    -- waiting out state.launching (2 s) made Leader -> a -> s take ~3 s to switch tags.
+    if state.launching and not _isLaunchTarget(win, now) then
+        _scheduleResolve(false, 0.3)
+        return
+    end
     local id = win and win:id()
     local tag = id and state.tags[id]
 

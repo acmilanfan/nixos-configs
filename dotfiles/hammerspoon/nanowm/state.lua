@@ -178,6 +178,7 @@ M.special = {
 -- Guard state
 M.focusTimer = nil
 M.launching = false
+M.launchIntent = nil  -- { app = name, t = time }: an app launched from a nanowm key (core.launchApp)
 M.tileTimer = nil
 
 -- Timer tracking

@@ -537,12 +537,77 @@ end
 -- Utility Functions
 -- =============================================================================
 
+-- Windows of every Ghostty process. `open -n -a Ghostty` starts a separate process per launch,
+-- and hs.application.get("Ghostty") returns just one of them.
+local function ghosttyWindows()
+    local wins = {}
+    for _, app in ipairs(hs.application.applicationsForBundleID("com.mitchellh.ghostty")) do
+        for _, w in ipairs(app:allWindows()) do wins[#wins + 1] = w end
+    end
+    return wins
+end
+
+local function findGhosttyWindow(titleLower)
+    for _, w in ipairs(ghosttyWindows()) do
+        local wid = w:id()
+        if wid and wid > 0 and (w:title() or ""):lower():find(titleLower, 1, true) then return w end
+    end
+    return nil
+end
+
+-- Float, centre and focus the first Ghostty window whose title contains `titleLower`. Polls
+-- because the window appears after launch, and Ghostty applies --title only after creating it:
+-- the window is first classified (tiled) under a generic title, so the title-based float rule
+-- alone leaves it floating at its tiled frame. `onDone(found)` runs when polling ends.
+local function floatTerminalWindow(titleLower, sizeFactor, onDone)
+    local attempts = 0
+    local function poll()
+        attempts = attempts + 1
+        if attempts > 20 then
+            if onDone then onDone(false) end
+            return
+        end
+        local w = findGhosttyWindow(titleLower)
+        if not w then
+            hs.timer.doAfter(0.2, poll)
+            return
+        end
+        local wid = w:id()
+        state.floatingOverrides[wid] = true
+        state.lastIntendedFocusId = wid
+        local screen = hs.screen.mainScreen():frame()
+        local newW = math.floor(screen.w * sizeFactor)
+        local newH = math.floor(screen.h * sizeFactor)
+        local newX = math.floor(screen.x + (screen.w - newW) / 2)
+        local newY = math.floor(screen.y + (screen.h - newH) / 2)
+        w:setFrame({ x = newX, y = newY, w = newW, h = newH })
+        w:raise()
+        w:focus()
+        if onDone then onDone(true) end
+    end
+    poll()
+end
+
 -- Sync dashboard launcher. Was three identical copies of a blocking hs.execute across
 -- keybinds.lua (x2) and menus.lua, each with a leftover > /tmp/syncmon_hs.log redirect.
+local syncMonLaunching = false
+
 function M.launchSyncMon()
+    -- Already open: bring it here rather than starting another instance.
+    local existing = findGhosttyWindow("syncmon dashboard")
+    if existing then
+        require("nanowm.actions").bringWindowToCurrentContext(existing, 0.8)
+        return
+    end
+    -- Repeat presses while the first launch is still coming up would each start one more.
+    if syncMonLaunching then return end
+    syncMonLaunching = true
+
     hs.alert.show("🚀 Launching Sync Dashboard...")
-    hs.task.new("/bin/zsh", nil,
-        { "-l", "-c", 'alacritty --title "SyncMon Dashboard" -e syncmon &' }):start()
+    -- Login shell so syncmon (a nix profile binary) is on PATH inside the terminal.
+    M.launchTask("/usr/bin/open", { "-n", "-a", "Ghostty", "--args",
+        "--title=SyncMon Dashboard", "-e", "zsh", "-lc", "syncmon" })
+    floatTerminalWindow("syncmon dashboard", 0.8, function() syncMonLaunching = false end)
 end
 
 function M.launchTask(cmd, args)
@@ -553,6 +618,21 @@ function M.launchTask(cmd, args)
     end)
 end
 
+-- `open -a <app> [--args ...]`, recorded as a deliberate launch: if the app's window is on
+-- another tag, the focus resolver follows it there instead of treating the focus change as
+-- unrequested and pulling focus back. See watchers._crossTagIntent. No -n: this activates a
+-- running instance (for a single-instance app like Slack, -n spawned a whole second process
+-- just to hand off to the first).
+function M.launchApp(appName, appArgs)
+    state.launchIntent = { app = appName, t = hs.timer.secondsSinceEpoch() }
+    local args = { "-a", appName }
+    if appArgs then
+        args[#args + 1] = "--args"
+        for _, a in ipairs(appArgs) do args[#args + 1] = a end
+    end
+    M.launchTask("/usr/bin/open", args)
+end
+
 function M.openInAlacritty(command, sizeFactor)
     -- Include common paths where wifitui or blueutil-tui might be located
     -- Using -n to ensure a NEW window is opened even if Ghostty is already running
@@ -560,43 +640,8 @@ function M.openInAlacritty(command, sizeFactor)
     local shellCmd = string.format("export PATH=$PATH:/opt/homebrew/bin:/usr/local/bin:/run/current-system/sw/bin; %s; zsh", command)
     local fullCmd = string.format("/usr/bin/open -n -a Ghostty --args --title='%s' -e zsh -c \"%s\"", command, shellCmd)
 
-    if sizeFactor then
-        -- Poll for the window to appear and resize it immediately when found.
-        local lowerCommand = command:lower()
-        local attempts = 0
-        local function poll()
-            attempts = attempts + 1
-            if attempts > 20 then return end
-            for _, app in ipairs(hs.application.runningApplications()) do
-                local name = app:name()
-                if name == "Ghostty" or name == "Alacritty" then
-                    for _, w in ipairs(app:allWindows()) do
-                        local wid = w:id()
-                        if wid and wid > 0 then
-                            local title = w:title() or ""
-                            if title:lower():find(lowerCommand, 1, true) then
-                                state.floatingOverrides[wid] = true
-                                state.lastIntendedFocusId = wid
-                                local screen = hs.screen.mainScreen():frame()
-                                local newW = math.floor(screen.w * sizeFactor)
-                                local newH = math.floor(screen.h * sizeFactor)
-                                local newX = math.floor(screen.x + (screen.w - newW) / 2)
-                                local newY = math.floor(screen.y + (screen.h - newH) / 2)
-                                w:setFrame({ x = newX, y = newY, w = newW, h = newH })
-                                w:raise()
-                                w:focus()
-                                return
-                            end
-                        end
-                    end
-                end
-            end
-            hs.timer.doAfter(0.2, poll)
-        end
-        poll()
-    end
-
     hs.task.new("/bin/zsh", nil, { "-c", fullCmd }):start()
+    if sizeFactor then floatTerminalWindow(command:lower(), sizeFactor) end
 end
 M.openInTerminal = M.openInAlacritty
 

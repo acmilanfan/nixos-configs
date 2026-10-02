@@ -340,14 +340,15 @@ function M.setup()
         )
     end)
 
-    hs.hotkey.bind(alt, "y", function()
+    local function openYazi()
         focusOrCreateApp(
             "YAZI",
             string.format('open -n -a Ghostty --args --window-height=20 --window-width=100 --title="YAZI" -e zsh -c "yazi"', home),
             0.8,
             "Ghostty"
         )
-    end)
+    end
+    hs.hotkey.bind(alt, "y", openYazi)
 
     hs.hotkey.bind(altShift, "z", function()
         -- Identify the window by id, not title: a Firefox window's title follows its active tab,
@@ -499,15 +500,7 @@ function M.setup()
     -- Root level shortcuts
     leader:bind("", "escape", exitAll)
     leader:bind("", "q", exitAll)
-    leader:bind("", "y", function()
-        focusOrCreateApp(
-            "YAZI",
-            string.format('open -n -a Alacritty --args -o "window.dimensions.lines=20" -o "window.dimensions.columns=100" --title "YAZI" -e zsh -c "yazi"', home),
-            0.8,
-            "Alacritty"
-        )
-        exitAll()
-    end)
+    leader:bind("", "y", function() openYazi(); exitAll() end)
     leader:bind("", "r", function() hs.reload(); exitAll() end)
     leader:bind("", "k", function() hs.toggleConsole(); exitAll() end)
     leader:bind("", "v", function()
@@ -541,32 +534,25 @@ function M.setup()
     -- [a]pps Sub-modal
     leader:bind("", "a", function()
         leader:exit()
-        hs.alert.show("Apps: [t/g] Ghostty [a] Alacritty [f/b] Firefox [s] Slack [y] Yazi", 999999)
+        hs.alert.show("Apps: [t/g] Ghostty [f/b] Firefox [s] Slack [y] Yazi", 999999)
         appsModal:enter()
     end)
 
     appsModal:bind("", "escape", exitAll)
     appsModal:bind("", "q", exitAll)
-    appsModal:bind("", "y", function()
-        focusOrCreateApp(
-            "YAZI",
-            string.format('open -n -a Ghostty --args --window-height=20 --window-width=100 --title="YAZI" -e zsh -c "yazi"', home),
-            0.8,
-            "Ghostty"
-        )
-        exitAll()
-    end)
+    appsModal:bind("", "y", function() openYazi(); exitAll() end)
+    -- Ghostty/Firefox open a new window on the current tag. Slack is single-window: "open"
+    -- just activates it, so follow it to its tag (core.launchApp records that intent).
     appsModal:bind("", "t", function() core.launchTask("/usr/bin/open", { "-n", "-a", "Ghostty" }); exitAll() end)
     appsModal:bind("", "g", function() core.launchTask("/usr/bin/open", { "-n", "-a", "Ghostty" }); exitAll() end)
-    appsModal:bind("", "a", function() core.launchTask("/usr/bin/open", { "-n", "-a", "Alacritty" }); exitAll() end)
     appsModal:bind("", "f", function() core.launchTask("/usr/bin/open", { "-n", "-a", "Firefox" }); exitAll() end)
     appsModal:bind("", "b", function() core.launchTask("/usr/bin/open", { "-n", "-a", "Firefox" }); exitAll() end)
-    appsModal:bind("", "s", function() core.launchTask("/usr/bin/open", { "-n", "-a", "Slack" }); exitAll() end)
+    appsModal:bind("", "s", function() core.launchApp("Slack"); exitAll() end)
 
     -- [s]ystem Sub-modal
     leader:bind("", "s", function()
         leader:exit()
-        hs.alert.show("System: [p] Battery [g] Bar [o] Borders [d] Sync [k/K] Kanata [l] Lock", 999999)
+        hs.alert.show("System: [p] Battery [g] Bar [d] Sync [k/K] Kanata [l] Lock", 999999)
         systemModal:enter()
     end)
 
