@@ -610,11 +610,14 @@ PY
       # reduceTransparency = true;
       reduceMotion = true;
       mouseDriverCursorSize = 1.5;
+      # Zoom: hold Control and scroll with two fingers (needs a re-login the first time)
+      closeViewScrollWheelToggle = true;
     };
     CustomUserPreferences = {
       "NSGlobalDomain" = {
         NSGlassDiffusionSetting = true;
         SLSMenuBarUseBlurredAppearance = true;
+        AppleAccentColor = 5; # Purple
         AppleHighlightColor = "0.968627 0.831373 1.000000 Purple";
         AppleLanguages = [
           "en-US"
@@ -622,6 +625,33 @@ PY
           "ru-DE"
         ];
         AppleLocale = "en_US@rg=dezzzz";
+      };
+      # Zoom (Accessibility). Keys looked up in sushydev/nix-plist-manager.
+      "com.apple.universalaccess" = {
+        closeViewScrollWheelModifiersInt = 262144; # Control
+        closeViewZoomMode = 0; # Full Screen (1 = Picture-in-Picture, 2 = Split Screen)
+        closeViewPanningMode = 0; # Zoomed image moves continuously with pointer
+        # Advanced…
+        closeViewZoomScreenShareEnabledKey = true; # Show zoomed image while screen sharing
+        closeViewQuickSwitchHotKeysEnabled = true; # Toggle between full screen and picture-in-picture
+        closeViewPressOnReleaseOff = true; # Modifiers for temporary actions: Toggle zoom
+        # Shortcuts for the options above (keyCode/charCode 65535 = modifiers only)
+        closeViewCustomHotkeyKey = {
+          AX_ZOOM_TOGGLE_FS_AND_PIP = { keyCode = 3; charCode = 102; modifiers = 1572864; }; # ⌥⌘F
+          AX_ZOOM_TEMP_TOGGLE = { keyCode = 65535; charCode = 65535; modifiers = 786432; }; # ⌃⌥
+          AX_ZOOM_TEMP_DETACH = { keyCode = 65535; charCode = 65535; modifiers = 1310720; }; # ⌃⌘
+          AX_ZOOM_FREEZE_PANNING = { keyCode = 65535; charCode = 65535; modifiers = 0; };
+          AX_ZOOM_MONITOR_SELECTION = { keyCode = 65535; charCode = 65535; modifiers = 0; };
+        };
+      };
+      # The Zoom scroll modifier also has to be set for both trackpad drivers
+      "com.apple.AppleMultitouchTrackpad".HIDScrollZoomModifierMask = 262144;
+      "com.apple.driver.AppleBluetoothMultitouch.trackpad".HIDScrollZoomModifierMask = 262144;
+      "com.apple.sharingd".DiscoverableMode = "Off"; # AirDrop: No One
+      "com.apple.AdLib".allowApplePersonalizedAdvertising = false;
+      "com.apple.Safari" = {
+        AutoFillPasswords = false;
+        AutoFillFromiCloudKeychain = false;
       };
       "com.apple.batteryui.charging.mac" = {
         "com.apple.batteryui.charging.mac.prior.limit" = 80.0;
@@ -737,6 +767,10 @@ PY
 
     spaces = {
       spans-displays = true;
+    };
+
+    WindowManager = {
+      EnableTiledWindowMargins = false;
     };
 
     # Finder settings
