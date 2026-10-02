@@ -350,10 +350,23 @@ function M.setup()
     end)
 
     hs.hotkey.bind(altShift, "z", function()
-        -- The id is persisted and window ids are reused after a reboot, so re-check the title.
-        local existingWin = require("nanowm.watchers").getTrackedWindow(state.weekenduoWinId)
-        if existingWin and (existingWin:title() or ""):lower() ~= "weekenduo" then
-            existingWin = nil
+        -- Identify the window by id, not title: a Firefox window's title follows its active tab,
+        -- so it only reads "Weekenduo" while that tab is in front. The app check guards against
+        -- a persisted id reused by another app's window after a reboot.
+        local existingWin = nil
+        local wid = state.weekenduoWinId
+        if wid then
+            existingWin = require("nanowm.watchers").getTrackedWindow(wid)
+            if not existingWin then
+                -- Not tracked right now (e.g. between resyncs): ask Firefox only, instead of
+                -- hs.window(id), which enumerates every app's windows.
+                local ff = hs.application.get("Firefox")
+                for _, w in ipairs(ff and ff:allWindows() or {}) do
+                    if w:id() == wid then existingWin = w; break end
+                end
+            end
+            local app = existingWin and existingWin:application()
+            if not app or app:name() ~= "Firefox" then existingWin = nil end
         end
         if not existingWin then state.weekenduoWinId = nil end
 
@@ -397,6 +410,11 @@ function M.setup()
             weekenduoCleanup()
             state.weekenduoLaunching = false
             local winId = newWin:id()
+            -- Remember it now: the title match below only holds until the user switches tabs.
+            if winId and winId ~= 0 then
+                state.weekenduoWinId = winId
+                state.triggerSave()
+            end
             hs.timer.doAfter(1.0, function()
                 local win = require("nanowm.watchers").getTrackedWindow(winId) or newWin
                 if win and win:application() then
