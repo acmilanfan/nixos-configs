@@ -21,6 +21,7 @@
     ./tmux.nix
     ./lazygit.nix
     ./ai-agents.nix
+    ./ai-agents-options.nix
     ./opencode.nix
     ./vicinae.nix
   ]

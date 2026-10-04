@@ -228,6 +228,9 @@ let
       };
     };
     hooks = antigravityHooks;
+    trustedWorkspaces = [
+      "${config.home.homeDirectory}/configs/nixos-configs"
+    ] ++ config.ai-agents.extraTrustedWorkspaces;
   };
 
   # List of { url, dir } pairs — dir is the actual directory name under ~/.gemini/extensions/
