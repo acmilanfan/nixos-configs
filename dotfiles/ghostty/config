@@ -21,10 +21,11 @@ quit-after-last-window-closed = true
 # macOS behavior (Kanata home-row mod compatibility)
 macos-option-as-alt = true
 
-# Cursor (follows cell content color like Alacritty)
+# Cursor (fixed colors; adaptive cell-foreground is invisible when the cell fg
+# equals the bg, e.g. nightfox Whitespace fg == CursorLine bg == #29394f)
 cursor-style = block
 cursor-style-blink = false
-cursor-color = cell-foreground
+cursor-color = #cdcecf
 cursor-text = cell-background
 adjust-cursor-thickness = 3
 
