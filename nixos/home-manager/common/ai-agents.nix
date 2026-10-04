@@ -194,9 +194,12 @@ let
   githubToken = (secrets.github or { }).token or "";
 
   antigravitySettings = {
-    colorScheme = "dark";
+    colorScheme = "tokyo night";
+    editorMode = "vim";
     enableTelemetry = false;
     model = "Gemini 3.8 Flash (High)";
+    notifications = true;
+    showFeedbackSurvey = false;
     security = {
       auth = {
         selectedType = "oauth-personal";
