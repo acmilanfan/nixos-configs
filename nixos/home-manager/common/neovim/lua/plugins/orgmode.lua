@@ -1132,7 +1132,23 @@ local function open_random_video_by_date(opts, mode)
     return
   end
 
-  local WINDOW_STEPS = { 30, 60, 90, 180, 365, nil }
+  local function format_days(days)
+    if not days then
+      return "all-time"
+    end
+    if days >= 365 and days % 365 == 0 then
+      local yrs = math.floor(days / 365)
+      return string.format("%d year%s", yrs, yrs > 1 and "s" or "")
+    elseif days % 30 == 0 then
+      local mos = math.floor(days / 30)
+      return string.format("%d month%s", mos, mos > 1 and "s" or "")
+    else
+      return string.format("%d days", days)
+    end
+  end
+
+  local WINDOW_STEPS = { 30, 60, 90, 180, 365, 730, 1095, 1460, 1825, 2555, 3650, 5475, 7300, nil }
+  local target_count = math.min(3, #candidates)
   local selected_pool = {}
   local matched_step_days = nil
   local expanded_from_first = false
@@ -1152,7 +1168,7 @@ local function open_random_video_by_date(opts, mode)
         pool = candidates
       end
 
-      if #pool > 0 then
+      if #pool >= target_count then
         selected_pool = pool
         matched_step_days = days
         if idx > 1 then
@@ -1188,7 +1204,7 @@ local function open_random_video_by_date(opts, mode)
           pool = candidates
         end
 
-        if #pool > 0 then
+        if #pool >= target_count then
           selected_pool = pool
           matched_step_days = days
           if idx > 1 then
@@ -1238,7 +1254,7 @@ local function open_random_video_by_date(opts, mode)
   if matched_step_days then
     local prefix = (mode == "oldest") and "earliest" or "past"
     local expanded_str = expanded_from_first and " (expanded)" or ""
-    window_desc = string.format("%s %d days%s", prefix, matched_step_days, expanded_str)
+    window_desc = string.format("%s %s%s", prefix, format_days(matched_step_days), expanded_str)
   else
     window_desc = "all-time"
   end
