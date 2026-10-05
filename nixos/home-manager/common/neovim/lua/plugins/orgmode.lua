@@ -62,10 +62,199 @@ orgmode.setup(params)
 -- Food library is read from the table under "* Food Library" in ~/org/life/calories.org.
 -- Add/edit rows there — no rebuild needed.
 
+local function fmt_num(n)
+  n = tonumber(n) or 0
+  if n == math.floor(n) then
+    return string.format("%d", n)
+  else
+    return string.format("%.1f", n):gsub("%.0$", "")
+  end
+end
+
+local function eval_grams(input_str)
+  if not input_str then
+    return nil
+  end
+  local clean = (input_str:gsub(",", "."):match("[%d%+%-%*%/%.%(%)%s]+"))
+  if not clean or clean:match("^%s*$") then
+    return nil
+  end
+  local fn = load("return " .. clean)
+  if fn then
+    local ok, res = pcall(fn)
+    if ok and type(res) == "number" and res > 0 then
+      return math.floor(res * 10 + 0.5) / 10
+    end
+  end
+  return tonumber((input_str:gsub(",", "."):match("[%d.]+")))
+end
+
+local function append_to_food_library(name, cal, pro, carb, fat)
+  local path = vim.fn.expand("~/org/life/calories.org")
+  local bufnr = vim.fn.bufnr(path)
+  local is_buf = (bufnr ~= -1 and vim.api.nvim_buf_is_loaded(bufnr))
+  local lines = is_buf and vim.api.nvim_buf_get_lines(bufnr, 0, -1, false) or vim.fn.readfile(path)
+
+  if not lines or #lines == 0 then
+    vim.notify("[calories] Could not read calories.org", vim.log.levels.ERROR)
+    return false
+  end
+
+  local in_section = false
+  local last_table_line = nil
+  for i, line in ipairs(lines) do
+    if line:find("^%* Food Library") then
+      in_section = true
+    elseif in_section and line:find("^%* ") then
+      break
+    elseif in_section and line:match("^|") then
+      local cells = vim.split(line, "|", { plain = true })
+      if #cells >= 3 then
+        local existing_name = vim.trim(cells[2] or "")
+        if existing_name:lower() == name:lower() then
+          vim.notify(string.format("[calories] '%s' is already in Food Library.", name), vim.log.levels.INFO)
+          return false
+        end
+      end
+      last_table_line = i
+    end
+  end
+
+  if not last_table_line then
+    vim.notify("[calories] Could not find Food Library table in calories.org", vim.log.levels.WARN)
+    return false
+  end
+
+  local new_row = string.format(
+    "| %-34s | %-3s | %-4s | %-4s | %-4s |",
+    name,
+    fmt_num(cal),
+    fmt_num(pro),
+    fmt_num(carb),
+    fmt_num(fat)
+  )
+
+  if is_buf then
+    vim.api.nvim_buf_set_lines(bufnr, last_table_line, last_table_line, false, { new_row })
+  else
+    table.insert(lines, last_table_line + 1, new_row)
+    vim.fn.writefile(lines, path)
+  end
+
+  vim.notify(
+    string.format(
+      "[calories] Added '%s' to Food Library (%sc/%sp/%scb/%sf)",
+      name,
+      fmt_num(cal),
+      fmt_num(pro),
+      fmt_num(carb),
+      fmt_num(fat)
+    ),
+    vim.log.levels.INFO
+  )
+  return true
+end
+
+local function parse_food_input(input)
+  if not input or input:match("^%s*$") then
+    return nil
+  end
+
+  -- Case 1: Tagged format: "Protein Bar 220c 20p 15cb 8f 60g"
+  local c_cal = input:match("(%d+%.?%d*)%s*c[al]*%f[%A]")
+  local c_pro = input:match("(%d+%.?%d*)%s*p%f[%A]")
+  local c_carb = input:match("(%d+%.?%d*)%s*cb%f[%A]") or input:match("(%d+%.?%d*)%s*carb[s]?%f[%A]")
+  local c_fat = input:match("(%d+%.?%d*)%s*f[at]*%f[%A]")
+  local c_g = input:match("(%d+%.?%d*)%s*g%f[%A]")
+
+  if c_cal and c_pro then
+    local name = input
+    name = name:gsub("(%d+%.?%d*)%s*c[al]*%f[%A]", "")
+    name = name:gsub("(%d+%.?%d*)%s*cb%f[%A]", "")
+    name = name:gsub("(%d+%.?%d*)%s*carb[s]?%f[%A]", "")
+    name = name:gsub("(%d+%.?%d*)%s*p%f[%A]", "")
+    name = name:gsub("(%d+%.?%d*)%s*f[at]*%f[%A]", "")
+    name = name:gsub("(%d+%.?%d*)%s*g%f[%A]", "")
+    name = vim.trim(name:gsub("[,:]", " "))
+    local cal = tonumber(c_cal) or 0
+    local pro = tonumber(c_pro) or 0
+    local carb = tonumber(c_carb) or 0
+    local fat = tonumber(c_fat) or 0
+    local g = tonumber(c_g)
+    return { name = name, cal = cal, pro = pro, carb = carb, fat = fat, grams = g, is_serving = (g ~= nil and g ~= 100) }
+  end
+
+  -- Case 2: Portion syntax: "Protein Bar @ 60g: 220, 20, 15, 8"
+  local name_part, portion_g, rest = input:match("^(.-)%s*[@/]%s*(%d+%.?%d*)%s*g?%s*[:,-]%s*(.+)$")
+  if name_part and portion_g and rest then
+    local parts = vim.split(rest, "[,%s]+", { trimempty = true })
+    if #parts >= 4 then
+      local cal = tonumber((parts[1]:gsub(",", "."))) or 0
+      local pro = tonumber((parts[2]:gsub(",", "."))) or 0
+      local carb = tonumber((parts[3]:gsub(",", "."))) or 0
+      local fat = tonumber((parts[4]:gsub(",", "."))) or 0
+      local g = tonumber((portion_g:gsub(",", "."))) or 100
+      return { name = vim.trim(name_part), cal = cal, pro = pro, carb = carb, fat = fat, grams = g, is_serving = true }
+    end
+  end
+
+  -- Case 3: Comma separated: "Name, cal, pro, carb, fat [, grams]"
+  if input:find(",") then
+    local parts = vim.split(input, ",", { trimempty = true })
+    if #parts >= 5 then
+      local name = vim.trim(parts[1])
+      local cal = tonumber((vim.trim(parts[2]):gsub(",", "."))) or 0
+      local pro = tonumber((vim.trim(parts[3]):gsub(",", "."))) or 0
+      local carb = tonumber((vim.trim(parts[4]):gsub(",", "."))) or 0
+      local fat = tonumber((vim.trim(parts[5]):gsub(",", "."))) or 0
+      local g = parts[6] and tonumber((vim.trim(parts[6]):gsub("[^%d%.]", ""))) or nil
+      return { name = name, cal = cal, pro = pro, carb = carb, fat = fat, grams = g }
+    end
+  end
+
+  -- Case 4: Space separated: "Name with spaces 220 20 15 8 [60]"
+  local parts = vim.split(input, "%s+", { trimempty = true })
+  local num_start = nil
+  for i = #parts, 1, -1 do
+    local n = tonumber((parts[i]:gsub(",", ".")))
+    if n then
+      num_start = i
+    else
+      break
+    end
+  end
+  if num_start and (#parts - num_start + 1) >= 4 then
+    local nums = {}
+    for i = num_start, #parts do
+      table.insert(nums, tonumber((parts[i]:gsub(",", "."))))
+    end
+    local name = table.concat({ unpack(parts, 1, num_start - 1) }, " ")
+    return {
+      name = name,
+      cal = nums[1] or 0,
+      pro = nums[2] or 0,
+      carb = nums[3] or 0,
+      fat = nums[4] or 0,
+      grams = nums[5],
+    }
+  end
+
+  return nil
+end
+
 local function load_food_library()
   local path = vim.fn.expand("~/org/life/calories.org")
-  local ok, lines = pcall(vim.fn.readfile, path)
-  if not ok or not lines or #lines == 0 then
+  local bufnr = vim.fn.bufnr(path)
+  local lines
+  if bufnr ~= -1 and vim.api.nvim_buf_is_loaded(bufnr) then
+    lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+  else
+    local ok, res = pcall(vim.fn.readfile, path)
+    if ok and res then
+      lines = res
+    end
+  end
+  if not lines or #lines == 0 then
     return {}
   end
 
@@ -98,7 +287,7 @@ local function load_food_library()
     end
   end
 
-  table.insert(foods, { name = "--- Custom Entry ---", cal = 0, pro = 0, carb = 0, fat = 0, custom = true })
+  table.insert(foods, { name = "--- Custom Entry (Quick Add) ---", cal = 0, pro = 0, carb = 0, fat = 0, custom = true })
   return foods
 end
 
@@ -201,6 +390,124 @@ _G.create_calorie_day = function()
   vim.api.nvim_put(lines, "l", true, true)
 end
 
+local function _do_insert_food_row(bufnr, meal, food_name, grams, cal, pro, carb, fat)
+  cal = math.floor(cal + 0.5)
+  pro = math.floor(pro + 0.5)
+  carb = math.floor(carb + 0.5)
+  fat = math.floor(fat + 0.5)
+  local heading_start, _, lines = get_current_day_heading_range()
+  if not heading_start or not lines then
+    print("[calories] Could not read buffer.")
+    return
+  end
+
+  local sep_before_total = nil
+  local sep_count = 0
+  for i = heading_start, #lines do
+    if lines[i]:find("* ", 1, true) and i > heading_start then
+      break
+    end
+    if is_table_separator(lines[i]) then
+      sep_count = sep_count + 1
+      if sep_count == 2 then
+        sep_before_total = i
+        break
+      end
+    end
+  end
+
+  if not sep_before_total then
+    print("[calories] Could not find table separator before TOTAL.")
+    return
+  end
+
+  local grams_str = grams and grams > 0 and fmt_num(grams) or ""
+  local row_str =
+      string.format("| %-9s | %-22s | %-4s | %4d | %3d | %4d | %3d |", meal or "", food_name, grams_str, cal, pro, carb, fat)
+
+  vim.api.nvim_buf_set_lines(bufnr, sep_before_total - 1, sep_before_total - 1, false, { row_str })
+
+  _G.calc_daily_totals()
+end
+
+_G.quick_add_food = function(initial_input)
+  local heading_start, bufnr = get_current_day_heading_range()
+  if not heading_start then
+    vim.notify("[calories] Today's entry not found. Use <leader>od to create it first.", vim.log.levels.WARN)
+    return
+  end
+
+  local function process_input(input_str)
+    if not input_str or input_str:match("^%s*$") then
+      return
+    end
+    local parsed = parse_food_input(input_str)
+    if not parsed or parsed.name == "" then
+      vim.notify(
+        "[calories] Could not parse. Examples:\n  'Skyr Vanilla, 71, 8.6, 8.3, 0.2, 150'\n  'Bar @ 60g: 220, 20, 15, 8'",
+        vim.log.levels.WARN
+      )
+      return
+    end
+
+    local per_cal, per_pro, per_carb, per_fat
+    local eaten_g, eaten_cal, eaten_pro, eaten_carb, eaten_fat
+
+    if parsed.is_serving and parsed.grams and parsed.grams > 0 then
+      local factor = 100 / parsed.grams
+      per_cal = math.floor(parsed.cal * factor + 0.5)
+      per_pro = math.floor(parsed.pro * factor * 10 + 0.5) / 10
+      per_carb = math.floor(parsed.carb * factor * 10 + 0.5) / 10
+      per_fat = math.floor(parsed.fat * factor * 10 + 0.5) / 10
+      eaten_g = parsed.grams
+      eaten_cal = parsed.cal
+      eaten_pro = parsed.pro
+      eaten_carb = parsed.carb
+      eaten_fat = parsed.fat
+
+      append_to_food_library(parsed.name, per_cal, per_pro, per_carb, per_fat)
+      _do_insert_food_row(bufnr, "", parsed.name, eaten_g, eaten_cal, eaten_pro, eaten_carb, eaten_fat)
+    else
+      per_cal = parsed.cal
+      per_pro = parsed.pro
+      per_carb = parsed.carb
+      per_fat = parsed.fat
+      append_to_food_library(parsed.name, per_cal, per_pro, per_carb, per_fat)
+
+      if parsed.grams and parsed.grams > 0 then
+        eaten_g = parsed.grams
+        local factor = eaten_g / 100
+        eaten_cal = math.floor(per_cal * factor + 0.5)
+        eaten_pro = math.floor(per_pro * factor + 0.5)
+        eaten_carb = math.floor(per_carb * factor + 0.5)
+        eaten_fat = math.floor(per_fat * factor + 0.5)
+        _do_insert_food_row(bufnr, "", parsed.name, eaten_g, eaten_cal, eaten_pro, eaten_carb, eaten_fat)
+      else
+        vim.ui.input({ prompt = string.format("Grams for '%s': ", parsed.name), default = "100" }, function(g_str)
+          local grams = eval_grams(g_str)
+          if not grams or grams <= 0 then
+            return
+          end
+          local factor = grams / 100
+          eaten_cal = math.floor(per_cal * factor + 0.5)
+          eaten_pro = math.floor(per_pro * factor + 0.5)
+          eaten_carb = math.floor(per_carb * factor + 0.5)
+          eaten_fat = math.floor(per_fat * factor + 0.5)
+          _do_insert_food_row(bufnr, "", parsed.name, grams, eaten_cal, eaten_pro, eaten_carb, eaten_fat)
+        end)
+      end
+    end
+  end
+
+  if initial_input then
+    process_input(initial_input)
+  else
+    vim.ui.input({
+      prompt = "Quick Food (e.g. 'Skyr 71 8.6 8.3 0.2 [150]' or 'Bar @ 60g: 220 20 15 8'): ",
+    }, process_input)
+  end
+end
+
 _G.add_food_row = function()
   local heading_start, bufnr = get_current_day_heading_range()
   if not heading_start then
@@ -245,43 +552,10 @@ _G.add_food_row = function()
     end
 
     if food.custom then
-      vim.ui.input({ prompt = "Food name: " }, function(name)
-        if not name or name == "" then
-          return
-        end
-        vim.ui.input({ prompt = "Calories (per 100g): " }, function(cal_str)
-          local cal = tonumber(((cal_str or ""):gsub(",", "."))) or 0
-          vim.ui.input({ prompt = "Protein (g per 100g): " }, function(pro_str)
-            local pro = tonumber(((pro_str or ""):gsub(",", "."))) or 0
-            vim.ui.input({ prompt = "Carbs (g per 100g): " }, function(carb_str)
-              local carb = tonumber(((carb_str or ""):gsub(",", "."))) or 0
-              vim.ui.input({ prompt = "Fat (g per 100g): " }, function(fat_str)
-                local fat = tonumber(((fat_str or ""):gsub(",", "."))) or 0
-                vim.ui.input({ prompt = "Grams: ", default = "100" }, function(grams_str)
-                  local grams = tonumber(((grams_str or ""):gsub(",", ".")))
-                  if not grams or grams <= 0 then
-                    return
-                  end
-                  local factor = grams / 100
-                  _do_insert_food_row(
-                    bufnr,
-                    "",
-                    name,
-                    grams,
-                    math.floor(cal * factor + 0.5),
-                    math.floor(pro * factor + 0.5),
-                    math.floor(carb * factor + 0.5),
-                    math.floor(fat * factor + 0.5)
-                  )
-                end)
-              end)
-            end)
-          end)
-        end)
-      end)
+      _G.quick_add_food()
     else
       vim.ui.input({ prompt = "Grams: ", default = "100" }, function(grams_str)
-        local grams = tonumber(((grams_str or ""):gsub(",", ".")))
+        local grams = eval_grams(grams_str)
         if not grams or grams <= 0 then
           return
         end
@@ -291,6 +565,197 @@ _G.add_food_row = function()
         local carb = math.floor(food.carb * factor + 0.5)
         local fat = math.floor(food.fat * factor + 0.5)
         _do_insert_food_row(bufnr, "", food.name, grams, cal, pro, carb, fat)
+      end)
+    end
+  end)
+end
+
+_G.save_row_to_food_library = function()
+  local bufnr = vim.api.nvim_get_current_buf()
+  local cursor = vim.api.nvim_win_get_cursor(0)
+  local line = vim.api.nvim_buf_get_lines(bufnr, cursor[1] - 1, cursor[1], false)[1]
+  if not line or not line:match("^|") then
+    vim.notify("[calories] Not on a table row.", vim.log.levels.WARN)
+    return
+  end
+
+  local cells = parse_row_cells(line)
+  table.remove(cells, 1) -- remove meal column
+  if #cells < 6 then
+    vim.notify("[calories] Not enough columns in this row.", vim.log.levels.WARN)
+    return
+  end
+
+  local name = cells[1] or ""
+  if name == "" or name:match("^TOTAL$") then
+    vim.notify("[calories] No food name on this row.", vim.log.levels.WARN)
+    return
+  end
+
+  local cur_g = row_tonumber(cells[2])
+  local cur_cal = row_tonumber(cells[3])
+  local cur_pro = row_tonumber(cells[4])
+  local cur_carb = row_tonumber(cells[5])
+  local cur_fat = row_tonumber(cells[6])
+
+  local function do_save(grams)
+    if not grams or grams <= 0 then
+      return
+    end
+    local factor = 100 / grams
+    local per_cal = math.floor(cur_cal * factor + 0.5)
+    local per_pro = math.floor(cur_pro * factor * 10 + 0.5) / 10
+    local per_carb = math.floor(cur_carb * factor * 10 + 0.5) / 10
+    local per_fat = math.floor(cur_fat * factor * 10 + 0.5) / 10
+    append_to_food_library(name, per_cal, per_pro, per_carb, per_fat)
+  end
+
+  if cur_g > 0 then
+    do_save(cur_g)
+  else
+    vim.ui.input({
+      prompt = string.format("Grams for '%s' (enter 100 if row is already per-100g): ", name),
+      default = "100",
+    }, function(g_str)
+      local grams = eval_grams(g_str)
+      do_save(grams)
+    end)
+  end
+end
+
+_G.lookup_barcode = function()
+  local heading_start, bufnr = get_current_day_heading_range()
+  if not heading_start then
+    vim.notify("[calories] Today's entry not found. Use <leader>od to create it first.", vim.log.levels.WARN)
+    return
+  end
+
+  vim.ui.input({ prompt = "Barcode (EAN) or search query: " }, function(input)
+    if not input or input:match("^%s*$") then
+      return
+    end
+    input = vim.trim(input)
+
+    local is_barcode = input:match("^%d%d%d%d%d%d%d+$") ~= nil
+
+    if is_barcode then
+      vim.notify("[calories] Looking up barcode " .. input .. "...", vim.log.levels.INFO)
+      local url = string.format("https://world.openfoodfacts.org/api/v2/product/%s.json", input)
+      local raw =
+          vim.fn.system({ "curl", "-s", "--max-time", "8", "-L", "-H", "User-Agent: MyCalorieTracker/1.0", url })
+      local ok, data = pcall(vim.json.decode, raw)
+      if not ok or not data or data.status ~= 1 or not data.product then
+        vim.notify("[calories] Product not found for barcode: " .. input, vim.log.levels.WARN)
+        return
+      end
+
+      local p = data.product
+      local brand = p.brands and p.brands:match("^([^,]+)") or ""
+      local name = p.product_name or p.product_name_de or p.product_name_en or "Unknown Food"
+      if brand ~= "" and not name:lower():find(brand:lower(), 1, true) then
+        name = brand .. " " .. name
+      end
+
+      local nut = p.nutriments or {}
+      local cal = tonumber(nut["energy-kcal_100g"]) or 0
+      local pro = tonumber(nut.proteins_100g) or 0
+      local carb = tonumber(nut.carbohydrates_100g) or 0
+      local fat = tonumber(nut.fat_100g) or 0
+
+      local default_g = "100"
+      if p.serving_quantity then
+        local sq = tonumber(p.serving_quantity)
+        if sq and sq > 0 then
+          default_g = tostring(math.floor(sq + 0.5))
+        end
+      end
+
+      vim.ui.input({
+        prompt = string.format(
+          "Grams for '%s' (%dc/%dp/%dcb/%df /100g): ",
+          name,
+          math.floor(cal + 0.5),
+          math.floor(pro + 0.5),
+          math.floor(carb + 0.5),
+          math.floor(fat + 0.5)
+        ),
+        default = default_g,
+      }, function(g_str)
+        local grams = eval_grams(g_str)
+        if not grams or grams <= 0 then
+          return
+        end
+        local factor = grams / 100
+        append_to_food_library(name, cal, pro, carb, fat)
+        _do_insert_food_row(bufnr, "", name, grams, cal * factor, pro * factor, carb * factor, fat * factor)
+      end)
+    else
+      vim.notify("[calories] Searching Open Food Facts for '" .. input .. "'...", vim.log.levels.INFO)
+      local encoded = vim.uri_encode(input)
+      local url = string.format(
+        "https://world.openfoodfacts.org/cgi/search.pl?search_terms=%s&search_simple=1&action=process&json=1&page_size=5",
+        encoded
+      )
+      local raw =
+          vim.fn.system({ "curl", "-s", "--max-time", "8", "-L", "-H", "User-Agent: MyCalorieTracker/1.0", url })
+      local ok, data = pcall(vim.json.decode, raw)
+      if not ok or not data or not data.products or #data.products == 0 then
+        vim.notify("[calories] No products found for: " .. input, vim.log.levels.WARN)
+        return
+      end
+
+      local items = {}
+      for _, p in ipairs(data.products) do
+        local brand = p.brands and p.brands:match("^([^,]+)") or ""
+        local name = p.product_name or p.product_name_de or p.product_name_en or "Unknown"
+        if brand ~= "" and not name:lower():find(brand:lower(), 1, true) then
+          name = brand .. " " .. name
+        end
+        local nut = p.nutriments or {}
+        local cal = tonumber(nut["energy-kcal_100g"]) or 0
+        local pro = tonumber(nut.proteins_100g) or 0
+        local carb = tonumber(nut.carbohydrates_100g) or 0
+        local fat = tonumber(nut.fat_100g) or 0
+        table.insert(items, { name = name, cal = cal, pro = pro, carb = carb, fat = fat })
+      end
+
+      vim.ui.select(items, {
+        prompt = "Select product:",
+        format_item = function(item)
+          return string.format(
+            "%-32s  %3dc | %3dp | %3dcb | %3df /100g",
+            item.name,
+            math.floor(item.cal + 0.5),
+            math.floor(item.pro + 0.5),
+            math.floor(item.carb + 0.5),
+            math.floor(item.fat + 0.5)
+          )
+        end,
+      }, function(selected)
+        if not selected then
+          return
+        end
+        vim.ui.input({
+          prompt = string.format("Grams for '%s': ", selected.name),
+          default = "100",
+        }, function(g_str)
+          local grams = eval_grams(g_str)
+          if not grams or grams <= 0 then
+            return
+          end
+          local factor = grams / 100
+          append_to_food_library(selected.name, selected.cal, selected.pro, selected.carb, selected.fat)
+          _do_insert_food_row(
+            bufnr,
+            "",
+            selected.name,
+            grams,
+            selected.cal * factor,
+            selected.pro * factor,
+            selected.carb * factor,
+            selected.fat * factor
+          )
+        end)
       end)
     end
   end)
@@ -355,7 +820,7 @@ _G.recalc_current_row = function()
     ),
     default = tostring(cur_g),
   }, function(grams_str)
-    local grams = tonumber(((grams_str or ""):gsub(",", ".")))
+    local grams = eval_grams(grams_str)
     if not grams or grams <= 0 then
       return
     end
@@ -365,9 +830,9 @@ _G.recalc_current_row = function()
     local carb = math.floor(per_carb * factor + 0.5)
     local fat = math.floor(per_fat * factor + 0.5)
 
-    local g_str = grams > 0 and tostring(grams) or ""
+    local g_str = grams > 0 and fmt_num(grams) or ""
     local row_str =
-        string.format("| %-9s | %-20s | %s | %3d | %3d | %4d | %3d |", "", name, g_str, cal, pro, carb, fat)
+        string.format("| %-9s | %-22s | %-4s | %4d | %3d | %4d | %3d |", "", name, g_str, cal, pro, carb, fat)
 
     vim.api.nvim_buf_set_lines(bufnr, cursor[1] - 1, cursor[1], false, { row_str })
     _G.calc_daily_totals()
@@ -385,46 +850,6 @@ _G.goto_today = function()
     end
   end
   print("[calories] No entry found for today. Use <leader>od to create one.")
-end
-
-function _do_insert_food_row(bufnr, meal, food_name, grams, cal, pro, carb, fat)
-  cal = math.floor(cal + 0.5)
-  pro = math.floor(pro + 0.5)
-  carb = math.floor(carb + 0.5)
-  fat = math.floor(fat + 0.5)
-  local heading_start, _, lines = get_current_day_heading_range()
-  if not heading_start or not lines then
-    print("[calories] Could not read buffer.")
-    return
-  end
-
-  local sep_before_total = nil
-  local sep_count = 0
-  for i = heading_start, #lines do
-    if lines[i]:find("* ", 1, true) and i > heading_start then
-      break
-    end
-    if is_table_separator(lines[i]) then
-      sep_count = sep_count + 1
-      if sep_count == 2 then
-        sep_before_total = i
-        break
-      end
-    end
-  end
-
-  if not sep_before_total then
-    print("[calories] Could not find table separator before TOTAL.")
-    return
-  end
-
-  local grams_str = grams > 0 and tostring(grams) or ""
-  local row_str =
-      string.format("| %-9s | %-20s | %s | %3d | %3d | %4d | %3d |", meal, food_name, grams_str, cal, pro, carb, fat)
-
-  vim.api.nvim_buf_set_lines(bufnr, sep_before_total - 1, sep_before_total - 1, false, { row_str })
-
-  _G.calc_daily_totals()
 end
 
 _G.calc_daily_totals = function()
@@ -678,8 +1103,158 @@ local function open_random_video(opts)
   print(string.format("Selected %d random videos matching: %s", #qf, query_string == "" and "All" or query_string))
 end
 
+local function open_random_video_by_date(opts, mode)
+  local query_string = opts.args or ""
+  local org_api = require("orgmode.api")
+
+  local files = org_api.load()
+  local candidates = {}
+  for _, file in ipairs(files) do
+    local file_path = file.filename
+    for _, h in ipairs(file.headlines) do
+      if h.todo_type == "TODO" and has_youtube_tag(h) then
+        if matches_query(h, query_string) then
+          local pub_str = h:get_property("Published")
+          local pub_time = parse_date(pub_str)
+          table.insert(candidates, {
+            headline = h,
+            path = file_path,
+            published = pub_time,
+            pub_str = pub_str or "",
+          })
+        end
+      end
+    end
+  end
+
+  if #candidates == 0 then
+    print("No YouTube videos found matching: " .. (query_string == "" and "All" or query_string))
+    return
+  end
+
+  local WINDOW_STEPS = { 30, 60, 90, 180, 365, nil }
+  local selected_pool = {}
+  local matched_step_days = nil
+  local expanded_from_first = false
+
+  if mode == "recent" then
+    local now = os.time()
+    for idx, days in ipairs(WINDOW_STEPS) do
+      local pool = {}
+      if days ~= nil then
+        local cutoff = now - (days * 86400)
+        for _, item in ipairs(candidates) do
+          if item.published > 0 and item.published >= cutoff then
+            table.insert(pool, item)
+          end
+        end
+      else
+        pool = candidates
+      end
+
+      if #pool > 0 then
+        selected_pool = pool
+        matched_step_days = days
+        if idx > 1 then
+          expanded_from_first = true
+        end
+        break
+      end
+    end
+  elseif mode == "oldest" then
+    local min_time = nil
+    for _, item in ipairs(candidates) do
+      if item.published > 0 then
+        if not min_time or item.published < min_time then
+          min_time = item.published
+        end
+      end
+    end
+
+    if not min_time then
+      selected_pool = candidates
+      matched_step_days = nil
+    else
+      for idx, days in ipairs(WINDOW_STEPS) do
+        local pool = {}
+        if days ~= nil then
+          local cutoff = min_time + (days * 86400)
+          for _, item in ipairs(candidates) do
+            if item.published > 0 and item.published <= cutoff then
+              table.insert(pool, item)
+            end
+          end
+        else
+          pool = candidates
+        end
+
+        if #pool > 0 then
+          selected_pool = pool
+          matched_step_days = days
+          if idx > 1 then
+            expanded_from_first = true
+          end
+          break
+        end
+      end
+    end
+  else
+    selected_pool = candidates
+  end
+
+  if #selected_pool == 0 then
+    selected_pool = candidates
+  end
+
+  math.randomseed(os.time())
+  local selection = {}
+  local pool_copy = {}
+  for _, item in ipairs(selected_pool) do
+    table.insert(pool_copy, item)
+  end
+
+  local count = math.min(3, #pool_copy)
+  for _ = 1, count do
+    local rand_idx = math.random(#pool_copy)
+    table.insert(selection, table.remove(pool_copy, rand_idx))
+  end
+
+  local qf = {}
+  for _, item in ipairs(selection) do
+    local h = item.headline
+    local abs_path = vim.fn.fnamemodify(vim.fn.expand(item.path), ":p")
+    local pub_suffix = item.pub_str ~= "" and (" (" .. item.pub_str .. ")") or ""
+    table.insert(qf, {
+      filename = abs_path,
+      lnum = h.position.start_line,
+      text = string.format("[%s] %s%s", h.todo_value, h.title, pub_suffix),
+    })
+  end
+
+  vim.fn.setqflist(qf, "r")
+  vim.cmd("copen")
+
+  local window_desc
+  if matched_step_days then
+    local prefix = (mode == "oldest") and "earliest" or "past"
+    local expanded_str = expanded_from_first and " (expanded)" or ""
+    window_desc = string.format("%s %d days%s", prefix, matched_step_days, expanded_str)
+  else
+    window_desc = "all-time"
+  end
+
+  local query_desc = query_string == "" and "All" or query_string
+  print(string.format("Selected %d random %s videos [%s] matching: %s", #qf, mode, window_desc, query_desc))
+end
+
 vim.api.nvim_create_user_command("OrgYoutube", open_youtube_query, { nargs = "?" })
 vim.api.nvim_create_user_command("OrgYoutubeRandom", open_random_video, { nargs = "?" })
+vim.api.nvim_create_user_command("OrgYoutubeRandomRecent", function(opts)
+  open_random_video_by_date(opts, "recent")
+end, { nargs = "?" })
+vim.api.nvim_create_user_command("OrgYoutubeRandomOldest", function(opts)
+  open_random_video_by_date(opts, "oldest")
+end, { nargs = "?" })
 
 vim.api.nvim_create_autocmd("FileType", {
   pattern = "org",
@@ -693,6 +1268,10 @@ vim.api.nvim_create_autocmd("FileType", {
     vim.keymap.set("n", "<leader>oyi", ":OrgYoutube Importance=5<CR>", { buffer = 0, desc = "YouTube Important" })
     vim.keymap.set("n", "<leader>oyr", ":OrgYoutubeRandom<CR>", { buffer = 0, desc = "YouTube Random" })
     vim.keymap.set("n", "<leader>oyR", ":OrgYoutubeRandom Duration<600", { buffer = 0, desc = "YouTube Random Query" })
+    vim.keymap.set("n", "<leader>oyn", ":OrgYoutubeRandomRecent<CR>", { buffer = 0, desc = "YouTube Random Recent" })
+    vim.keymap.set("n", "<leader>oyN", ":OrgYoutubeRandomRecent Duration<600", { buffer = 0, desc = "YouTube Random Recent Short" })
+    vim.keymap.set("n", "<leader>oyo", ":OrgYoutubeRandomOldest<CR>", { buffer = 0, desc = "YouTube Random Oldest" })
+    vim.keymap.set("n", "<leader>oyO", ":OrgYoutubeRandomOldest Duration<600", { buffer = 0, desc = "YouTube Random Oldest Short" })
 
     -- Calorie tracker keymaps — only in calories.org
     local filepath = vim.api.nvim_buf_get_name(0)
@@ -704,6 +1283,19 @@ vim.api.nvim_create_autocmd("FileType", {
         { buffer = 0, desc = "New calorie day" }
       )
       vim.keymap.set("n", "<leader>of", "<cmd>lua _G.add_food_row()<CR>", { buffer = 0, desc = "Add food" })
+      vim.keymap.set("n", "<leader>oq", "<cmd>lua _G.quick_add_food()<CR>", { buffer = 0, desc = "Quick add food" })
+      vim.keymap.set(
+        "n",
+        "<leader>ow",
+        "<cmd>lua _G.save_row_to_food_library()<CR>",
+        { buffer = 0, desc = "Write row to library" }
+      )
+      vim.keymap.set(
+        "n",
+        "<leader>ob",
+        "<cmd>lua _G.lookup_barcode()<CR>",
+        { buffer = 0, desc = "Barcode / OpenFoodFacts lookup" }
+      )
       vim.keymap.set("n", "<leader>ol", "<cmd>lua _G.calc_daily_totals()<CR>", { buffer = 0, desc = "Calc totals" })
       vim.keymap.set("n", "<leader>or", "<cmd>lua _G.recalc_current_row()<CR>", { buffer = 0, desc = "Recalc row" })
       vim.keymap.set("n", "<leader>on", "<cmd>lua _G.goto_today()<CR>", { buffer = 0, desc = "Go to today" })
