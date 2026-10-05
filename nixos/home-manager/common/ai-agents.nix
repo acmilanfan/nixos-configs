@@ -196,7 +196,6 @@ let
   antigravitySettings = {
     colorScheme = "tokyo night";
     editorMode = "vim";
-    enableTelemetry = false;
     model = "Gemini 3.8 Flash (High)";
     notifications = true;
     showFeedbackSurvey = false;
