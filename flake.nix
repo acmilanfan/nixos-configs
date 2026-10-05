@@ -54,6 +54,13 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # Runtime-decrypted secrets (age/GPG-encrypted secrets.yaml in the
+    # secrets submodule). Values never enter /nix/store.
+    sops-nix = {
+      url = "github:Mic92/sops-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     llm-agents = {
       url = "github:numtide/llm-agents.nix";
       inputs.nixpkgs.follows = "unstable-nixpkgs";

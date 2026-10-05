@@ -158,7 +158,7 @@ let
     model = "opus";
     # Per-model effort, as written by `/effort` (keyed by full model id).
     modelSettings = {
-      "claude-opus-5-5".effortLevel = "medium";
+      "claude-opus-5-5".effortLevel = "high";
       "claude-sonnet-5-5".effortLevel = "high";
       "claude-sonnet-5".effortLevel = "high";
     };
