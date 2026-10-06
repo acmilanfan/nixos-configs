@@ -4,9 +4,12 @@
 # ai-agent-list — shared AI agent pane detection
 #
 # Prints one line per tracked agent pane to stdout:
-#   pane_id|state|type|project|cwd
+#   pane_id|state|type|project|cwd|title
 # state ∈ running|needs-input|done|idle
 # type  = capitalized agent name (Claude, Gemini, Antigravity, OpenCode, ...)
+# title = session description from the pane title the agent sets (Claude Code:
+#         "✳ <title>" / "<spinner> <title>", OpenCode: "OC | <title>"); empty
+#         when the agent hasn't set one. Always the last field; never has '|'.
 #
 # Consumed by: ai_agents.sh (sketchybar), nanowm/agents.lua (Hammerspoon
 # chooser), hypr-ai-agents (waybar/vicinae dmenu), tmux-agent-switcher (fzf popup).
@@ -39,8 +42,24 @@ capitalize_type() {
   esac
 }
 
+HOST_FULL=$(hostname 2>/dev/null)
+HOST_SHORT=${HOST_FULL%%.*}
+
+# Turn a raw pane title into a session description, or "" if it is just the
+# shell/tmux default (hostname, a path) or the agent's generic placeholder.
+clean_title() {
+  local t
+  t=$(printf '%s' "$1" | sed -E 's/^OC \| ?//; s/^[^A-Za-z0-9 ]+ +//; s/[[:space:]]+$//' | tr -d '|\n')
+  case "$t" in
+    ""|"$HOST_FULL"|"$HOST_SHORT"|/*|"~"*|"Claude Code"|OpenCode|opencode) return ;;
+  esac
+  printf '%s' "$t"
+}
+
 AGENT_ENV=$(tmux show-environment -g 2>/dev/null | grep '^TMUX_AGENT_PANE_')
-ALL_PANES=$(tmux list-panes -a -F '#{pane_id}|#{pane_pid}|#{pane_tty}|#{pane_current_path}' 2>/dev/null)
+# pane_title goes last: it can contain '|' (OpenCode's "OC | ..."), and the
+# readers below take everything after the 4th separator as the title.
+ALL_PANES=$(tmux list-panes -a -F '#{pane_id}|#{pane_pid}|#{pane_tty}|#{pane_current_path}|#{pane_title}' 2>/dev/null)
 
 if [ -z "$AGENT_ENV" ] && [ -z "$ALL_PANES" ]; then
   exit 0
@@ -90,6 +109,7 @@ if [ -n "$AGENT_ENV" ]; then
     PROCESSED_PANES="$PROCESSED_PANES $pane_id"
 
     cwd=$(echo "$PANE_INFO" | cut -d'|' -f4 | tr -d '|\n')
+    title=$(clean_title "$(echo "$PANE_INFO" | cut -d'|' -f5-)")
     project=$(basename "$cwd" 2>/dev/null || echo "?")
     project=$(printf '%s' "$project" | tr -d '|\n')
 
@@ -99,12 +119,12 @@ if [ -n "$AGENT_ENV" ]; then
     fi
 
     type=$(capitalize_type "$agent_name")
-    echo "${pane_id}|${status}|${type}|${project}|${cwd}"
+    echo "${pane_id}|${status}|${type}|${project}|${cwd}|${title}"
   done
 fi
 
 # Phase 2: process/CPU fallback for panes not already covered by phase 1
-while IFS='|' read -r pane_id pid tty cwd; do
+while IFS='|' read -r pane_id pid tty cwd raw_title; do
   [[ " $PROCESSED_PANES " == *" $pane_id "* ]] && continue
 
   tty_short=${tty#/dev/}
@@ -133,5 +153,6 @@ while IFS='|' read -r pane_id pid tty cwd; do
   project=$(basename "$cwd" 2>/dev/null || echo "?")
   project=$(printf '%s' "$project" | tr -d '|\n')
   cwd=$(printf '%s' "$cwd" | tr -d '\n')
-  echo "${pane_id}|${status}|${type}|${project}|${cwd}"
+  title=$(clean_title "$raw_title")
+  echo "${pane_id}|${status}|${type}|${project}|${cwd}|${title}"
 done <<< "$ALL_PANES"

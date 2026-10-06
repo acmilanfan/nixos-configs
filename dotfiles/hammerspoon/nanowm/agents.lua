@@ -211,11 +211,15 @@ function M.showMenu()
 
         local choices = {}
         for line in stdOut:gmatch("[^\n]+") do
-            local paneId, status, typeName, project, cwd = line:match("^([^|]+)|([^|]+)|([^|]+)|([^|]+)|(.*)$")
+            local paneId, status, typeName, project, cwd, title =
+                line:match("^([^|]+)|([^|]+)|([^|]+)|([^|]+)|([^|]*)|(.*)$")
             if paneId then
                 local s = STATUS_MAP[status] or "working"
+                -- Session description leads when the agent set one; the project stays
+                -- searchable through cwd in the subtext.
+                local name = (title ~= "") and title or project
                 table.insert(choices, {
-                    text    = STATUS_ICON[s] .. typeName .. ": " .. project,
+                    text    = STATUS_ICON[s] .. typeName .. ": " .. name,
                     subText = STATUS_LABEL[s] .. "  •  " .. cwd,
                     uuid    = paneId,
                     paneId  = paneId,

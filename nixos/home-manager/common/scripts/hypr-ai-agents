@@ -11,7 +11,7 @@ get_agents() {
 
   local MAX_PRIO=0 STATUS="idle" C_COUNT=0 G_COUNT=0 A_COUNT=0
 
-  while IFS='|' read -r pane_id state type project cwd; do
+  while IFS='|' read -r pane_id state type project cwd title; do
     [ -z "$pane_id" ] && continue
     [[ "$type" == "Claude" ]] && ((C_COUNT++))
     [[ "$type" == "Gemini" ]] && ((G_COUNT++))
@@ -66,7 +66,7 @@ show_menu() {
     return
   fi
 
-  choice=$(printf '%s\n' "$rows" | awk -F'|' '{printf "%s  %s  %s: %s\n", $1, $2, $3, $4}' | vicinae dmenu -W 550)
+  choice=$(printf '%s\n' "$rows" | awk -F'|' '{printf "%s  %s  %s: %s%s\n", $1, $2, $3, $4, ($6 != "" ? "  —  " $6 : "")}' | vicinae dmenu -W 550)
   [ -z "$choice" ] && return
   pane_id=$(echo "$choice" | awk '{print $1}')
   focus_agent "$pane_id"

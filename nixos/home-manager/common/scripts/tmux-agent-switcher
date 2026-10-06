@@ -10,8 +10,8 @@ ROWS=$(ai-agent-list)
 [ -z "$ROWS" ] && exit 0
 
 format_row() {
-  local pane_id status type project cwd
-  IFS='|' read -r pane_id status type project cwd <<< "$1"
+  local pane_id status type project cwd title
+  IFS='|' read -r pane_id status type project cwd title <<< "$1"
   local word color glyph
   case "$status" in
     running)     word="working"; color="\033[33m"; glyph="●" ;;      # yellow
@@ -20,13 +20,13 @@ format_row() {
     idle)        word="idle"; color="\033[90m"; glyph="○" ;;          # dim gray
     *)           word="$status"; color=""; glyph="?" ;;
   esac
-  printf '%s|%b%s %s\033[0m|%s|%s|%s\n' "$pane_id" "$color" "$glyph" "$word" "$type" "$project" "$cwd"
+  printf '%s|%b%s %s\033[0m|%s|%s|%s|%s\n' "$pane_id" "$color" "$glyph" "$word" "$type" "$project" "$cwd" "$title"
 }
 
 SELECTED=$(
   { while IFS= read -r row; do format_row "$row"; done <<< "$ROWS"; } \
   | fzf --tmux 70%,50% --border --ansi --header="go to agent" \
-        --delimiter='|' --with-nth='{2}  {3}  {4}'
+        --delimiter='|' --with-nth='{2}  {3}  {4}  {6}'
 )
 
 [ -z "$SELECTED" ] && exit 0

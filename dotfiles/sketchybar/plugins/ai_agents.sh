@@ -8,6 +8,10 @@
 # ═══════════════════════════════════════════════════════════════
 
 MAX_SLOTS=8
+TITLE_MAX=40
+
+# Character-aware ${var:0:n} below needs a UTF-8 locale; sketchybar's env may lack one.
+LC_CTYPE=en_US.UTF-8
 
 # Close popup on mouse.exited.global (auto-fired when leaving bar)
 if [ "$SENDER" = "mouse.exited.global" ]; then
@@ -39,7 +43,7 @@ update_aggregate() {
   fi
 }
 
-while IFS='|' read -r pane_id status type project cwd; do
+while IFS='|' read -r pane_id status type project cwd title; do
   [ -z "$pane_id" ] && continue
   SLOT=$((SLOT + 1))
   [ "$SLOT" -gt "$MAX_SLOTS" ] && break
@@ -70,8 +74,14 @@ while IFS='|' read -r pane_id status type project cwd; do
   [[ "$TYPE" == "A" ]] && ANTIGRAVITY_ACTIVE=$((ANTIGRAVITY_ACTIVE + 1))
   [[ "$TYPE" == "O" ]] && OPENCODE_ACTIVE=$((OPENCODE_ACTIVE + 1))
 
+  LABEL_TEXT="${TYPE}: $project"
+  if [ -n "$title" ]; then
+    [ "${#title}" -gt "$TITLE_MAX" ] && title="${title:0:$((TITLE_MAX - 1))}…"
+    LABEL_TEXT="$LABEL_TEXT · $title"
+  fi
+
   echo "$pane_id" > "/tmp/sketchybar_ai_agent_${SLOT}.pane"
-  sketchybar --set "ai_agents.popup.${SLOT}" drawing=on icon="$DOT" icon.color="$COLOR" label="${TYPE}: $project"
+  sketchybar --set "ai_agents.popup.${SLOT}" drawing=on icon="$DOT" icon.color="$COLOR" label="$LABEL_TEXT"
 done <<< "$AGENT_ROWS"
 
 # Hide unused slots and clear their PANE files
