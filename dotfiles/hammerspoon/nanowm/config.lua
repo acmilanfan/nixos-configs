@@ -142,7 +142,7 @@ M.excludedFromTagMemory = {
 M.specialTag = "special"
 M.specialPadding = 100
 M.specialDimAlpha = 0.4  -- how dark the rest of the screen gets while the special tag is open
-M.sketchybarHeight = 35
+M.sketchybarHeight = 32  -- sketchybar's bar height (defaults.sh); was 35, a 3 px gap under the bar
 
 -- =============================================================================
 -- Shared helpers

@@ -456,7 +456,8 @@ function M.moveWindowToTag(destTag, win)
                 local cs = state.getScreenForTag(currentTag)
                 if cs then
                     local sf = cs:frame()
-                    if cached.x > sf.x + sf.w - 100 and cached.y > sf.y + sf.h - 100 then
+                    -- (mostly off its screen: parked in a corner, see layout.parkPoint)
+                    if core.overlapsScreen(nil, cached, { sf }) < 0.5 then
                         -- Parked: keep w/h only, x/y will be centered later
                         cached = nil
                     end

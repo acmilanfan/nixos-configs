@@ -1,45 +1,51 @@
 #!/bin/bash
 
-# Extract space number from item name (space.1 -> 1, space.S -> S)
-SPACE_ID=$(echo "$NAME" | cut -d. -f2)
+# Controller for the tag items (space.1-20, space.S), run once per nanowm_update.
+# Sets every item in a single sketchybar call instead of one script process per item.
+#
+# Inputs from nanowm: TAG (focused tag, or S), ACTIVE_TAGS (the tag shown on each screen),
+# OCCUPIED, URGENT, SCREENS (screen count).
+#
+# Display: nanowm puts tags 1-10 on screen 1 and 11-20 on screen 2, so their items go on that
+# display when it exists; otherwise (one screen holds every tag) on display 1. S is on display 1.
 
-if [ "$SENDER" = "nanowm_update" ]; then
-  IS_ACTIVE=false
-  HAS_WINDOWS=false
-  IS_URGENT=false
+[ "$SENDER" = "nanowm_update" ] || exit 0
 
-  # Check if this space is the current tag
-  if [ "$TAG" = "$SPACE_ID" ]; then
-    IS_ACTIVE=true
+SCREENS=${SCREENS:-1}
+
+contains() { # contains <word> <list>
+  local w
+  for w in $2; do [ "$w" = "$1" ] && return 0; done
+  return 1
+}
+
+args=()
+for id in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 S; do
+  display=1
+  if [ "$id" != "S" ]; then
+    monitor=$(( (id - 1) / 10 + 1 ))
+    [ "$monitor" -le "$SCREENS" ] && display=$monitor
   fi
 
-  # Check if this space has windows (is in OCCUPIED list)
-  for occupied in $OCCUPIED; do
-    if [ "$occupied" = "$SPACE_ID" ]; then
-      HAS_WINDOWS=true
-      break
-    fi
-  done
-
-  # Check if this space is urgent
-  for urgent in $URGENT; do
-    if [ "$urgent" = "$SPACE_ID" ]; then
-      IS_URGENT=true
-      break
-    fi
-  done
-
-  if [ "$IS_ACTIVE" = true ]; then
-    # Current workspace - highlighted blue
-    sketchybar --set "$NAME" drawing=on background.drawing=on background.color=0xff7b5cff icon.color=0xff1a1b26
-  elif [ "$IS_URGENT" = true ]; then
-    # Urgent workspace - highlighted red/orange (attention needed!)
-    sketchybar --set "$NAME" drawing=on background.drawing=on background.color=0xfff7768e icon.color=0xff1a1b26
-  elif [ "$HAS_WINDOWS" = true ]; then
-    # Has windows but not active - visible but dimmed
-    sketchybar --set "$NAME" drawing=on background.drawing=on background.color=0xff3b4261 icon.color=0xffc0caf5
+  if [ "$TAG" = "$id" ]; then
+    # Focused tag - highlighted purple
+    style="drawing=on background.drawing=on background.color=0xff7b5cff icon.color=0xff1a1b26"
+  elif contains "$id" "$URGENT"; then
+    # Urgent - red (attention needed)
+    style="drawing=on background.drawing=on background.color=0xfff7768e icon.color=0xff1a1b26"
+  elif [ "$id" != "S" ] && contains "$id" "$ACTIVE_TAGS"; then
+    # Shown on its screen but not focused (e.g. the other monitor's tag) - lighter, even if empty
+    style="drawing=on background.drawing=on background.color=0xff565f89 icon.color=0xffc0caf5"
+  elif contains "$id" "$OCCUPIED"; then
+    # Has windows but not shown - dimmed
+    style="drawing=on background.drawing=on background.color=0xff3b4261 icon.color=0xffc0caf5"
   else
-    # Empty workspace - hidden
-    sketchybar --set "$NAME" drawing=off
+    # Empty - hidden
+    style="drawing=off"
   fi
-fi
+
+  # shellcheck disable=SC2206 # style is a list of key=value words
+  args+=(--set "space.$id" "display=$display" $style)
+done
+
+sketchybar "${args[@]}"

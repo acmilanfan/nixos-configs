@@ -98,15 +98,17 @@ local function doUpdateSketchybar()
     end
     local urgent = table.concat(urgentList, " ")
 
+    -- SCREENS: the bar puts tags 11-20 on the second display only when it exists.
     local triggerArgs = string.format(
-        'TAG="%s" ACTIVE_TAGS="%s" WINDOWS="%d" LAYOUT="%s" FULLSCREEN="%s" TIMER="%s" APP="%s" IS_FLOATING="%s" OCCUPIED="%s" URGENT="%s"',
-        tag, activeTagsStr, windowCount, layout, isFullscreen, timerRemaining, focusedApp, isFloating, occupied, urgent
+        'TAG="%s" ACTIVE_TAGS="%s" WINDOWS="%d" LAYOUT="%s" FULLSCREEN="%s" TIMER="%s" APP="%s" IS_FLOATING="%s" OCCUPIED="%s" URGENT="%s" SCREENS="%d"',
+        tag, activeTagsStr, windowCount, layout, isFullscreen, timerRemaining, focusedApp, isFloating, occupied, urgent,
+        #hs.screen.allScreens()
     )
 
     -- Single shell invocation for both triggers; -c avoids loading the full login profile
     local cmd = string.format(
-        'sketchybar --trigger nanowm_update %s 2>/dev/null; sketchybar --trigger nanowm_update_secondary %s 2>/dev/null',
-        triggerArgs, triggerArgs
+        'sketchybar --trigger nanowm_update %s 2>/dev/null',
+        triggerArgs
     )
     hs.task.new("/bin/zsh", nil, { "-c", cmd }):start()
     if profiler.enabled then

@@ -18,6 +18,31 @@ M.onTileComplete = nil -- Set by integrations module
 -- use core.isParked() instead.
 local PARK_COORD = 100000
 
+-- Where to park a hidden window of frame `f`. macOS never leaves a window entirely off-screen;
+-- it clamps it so a ~40 px corner stays visible on the nearest screen. Parking at PARK_COORD
+-- therefore always landed in the bottom-right corner of the whole screen arrangement, which
+-- with a monitor to the right is that monitor's corner: slivers of every hidden window from
+-- the laptop's tags piled up on it. Park just past the bottom-right or bottom-left corner of the
+-- window's own tag screen instead, whichever side has no other screen. With a single screen this
+-- is the bottom-right corner, as before.
+local function parkPoint(win, f, screenFrames)
+    local tag = state.tags[win:id()]
+    local screen = tag and state.getScreenForTag(tag)
+    local sf = screen and screen:frame()
+    if not sf then return PARK_COORD, PARK_COORD end
+    local y = sf.y + sf.h - 1
+    for _, x in ipairs({ sf.x + sf.w - 1, sf.x - f.w + 1 }) do
+        local rect = { x = x, y = y, w = f.w, h = f.h }
+        local clear = true
+        for _, o in ipairs(screenFrames) do
+            local own = o.x == sf.x and o.y == sf.y and o.w == sf.w and o.h == sf.h
+            if not own and core.overlapsScreen(nil, rect, { o }) > 0 then clear = false; break end
+        end
+        if clear then return x, y end
+    end
+    return PARK_COORD, PARK_COORD
+end
+
 -- =============================================================================
 -- Tile Geometry
 --
@@ -278,8 +303,7 @@ function M.performTile()
                      state.floatingCache[idStr] = { x = f.x, y = f.y, w = f.w, h = f.h }
                  end
 
-                 f.x = PARK_COORD
-                 f.y = PARK_COORD
+                 f.x, f.y = parkPoint(win, f, screenFrames)
                  win:setFrame(f)
              end
              ws.isHidden = true
@@ -516,7 +540,10 @@ function M.applyLayout(windows, area, isSpecial, tag, allWins)
                 local ws = state.windowState[id] or {}
                 local f = win:frame()
                 if not ws.isHidden or core.overlapsScreen(win, f) >= 0.2 then
-                    win:setFrame({ x = PARK_COORD, y = PARK_COORD, w = f.w, h = f.h })
+                    local frames = {}
+                    for _, s in ipairs(hs.screen.allScreens()) do frames[#frames + 1] = s:frame() end
+                    local px, py = parkPoint(win, f, frames)
+                    win:setFrame({ x = px, y = py, w = f.w, h = f.h })
                     ws.isHidden = true
                     state.windowState[id] = ws
                 end
