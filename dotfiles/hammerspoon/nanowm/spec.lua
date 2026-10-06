@@ -458,14 +458,26 @@ local function suite_first_window_tiles(done)
     hs.timer.doAfter(1.0, safely("first-window suite (launch)", function()
         core.launchTask("/usr/bin/open", { "-n", "-a", "Alacritty" })
 
-        -- 1.2 s is well inside the old failure window (winMapTTL was 1-2 s).
-        hs.timer.doAfter(1.2, safely("first-window suite (assert)", function()
-            local newId, obj
+        -- Wait for the window itself (a cold Alacritty start can take >1.2 s, which failed
+        -- this test spuriously), then judge tiling 0.5 s after it appeared: still well inside
+        -- the old failure window, where a new window stayed untiled for 1-2 s (winMapTTL).
+        local function newWindow()
             for _, w in ipairs(watchers.getManagedWindows()) do
-                if not pre[w:id()] then newId, obj = w:id(), w end
+                if not pre[w:id()] then return w:id(), w end
             end
+        end
+        local waited = 0
+        local poll
+        poll = function()
+            local found = newWindow()
+            if not found and waited < 4.0 then
+                waited = waited + 0.2
+                return hs.timer.doAfter(0.2, safely("first-window suite (wait)", poll, done))
+            end
+            hs.timer.doAfter(found and 0.5 or 0, safely("first-window suite (assert)", function()
+            local newId, obj = newWindow()
             if not obj then
-                fail("first window on an empty tag is tiled", "no new window appeared")
+                fail("first window on an empty tag is tiled", "no new window appeared within 4 s")
                 return teardown(nil)
             end
 
@@ -482,6 +494,8 @@ local function suite_first_window_tiles(done)
 
             teardown(newId)
         end, function() teardown(nil) end))
+        end
+        poll()
     end, done))
 end
 
