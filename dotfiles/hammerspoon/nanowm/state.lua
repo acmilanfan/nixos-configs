@@ -279,21 +279,76 @@ local function cleanNested(t)
     return out
 end
 
+-- hs.json.decode (and hs.settings) return ONE shared table for structurally equal values:
+-- decode('{"a":{},"b":{}}') gives a == b, and so do equal non-empty objects and arrays
+-- (verified). Stored by reference, fields that were equal when saved stay a single object: in the
+-- live state floatingCache and sizeCache were the same table, and stacks[6], stacks[7] and
+-- tagCreationOrder[2..9] were one list, so a write to one silently landed in all of them.
+-- A non-memoizing deep copy gives every field its own storage; the saved graph is acyclic.
+local function deepcopy(v)
+    if type(v) ~= "table" then return v end
+    local out = {}
+    for k, val in pairs(v) do out[k] = deepcopy(val) end
+    return out
+end
+
+-- Undo what the aliasing already mixed together before it was fixed (the save file carries it).
+-- A per-tag id list may only hold windows that M.tags puts on that tag, once each.
+local function repairTagLists(map)
+    for tag, list in pairs(map) do
+        local fixed, seen = {}, {}
+        if type(list) == "table" then
+            for _, id in ipairs(list) do
+                if type(id) == "number" and M.tags[id] == tag and not seen[id] then
+                    seen[id] = true
+                    fixed[#fixed + 1] = id
+                end
+            end
+        end
+        map[tag] = fixed
+    end
+    return map
+end
+
+-- Keep only well-formed cache entries: full {x,y,w,h} frames, or {w,h} sizes when sizeOnly.
+local function repairFrames(cache, sizeOnly)
+    local out = {}
+    for k, f in pairs(cache or {}) do
+        if type(f) == "table" and type(f.w) == "number" and type(f.h) == "number" then
+            if sizeOnly then
+                out[k] = { w = f.w, h = f.h }
+            elseif type(f.x) == "number" and type(f.y) == "number" then
+                out[k] = { x = f.x, y = f.y, w = f.w, h = f.h }
+            end
+        end
+    end
+    return out
+end
+
+local function repairTagMemory(mem)
+    local out = {}
+    for k, v in pairs(mem or {}) do
+        if type(k) == "string" and (type(v) == "number" or v == "special") then out[k] = v end
+    end
+    return out
+end
+
 local function loadFromData(d)
+    d = deepcopy(d)
     M.tags              = clean(d.tags)
-    M.stacks            = clean(d.stacks)
+    M.stacks            = repairTagLists(clean(d.stacks))
     M.sticky            = clean(d.sticky)
     M.floatingOverrides = clean(d.floatingOverrides)
-    M.floatingCache     = d.floatingCache or {}
-    M.sizeCache         = d.sizeCache or {}
-    M.fullscreenCache   = d.fullscreenCache or {}
+    M.floatingCache     = repairFrames(d.floatingCache)
+    M.sizeCache         = repairFrames(d.sizeCache, true)
+    M.fullscreenCache   = repairFrames(d.fullscreenCache)
     M.masterWidths      = clean(d.masterWidths) or {}
     M.windowWidths      = clean(d.windowWidths) or {}
     M.tagLayouts        = clean(d.tagLayouts) or {}
-    M.tagCreationOrder  = clean(d.tagCreationOrder) or {}
+    M.tagCreationOrder  = repairTagLists(clean(d.tagCreationOrder))
     M.tagFullscreenState = clean(d.tagFullscreenState) or {}
     M.tagLastFocused    = clean(d.tagLastFocused) or {}
-    M.appTagMemory      = d.appTagMemory or {}
+    M.appTagMemory      = repairTagMemory(d.appTagMemory)
     M.freeTags          = clean(d.freeTags) or {}
     M.freeTagPositions  = cleanNested(d.freeTagPositions) or {}
     -- clean() always returns a table, so an absent/empty entry must fall back explicitly.
@@ -306,6 +361,8 @@ local function loadFromData(d)
     M.bordersEnabled    = d.bordersEnabled or false
     M.kanataMode        = d.kanataMode or "homerow"
     M.caffeinateActive  = d.caffeinateActive or false
+    -- Persist the repaired state; the file on disk still carries any old aliasing damage.
+    M.triggerSave()
 end
 
 function M.load()
