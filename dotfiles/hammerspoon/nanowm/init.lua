@@ -41,6 +41,7 @@ local agents = require("nanowm.agents")
 -- Layout completion triggers integration updates
 layout.onTileComplete = function()
     integrations.updateSketchybar()
+    tags.updateBorder()  -- special-tag backdrop holes follow the windows just placed
 end
 
 -- Tag changes trigger integration updates

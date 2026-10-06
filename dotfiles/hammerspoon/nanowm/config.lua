@@ -141,6 +141,7 @@ M.excludedFromTagMemory = {
 -- Special tag configuration
 M.specialTag = "special"
 M.specialPadding = 100
+M.specialDimAlpha = 0.4  -- how dark the rest of the screen gets while the special tag is open
 M.sketchybarHeight = 35
 
 -- =============================================================================

@@ -943,6 +943,9 @@ function M.setup()
         local id = win:id()
         if not id or id == 0 then return end
 
+        -- The special-tag backdrop fades out while a non-special window has focus.
+        if state.special.active then tags.updateBorder() end
+
         local app = win:application()
 
         -- Register the focused window if it's not tracked.
@@ -1027,6 +1030,11 @@ function M.setup()
     filter:subscribe(hs.window.filter.windowMoved, profiler.wrap("wf:windowMoved", function(win)
         if _axBlocked() then return end
         if not win or not win:id() or win:id() == 0 then return end
+
+        -- Keep the backdrop's hole on a special window that was moved or resized.
+        if state.special.active and state.tags[win:id()] == state.special.tag then
+            tags.updateBorder()
+        end
 
         local tag = state.special.active and state.special.tag or state.currentTag
         if not core.isFloating(win) and not state.isTagFree(tag) then

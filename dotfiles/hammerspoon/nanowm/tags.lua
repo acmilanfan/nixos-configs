@@ -14,39 +14,76 @@ local M = {}
 M.onTagChange = nil -- Set by integrations module
 
 -- =============================================================================
--- Special Tag Border
+-- Special Tag Backdrop
+--
+-- While the special tag is open, the rest of its screen is dimmed and the special windows show
+-- through holes cut in the dim layer (it replaced an 8 px outline around the screen edge).
+-- The layer sits at "floating" level: at normal level macOS orders it behind the active app's
+-- windows. It ignores the mouse, so clicks reach the windows underneath, and it fades out
+-- while a window that isn't on the special tag has focus, so nobody works inside a dimmed
+-- window. Kept in sync by the tile hook (nanowm/init.lua) and the focus, move and screen
+-- watchers, all of which call updateBorder().
 -- =============================================================================
 
-local function updateBorder()
-    if state.special.active then
-        -- Special windows always tile on the special tag's screen, not on the focused window's
-        -- screen (mainScreen); and screens can change while the border exists, so rebuild it
-        -- whenever that screen's frame differs from the one it was drawn for.
-        local s = state.getScreenForTag(state.special.tag) or hs.screen.mainScreen()
-        local screen = s:frame()
-        local drawn = state.special.borderFrame
-        if state.special.border and not (drawn and drawn.x == screen.x and drawn.y == screen.y
-            and drawn.w == screen.w and drawn.h == screen.h) then
-            state.special.border:delete()
-            state.special.border = nil
+local BACKDROP_FADE = 0.12
+local backdrop = nil        -- hs.canvas, created on first use
+local backdropKey = nil     -- screen + hole frames it was last drawn for
+local backdropShown = false
+
+local function renderBackdrop()
+    local screen = state.getScreenForTag(state.special.tag) or hs.screen.mainScreen()
+    if not screen then return false end
+    local sf = screen:frame()
+
+    local holes = {}
+    for _, w in ipairs(require("nanowm.watchers").getManagedWindows()) do
+        local id = w:id()
+        if id and state.tags[id] == state.special.tag then
+            local f = w:frame()
+            if core.overlapsScreen(w, f, { sf }) > 0.2 then holes[#holes + 1] = f end
         end
-        if not state.special.border then
-            state.special.borderFrame = { x = screen.x, y = screen.y, w = screen.w, h = screen.h }
-            state.special.border = hs.canvas.new(screen)
-            state.special.border:level(hs.canvas.windowLevels.overlay)
-            state.special.border[1] = {
-                type = "rectangle",
-                action = "stroke",
-                strokeColor = { red = 0.2, green = 0.6, blue = 1.0, alpha = 0.8 },
-                strokeWidth = 8,
-                frame = { x = 4, y = 4, w = screen.w - 8, h = screen.h - 8 },
-            }
-        end
-        state.special.border:show()
+    end
+
+    local parts = { string.format("%d,%d,%d,%d", sf.x, sf.y, sf.w, sf.h) }
+    for _, h in ipairs(holes) do
+        parts[#parts + 1] = string.format("%d,%d,%d,%d", h.x, h.y, h.w, h.h)
+    end
+    local key = table.concat(parts, "|")
+    if backdrop and key == backdropKey then return true end
+    backdropKey = key
+
+    if not backdrop then
+        backdrop = hs.canvas.new(sf):level(hs.canvas.windowLevels.floating)
     else
-        if state.special.border then
-            state.special.border:hide()
+        backdrop:frame(sf)
+        while #backdrop > 0 do backdrop:removeElement(1) end
+    end
+    backdrop[1] = { type = "rectangle", action = "fill",
+                    fillColor = { white = 0, alpha = config.specialDimAlpha } }
+    for _, h in ipairs(holes) do
+        backdrop[#backdrop + 1] = {
+            type = "rectangle", action = "fill", fillColor = { white = 0, alpha = 1 },
+            compositeRule = "clear",
+            frame = { x = h.x - sf.x, y = h.y - sf.y, w = h.w, h = h.h },
+        }
+    end
+    return true
+end
+
+local function updateBorder()
+    if state.special.active and renderBackdrop() then
+        local focused = hs.window.focusedWindow()
+        local onSpecial = not focused or state.tags[focused:id()] == state.special.tag
+        if onSpecial and not backdropShown then
+            backdrop:show(BACKDROP_FADE)
+            backdropShown = true
+        elseif not onSpecial and backdropShown then
+            backdrop:hide(BACKDROP_FADE)
+            backdropShown = false
         end
+    elseif backdropShown then
+        backdrop:hide(BACKDROP_FADE)
+        backdropShown = false
     end
 end
 
@@ -364,8 +401,24 @@ function M.toggleSpecial()
             end
         end)
     else
-        -- If special tag is empty, focus preferred app to ensure no old window stays frontmost
+        -- No tiled windows. If the tag holds floating ones (a scratchpad), focus one of those,
+        -- the last focused first. Otherwise the tag counted as empty, the fallback app below got
+        -- focus, and typing went to the window behind the special tag.
+        local floats = {}
+        for _, w in ipairs(require("nanowm.watchers").getManagedWindows()) do
+            if state.tags[w:id()] == newContextTag and core.isFloating(w) then
+                floats[#floats + 1] = w
+            end
+        end
         hs.timer.doAfter(0.15, function()
+            if #floats > 0 then
+                local target = floats[1]
+                for _, w in ipairs(floats) do
+                    if w:id() == state.tagLastFocused[newContextTag] then target = w; break end
+                end
+                target:focus()
+                return
+            end
             if config.emptyTagFocusApp then
                 local app = hs.application.get(config.emptyTagFocusApp)
                 if app then
