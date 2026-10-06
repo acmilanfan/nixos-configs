@@ -161,10 +161,26 @@ local FF_LOOKUP_BACKOFF = 10  -- seconds between lookups while Firefox is absent
 
 local _inputTap  -- defined with the cross-tag focus policy below
 
+-- True while the screen is locked (or the session is off the console). App windows can't be
+-- enumerated then: at wake, before unlock, app:allWindows() returned nothing for every managed
+-- app while hs.window.allWindows() still listed ~11 system windows (measured). The same holds
+-- in the dark wakes of a closed laptop, when overdue timers fire -- which is how two prune
+-- sweeps overnight saw every window as dead and dropped all tags.
+local function _sessionLocked()
+    local p = hs.caffeinate.sessionProperties()
+    if not p then return false end
+    local locked = p.CGSSessionScreenIsLocked
+    return locked == true or locked == 1 or p.kCGSSessionOnConsoleKey == false
+end
+M.sessionLocked = _sessionLocked
+
 local function _resync()
     -- macOS disables an event tap whose callback ever times out; re-arm it.
     if _inputTap and not _inputTap:isEnabled() then _inputTap:start() end
     if _axBlocked() then return end
+    -- Locked: the enumeration below would come back empty and wipe _trackedWins (the wake
+    -- handler runs this at systemDidWake, before unlock). screensDidUnlock resyncs instead.
+    if _sessionLocked() then return end
     local fresh = {}
     for _, app in ipairs(hs.application.runningApplications()) do
         if app:kind() ~= -1 then
@@ -187,7 +203,12 @@ local function _resync()
             end
         end
     end
-    _trackedWins = fresh
+    -- Second line of defence behind the lock check: an enumeration that finds nothing at all
+    -- is not evidence that every window closed (destroy events remove those individually), so
+    -- it must not wipe the tracked set the prune sweep relies on.
+    if next(fresh) ~= nil then
+        _trackedWins = fresh
+    end
 
     local untaggedFound = false
     for _, win in pairs(fresh) do
@@ -1054,7 +1075,13 @@ function M.setup()
     -- (ceiling WAKE_SUPPRESS_MAX). Anything still locked trips the breaker instead.
     -- _cafWatcher must be module-level — Hammerspoon GCs watchers without a live reference.
     _cafWatcher = hs.caffeinate.watcher.new(function(event)
-        if event == hs.caffeinate.watcher.systemWillSleep then
+        if event == hs.caffeinate.watcher.screensDidUnlock then
+            -- App windows are enumerable again; _resync skipped while locked.
+            if not _axBlocked() then
+                _resync()
+                layout.tile()
+            end
+        elseif event == hs.caffeinate.watcher.systemWillSleep then
             profiler.resetHeartbeat()
         elseif event == hs.caffeinate.watcher.systemDidWake then
             profiler.resetHeartbeat()

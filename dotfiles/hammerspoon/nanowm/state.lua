@@ -69,6 +69,14 @@ M.pruneTimer = hs.timer.new(PRUNE_INTERVAL, function()
     local watchers = require("nanowm.watchers")
     -- Don't enumerate while AX is known-slow; the sweep can wait an hour.
     if watchers.axBlocked and watchers.axBlocked() then return end
+    -- Nor while locked: app windows are invisible then (see watchers._sessionLocked), so every
+    -- tagged window looks dead. Overnight, overdue sweeps fire in the dark wakes of a closed
+    -- laptop; two of them struck everything twice and wiped all tags. Strikes collected around
+    -- a lock are not trustworthy either, so start over.
+    if watchers.sessionLocked and watchers.sessionLocked() then
+        _pruneStrikes = {}
+        return
+    end
 
     local liveIds = {}
     for _, win in ipairs(watchers.getManagedWindows()) do
@@ -92,6 +100,20 @@ M.pruneTimer = hs.timer.new(PRUNE_INTERVAL, function()
 
     -- If AX returned nothing at all, treat it as unreliable rather than wiping state.
     if next(liveIds) == nil then return end
+
+    -- A sweep that would strike most windows at once is an enumeration failure, not mass
+    -- closing: closed windows are removed by windowDestroyed long before a sweep sees them.
+    local tagged, missing = 0, 0
+    for id in pairs(M.tags) do
+        tagged = tagged + 1
+        if not liveIds[id] then missing = missing + 1 end
+    end
+    if tagged >= 4 and missing * 2 > tagged then
+        print(string.format("[NanoWM] prune: %d of %d tagged windows not found, skipping sweep",
+            missing, tagged))
+        _pruneStrikes = {}
+        return
+    end
 
     local removed = 0
     for id in pairs(M.tags) do
