@@ -1,6 +1,12 @@
 { pkgs, lib, unstable, secrets, inputs, ... }:
 
 let
+  sketchybarReload = ''
+    sb="/etc/profiles/per-user/$(id -un)/bin/sketchybar"
+    if [ -x "$sb" ] && /usr/bin/pgrep -x sketchybar >/dev/null; then
+      $DRY_RUN_CMD "$sb" --reload || true
+    fi
+  '';
   # Pinned to commits, not master: a fixed hash on a moving URL breaks the build on any
   # re-fetch after upstream changes (GC, a fresh machine, the other host).
   spoonsRev = "5cbfe7d95bc58fd46e94d9904160acaa8acd22bd";
@@ -339,17 +345,22 @@ in
     '';
 
     # --- SketchyBar Config ---
+    # A running sketchybar keeps the config it started with; reload it when that changes.
+    # (Plugin scripts are re-read on every run and need no reload.)
     ".config/sketchybar/sketchybarrc" = {
       executable = true;
       source = ../../dotfiles/sketchybar/sketchybarrc;
+      onChange = sketchybarReload;
     };
     ".config/sketchybar/colors.sh" = {
       executable = true;
       source = ../../dotfiles/sketchybar/colors.sh;
+      onChange = sketchybarReload;
     };
     ".config/sketchybar/defaults.sh" = {
       executable = true;
       source = ../../dotfiles/sketchybar/defaults.sh;
+      onChange = sketchybarReload;
     };
 
     # --- SketchyBar Plugins ---
@@ -459,6 +470,24 @@ in
     # Ryuk is the container that cleans up after tests - needs to be enabled
     TESTCONTAINERS_RYUK_DISABLED = "false";
   };
+
+  # Reload Hammerspoon when a rebuild changed any of its files. Nothing else does: the
+  # darwin-startup reload only runs when Hammerspoon wasn't running, so a running instance
+  # kept the old config after every switch. Compares a hash of ~/.hammerspoon's Lua files
+  # (spoons included) with the one from the last switch, so it reloads once, and only on change.
+  home.activation.reloadHammerspoon = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
+    stamp="$HOME/.cache/hammerspoon-config.sha"
+    new=$(/usr/bin/find -L "$HOME/.hammerspoon" -name '*.lua' -type f -print0 2>/dev/null \
+      | /usr/bin/sort -z | /usr/bin/xargs -0 /bin/cat 2>/dev/null | /usr/bin/shasum | /usr/bin/cut -c1-40)
+    old=$(/bin/cat "$stamp" 2>/dev/null || true)
+    if [ "$new" != "$old" ]; then
+      if /usr/bin/pgrep -x Hammerspoon >/dev/null; then
+        $DRY_RUN_CMD /usr/bin/open -g "hammerspoon://reload" || true
+      fi
+      $DRY_RUN_CMD /bin/mkdir -p "$HOME/.cache"
+      if [ -z "''${DRY_RUN:-}" ]; then echo "$new" > "$stamp"; fi
+    fi
+  '';
 
   home.stateVersion = "26.05";
 }

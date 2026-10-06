@@ -5,6 +5,12 @@
 -- Emergency Kanata Restart: CMD+ALT+CTRL+K restarts kanata via launchd
 -- =============================================================================
 
+-- `open -g hammerspoon://reload` reloads the config. Used by the nix activation
+-- (home-darwin.nix) after a rebuild changed any Hammerspoon file: unlike the `hs`
+-- CLI it doesn't depend on the IPC port answering. Deferred so the URL event
+-- handler returns before the Lua state is torn down.
+hs.urlevent.bind("reload", function() hs.timer.doAfter(0.1, hs.reload) end)
+
 hs.hotkey.bind({ "cmd", "alt", "ctrl" }, "0", function()
     hs.alert.show("🚨 Emergency Rescue Initiated 🚨")
     local wins = hs.window.allWindows()
