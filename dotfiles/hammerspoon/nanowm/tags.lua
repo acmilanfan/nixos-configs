@@ -207,9 +207,6 @@ function M.gotoTag(i)
 
     M.captureSnapshot()
 
-    -- Save current tag state just in case
-    state.tagFullscreenState[state.currentTag] = state.isFullscreen
-
     -- Save focused window
     local focusedWin = hs.window.focusedWindow()
     if focusedWin and state.tags[focusedWin:id()] == state.currentTag then
@@ -221,7 +218,9 @@ function M.gotoTag(i)
     state.activeTags[monitorIdx] = i
     state.special.active = false
 
-    -- Restore new tag state
+    -- Mirror of the new tag's own fullscreen mode, for sketchybar. The mode lives in
+    -- tagFullscreenState and is only changed by Alt+F; copying this mirror back on every switch
+    -- wrote the special tag's mode onto the tag underneath it.
     state.isFullscreen = state.tagFullscreenState[i] or false
 
     state.lastManualTagSwitch = hs.timer.secondsSinceEpoch()
@@ -297,7 +296,6 @@ end
 function M.toggleSpecial()
     -- Save state of the current context before switching
     local oldContextTag = state.special.active and state.special.tag or state.currentTag
-    state.tagFullscreenState[oldContextTag] = state.isFullscreen
 
     -- Save focused window
     local focusedWin = hs.window.focusedWindow()

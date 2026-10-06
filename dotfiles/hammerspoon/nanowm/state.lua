@@ -354,6 +354,7 @@ local function loadFromData(d)
     -- clean() always returns a table, so an absent/empty entry must fall back explicitly.
     M.activeTags        = (d.activeTags and next(d.activeTags)) and clean(d.activeTags) or { 1, 11, 21, 31 }
     M.currentTag        = d.currentTag or 1
+    M.isFullscreen      = M.tagFullscreenState[M.currentTag] or false  -- mirror, for sketchybar
     M.prevTag           = d.prevTag or 1
     M.layout            = d.globalLayout or config.layout
     M.weekenduoWinId    = d.weekenduoWinId

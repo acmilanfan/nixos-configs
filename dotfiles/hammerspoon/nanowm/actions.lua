@@ -141,10 +141,10 @@ function M.toggleFullscreen()
         end
         win:raise()
     else
-        state.isFullscreen = not state.isFullscreen
-
+        -- Per-tag mode; state.isFullscreen only mirrors the context tag's for sketchybar.
         local currentContextTag = state.special.active and state.special.tag or state.currentTag
-        state.tagFullscreenState[currentContextTag] = state.isFullscreen
+        state.tagFullscreenState[currentContextTag] = not state.tagFullscreenState[currentContextTag]
+        state.isFullscreen = state.tagFullscreenState[currentContextTag]
 
         if state.isFullscreen then
             win:raise()

@@ -19,6 +19,63 @@ M.onTileComplete = nil -- Set by integrations module
 local PARK_COORD = 100000
 
 -- =============================================================================
+-- Tile Geometry
+--
+-- Shared by performTile/applyLayout (which place windows) and handleManualResize (which turns a
+-- window size back into a ratio). They used to disagree: the resize handler divided by the bare
+-- screen frame while the layout had used a smaller area (bar, special padding, border gap), so
+-- every tile read back as a slightly smaller ratio and windows shrank step by step.
+-- =============================================================================
+
+-- A tag's frame on `screen`: the screen minus the sketchybar strip on screens that carry it.
+local function tileFrame(screen)
+    local f = screen:frame()
+    if state.sketchybarEnabled then
+        local name = screen:name()
+        if name ~= "Built-in Retina Display" and name ~= "Color LCD" then
+            f.y = f.y + config.sketchybarHeight
+            f.h = f.h - config.sketchybarHeight
+        end
+    end
+    return f
+end
+
+local function specialFrame(frame)
+    local pad = config.specialPadding
+    return {
+        x = frame.x + pad,
+        y = frame.y + pad,
+        w = math.max(100, frame.w - (pad * 2)),
+        h = math.max(100, frame.h - (pad * 2)),
+    }
+end
+
+-- The area applyLayout lays `count` windows of `tag` out in, given the tag's frame.
+local function workAreaFor(area, tag, count)
+    local screenGap = 0
+    -- Only add screen gaps if borders are enabled and we are in a tiled layout with multiple windows
+    if state.bordersEnabled and not state.tagFullscreenState[tag]
+        and state.getLayout(tag) ~= "mono" and count > 1 then
+        screenGap = config.borderWidth
+    end
+    return {
+        x = area.x + screenGap,
+        y = area.y + screenGap,
+        w = area.w - (screenGap * 2),
+        h = area.h - (screenGap * 2),
+    }
+end
+
+-- The work area `tag` is tiled into right now, or nil without screens.
+function M.layoutArea(tag, count)
+    local screen = state.getScreenForTag(tag)
+    if not screen then return nil end
+    local area = tileFrame(screen)
+    if tag == state.special.tag then area = specialFrame(area) end
+    return workAreaFor(area, tag, count)
+end
+
+-- =============================================================================
 -- Debounced Tile Timer
 -- =============================================================================
 
@@ -112,7 +169,7 @@ function M.performTile()
     local screens = hs.screen.allScreens()
     local screenCount = #screens
     local primaryScreen = screens[1]
-    local primaryFrame = primaryScreen and primaryScreen:frame() or {x=0,y=0,w=1920,h=1080}
+    local primaryFrame = primaryScreen and tileFrame(primaryScreen) or {x=0,y=0,w=1920,h=1080}
     -- Screen frames, built once per tile. PHASE 2 uses these for the stale-park
     -- overlap test, so the per-window loop must not re-enumerate screens.
     local screenFrames = {}
@@ -120,26 +177,11 @@ function M.performTile()
         screenFrames[#screenFrames + 1] = s:frame()
     end
 
-    if state.sketchybarEnabled and primaryScreen then
-        local name = primaryScreen:name()
-        if name ~= "Built-in Retina Display" and name ~= "Color LCD" then
-            primaryFrame.y = primaryFrame.y + config.sketchybarHeight
-            primaryFrame.h = primaryFrame.h - config.sketchybarHeight
-        end
-    end
-
     -- Determine which tags should be visible on which screen frame
     for _, tag in ipairs(state.activeTags) do
         local targetScreen = state.getScreenForTag(tag)
         if targetScreen then
-            local f = targetScreen:frame()
-            if state.sketchybarEnabled then
-                local name = targetScreen:name()
-                if name ~= "Built-in Retina Display" and name ~= "Color LCD" then
-                    f.y = f.y + config.sketchybarHeight
-                    f.h = f.h - config.sketchybarHeight
-                end
-            end
+            local f = tileFrame(targetScreen)
             -- If multiple tags map to same screen (e.g. 1 screen setup), 
             -- prioritize the global currentTag or the one that appears first in activeTags
             if not visibleTags[tag] then
@@ -220,6 +262,14 @@ function M.performTile()
               -- windows to ~screenWidth-40). `f` is the frame read once above and reused for
               -- both the overlap test and the park below, so a re-park is a single AX read.
              if f.w > 0 and f.h > 0 then
+                  -- Free tags keep windows where the user put them: remember the spot before
+                  -- parking, so switching back restores it. It was only recorded when free mode
+                  -- was turned on, so later arrangements snapped back on every return.
+                 local winTag = state.tags[id]
+                 if not ws.isHidden and winTag and state.isTagFree(winTag) and not core.isFloating(win) then
+                     state.freeTagPositions[winTag] = state.freeTagPositions[winTag] or {}
+                     state.freeTagPositions[winTag][id] = { x = f.x, y = f.y, w = f.w, h = f.h }
+                 end
                   -- Remember where a floating window really was so PHASE 4 can restore its size.
                   -- Previously gated on `f.x < 10000`, which a clamped parked position (1472)
                   -- also satisfied — so a re-park could overwrite the cache with the parked
@@ -269,14 +319,7 @@ function M.performTile()
         local frame = visibleTags[state.special.tag]
         local specialWindows = core.getTiledWindows(state.special.tag, allWins)
         if not state.isTagFree(state.special.tag) then
-            local pad = config.specialPadding
-            local specialFrame = {
-                x = frame.x + pad,
-                y = frame.y + pad,
-                w = math.max(100, frame.w - (pad * 2)),
-                h = math.max(100, frame.h - (pad * 2)),
-            }
-            M.applyLayout(specialWindows, specialFrame, true, state.special.tag, allWins)
+            M.applyLayout(specialWindows, specialFrame(frame), true, state.special.tag, allWins)
         else
             for _, win in ipairs(specialWindows) do
                 local id = win:id()
@@ -366,18 +409,7 @@ function M.applyLayout(windows, area, isSpecial, tag, allWins)
 
     local currentLayout = state.getLayout(tag)
     local innerGap = state.gap
-    local screenGap = 0
-    -- Only add screen gaps if borders are enabled and we are in a tiled layout with multiple windows
-    if state.bordersEnabled and not state.isFullscreen and currentLayout ~= "mono" and count > 1 then
-        screenGap = config.borderWidth
-    end
-
-    local workArea = {
-        x = area.x + screenGap,
-        y = area.y + screenGap,
-        w = area.w - (screenGap * 2),
-        h = area.h - (screenGap * 2)
-    }
+    local workArea = workAreaFor(area, tag, count)
 
     local function setFrameSmart(win, newFrame)
         if not newFrame or newFrame.w <= 0 or newFrame.h <= 0 then
@@ -400,8 +432,10 @@ function M.applyLayout(windows, area, isSpecial, tag, allWins)
         end
     end
 
-    -- Fullscreen mode
-    if state.isFullscreen and not isSpecial then
+    -- Fullscreen mode (Alt+F), per tag. This read the single global state.isFullscreen, so the
+    -- focused tag's mode was applied to every visible tag (the other monitor's too), and it was
+    -- skipped for special windows, so Alt+F there changed nothing visible.
+    if state.tagFullscreenState[tag] then
         for _, win in ipairs(windows) do
             setFrameSmart(win, { x = area.x, y = area.y, w = area.w, h = area.h })
         end
@@ -457,15 +491,34 @@ function M.applyLayout(windows, area, isSpecial, tag, allWins)
         -- Starting X for the very first window
         local currentX = targetX - leftWidth
 
+        -- Columns placed past the screen edge would show up on a neighbouring monitor (macOS
+        -- only pulls back windows that are entirely off every screen), on top of its tag.
+        -- Park those instead.
+        local otherScreens = {}
+        local cx, cy = workArea.x + workArea.w / 2, workArea.y + workArea.h / 2
+        for _, s in ipairs(hs.screen.allScreens()) do
+            local fr = s:frame()
+            if not (cx >= fr.x and cx < fr.x + fr.w and cy >= fr.y and cy < fr.y + fr.h) then
+                otherScreens[#otherScreens + 1] = fr
+            end
+        end
+
         for _, win in ipairs(windowsInOrder) do
             local winWidthRatio = state.windowWidths[win:id()] or 0.7
             local winWidth = workArea.w * winWidthRatio
-            setFrameSmart(win, {
-                x = currentX,
-                y = workArea.y,
-                w = winWidth,
-                h = workArea.h,
-            })
+            local frame = { x = currentX, y = workArea.y, w = winWidth, h = workArea.h }
+            if #otherScreens > 0 and core.overlapsScreen(nil, frame, otherScreens) > 0 then
+                local id = win:id()
+                local ws = state.windowState[id] or {}
+                local f = win:frame()
+                if not ws.isHidden or core.overlapsScreen(win, f) >= 0.2 then
+                    win:setFrame({ x = PARK_COORD, y = PARK_COORD, w = f.w, h = f.h })
+                    ws.isHidden = true
+                    state.windowState[id] = ws
+                end
+            else
+                setFrameSmart(win, frame)
+            end
             currentX = currentX + winWidth + innerGap
         end
         return
@@ -561,7 +614,7 @@ function M.handleManualResize()
     local tag = state.special.active and state.special.tag or state.currentTag
     local currentLayout = state.getLayout(tag)
 
-    if state.isFullscreen or currentLayout == "mono" then
+    if state.tagFullscreenState[tag] or currentLayout == "mono" then
         return
     end
 
@@ -574,14 +627,18 @@ function M.handleManualResize()
         return
     end
 
-    local screen = hs.screen.mainScreen():frame()
+    -- Ratios are taken against the area the layout actually used, so a window the layout just
+    -- placed reads back as the ratio it was placed with (see "Tile Geometry").
+    local area = M.layoutArea(tag, #windows)
+    if not area then return end
+    local gap = state.gap
 
     if currentLayout == "scrolling" then
         local focused = hs.window.focusedWindow()
         if not focused or core.isFloating(focused) then return end
 
         local f = focused:frame()
-        local newWidthRatio = f.w / screen.w
+        local newWidthRatio = f.w / area.w
         newWidthRatio = math.max(0.1, math.min(1.0, newWidthRatio))
 
         local currentRatio = state.windowWidths[focused:id()] or 0.7
@@ -597,11 +654,11 @@ function M.handleManualResize()
     local masterFrame = masterWin:frame()
 
     if currentLayout == "horizontal" then
-        if math.abs(masterFrame.h - screen.h) < 10 then
+        if math.abs(masterFrame.h - area.h) < 10 then
             return
         end
 
-        local newMasterHeight = masterFrame.h / screen.h
+        local newMasterHeight = masterFrame.h / (area.h - gap)
         newMasterHeight = math.max(0.1, math.min(0.9, newMasterHeight))
 
         local currentHeight = state.getMasterWidth(tag)
@@ -609,11 +666,11 @@ function M.handleManualResize()
             state.setMasterWidth(tag, newMasterHeight)
         end
     else -- vertical
-        if math.abs(masterFrame.w - screen.w) < 10 then
+        if math.abs(masterFrame.w - area.w) < 10 then
             return
         end
 
-        local newMasterWidth = masterFrame.w / screen.w
+        local newMasterWidth = masterFrame.w / (area.w - gap)
         newMasterWidth = math.max(0.1, math.min(0.9, newMasterWidth))
 
         local currentWidth = state.getMasterWidth(tag)
