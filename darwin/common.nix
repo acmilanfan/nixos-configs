@@ -640,10 +640,15 @@ PY
         closeViewZoomScreenShareEnabledKey = true; # Show zoomed image while screen sharing
         closeViewQuickSwitchHotKeysEnabled = true; # Toggle between full screen and picture-in-picture
         closeViewPressOnReleaseOff = true; # Modifiers for temporary actions: Toggle zoom
+        # "Use keyboard shortcuts to zoom" (⌥⌘8 on/off): hammerspoon/zoom-hold.lua sends ⌥⌘8
+        # for hold-Control+Option-to-zoom.
+        closeViewHotkeysEnabled = true;
         # Shortcuts for the options above (keyCode/charCode 65535 = modifiers only)
         closeViewCustomHotkeyKey = {
           AX_ZOOM_TOGGLE_FS_AND_PIP = { keyCode = 3; charCode = 102; modifiers = 1572864; }; # ⌥⌘F
-          AX_ZOOM_TEMP_TOGGLE = { keyCode = 65535; charCode = 65535; modifiers = 786432; }; # ⌃⌥
+          # Off (was ⌃⌥): macOS reacts to the modifiers alone, so every Ctrl+Alt hotkey zoomed
+          # too. hammerspoon/zoom-hold.lua does it only when ⌃⌥ is held with no other key.
+          AX_ZOOM_TEMP_TOGGLE = { keyCode = 65535; charCode = 65535; modifiers = 0; };
           AX_ZOOM_TEMP_DETACH = { keyCode = 65535; charCode = 65535; modifiers = 1310720; }; # ⌃⌘
           AX_ZOOM_FREEZE_PANNING = { keyCode = 65535; charCode = 65535; modifiers = 0; };
           AX_ZOOM_MONITOR_SELECTION = { keyCode = 65535; charCode = 65535; modifiers = 0; };

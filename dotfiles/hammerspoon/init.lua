@@ -48,6 +48,10 @@ pcall(require, "sweep-remapper")
 local ok, err = pcall(require, "macos-vim-navigation/init")
 if not ok then hs.notify.new({ title = "Hammerspoon", informativeText = "macos-vim-navigation: " .. tostring(err) }):send() end
 
+-- Hold Control+Option (alone) to zoom; replaces macOS's modifier-only temporary zoom
+local zok, zerr = pcall(require, "zoom-hold")
+if not zok then hs.notify.new({ title = "Hammerspoon", informativeText = "zoom-hold: " .. tostring(zerr) }):send() end
+
 -- AClock Spoon
 local clock = hs.loadSpoon("AClock")
 

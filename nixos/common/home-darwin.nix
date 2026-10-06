@@ -232,6 +232,7 @@ in
 
     # Hammerspoon configuration
     ".hammerspoon/sweep-remapper.lua".source = ../../dotfiles/hammerspoon/sweep-remapper.lua;
+    ".hammerspoon/zoom-hold.lua".source = ../../dotfiles/hammerspoon/zoom-hold.lua;
 
     # Warpd configuration
     ".config/warpd/config".source = ../../dotfiles/warpd/config;
