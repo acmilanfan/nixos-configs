@@ -421,6 +421,7 @@ local _lastActivation = { app = nil, prev = nil, t = 0 }
 -- Per-tag focus history, most recent first. Volatile: state.tagLastFocused is the persisted
 -- fallback after a reload.
 local _focusHistory = {}
+local _pushedAt = {}  -- id -> when it last became the head of its tag's history
 
 local function _pushHistory(tag, id)
     local list = _focusHistory[tag]
@@ -433,15 +434,34 @@ local function _pushHistory(tag, id)
         if list[i] == id then table.remove(list, i) end
     end
     table.insert(list, 1, id)
+    _pushedAt[id] = hs.timer.secondsSinceEpoch()
     if #list > HISTORY_MAX then list[#list] = nil end
 end
 
 local function _dropHistory(id)
+    _pushedAt[id] = nil
     for _, list in pairs(_focusHistory) do
         for i = #list, 1, -1 do
             if list[i] == id then table.remove(list, i) end
         end
     end
+end
+
+-- Did the window `id` (being destroyed) hold focus on `tag`? Either it heads the history, or the
+-- focus event for macOS's replacement pick arrived before the destroy event and pushed that
+-- pick on top of it a moment ago. In the second case the pick is demoted below the tag's
+-- previous window, so the close-triggered resolve re-picks from the user's own history.
+local function _heldFocus(tag, id, now)
+    local list = _focusHistory[tag]
+    if not list then return false end
+    if list[1] == id then return true end
+    if list[2] == id and now - (_pushedAt[list[1]] or 0) < FALLTHROUGH_WIN then
+        local pick = table.remove(list, 1)
+        -- After the closed window's successor; clamped, table.insert rejects gaps.
+        table.insert(list, math.min(3, #list + 1), pick)
+        return true
+    end
+    return false
 end
 
 -- Most recently focused window that is still alive, still on `tag`, and not hidden/minimized.
@@ -473,16 +493,18 @@ end
 
 -- Why the user wants focus to follow `win` to its tag, or nil when nobody asked for it.
 local function _crossTagIntent(win, now)
-    if _vicinaeActive(now) then return "Vicinae" end
-    if now - _cmdTabAt < CMD_TAB_WINDOW then return "Cmd-Tab" end
-    if now - _dockClickAt < DOCK_WINDOW then return "Dock" end
-
-    if _isLaunchTarget(win, now) then return "launch" end
+    -- Right after the focused window/app closed, macOS picks the next focus itself. Only input
+    -- that came after the close counts then: Vicinae/Dock/Cmd-Tab state left over from quitting
+    -- an app through Vicinae or the Dock menu is not a request to jump to macOS's pick.
+    if _cmdTabAt > _fallthroughAt and now - _cmdTabAt < CMD_TAB_WINDOW then return "Cmd-Tab" end
+    if _dockClickAt > _fallthroughAt and now - _dockClickAt < DOCK_WINDOW then return "Dock" end
+    if _isLaunchTarget(win, now) and state.launchIntent.t > _fallthroughAt then return "launch" end
 
     -- A link opened from another app looks like: browser activated from a different app, with
     -- recent user input. Closing the last window of an app looks the same (Cmd+W is input too,
     -- and macOS then activates whatever is next, often the browser), hence the fallthrough guard.
     if now - _fallthroughAt < FALLTHROUGH_WIN then return nil end
+    if _vicinaeActive(now) then return "Vicinae" end
     local app = win:application()
     local appName = app and app:name() or ""
     if config.browserApps[appName]
@@ -826,12 +848,15 @@ function M.setup()
 
         -- macOS is about to hand focus to whatever it picks next (often this app's window on
         -- another tag). If this window held focus on the current tag, re-pick from the tag's
-        -- history instead.
-        _fallthroughAt = hs.timer.secondsSinceEpoch()
+        -- history instead. Closing an unfocused window moves no focus, so it is not a fallthrough.
+        local now = hs.timer.secondsSinceEpoch()
         local ctx = state.special.active and state.special.tag or state.currentTag
-        local wasFocused = tag ~= nil and tag == ctx and (_focusHistory[ctx] or {})[1] == id
+        local wasFocused = tag ~= nil and tag == ctx and _heldFocus(ctx, id, now)
         _dropHistory(id)
-        if wasFocused then _scheduleResolve(true) end
+        if wasFocused then
+            _fallthroughAt = now
+            _scheduleResolve(true)
+        end
 
         -- Cancel any existing pending destruction
         if state.pendingDestruction[id] and state.pendingDestruction[id].timer then
@@ -954,7 +979,10 @@ function M.setup()
 
         local tag = state.tags[id]
 
-        if tag then
+        -- While a close-triggered resolve is pending, this focus is macOS's replacement pick,
+        -- not the user's: recording it would make it the "most recent" window the resolve then
+        -- dutifully keeps.
+        if tag and not _resolveClose then
             state.tagLastFocused[tag] = id
             _pushHistory(tag, id)
         end
@@ -1034,14 +1062,28 @@ function M.setup()
             or event == hs.application.watcher.hidden then
             -- macOS activates the next app; if it is parked on another tag that is not a
             -- jump the user asked for. afterClose re-picks focus if this app held it.
-            _fallthroughAt = hs.timer.secondsSinceEpoch()
+            -- Only a frontmost app hands focus on: a background app quitting or hiding moves no
+            -- focus, and re-picking then yanked focus out of whatever the user was typing in.
+            -- The next app's activation can arrive before this event, hence the prev check.
+            local now = hs.timer.secondsSinceEpoch()
+            local wasFront = _frontApp == appName
+                or (_lastActivation.prev == appName and now - _lastActivation.t < FALLTHROUGH_WIN)
             if _frontApp == appName then _frontApp = nil end
-            _scheduleResolve(true)
+            if wasFront then
+                _fallthroughAt = now
+                _scheduleResolve(true)
+            end
         end
     end)
     _appWatcher:start()
 
     _startInputTap()
+    -- Seed the frontmost app: it is otherwise only learned from activation events, so right
+    -- after a reload a quit of the current app would not count as frontmost.
+    do
+        local front = hs.application.frontmostApplication()
+        _frontApp = front and front:name() or nil
+    end
 
     -- Track Vicinae panel visibility by counting its windows. The panel is a
     -- non-activating NSPanel (0 windows when hidden, 3 when shown) and fires
