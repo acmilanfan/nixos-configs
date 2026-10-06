@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+# Place the external screen relative to the MacBook screen: above (default), left or right,
+# centred along the shared edge. Usage: display-arrange [above|left|right]
+#
+# Screen ids are read from `displayplacer list` on every run rather than saved: macOS can
+# reassign the "persistent" ids (displayplacer README, "ScreenIds Switching"), which breaks a
+# hardcoded command. The built-in screen is recognised by its type, the external one is the
+# other screen, and each screen keeps its current resolution/refresh/scaling; only the origins
+# change. The main display (menu bar) stays at (0,0), as macOS requires.
+set -euo pipefail
+
+pos="${1:-above}"
+case "$pos" in
+  above | left | right) ;;
+  *) echo "usage: display-arrange [above|left|right]" >&2; exit 2 ;;
+esac
+
+DP="${DISPLAYPLACER:-/opt/homebrew/bin/displayplacer}"
+list=$("$DP" list)
+
+b_id="" b_w=0 b_h=0 b_main=0 e_id="" e_w=0 e_h=0 e_main=0 externals=0
+id="" type="" w=0 h=0
+while IFS= read -r line; do
+  case "$line" in
+    "Persistent screen id: "*) id=${line#Persistent screen id: } ;;
+    "Type: "*) type=${line#Type: } ;;
+    "Resolution: "*) res=${line#Resolution: }; w=${res%x*}; h=${res#*x} ;;
+    "Origin: "*)
+      main=0
+      [[ $line == *"main display"* ]] && main=1
+      if [[ $type == *"built in"* ]]; then
+        b_id=$id b_w=$w b_h=$h b_main=$main
+      else
+        externals=$((externals + 1))
+        if [[ -z $e_id ]]; then e_id=$id e_w=$w e_h=$h e_main=$main; fi
+      fi
+      ;;
+  esac
+done <<<"$list"
+
+if [[ -z $b_id || -z $e_id ]]; then
+  echo "display-arrange: need the MacBook screen and one external screen connected" >&2
+  exit 1
+fi
+((externals > 1)) && echo "display-arrange: $externals external screens, arranging the first ($e_id)" >&2
+
+# External origin with the built-in screen at (0,0).
+case "$pos" in
+  above) ex=$(((b_w - e_w) / 2)); ey=$((-e_h)) ;;
+  left)  ex=$((-e_w));            ey=$(((b_h - e_h) / 2)) ;;
+  right) ex=$b_w;                 ey=$(((b_h - e_h) / 2)) ;;
+esac
+bx=0 by=0
+if ((e_main)); then # keep the main display at (0,0): shift both
+  bx=$((-ex)) by=$((-ey)) ex=0 ey=0
+fi
+
+# Full per-screen configs for the current arrangement, from the command `list` prints last.
+mapfile -t specs < <(printf '%s\n' "$list" | tail -n 1 | grep -o '"id:[^"]*"' | tr -d '"')
+args=()
+for s in "${specs[@]}"; do
+  case "$s" in
+    "id:$b_id "*) s=$(sed -E "s/origin:\([^)]*\)/origin:($bx,$by)/" <<<"$s") ;;
+    "id:$e_id "*) s=$(sed -E "s/origin:\([^)]*\)/origin:($ex,$ey)/" <<<"$s") ;;
+  esac
+  args+=("$s")
+done
+
+case "$pos" in above) where="above" ;; left) where="left of" ;; right) where="right of" ;; esac
+echo "display-arrange: external screen $where the MacBook screen (built-in ($bx,$by), external ($ex,$ey))"
+"$DP" "${args[@]}"

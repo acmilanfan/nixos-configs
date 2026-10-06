@@ -283,6 +283,7 @@ in
       "k06a/tap/macpow"
       "ollama"
       "jundot/omlx/omlx"
+      "displayplacer" # screen arrangement CLI, used by the display-arrange script
     ];
 
     taps = [

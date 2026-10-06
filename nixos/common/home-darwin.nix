@@ -122,6 +122,9 @@ in
       # browser redirect can't reach Vicinae directly; run this after the
       # browser shows "Connected to ..." while the Vicinae overlay is waiting.
       (pkgs.writeShellScriptBin "vicinae-oauth" (lib.readFile ./scripts/vicinae-oauth))
+      # Place the external screen above/left/right of the MacBook screen via displayplacer
+      # (Homebrew, darwin/common.nix), resolving screen ids at run time.
+      (pkgs.writeShellScriptBin "display-arrange" (lib.readFile ./scripts/display-arrange))
     ]
     ++ lib.optionals pkgs.stdenv.isDarwin [
       # Darwin-specific packages
