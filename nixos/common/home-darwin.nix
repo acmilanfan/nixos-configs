@@ -1,10 +1,13 @@
 { pkgs, lib, unstable, secrets, inputs, ... }:
 
 let
+  # Pinned to commits, not master: a fixed hash on a moving URL breaks the build on any
+  # re-fetch after upstream changes (GC, a fresh machine, the other host).
+  spoonsRev = "5cbfe7d95bc58fd46e94d9904160acaa8acd22bd";
   spoon =
     name: sha256:
     pkgs.fetchzip {
-      url = "https://github.com/Hammerspoon/Spoons/raw/master/Spoons/${name}.spoon.zip";
+      url = "https://github.com/Hammerspoon/Spoons/raw/${spoonsRev}/Spoons/${name}.spoon.zip";
       inherit sha256;
     };
 in
@@ -325,7 +328,7 @@ in
     #};
     ".hammerspoon/Spoons/VimMode.spoon".source = pkgs.runCommand "VimMode.spoon" {} ''
       cp -r ${pkgs.fetchzip {
-        url = "https://github.com/dbalatero/VimMode.spoon/archive/master.zip";
+        url = "https://github.com/dbalatero/VimMode.spoon/archive/a428e1ae9cc5d937fa6d148da6e2a779c7594abd.zip";
         sha256 = "C4WDpMVDF0zuDV4rZYx05gwn8YZf3tOGegBj8dma8vY=";
       }} $out
       chmod -R u+w $out
