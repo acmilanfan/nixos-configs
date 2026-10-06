@@ -354,7 +354,7 @@ sketchybar --add item help_menu right \
                  label.drawing=off \
                  padding_left=2 \
                  padding_right=2 \
-                 click_script="/opt/homebrew/bin/hs -c 'NanoWM.showKeybindMenu()'"
+                 click_script="/usr/bin/open -g 'hammerspoon://nanowm?cmd=keybindMenu'"
 
 sketchybar --trigger caps_lock_update
 sketchybar --update

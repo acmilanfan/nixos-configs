@@ -41,7 +41,7 @@ esac
 # tmux client/window/pane switching (same logic as hypr-ai-agents focus_agent).
 case "$(uname -s)" in
   Darwin)
-    /opt/homebrew/bin/hs -c "require('nanowm.agents').focusAgent('$PANE_ID')" 2>/dev/null
+    /usr/bin/open -g "hammerspoon://nanowm?cmd=focusAgent&pane=${PANE_ID//%/%25}"
     ;;
   Linux)
     info=$(tmux list-panes -a -F '#{pane_id} #{session_name} #{window_index}' -f "#{m:#{pane_id},$PANE_ID}" 2>/dev/null)

@@ -94,9 +94,11 @@ let
              /bin/zsh -lc "sketchybar >/dev/null 2>&1 & disown" 2>/dev/null
              # Post-boot event-tap fix: HS's event tap (hotkeys) often fails
              # silently when the TCC/Accessibility service hasn't fully initialized
-             # yet at login. Reload HS after a grace period — IPC reload if the
-             # module loaded successfully, else kill+restart.
-             (sleep 5; /opt/homebrew/bin/hs -c 'hs.reload()' 2>/dev/null || { pkill -x Hammerspoon; sleep 1; open -a Hammerspoon; }) &
+             # yet at login. Reload HS after a grace period through its URL handler
+             # (hammerspoon/init.lua). The old `hs -c` reload fell back to pkill +
+             # relaunch whenever IPC wasn't answering yet, killing HS mid-init and
+             # relaunching it without this very reload.
+             (sleep 5; /usr/bin/open -g "hammerspoon://reload") &
           fi
 
           open -a "$app"

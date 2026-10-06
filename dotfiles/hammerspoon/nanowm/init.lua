@@ -44,6 +44,59 @@ layout.onTileComplete = function()
     tags.updateBorder()  -- special-tag backdrop holes follow the windows just placed
 end
 
+-- hammerspoon://nanowm?cmd=... is the entry point for shell callers (sketchybar clicks,
+-- tmux agent hooks): `open -g "hammerspoon://nanowm?cmd=gotoTag&tag=3"`. Used instead of
+-- `hs -c`, whose IPC port can wedge (a killed or overlapping client leaves it refusing
+-- requests); URL events carry no per-client state. Parameters arrive URL-decoded.
+local urlCommands = {
+    gotoTag = function(p)
+        local t = tonumber(p.tag)
+        if t then tags.gotoTag(t) end
+    end,
+    toggleSpecial = function() tags.toggleSpecial() end,
+    keybindMenu = function() menus.showKeybindMenu() end,
+    focusAgent = function(p)
+        if p.pane and p.pane ~= "" then agents.focusAgent(p.pane) end
+    end,
+    agentState = function(p) agents.onAgentStateChange(p.state, p.name) end,
+    -- Run the regression suite (nanowm/spec.lua) and write its report to a file, for callers
+    -- that can't read the HS console: open -g "hammerspoon://nanowm?cmd=spec", then read
+    -- ~/.hammerspoon/nanowm_spec_report.txt (the suite's watchdog reports within ~30 s).
+    spec = function()
+        local spec = require("nanowm.spec")
+        local out = config.home() .. "/.hammerspoon/nanowm_spec_report.txt"
+        os.remove(out)
+        spec.run()
+        local tries = 0
+        if M._specPoll then M._specPoll:stop() end
+        M._specPoll = hs.timer.doEvery(1, function()  -- anchored on M so it isn't GC'd
+            tries = tries + 1
+            if spec.report or tries > 45 then
+                M._specPoll:stop()
+                M._specPoll = nil
+                local f = io.open(out, "w")
+                if f then
+                    f:write(spec.report or "no report after 45 s; see the Hammerspoon console\n")
+                    f:close()
+                end
+            end
+        end)
+    end,
+    -- The caps-lock bar item asks for the current state when it has none (bar reload).
+    capsLock = function()
+        hs.task.new(config.sketchybarBin, nil, { "--trigger", "caps_lock_update",
+            "STATE=" .. (hs.hid.capslock.get() and "on" or "off") }):start()
+    end,
+}
+hs.urlevent.bind("nanowm", function(_, params)
+    local cmd = urlCommands[params and params.cmd or ""]
+    if cmd then
+        cmd(params)
+    else
+        print("[NanoWM] unknown URL command: " .. tostring(params and params.cmd))
+    end
+end)
+
 -- Tag changes trigger integration updates
 tags.onTagChange = function()
     integrations.updateSketchybarNow()

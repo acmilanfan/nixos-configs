@@ -98,19 +98,23 @@ local function doUpdateSketchybar()
     end
     local urgent = table.concat(urgentList, " ")
 
+    -- Passed as an argument list, not through `zsh -c`: values like the app name were spliced
+    -- into a shell string, so a `"`, `$` or backtick in one broke the update (or ran code).
     -- SCREENS: the bar puts tags 11-20 on the second display only when it exists.
-    local triggerArgs = string.format(
-        'TAG="%s" ACTIVE_TAGS="%s" WINDOWS="%d" LAYOUT="%s" FULLSCREEN="%s" TIMER="%s" APP="%s" IS_FLOATING="%s" OCCUPIED="%s" URGENT="%s" SCREENS="%d"',
-        tag, activeTagsStr, windowCount, layout, isFullscreen, timerRemaining, focusedApp, isFloating, occupied, urgent,
-        #hs.screen.allScreens()
-    )
-
-    -- Single shell invocation for both triggers; -c avoids loading the full login profile
-    local cmd = string.format(
-        'sketchybar --trigger nanowm_update %s 2>/dev/null',
-        triggerArgs
-    )
-    hs.task.new("/bin/zsh", nil, { "-c", cmd }):start()
+    hs.task.new(config.sketchybarBin, nil, {
+        "--trigger", "nanowm_update",
+        "TAG=" .. tag,
+        "ACTIVE_TAGS=" .. activeTagsStr,
+        "WINDOWS=" .. tostring(windowCount),
+        "LAYOUT=" .. tostring(layout),
+        "FULLSCREEN=" .. isFullscreen,
+        "TIMER=" .. timerRemaining,
+        "APP=" .. focusedApp,
+        "IS_FLOATING=" .. isFloating,
+        "OCCUPIED=" .. occupied,
+        "URGENT=" .. urgent,
+        "SCREENS=" .. tostring(#hs.screen.allScreens()),
+    }):start()
     if profiler.enabled then
         local _dt = hs.timer.secondsSinceEpoch() - _t0
         if _dt >= profiler.threshold then profiler.log("doUpdateSketchybar", _dt) end

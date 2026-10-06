@@ -11,5 +11,5 @@ PANE_ID=$(cat "$PANE_FILE" 2>/dev/null)
 
 sketchybar --set ai_agents popup.drawing=off
 
-# Delegate to Hammerspoon for NanoWM tag-aware focus
-hs -c "require('nanowm.agents').focusAgent('$PANE_ID')" 2>/dev/null
+# Delegate to Hammerspoon for NanoWM tag-aware focus (URL handler, not `hs -c`; % -> %25)
+/usr/bin/open -g "hammerspoon://nanowm?cmd=focusAgent&pane=${PANE_ID//%/%25}"

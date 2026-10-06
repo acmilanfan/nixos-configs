@@ -232,7 +232,7 @@ in
 
       ${lib.optionalString pkgs.stdenv.isDarwin ''
         # Tmux Agent Indicator macOS integration
-        set -g @agent-indicator-notification-command "sketchybar --trigger ai_agent_update; /opt/homebrew/bin/hs -c \"require('nanowm.agents').onAgentStateChange('$AGENT_STATE','$AGENT_NAME')\" 2>/dev/null; case $AGENT_STATE in done|off) sleep 3 && sketchybar --trigger ai_agent_update;; esac"
+        set -g @agent-indicator-notification-command "sketchybar --trigger ai_agent_update; /usr/bin/open -g \"hammerspoon://nanowm?cmd=agentState&state=$AGENT_STATE&name=$AGENT_NAME\"; case $AGENT_STATE in done|off) sleep 3 && sketchybar --trigger ai_agent_update;; esac"
         # Trigger sketchybar refresh on pane exit (catches agent exits without SessionEnd hooks, e.g. Claude)
         set-hook -g pane-exited "run-shell -b 'sketchybar --trigger ai_agent_update 2>/dev/null'"
       ''}
@@ -275,9 +275,9 @@ in
         done
         if [ -n "$AGENT" ] && [ -n "$STATE" ]; then
           if pgrep -x "Hammerspoon" > /dev/null; then
-            # Use hs CLI for reliable execution
-            CODE="require('nanowm.agents').onAgentStateChange('$STATE','$AGENT')"
-            /opt/homebrew/bin/hs -c "$CODE" 2>/dev/null &
+            # nanowm's URL handler, not `hs -c`: a backgrounded hs -c per state change could
+            # overlap and wedge Hammerspoon's IPC port
+            /usr/bin/open -g "hammerspoon://nanowm?cmd=agentState&state=$STATE&name=$AGENT"
           fi
         fi
       ''}

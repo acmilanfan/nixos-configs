@@ -2,15 +2,14 @@
 
 # The STATE variable is passed from Hammerspoon via the event trigger
 # e.g., sketchybar --trigger caps_lock_update STATE=on/off
-# If it's missing (e.g., on sketchybar reload), we query Hammerspoon directly.
+# If it's missing (e.g., on sketchybar reload), ask Hammerspoon to send it: nanowm's URL
+# handler re-triggers caps_lock_update with STATE set (rather than a blocking `hs -c`).
 
 if [ -z "$STATE" ]; then
-  STATE_RAW=$(/opt/homebrew/bin/hs -c "print(hs.hid.capslock.get())" 2>/dev/null)
-  if [ "$STATE_RAW" = "true" ]; then
-    STATE="on"
-  else
-    STATE="off"
+  if pgrep -x Hammerspoon >/dev/null; then
+    /usr/bin/open -g "hammerspoon://nanowm?cmd=capsLock"
   fi
+  exit 0
 fi
 
 if [ "$STATE" = "on" ]; then
