@@ -359,6 +359,10 @@ local function loadFromData(d)
     M.layout            = d.globalLayout or config.layout
     M.weekenduoWinId    = d.weekenduoWinId
     M.sketchybarEnabled = d.sketchybarEnabled or false
+    -- Persisted with sketchybarEnabled: saving one without the other inverted the toggle after
+    -- a reload, and turning the saver off never brought sketchybar back.
+    M.batterySaverEnabled = d.batterySaverEnabled or false
+    M.batterySaverPreviousState = d.batterySaverPreviousState or {}
     M.bordersEnabled    = d.bordersEnabled or false
     M.kanataMode        = d.kanataMode or "homerow"
     M.caffeinateActive  = d.caffeinateActive or false
@@ -431,6 +435,8 @@ function M.save()
         weekenduoWinId     = M.weekenduoWinId,
         appTagMemory       = M.appTagMemory,
         sketchybarEnabled  = M.sketchybarEnabled,
+        batterySaverEnabled = M.batterySaverEnabled,
+        batterySaverPreviousState = M.batterySaverPreviousState,
         bordersEnabled     = M.bordersEnabled,
         freeTags           = serialize(M.freeTags),
         freeTagPositions   = M.freeTagPositions,

@@ -220,13 +220,13 @@ end
 function M.show()
     if state.overviewActive then return end
     
-    -- Determine starting index
+    -- Show the bank containing the current tag. Computed in special mode too: it used to keep
+    -- the previous bank there, so digit keys could jump to the wrong 1-10 / 11-20 range.
+    local cur = tonumber(state.currentTag) or 1
+    bankBase = math.floor((cur - 1) / 10) * 10
     if state.special.active then
         selectedIndex = CELLS
     else
-        -- Show the bank containing the current tag, and select that tag within it.
-        local cur = tonumber(state.currentTag) or 1
-        bankBase = math.floor((cur - 1) / 10) * 10
         selectedIndex = cur - bankBase
         if selectedIndex < 1 or selectedIndex > 10 then selectedIndex = 1 end
     end

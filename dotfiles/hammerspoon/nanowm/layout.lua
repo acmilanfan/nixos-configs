@@ -362,9 +362,13 @@ function M.performTile()
                 -- `saved.x < 10000` validity test is redundant now that a parked position can
                 -- no longer be written into the cache.
                 if saved and saved.w > 0 and saved.h > 0 then
-                    -- Use saved x/y when not parked (parked coords are near bottom-right corner)
-                    local useSavedXY = saved.x and saved.x < targetFrame.x + targetFrame.w - 100
-                        and saved.y and saved.y < targetFrame.y + targetFrame.h - 100
+                    -- Use saved x/y only when that spot is mostly on the target screen. The old
+                    -- test only rejected positions past the bottom-right corner (parked coords),
+                    -- so a float last seen on a monitor left of or above this one (negative x/y)
+                    -- came back there after that monitor was unplugged, squeezed at the edge.
+                    local useSavedXY = type(saved.x) == "number" and type(saved.y) == "number"
+                        and core.overlapsScreen(nil, { x = saved.x, y = saved.y, w = saved.w, h = saved.h },
+                            { targetFrame }) >= 0.5
                     win:setFrame({
                         x = useSavedXY and saved.x or (targetFrame.x + (targetFrame.w - saved.w) / 2),
                         y = useSavedXY and saved.y or (targetFrame.y + (targetFrame.h - saved.h) / 2),

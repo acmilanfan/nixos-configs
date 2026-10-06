@@ -19,8 +19,19 @@ M.onTagChange = nil -- Set by integrations module
 
 local function updateBorder()
     if state.special.active then
+        -- Special windows always tile on the special tag's screen, not on the focused window's
+        -- screen (mainScreen); and screens can change while the border exists, so rebuild it
+        -- whenever that screen's frame differs from the one it was drawn for.
+        local s = state.getScreenForTag(state.special.tag) or hs.screen.mainScreen()
+        local screen = s:frame()
+        local drawn = state.special.borderFrame
+        if state.special.border and not (drawn and drawn.x == screen.x and drawn.y == screen.y
+            and drawn.w == screen.w and drawn.h == screen.h) then
+            state.special.border:delete()
+            state.special.border = nil
+        end
         if not state.special.border then
-            local screen = hs.screen.mainScreen():frame()
+            state.special.borderFrame = { x = screen.x, y = screen.y, w = screen.w, h = screen.h }
             state.special.border = hs.canvas.new(screen)
             state.special.border:level(hs.canvas.windowLevels.overlay)
             state.special.border[1] = {
@@ -567,46 +578,20 @@ function M.undoLastMove()
         return
     end
 
+    -- A window that had no tag before the move has nowhere to go back to (this used to
+    -- index state.stacks[nil] and throw).
+    if fromTag == nil then
+        hs.alert.show("Nothing to undo: the window had no tag before")
+        state.lastMove = nil
+        return
+    end
+
     -- Reverse the move
     if state.tags[id] == toTag then
-        -- Temporarily clear lastMove to avoid recursion or double recording if we use moveWindowToTag
-        local lastMove = state.lastMove
-        state.lastMove = nil
-
-        -- Move it back
-        if state.stacks[toTag] then
-            for i, vid in ipairs(state.stacks[toTag]) do
-                if vid == id then
-                    table.remove(state.stacks[toTag], i)
-                    break
-                end
-            end
-        end
-
-        if state.tagCreationOrder[toTag] then
-            for i, vid in ipairs(state.tagCreationOrder[toTag]) do
-                if vid == id then
-                    table.remove(state.tagCreationOrder[toTag], i)
-                    break
-                end
-            end
-        end
-
-        state.tags[id] = fromTag
-        if not state.stacks[fromTag] then
-            state.stacks[fromTag] = {}
-        end
-        table.insert(state.stacks[fromTag], 1, id)
-
-        if not state.tagCreationOrder[fromTag] then
-            state.tagCreationOrder[fromTag] = {}
-        end
-        table.insert(state.tagCreationOrder[fromTag], id)
-
-        core.resetMasterWidthIfNeeded(toTag)
-        state.triggerSave()
-        layout.tile()
-
+        -- Through moveWindowToTag, so a floating window stays out of the tiled stack (the P8
+        -- guard this hand-rolled copy never got) and focus is handled the same way.
+        M.moveWindowToTag(fromTag, win)
+        state.lastMove = nil  -- the reverse move recorded itself; an undo is not undoable
         hs.alert.show("Undo: Moved back to Tag " .. tostring(fromTag))
     else
         hs.alert.show("Window state changed, cannot undo")

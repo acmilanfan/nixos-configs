@@ -192,15 +192,15 @@ if _G.capsLockTap then
 end
 
 -- Watch for flagsChanged (modifier keys like Caps Lock, Shift, Cmd, etc.).
--- Throttled to 100ms: caps-lock state changes are slow human actions and this
+-- Debounced to 100ms: caps-lock state changes are slow human actions and this
 -- fires on every Shift/Ctrl/Cmd press otherwise, causing unnecessary HID calls.
-local _lastCapsCheck = 0
+-- A debounce (check 100ms after the last modifier event) rather than a throttle:
+-- the throttle dropped events, so Shift then Caps Lock within 100ms left the
+-- indicator wrong until the next modifier press. Held in _G so it isn't GC'd.
+if _G.capsLockCheck then _G.capsLockCheck:stop() end
+_G.capsLockCheck = hs.timer.delayed.new(0.1, function() updateCapsLock() end)
 _G.capsLockTap = hs.eventtap.new({ hs.eventtap.event.types.flagsChanged }, function(_)
-    local now = hs.timer.secondsSinceEpoch()
-    if now - _lastCapsCheck > 0.1 then
-        _lastCapsCheck = now
-        updateCapsLock()
-    end
+    _G.capsLockCheck:start()
     return false
 end):start()
 

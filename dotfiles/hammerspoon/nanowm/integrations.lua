@@ -191,6 +191,9 @@ function M.toggleBatterySaver()
         hs.alert.show("⚡ Battery Saver: OFF\nFeatures restored", 2)
     end
 
+    -- The bar strip is reserved only while sketchybar is enabled; retile so windows take
+    -- (or give back) that space now rather than on the next unrelated tile.
+    require("nanowm.layout").tile()
     state.triggerSave()
 end
 

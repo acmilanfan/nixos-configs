@@ -766,6 +766,7 @@ function M.setup()
     screenWatcher = hs.screen.watcher.new(function()
         M.updateScreenFrames()
         if not _wakeSuppress then layout.tile() end
+        tags.updateBorder()  -- the special-tag border follows its screen
     end)
     screenWatcher:start()
 

@@ -196,8 +196,18 @@ function M.showMenu()
     -- switcher. Using "-lc" (login shell) for consistency with
     -- M.focusAgent's zsh invocation above and as a safety margin against
     -- PATH resolution depending on profile sourcing in other environments.
-    hs.task.new("/bin/zsh", function(exitCode, stdOut)
+    hs.task.new("/bin/zsh", function(exitCode, stdOut, stdErr)
         if not chooser:isVisible() then return end
+
+        -- A missing or failing script used to read as "No AI agents running".
+        if exitCode ~= 0 then
+            local msg = ((stdErr or ""):match("[^\n]+") or ""):sub(1, 120)
+            chooser:choices({{
+                text = "ai-agent-list failed (exit " .. tostring(exitCode) .. ")",
+                subText = msg, uuid = "loading",
+            }})
+            return
+        end
 
         local choices = {}
         for line in stdOut:gmatch("[^\n]+") do
