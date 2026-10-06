@@ -31,6 +31,10 @@ never activates (P4). Line numbers are as of this review.
 
 **Read this section first if you are picking this up cold.**
 
+> **Second review pass (2026-10):** a fresh review of the whole Hammerspoon setup found ~35
+> further issues; what was fixed, what was rejected and what is still open is in
+> [§21](#21-second-review-pass-2026-10). The status below predates it.
+
 ### Where things stand
 
 | | |
@@ -57,6 +61,9 @@ measured behaviour changes are (§0 table above, and the per-section measurement
 require("nanowm.spec").run()      -- returns immediately
 require("nanowm.spec").report     -- read ~12 s later
 ```
+
+Without the `hs` CLI (its IPC port can wedge): `open -g "hammerspoon://nanowm?cmd=spec"`, then
+read `~/.hammerspoon/nanowm_spec_report.txt` once it appears (within ~30 s).
 
 Integration tests against the live WM: they open and close one window and briefly switch tags,
 with teardown via `pcall`. They cannot run in CI (need a GUI session + Accessibility permission).
@@ -2036,3 +2043,80 @@ automatic writer, `rememberWindowTag()`, turned out to have **zero callers repo-
 
 Everything in the original review's fix-first list and the M-series that was worth acting on is
 now either done or explicitly closed as rejected/deferred.
+
+---
+
+## 21. Second review pass (2026-10)
+
+A fresh review of all of `dotfiles/hammerspoon/` (plus its nix wiring and the sketchybar side),
+done by four parallel reviewers with every finding re-checked against the source, skipping
+everything already in §0-§4. Fixes went in as small batches, each committed separately; the
+list below is grouped by area, with the commit that carries each fix.
+
+### Correctness
+
+| Fix | Commit |
+|---|---|
+| Alt+M menu palette was always empty: it read `item.title`/`item.menu`, but `getMenuItems()` returns `AXTitle`/`AXChildren`. Now selects by full path, skips disabled items, builds the tree async | `2473d90` |
+| The 60 s `_resync` timer was never anchored (GC could stop it; it also re-arms the input tap) | `2473d90` |
+| Focusing a PiP window jumped to its tag (regression from `a0f184b`) | `2473d90` |
+| `hs.window(id)` (= `allWindows()` scan) on every tag switch and in undo/weekenduo; replaced by `watchers.getTrackedWindow(id)` | `2473d90` |
+| vim-nav key-repeat timers kept running after the modal exited | `2473d90` |
+| Missing/empty `activeTags` loaded as `{}` (`clean(nil)` is truthy), parking every window at startup | `2473d90` |
+| Changes made <2 s before a reload were lost (debounced save killed by reload); flushed from `hs.shutdownCallback` | `2473d90` |
+| Weekenduo spawned a new window after any tab switch (title-based lookup; id never stored at launch) | `aa1df20` |
+| pass: entry names spliced into `zsh -c` via Lua `%q`; generate/insert overwrote silently; insert reported rm's exit code; password prompt not masked | `563ecbc` |
+| Leader sub-modals left the leader active underneath (unbound keys fell through, e.g. `r` reloaded HS); timer modal silent with no timeout; duplicate Alt+R; Leader+v dead (`_G.vim` unset); corner trigger re-fired every second | `56e2851` |
+| **All window tags wiped overnight.** While the screen is locked (and in dark wakes) `app:allWindows()` returns nothing while `allWindows()` still lists ~11 system windows; the wake handler's `_resync` emptied `_trackedWins` and two prune sweeps in dark wakes struck every window twice. Lock check (`CGSSessionScreenIsLocked`), no resync while locked, resync on unlock, prune skips while locked and when >50% of tagged windows would be struck | `f54fadc` |
+| **`hs.json.decode` aliases structurally equal tables** (every `{}` is one table): `floatingCache` and `sizeCache` were one table, `stacks[6]`, `stacks[7]`, `tagCreationOrder[2..9]` one list. Deep copy on load plus repair of what was already mixed (16 shared tables / 8 misfiled ids on the real save file -> 0) | `f18c1f5` |
+| Background app quit/hide stole focus; intent signals from before a close (quit via Vicinae/Dock) caused tag jumps; refocus-after-close almost never worked (macOS's pick polluted the focus history) | `a157fbe` |
+| Manual-resize ratio measured against the bare screen while the layout used a padded area, so windows shrank every tile (0.43/0.39 read back for 0.5 on the special tag); one shared `layoutArea()` now | `37046e5` |
+| One global `isFullscreen` applied to every tag (other monitor, special tag; switching away from special wrote its flag onto the tag underneath); now per tag | `37046e5` |
+| Scrolling-layout columns spilled onto the neighbouring monitor; free-mode positions only saved when free mode was enabled | `37046e5` |
+| Toggle-float/undo threw on untagged windows (undo also bypassed the P8 guard); floats restored onto unplugged monitors; battery saver state not persisted; overview bank wrong in special mode; agent menu hid script failures; caps-lock throttle dropped events | `b1fb796` |
+| Special tag with only floating windows focused the fallback app (typing went behind the scratchpad) | `a382279` |
+| Hidden windows parked in the arrangement's bottom-right corner, i.e. on an external monitor to the right; now parked off their own tag's screen | `7ecc9c1` |
+
+### Features / visuals
+
+- **Special tag backdrop** (`a382279`): the screen behind the special tag is dimmed, special
+  windows show through holes in the layer (`config.specialDimAlpha`). The layer must sit at
+  `floating` level: at `normal` level macOS orders it behind the active app (tested).
+- **Leader -> a -> s follows Slack to its tag** without the 2 s `state.launching` wait
+  (`core.launchApp`, launch intent in the focus resolver); SyncMon moved to Ghostty, floats and
+  is focus-or-create (`f9ad4c3`).
+- **Second screen**: sketchybar items for tags 11-20 on display 2 (one controller script for all
+  items instead of a process per item), the tag shown on each screen highlighted (`7ecc9c1`);
+  `display-arrange` wraps displayplacer and resolves screen ids at run time (`48dbf58`).
+
+### Config plumbing
+
+- Spoons pinned to commits instead of `master` (`7aa6bfa`).
+- **Rebuilds never reloaded a running Hammerspoon or sketchybar** (the darwin-startup reload
+  only runs when HS wasn't running). Home activation now hashes `~/.hammerspoon`'s Lua files and
+  reloads once via `hammerspoon://reload` when it changed; sketchybar config files reload it
+  via `onChange` (`c99981f`).
+- `hs -c` callers (sketchybar clicks, tmux agent hooks, caps-lock plugin, startup reload) moved
+  to `hammerspoon://` URL events: the IPC port wedged repeatedly during this pass, sometimes
+  with no client killed mid-request. Also: the sketchybar update is called with an argument
+  list instead of a `zsh -c` string (app names were parsed as shell), and hold-Control+Option
+  zoom no longer fires on every Ctrl+Alt hotkey (`zoom-hold.lua` replaces macOS's
+  modifier-only temporary zoom).
+
+### Considered and rejected
+
+- **Automatic app+title tag memory** (proposed by another agent for the overnight wipe): it
+  would place *new* windows on remembered, possibly hidden tags (a new Firefox window whose
+  title once lived on tag 3 opens there, parked), grows without bound because `registerWindow`
+  runs on every title change, and doesn't cover terminals (excluded from tag memory). Tag
+  survival across reboots needs its own design.
+- **A prune guard based on the live-window count dropping** (same proposal): misses the observed
+  failure, since system windows replace the app windows in the count while locked (~10 -> ~11).
+
+### Still open
+
+- From the first review, unchanged: M3, M4, M5, M6, M7, M8, M9, M16, M22 (see §0).
+- Tag assignments do not survive a reboot (window ids change); deliberately not addressed.
+- The root cause of the `hs` IPC hangs is not established; nothing automatic depends on IPC any
+  more.
+
