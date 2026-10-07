@@ -15,6 +15,9 @@ local BROWSER_BUNDLES = {
 
 -- macOS Keycodes
 local RIGHT_CTRL = 62
+-- Device-specific modifier bits (hs.eventtap.event.rawFlagMasks)
+local DEV_LEFT_CTRL = hs.eventtap.event.rawFlagMasks.deviceLeftControl    -- 0x1
+local DEV_RIGHT_CTRL = hs.eventtap.event.rawFlagMasks.deviceRightControl  -- 0x2000
 
 -- State tracking
 local rCtrlActive = false
@@ -47,9 +50,22 @@ _G.sweepBrowserTap = hs.eventtap.new({
     end
 
     -- 2. Update Right-Control State
-    -- We track if the RIGHT control specifically is being held.
-    if keyCode == RIGHT_CTRL then
-        rCtrlActive = flags.ctrl
+    -- We track if the RIGHT control specifically is being held. This used `flags.ctrl`, the
+    -- combined flag, which stays set while LEFT control is held: hold left, tap right, release
+    -- right, and left control kept acting as Cmd. Use the device-specific bit when the event
+    -- carries left/right bits; otherwise (some virtual keyboards don't set them) each right-ctrl
+    -- event flips the state. Either way a full control release resets it.
+    if keyCode == RIGHT_CTRL and event:getType() == hs.eventtap.event.types.flagsChanged then
+        local raw = event:rawFlags()
+        if not flags.ctrl then
+            rCtrlActive = false
+        elseif raw & (DEV_LEFT_CTRL | DEV_RIGHT_CTRL) ~= 0 then
+            rCtrlActive = raw & DEV_RIGHT_CTRL ~= 0
+        else
+            rCtrlActive = not rCtrlActive
+        end
+    elseif not flags.ctrl then
+        rCtrlActive = false
     end
 
     -- 3. Perform the Swap
