@@ -15,7 +15,7 @@ let
   cfg = config.services.opencode-telegram-bot;
 
   opencode = inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.opencode;
-  servicePath = "${opencode}/bin:${pkgs.coreutils}/bin:/usr/bin:/bin:/usr/sbin:/sbin";
+  servicePath = "${opencode}/bin:${pkgs.tmux}/bin:${pkgs.coreutils}/bin:/usr/bin:/bin:/usr/sbin:/sbin";
 
   isDarwin = pkgs.stdenv.hostPlatform.isDarwin;
   isLinux = pkgs.stdenv.hostPlatform.isLinux;

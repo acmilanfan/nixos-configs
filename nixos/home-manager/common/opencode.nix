@@ -242,12 +242,8 @@ let
     "$schema" = "https://opencode.ai/config.json";
 
     # model = if isWork then "anthropic/claude-sonnet-5" else "opencode-go/deepseek-v4-pro";
-    # DeepSeek's Aug 16 2026 pricing cut moved it to a much lower Go usage
-    # tier (peak/off-peak, far fewer requests/month); mimo-v2.5 kept the
-    # higher tier and is now the better high-volume default. Switch to
-    # opencode-go/qwen3.7-plus manually for harder reasoning/refactor tasks.
-    model = if isWork then "self-hosted/Qwen/Qwen3.6-35B-A3B-FP8" else "opencode-go/mimo-v2.5";
-    small_model = if isWork then "self-hosted/Qwen/Qwen3.6-35B-A3B-FP8" else "opencode-go/mimo-v2.5";
+    model = if isWork then "self-hosted/Qwen/Qwen3.6-35B-A3B-FP8" else "opencode-go/deepseek-v4.1-flash";
+    small_model = if isWork then "self-hosted/Qwen/Qwen3.6-35B-A3B-FP8" else "opencode-go/mimo-v2.6-flash";
 
     provider = localProviders // (if isWork then remoteProviders else { }) // {
       # Built-in provider; this only overrides per-model options. DeepSeek
@@ -1042,6 +1038,73 @@ EOF
     };
 
     export default AgentStatePlugin;
+  '';
+
+  # Automatically open a new tmux window running `opencode attach` whenever a
+  # session is created on the background server (e.g. from the Telegram bot).
+  home.file.".config/opencode/plugins/tmux-session.ts".text = ''
+    import type { Plugin } from "@opencode-ai/plugin";
+    import { execFile } from "node:child_process";
+    import { promisify } from "node:util";
+
+    const execFileAsync = promisify(execFile);
+    const TMUX_BIN = "${pkgs.tmux}/bin/tmux";
+
+    const TmuxSessionPlugin: Plugin = async () => {
+      return {
+        event: async ({ event }) => {
+          if (event.type === "session.created") {
+            const info = (event as any).properties?.info;
+            if (!info || !info.id) return;
+
+            // Only trigger when the session was created on the headless background server
+            // (e.g. from the Telegram bot), not when interacting directly in a terminal TUI.
+            const isServer = process.argv.includes("serve") || !process.stdin.isTTY;
+            if (!isServer) return;
+
+            const sessionId = info.id;
+            const dir = (info.directory && info.directory !== "/")
+              ? info.directory
+              : process.env.HOME || "/";
+            const dirName = dir.split("/").filter(Boolean).pop() || "opencode";
+            const title = info.title && !info.title.startsWith("New session")
+              ? info.title.slice(0, 16)
+              : `oc-''${sessionId.slice(-4)}`;
+
+            try {
+              // Check if tmux server is running
+              const { stdout: sessionsRaw } = await execFileAsync(TMUX_BIN, [
+                "list-sessions",
+                "-F",
+                "#{session_name}"
+              ]);
+              const sessions = sessionsRaw
+                .split("\n")
+                .map(s => s.trim())
+                .filter(Boolean);
+              if (sessions.length === 0) return;
+
+              // If a tmux session exists matching the project directory name, target it;
+              // otherwise add to the currently active session.
+              const targetSession = sessions.includes(dirName) ? `''${dirName}:` : "";
+              const args = [
+                "new-window",
+                ...(targetSession ? ["-t", targetSession] : []),
+                "-c", dir,
+                "-n", title,
+                "opencode", "attach", "http://localhost:4096", "--session", sessionId
+              ];
+
+              await execFileAsync(TMUX_BIN, args);
+            } catch {
+              // Ignore safely if tmux server is not active or command fails
+            }
+          }
+        },
+      };
+    };
+
+    export default TmuxSessionPlugin;
   '';
 
   home.file.".config/opencode/AGENTS.md" = lib.mkIf (!isWork) {
