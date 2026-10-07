@@ -203,6 +203,12 @@ local function _resync()
             end
         end
     end
+    -- Safety net for the per-tile park check (layout PHASE 2), which only reads flagged hidden
+    -- windows: once a minute, flag them all, for anything that moved one without an event.
+    for _, ws in pairs(state.windowState) do
+        if ws.isHidden then ws.recheck = true end
+    end
+
     -- Second line of defence behind the lock check: an enumeration that finds nothing at all
     -- is not evidence that every window closed (destroy events remove those individually), so
     -- it must not wipe the tracked set the prune sweep relies on.
@@ -939,6 +945,17 @@ function M.setup()
         _windowGone(id, app and app:name() or "Unknown")
     end))
 
+    -- Native fullscreen: the window will come back on-screen when it leaves fullscreen, and
+    -- macOS sends no event then, so flag it now for layout PHASE 2 to keep checking.
+    filter:subscribe(hs.window.filter.windowFullscreened, profiler.wrap("wf:windowFullscreened", function(win)
+        if _axBlocked() then return end
+        local id = win and win:id()
+        if not id or id == 0 then return end
+        local ws = state.windowState[id] or {}
+        ws.recheck = true
+        state.windowState[id] = ws
+    end))
+
     -- =========================================================================
     -- WINDOW FOCUSED
     -- =========================================================================
@@ -1036,6 +1053,11 @@ function M.setup()
     filter:subscribe(hs.window.filter.windowMoved, profiler.wrap("wf:windowMoved", function(win)
         if _axBlocked() then return end
         if not win or not win:id() or win:id() == 0 then return end
+
+        -- A hidden window that moved may be back on-screen: have the next tile check it
+        -- (layout PHASE 2 reads hidden windows' frames only when flagged).
+        local hws = state.windowState[win:id()]
+        if hws and hws.isHidden then hws.recheck = true end
 
         -- Keep the backdrop's hole on a special window that was moved or resized.
         if state.special.active and state.tags[win:id()] == state.special.tag then

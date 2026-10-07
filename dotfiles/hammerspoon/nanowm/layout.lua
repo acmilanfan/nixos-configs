@@ -285,9 +285,27 @@ function M.performTile()
           -- onto whatever tag owns that screen. Re-park whenever the window is genuinely on
           -- screen; a real park overlaps the screen by a hair (~0.003), so it is never
           -- mistaken for one that needs it (no flicker on correctly-parked windows).
-         local f = win:frame()
-
-         local needPark = not ws.isHidden or core.overlapsScreen(win, f, screenFrames) >= 0.2
+          --
+          -- That check used to read every hidden window's frame on every tile (each focus
+          -- change), an AX read per window. Now only windows flagged `recheck` are read: set
+          -- by the watchers when a hidden window moves or goes native-fullscreen, and for all
+          -- hidden windows once a minute by _resync (exiting native fullscreen fires no event).
+          -- A window still in native fullscreen lives in its own Space and can't be parked;
+          -- it stays flagged so the tile after it leaves fullscreen re-parks it.
+         local f, needPark
+         if not ws.isHidden then
+             f, needPark = win:frame(), true
+         elseif ws.recheck then
+             f = win:frame()
+             if win:isFullScreen() then
+                 needPark = false
+             else
+                 ws.recheck = nil
+                 needPark = core.overlapsScreen(win, f, screenFrames) >= 0.2
+             end
+         else
+             needPark = false
+         end
 
          if needPark then
              local idStr = tostring(id)
