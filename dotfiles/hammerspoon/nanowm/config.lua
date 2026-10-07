@@ -83,19 +83,13 @@ M.floatingApps = {
 -- "How to Copy Files". The result is cached per window id, so a false positive sticks
 -- until the title changes.
 M.floatingTitles = {
-    -- Terminal scratchpads / TUIs, launched into Ghostty or Alacritty
+    -- Terminal scratchpads / TUIs (launched into Ghostty)
     { app = "Ghostty", title = "ORGINDEX" },
     { app = "Ghostty", title = "SCRATCHPAD" },
     { app = "Ghostty", title = "YAZI" },
     { app = "Ghostty", title = "wifitui" },
     { app = "Ghostty", title = "btui" },
     { app = "Ghostty", title = "SyncMon Dashboard" },
-    { app = "Alacritty", title = "ORGINDEX" },
-    { app = "Alacritty", title = "SCRATCHPAD" },
-    { app = "Alacritty", title = "YAZI" },
-    { app = "Alacritty", title = "wifitui" },
-    { app = "Alacritty", title = "btui" },
-    { app = "Alacritty", title = "SyncMon Dashboard" },
     -- App-specific windows
     { app = "FineTune", title = "FineTune" },
     { app = "Firefox",  title = "Weekenduo", exact = true },

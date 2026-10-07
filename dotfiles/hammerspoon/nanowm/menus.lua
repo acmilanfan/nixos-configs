@@ -504,9 +504,9 @@ function M.openControlMenu()
         elseif choice.uuid == "audio_gui" then
             core.toggleFineTune()
         elseif choice.uuid == "wifi" then
-            core.openInAlacritty("wifitui", 0.5)
+            core.openInTerminal("wifitui", 0.5)
         elseif choice.uuid == "bluetooth" then
-            core.openInAlacritty("btui", 0.5)
+            core.openInTerminal("btui", 0.5)
         end
     end)
 

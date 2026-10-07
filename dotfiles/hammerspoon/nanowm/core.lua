@@ -633,7 +633,7 @@ function M.launchApp(appName, appArgs)
     M.launchTask("/usr/bin/open", args)
 end
 
-function M.openInAlacritty(command, sizeFactor)
+function M.openInTerminal(command, sizeFactor)
     -- Include common paths where wifitui or blueutil-tui might be located
     -- Using -n to ensure a NEW window is opened even if Ghostty is already running
     -- Using -e to run the command
@@ -643,7 +643,6 @@ function M.openInAlacritty(command, sizeFactor)
     hs.task.new("/bin/zsh", nil, { "-c", fullCmd }):start()
     if sizeFactor then floatTerminalWindow(command:lower(), sizeFactor) end
 end
-M.openInTerminal = M.openInAlacritty
 
 function M.toggleFineTune()
     -- FineTune is a menu-bar app. We'll try multiple ways to trigger it.
