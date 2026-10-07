@@ -121,8 +121,9 @@ end
 -- =============================================================================
 
 local function suite_classify()
-    local visibleTags = {}
-    for _, t in ipairs(state.activeTags) do visibleTags[t] = true end
+    -- Visible exactly as the tiler decides it: with one screen only one active tag is shown
+    -- (another active tag's windows are parked), so plain activeTags made a false failure.
+    local visibleTags = layout.visibleTagFrames()
 
     local disagree, parkedAtSentinel = 0, 0
     for _, win in ipairs(watchers.getManagedWindows()) do
@@ -161,8 +162,6 @@ local function suite_floating_titles()
         -- name, app, title, expected
         { "Ghostty ORGINDEX floats",          "Ghostty",   "ORGINDEX-WORK",                          true  },
         { "Ghostty YAZI floats",              "Ghostty",   "YAZI",                                   true  },
-        { "Alacritty ORGINDEX floats",        "Alacritty", "ORGINDEX-WORK",                          true  },
-        { "Alacritty YAZI floats",            "Alacritty", "YAZI",                                   true  },
         { "Firefox weekenduo exact title floats", "Firefox", "Weekenduo",                            true  },
         -- Exact match prevents substring false positives from Render/Supabase/GitLab
         { "Firefox weekenduo substring does NOT float", "Firefox", "Weekenduo Dashboard",             false },
@@ -456,9 +455,12 @@ local function suite_first_window_tiles(done)
     require("nanowm.tags").gotoTag(target)
 
     hs.timer.doAfter(1.0, safely("first-window suite (launch)", function()
-        core.launchTask("/usr/bin/open", { "-n", "-a", "Alacritty" })
+        -- Ghostty, the terminal in use (was Alacritty). `open -n` starts a separate Ghostty
+        -- process; --quit-after-last-window-closed makes it exit when teardown closes the window
+        -- instead of lingering, regardless of the user's Ghostty config.
+        core.launchTask("/usr/bin/open", { "-n", "-a", "Ghostty", "--args", "--quit-after-last-window-closed=true" })
 
-        -- Wait for the window itself (a cold Alacritty start can take >1.2 s, which failed
+        -- Wait for the window itself (a cold terminal start can take >1.2 s, which failed
         -- this test spuriously), then judge tiling 0.5 s after it appeared: still well inside
         -- the old failure window, where a new window stayed untiled for 1-2 s (winMapTTL).
         local function newWindow()

@@ -178,30 +178,12 @@ function M.raiseFloating()
     end
 end
 
--- =============================================================================
--- Main Tile Function
--- =============================================================================
-
-function M.performTile()
-    state.lastTileTime = hs.timer.secondsSinceEpoch()
-
-    local allWins = require("nanowm.watchers").getManagedWindows()
-    require("nanowm.watchers").augmentAllWins(allWins)
-    local toHide = {}
-    local toFloat = {}
-
+-- Which tags are shown right now, as { [tag] = frame it is tiled into }. Several active tags can
+-- map to one screen (a single monitor, or more active tags than monitors): the current tag wins
+-- its screen, otherwise the first one in activeTags. The special tag, when open, is on the
+-- primary screen. Shared with the regression suite, which has to judge visibility like this.
+function M.visibleTagFrames()
     local visibleTags = {}
-    local screens = hs.screen.allScreens()
-    local screenCount = #screens
-    local primaryScreen = screens[1]
-    local primaryFrame = primaryScreen and tileFrame(primaryScreen) or {x=0,y=0,w=1920,h=1080}
-    -- Screen frames, built once per tile. PHASE 2 uses these for the stale-park
-    -- overlap test, so the per-window loop must not re-enumerate screens.
-    local screenFrames = {}
-    for _, s in ipairs(screens) do
-        screenFrames[#screenFrames + 1] = s:frame()
-    end
-
     -- Determine which tags should be visible on which screen frame
     for _, tag in ipairs(state.activeTags) do
         local targetScreen = state.getScreenForTag(tag)
@@ -233,8 +215,36 @@ function M.performTile()
     end
 
     if state.special.active then
-        visibleTags[state.special.tag] = primaryFrame
+        local primary = hs.screen.allScreens()[1]
+        visibleTags[state.special.tag] = primary and tileFrame(primary) or { x = 0, y = 0, w = 1920, h = 1080 }
     end
+    return visibleTags
+end
+
+-- =============================================================================
+-- Main Tile Function
+-- =============================================================================
+
+function M.performTile()
+    state.lastTileTime = hs.timer.secondsSinceEpoch()
+
+    local allWins = require("nanowm.watchers").getManagedWindows()
+    require("nanowm.watchers").augmentAllWins(allWins)
+    local toHide = {}
+    local toFloat = {}
+
+    local screens = hs.screen.allScreens()
+    local screenCount = #screens
+    local primaryScreen = screens[1]
+    local primaryFrame = primaryScreen and tileFrame(primaryScreen) or {x=0,y=0,w=1920,h=1080}
+    -- Screen frames, built once per tile. PHASE 2 uses these for the stale-park
+    -- overlap test, so the per-window loop must not re-enumerate screens.
+    local screenFrames = {}
+    for _, s in ipairs(screens) do
+        screenFrames[#screenFrames + 1] = s:frame()
+    end
+
+    local visibleTags = M.visibleTagFrames()
     -- PHASE 1: CLASSIFICATION
     for _, win in ipairs(allWins) do
         local id = win:id()
