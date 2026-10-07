@@ -65,6 +65,15 @@ local function createFocusWatcher(vim)
   local watcher = hs.application.watcher.new(function(_, eventType, application)
     if eventType == hs.application.watcher.activated then
       createApplicationWatcher(application, vim)
+    elseif eventType == hs.application.watcher.terminated then
+      -- Forget the app's observer: registeredPids used to keep it forever, so observers for
+      -- dead apps piled up, and a new app that got a recycled pid never got a watcher.
+      local pid = application and application:pid()
+      local observer = pid and registeredPids[pid]
+      if observer then
+        pcall(function() observer:stop() end)
+        registeredPids[pid] = nil
+      end
     end
   end)
 

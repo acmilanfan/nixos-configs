@@ -26,7 +26,9 @@ local held = {}
 local holdTimers = {}
 local repeatInterval = scrollRepeatInterval
 -- Natural scrolling
-local naturalScroll = hs.mouse.scrollDirection().natural
+-- scrollDirection() returns the string "natural" or "normal" (reading `.natural` off it was
+-- always nil, so the natural-scrolling branch never ran)
+local naturalScroll = hs.mouse.scrollDirection() == "natural"
 local function norm(delta)
   if not naturalScroll then return delta end
   return { delta[1] * -1, delta[2] * -1 }
@@ -370,8 +372,9 @@ modal:bind({"shift"}, "p", function()
 end)
 -- Focus cycle
 local function focusAppOffset(offset)
-  local wins = window.visibleWindows()
   local cur = window.focusedWindow()
+  if not cur then return end  -- nothing focused (e.g. the desktop): cur:id() used to throw
+  local wins = window.visibleWindows()
   for idx, w in ipairs(wins) do
     if w:id() == cur:id() then
       local nextWin = wins[(idx + offset - 1) % #wins + 1]
