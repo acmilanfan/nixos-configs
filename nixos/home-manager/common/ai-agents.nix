@@ -59,78 +59,71 @@ let
   };
 
   antigravityHooks = {
-    Notification = [
-      {
-        matcher = "*";
-        hooks = [
-          {
-            type = "command";
-            command = ''
-              input=$(cat)
-              type=$(printf '%s' "$input" | ${pkgs.jq}/bin/jq -r '.notificationType // empty' 2>/dev/null)
-              if [ "$type" != "idle_prompt" ]; then
-                agent-state --agent antigravity --state needs-input &
+    "agent-state" = {
+      PreInvocation = [
+        {
+          type = "command";
+          command = "agent-state --agent antigravity --state running & printf '{}'";
+        }
+      ];
+      PreToolUse = [
+        {
+          matcher = "*";
+          hooks = [
+            {
+              type = "command";
+              command = ''
+                input=$(cat)
+                tool=$(printf '%s' "$input" | ${pkgs.jq}/bin/jq -r '.toolCall.name // empty' 2>/dev/null)
+                case "$tool" in
+                  ask_question|run_command|write_to_file|replace_file_content|call_mcp_tool)
+                    agent-state --agent antigravity --state needs-input &
+                    ;;
+                  *)
+                    agent-state --agent antigravity --state running &
+                    ;;
+                esac
+                printf '{"decision":"allow"}'
+              '';
+            }
+          ];
+        }
+      ];
+      PostToolUse = [
+        {
+          matcher = "*";
+          hooks = [
+            {
+              type = "command";
+              command = "agent-state --agent antigravity --state running & printf '{}'";
+            }
+          ];
+        }
+      ];
+      Stop = [
+        {
+          type = "command";
+          command = ''
+            input=$(cat)
+            transcript=$(printf '%s' "$input" | ${pkgs.jq}/bin/jq -r '.transcriptPath // empty' 2>/dev/null)
+            is_question=0
+            if [ -n "$transcript" ] && [ -f "$transcript" ]; then
+              rev_cmd=$(command -v tac 2>/dev/null || echo "tail -r")
+              last_msg=$($rev_cmd "$transcript" 2>/dev/null | ${pkgs.jq}/bin/jq -r 'select(.type == "PLANNER_RESPONSE" and (.content | length > 0)) | .content' 2>/dev/null | head -n 1)
+              if printf '%s' "$last_msg" | tail -n 5 | grep -q '\?'; then
+                is_question=1
               fi
-            '';
-          }
-        ];
-      }
-    ];
-    PreToolUse = [
-      {
-        matcher = "*";
-        hooks = [
-          {
-            type = "command";
-            command = "agent-state --agent antigravity --state running &";
-          }
-        ];
-      }
-    ];
-    PreInvocation = [
-      {
-        matcher = "*";
-        hooks = [
-          {
-            type = "command";
-            command = "agent-state --agent antigravity --state running &";
-          }
-        ];
-      }
-    ];
-    PostInvocation = [
-      {
-        matcher = "*";
-        hooks = [
-          {
-            type = "command";
-            command = "agent-state --agent antigravity --state done &";
-          }
-        ];
-      }
-    ];
-    Stop = [
-      {
-        matcher = "*";
-        hooks = [
-          {
-            type = "command";
-            command = "agent-state --agent antigravity --state done &";
-          }
-        ];
-      }
-    ];
-    SessionEnd = [
-      {
-        matcher = "*";
-        hooks = [
-          {
-            type = "command";
-            command = "agent-state --agent antigravity --state off &";
-          }
-        ];
-      }
-    ];
+            fi
+            if [ "$is_question" -eq 1 ]; then
+              agent-state --agent antigravity --state needs-input &
+            else
+              agent-state --agent antigravity --state done &
+            fi
+            printf '{}'
+          '';
+        }
+      ];
+    };
   };
 
   claudeSettings = {
@@ -226,7 +219,6 @@ let
         serverUrl = "https://mcp.context7.com/mcp";
       };
     };
-    hooks = antigravityHooks;
     trustedWorkspaces = [
       "${config.home.homeDirectory}/configs/nixos-configs"
     ] ++ config.ai-agents.extraTrustedWorkspaces;
@@ -341,7 +333,41 @@ EOF
     printf '%s' "$NEW_AGY_SETTINGS" > "$AGY_SETTINGS"
     chmod 644 "$AGY_SETTINGS"
 
-    # 2. Antigravity Plugin Installation
+    # 2. Antigravity Global Hooks Setup (~/.gemini/config/hooks.json)
+    AGY_CONFIG_DIR="$HOME/.gemini/config"
+    AGY_HOOKS="$AGY_CONFIG_DIR/hooks.json"
+    mkdir -p "$AGY_CONFIG_DIR"
+
+    NEW_AGY_HOOKS=$(cat <<'EOF'
+${builtins.toJSON antigravityHooks}
+EOF
+    )
+
+    if [ -L "$AGY_HOOKS" ]; then
+      rm "$AGY_HOOKS"
+    elif [ -f "$AGY_HOOKS" ]; then
+      OLD_AGY_HOOKS=$(cat "$AGY_HOOKS")
+      OLD_HOOKS_NORM=$(printf '%s' "$OLD_AGY_HOOKS" | ${pkgs.jq}/bin/jq -S .)
+      NEW_HOOKS_NORM=$(printf '%s' "$NEW_AGY_HOOKS" | ${pkgs.jq}/bin/jq -S .)
+      if [ "$OLD_HOOKS_NORM" != "$NEW_HOOKS_NORM" ]; then
+        echo ""
+        echo "==> ~/.gemini/config/hooks.json has drifted from the Nix-managed config (nixos/home-manager/common/ai-agents.nix)."
+        echo "    Diff (live vs. nix-managed), about to be overwritten by the nix-managed version:"
+        diff <(printf '%s\n' "$OLD_HOOKS_NORM") <(printf '%s\n' "$NEW_HOOKS_NORM") || true
+        HOOKS_BACKUP="$AGY_CONFIG_DIR/hooks.json.drift.$(date +%s).json"
+        printf '%s' "$OLD_AGY_HOOKS" > "$HOOKS_BACKUP"
+        echo "    Live version backed up to: $HOOKS_BACKUP"
+        echo "    If any of these should persist, add them to antigravityHooks in"
+        echo "    nixos/home-manager/common/ai-agents.nix."
+        echo ""
+      fi
+      ls -1t "$AGY_CONFIG_DIR"/hooks.json.drift.*.json 2>/dev/null | tail -n +6 | while read -r f; do rm -f "$f"; done || true
+    fi
+
+    printf '%s' "$NEW_AGY_HOOKS" > "$AGY_HOOKS"
+    chmod 644 "$AGY_HOOKS"
+
+    # 3. Antigravity Plugin Installation
     AGY_PLUGINS_DIR="$HOME/.gemini/config/plugins"
     # Import plugins from gemini if none exist yet
     if [ ! -d "$AGY_PLUGINS_DIR" ] || [ -z "$(ls -A "$AGY_PLUGINS_DIR" 2>/dev/null)" ]; then
