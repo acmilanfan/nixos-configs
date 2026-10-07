@@ -1021,7 +1021,11 @@ EOF
 
     const AgentStatePlugin: Plugin = async ({ $ }) => {
       const notify = async (state: string) => {
-        await $`agent-state --agent opencode --state ''${state}`;
+        try {
+          await $`agent-state --agent opencode --state ''${state}`.quiet();
+        } catch {
+          // Ignore if agent-state is not in PATH or fails
+        }
       };
 
       return {

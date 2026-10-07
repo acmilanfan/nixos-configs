@@ -15,10 +15,40 @@ let
   cfg = config.services.opencode-telegram-bot;
 
   opencode = inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.opencode;
-  servicePath = "${opencode}/bin:${pkgs.tmux}/bin:${pkgs.coreutils}/bin:/usr/bin:/bin:/usr/sbin:/sbin";
 
   isDarwin = pkgs.stdenv.hostPlatform.isDarwin;
   isLinux = pkgs.stdenv.hostPlatform.isLinux;
+
+  servicePath = lib.concatStringsSep ":" (
+    [
+      "${opencode}/bin"
+      "${pkgs.tmux}/bin"
+      "${config.home.profileDirectory}/bin"
+      "/etc/profiles/per-user/${config.home.username}/bin"
+      "/run/current-system/sw/bin"
+      "/nix/var/nix/profiles/default/bin"
+    ]
+    ++ lib.optionals isDarwin [
+      "/opt/homebrew/bin"
+      "/opt/homebrew/sbin"
+    ]
+    ++ [
+      "${pkgs.coreutils}/bin"
+      "/usr/local/bin"
+      "/usr/bin"
+      "/bin"
+      "/usr/sbin"
+      "/sbin"
+    ]
+  );
+
+  serverScript = pkgs.writeShellScript "opencode-server-start" ''
+    export PATH="${servicePath}"
+    if [ -f "$HOME/.config/sops-nix/secrets/rendered/ai-env.sh" ]; then
+      . "$HOME/.config/sops-nix/secrets/rendered/ai-env.sh"
+    fi
+    exec "${opencode}/bin/opencode" serve --port "${toString cfg.serverPort}" "$@"
+  '';
 
   appDataDir =
     if isDarwin then
@@ -136,10 +166,7 @@ in
       config = {
         Label = "opencode-serve";
         ProgramArguments = [
-          "${opencode}/bin/opencode"
-          "serve"
-          "--port"
-          (toString cfg.serverPort)
+          "${serverScript}"
         ];
         KeepAlive = true;
         RunAtLoad = true;
@@ -176,7 +203,7 @@ in
         After = [ "network.target" ];
       };
       Service = {
-        ExecStart = "${opencode}/bin/opencode serve --port ${toString cfg.serverPort}";
+        ExecStart = "${serverScript}";
         Restart = "on-failure";
         RestartSec = "15s";
         Environment = [ "PATH=${servicePath}" ];
