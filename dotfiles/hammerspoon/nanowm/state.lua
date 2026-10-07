@@ -333,8 +333,37 @@ local function repairTagMemory(mem)
     return out
 end
 
+-- When the machine booted (kern.boottime, seconds), read once and cached. macOS reuses window
+-- ids after a reboot, so ids saved before one would hand an old window's tag, sticky/float state
+-- or size to whichever new window got the same id. Saved with the state and compared on load.
+local _bootTime = nil
+local function bootTime()
+    if _bootTime == nil then
+        local p = io.popen("/usr/sbin/sysctl -n kern.boottime 2>/dev/null")
+        local out = p and p:read("*a") or ""
+        if p then p:close() end
+        _bootTime = tonumber(out:match("sec%s*=%s*(%d+)")) or false
+    end
+    return _bootTime or nil
+end
+
+-- Per-window state (keyed by window id): meaningless once the ids were reassigned by a reboot.
+local ID_KEYED = {
+    "tags", "stacks", "sticky", "floatingOverrides", "floatingCache", "sizeCache",
+    "fullscreenCache", "windowWidths", "tagCreationOrder", "tagLastFocused",
+    "freeTagPositions", "weekenduoWinId",
+}
+
 local function loadFromData(d)
     d = deepcopy(d)
+    -- Saved before a reboot: drop per-window state so new windows don't inherit it. Per-tag
+    -- settings, tag memory and the active/current tags are kept. A file without bootTime
+    -- (written before this check existed) is kept as is.
+    local boot = bootTime()
+    if boot and d.bootTime and d.bootTime ~= boot then
+        print("[NanoWM] state was saved before a reboot; dropping per-window state")
+        for _, k in ipairs(ID_KEYED) do d[k] = nil end
+    end
     M.tags              = clean(d.tags)
     M.stacks            = repairTagLists(clean(d.stacks))
     M.sticky            = clean(d.sticky)
@@ -433,6 +462,7 @@ function M.save()
         prevTag            = M.prevTag,
         globalLayout       = M.layout,
         weekenduoWinId     = M.weekenduoWinId,
+        bootTime           = bootTime(),
         appTagMemory       = M.appTagMemory,
         sketchybarEnabled  = M.sketchybarEnabled,
         batterySaverEnabled = M.batterySaverEnabled,
