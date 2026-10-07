@@ -2117,6 +2117,10 @@ list below is grouped by area, with the commit that carries each fix.
 
 - From the first review, unchanged: M3, M4, M5, M6, M7, M8, M9, M16, M22 (see §0).
 - Tag assignments do not survive a reboot (window ids change); deliberately not addressed.
-- The root cause of the `hs` IPC hangs is not established; nothing automatic depends on IPC any
-  more.
+- The `hs` IPC hangs are an upstream Hammerspoon bug, [#2974](https://github.com/Hammerspoon/hammerspoon/issues/2974)
+  (open since 2021, still reproducing on 1.1.1 / macOS 26.7.1, the versions here): a freed
+  CFMessagePort is used during the send, on the main thread, so every `hs -c` client hangs until
+  it recovers minutes later. Frequent short-lived or killed `hs -c` calls trigger it; removing
+  recurring CLI callers is the workaround, done here (`fb0532f`). Interactive `hs -c` remains
+  exposed to it.
 
