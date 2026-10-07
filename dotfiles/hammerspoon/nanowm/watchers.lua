@@ -761,6 +761,101 @@ function M.followTabActivation(win)
     end)
 end
 
+-- A tracked window is gone: drop it from focus history, re-pick focus if it held it, and after
+-- config.destructionDelay forget its state (unless it reappeared). Shared by the
+-- windowDestroyed event and app termination. `appName` feeds crash recovery (pendingDestruction).
+local function _windowGone(id, appName)
+    _trackedWins[id] = nil
+
+    local idStr = tostring(id)
+    local tag = state.tags[id]
+
+    -- macOS is about to hand focus to whatever it picks next (often this app's window on
+    -- another tag). If this window held focus on the current tag, re-pick from the tag's
+    -- history instead. Closing an unfocused window moves no focus, so it is not a fallthrough.
+    local now = hs.timer.secondsSinceEpoch()
+    local ctx = state.special.active and state.special.tag or state.currentTag
+    local wasFocused = tag ~= nil and tag == ctx and _heldFocus(ctx, id, now)
+    _dropHistory(id)
+    if wasFocused then
+        _fallthroughAt = now
+        _scheduleResolve(true)
+    end
+
+    -- Cancel any existing pending destruction
+    if state.pendingDestruction[id] and state.pendingDestruction[id].timer then
+        state.pendingDestruction[id].timer:stop()
+    end
+
+    -- Store for potential recovery
+    state.pendingDestruction[id] = {
+        tag = tag,
+        appName = appName,
+        time = hs.timer.secondsSinceEpoch(),
+    }
+
+    -- Delay the actual cleanup
+    state.pendingDestruction[id].timer = hs.timer.doAfter(config.destructionDelay, function()
+        -- Liveness is checked against the event-driven set, not by probing AX.
+        -- This used to call hs.window(id), which costs ~37 ms for an id that no longer
+        -- exists — i.e. on virtually every window close — and, far worse, a false
+        -- "still exists" abandoned the cleanup permanently with no retry. That was a
+        -- primary source of the hundreds of dead ids that accumulated in state.tags.
+        -- _trackedWins[id] was set to nil at the top of this handler, so it is non-nil
+        -- here only if a windowCreated/windowFocused event genuinely re-registered the
+        -- window in the meantime — a stronger signal, for zero cost.
+        -- If a live window is ever cleaned up in error it is self-healing: the next focus
+        -- event or the 60s resync re-registers it via core.registerWindow().
+        if _trackedWins[id] then
+            print("[NanoWM] Window " .. tostring(id) .. " reappeared, not cleaning up")
+            state.pendingDestruction[id] = nil
+            return
+        end
+
+        print("[NanoWM] Cleaning up destroyed window: " .. appName ..
+            " (id: " .. tostring(id) .. ") was on tag " .. tostring(tag))
+
+        -- Remove from ALL stacks and creation orders
+        for _, stack in pairs(state.stacks) do
+            for i = #stack, 1, -1 do
+                if stack[i] == id then
+                    table.remove(stack, i)
+                end
+            end
+        end
+        for _, order in pairs(state.tagCreationOrder or {}) do
+            for i = #order, 1, -1 do
+                if order[i] == id then
+                    table.remove(order, i)
+                end
+            end
+        end
+
+        if id == state.weekenduoWinId then
+            state.weekenduoWinId = nil
+            print("[NanoWM] Cleared weekenduo window ID")
+        end
+
+        state.tags[id] = nil
+        state.sticky[id] = nil
+        state.floatingOverrides[id] = nil
+        state.windowState[id] = nil
+
+        if state.floatingCache then state.floatingCache[idStr] = nil end
+        if state.fullscreenCache then state.fullscreenCache[idStr] = nil end
+        if state.sizeCache then state.sizeCache[idStr] = nil end
+        core.invalidateFloatingCache(id)
+
+        if tag then
+            core.resetMasterWidthIfNeeded(tag)
+        end
+
+        state.pendingDestruction[id] = nil
+        state.triggerSave()
+        layout.tile()
+    end)
+end
+
 function M.setup()
     M.updateScreenFrames()
     screenWatcher = hs.screen.watcher.new(function()
@@ -840,97 +935,8 @@ function M.setup()
         local id = win:id()
         if not id or id == 0 then return end
 
-        _trackedWins[id] = nil
-
-        local idStr = tostring(id)
-        local tag = state.tags[id]
         local app = win:application()
-        local appName = app and app:name() or "Unknown"
-
-        -- macOS is about to hand focus to whatever it picks next (often this app's window on
-        -- another tag). If this window held focus on the current tag, re-pick from the tag's
-        -- history instead. Closing an unfocused window moves no focus, so it is not a fallthrough.
-        local now = hs.timer.secondsSinceEpoch()
-        local ctx = state.special.active and state.special.tag or state.currentTag
-        local wasFocused = tag ~= nil and tag == ctx and _heldFocus(ctx, id, now)
-        _dropHistory(id)
-        if wasFocused then
-            _fallthroughAt = now
-            _scheduleResolve(true)
-        end
-
-        -- Cancel any existing pending destruction
-        if state.pendingDestruction[id] and state.pendingDestruction[id].timer then
-            state.pendingDestruction[id].timer:stop()
-        end
-
-        -- Store for potential recovery
-        state.pendingDestruction[id] = {
-            tag = tag,
-            appName = appName,
-            time = hs.timer.secondsSinceEpoch(),
-        }
-
-        -- Delay the actual cleanup
-        state.pendingDestruction[id].timer = hs.timer.doAfter(config.destructionDelay, function()
-            -- Liveness is checked against the event-driven set, not by probing AX.
-            -- This used to call hs.window(id), which costs ~37 ms for an id that no longer
-            -- exists — i.e. on virtually every window close — and, far worse, a false
-            -- "still exists" abandoned the cleanup permanently with no retry. That was a
-            -- primary source of the hundreds of dead ids that accumulated in state.tags.
-            -- _trackedWins[id] was set to nil at the top of this handler, so it is non-nil
-            -- here only if a windowCreated/windowFocused event genuinely re-registered the
-            -- window in the meantime — a stronger signal, for zero cost.
-            -- If a live window is ever cleaned up in error it is self-healing: the next focus
-            -- event or the 60s resync re-registers it via core.registerWindow().
-            if _trackedWins[id] then
-                print("[NanoWM] Window " .. tostring(id) .. " reappeared, not cleaning up")
-                state.pendingDestruction[id] = nil
-                return
-            end
-
-            print("[NanoWM] Cleaning up destroyed window: " .. appName ..
-                " (id: " .. tostring(id) .. ") was on tag " .. tostring(tag))
-
-            -- Remove from ALL stacks and creation orders
-            for _, stack in pairs(state.stacks) do
-                for i = #stack, 1, -1 do
-                    if stack[i] == id then
-                        table.remove(stack, i)
-                    end
-                end
-            end
-            for _, order in pairs(state.tagCreationOrder or {}) do
-                for i = #order, 1, -1 do
-                    if order[i] == id then
-                        table.remove(order, i)
-                    end
-                end
-            end
-
-            if id == state.weekenduoWinId then
-                state.weekenduoWinId = nil
-                print("[NanoWM] Cleared weekenduo window ID")
-            end
-
-            state.tags[id] = nil
-            state.sticky[id] = nil
-            state.floatingOverrides[id] = nil
-            state.windowState[id] = nil
-
-            if state.floatingCache then state.floatingCache[idStr] = nil end
-            if state.fullscreenCache then state.fullscreenCache[idStr] = nil end
-            if state.sizeCache then state.sizeCache[idStr] = nil end
-            core.invalidateFloatingCache(id)
-
-            if tag then
-                core.resetMasterWidthIfNeeded(tag)
-            end
-
-            state.pendingDestruction[id] = nil
-            state.triggerSave()
-            layout.tile()
-        end)
+        _windowGone(id, app and app:name() or "Unknown")
     end))
 
     -- =========================================================================
@@ -1069,6 +1075,17 @@ function M.setup()
             M.followActivatedApp(app, appName)
         elseif event == hs.application.watcher.terminated
             or event == hs.application.watcher.hidden then
+            if event == hs.application.watcher.terminated then
+                -- A quitting app takes its windows along, often without windowDestroyed events
+                -- (the AX observer dies with the process), which left their ids in tags/stacks
+                -- until the prune sweep. Forget tracked windows whose process is gone.
+                hs.timer.doAfter(0.5, function()
+                    if _axBlocked() then return end
+                    for id, w in pairs(_trackedWins) do
+                        if not w:application() then _windowGone(id, appName) end
+                    end
+                end)
+            end
             -- macOS activates the next app; if it is parked on another tag that is not a
             -- jump the user asked for. afterClose re-picks focus if this app held it.
             -- Only a frontmost app hands focus on: a background app quitting or hiding moves no
