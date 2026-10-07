@@ -178,34 +178,6 @@
     in
     {
       nixosConfigurations = {
-        z16 = inputs.nixpkgs.lib.nixosSystem {
-          system = linuxSystem;
-          specialArgs = { inherit inputs; };
-          modules = [
-            ./nixos/z16/configuration.nix
-            home-manager.nixosModules.home-manager
-            {
-              # home-manager.useGlobalPkgs = true;
-              home-manager.useUserPackages = true;
-              home-manager.backupFileExtension = "backup";
-              home-manager.users.gentooway = import ./nixos/z16/home.nix;
-              home-manager.extraSpecialArgs = {
-                pkgs = pkgsFor linuxSystem;
-                unstable = unstableFor linuxSystem;
-                inherit inputs linuxSystem secrets;
-              };
-            }
-            musnix.nixosModules.musnix
-            nixos-hardware.nixosModules.lenovo-thinkpad-z
-            (
-              { config, pkgs, ... }:
-              {
-                nixpkgs.overlays = [ overlay-davinci-resolve overlay-howdy ];
-              }
-            )
-          ];
-        };
-
         t480-home = inputs.nixpkgs.lib.nixosSystem {
           system = linuxSystem;
           specialArgs = { inherit inputs; };

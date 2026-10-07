@@ -438,7 +438,7 @@ in
   # Lock-on-absence counterpart to hyprlock-proximity (which wakes on approach):
   # when the HPS sensors report no human presence continuously for
   # ABSENCE_LOCK_DELAY seconds, lock the screen. No-ops on machines without
-  # these sensors (z16, t480, vm) since the sensor files are missing.
+  # these sensors (t480, vm) since the sensor files are missing.
   systemd.user.services.hyprlock-absence = {
     Unit = {
       Description = "Lock hyprlock when human presence sensors report absence";
