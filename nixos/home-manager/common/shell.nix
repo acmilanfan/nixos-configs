@@ -56,6 +56,11 @@
         export SSH_AUTH_SOCK="$HOME/.ssh/ssh_auth_sock"
       fi
 
+      # Source decrypted SOPS environment variables if present (AI proxy, MCP tokens)
+      if [ -f "$HOME/.config/sops-nix/secrets/rendered/ai-env.sh" ]; then
+        source "$HOME/.config/sops-nix/secrets/rendered/ai-env.sh"
+      fi
+
       autoload -U colors && colors
       PS1="%B%{$fg[cyan]%}$IN_NIX_SHELL%{$fg[red]%}[%{$fg[yellow]%}%n%{$fg[green]%}@%{$fg[blue]%}%M %{$fg[magenta]%}%~%{$fg[red]%}]%{$reset_color%}$%b "
 

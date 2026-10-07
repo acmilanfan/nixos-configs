@@ -36,6 +36,8 @@ final: prev: {
 
   tg2kobo = final.callPackage ./pkgs/tg2kobo.nix { };
 
+  opencode-telegram-bot = final.callPackage ./pkgs/opencode-telegram-bot.nix { };
+
   mtplx = if final.stdenv.hostPlatform.isDarwin
     then final.callPackage ./pkgs/mtplx { inherit inputs; }
     else prev.mtplx or null;

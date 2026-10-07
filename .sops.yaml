@@ -1,0 +1,7 @@
+keys:
+  - &admin_gpg F45F0EE88195A11F983842515B3566CDE26D887A
+
+creation_rules:
+  - path_regex: secrets/.*\.ya?ml$
+    pgp: *admin_gpg
+  - pgp: *admin_gpg

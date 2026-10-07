@@ -53,6 +53,9 @@
       btop
       qmk
       bat
+      sops
+      age
+      ssh-to-age
     ] ++ lib.optionals pkgs.stdenv.isLinux [
       (writeShellScriptBin "ssh-askpass" ''
         ${pkgs.zenity}/bin/zenity --password --title="SSH Password"

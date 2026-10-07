@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ pkgs, secrets ? { }, ... }:
 let
   obs = pkgs.wrapOBS {
     plugins = with pkgs.obs-studio-plugins; [
@@ -8,7 +8,6 @@ let
       obs-multi-rtmp
     ];
   };
-  secrets = import /home/gentooway/configs/nixos-configs/secrets/secrets.nix;
 in {
   home.packages = with pkgs; [
     obs
@@ -23,6 +22,6 @@ in {
   ];
 
   systemd.user.sessionVariables = {
-    OBS_PASSWORD = secrets.obsWebsocketPassword;
+    OBS_PASSWORD = secrets.obsWebsocketPassword or "";
   };
 }

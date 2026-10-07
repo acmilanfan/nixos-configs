@@ -23,6 +23,8 @@
     ./ai-agents.nix
     ./ai-agents-options.nix
     ./opencode.nix
+    ./opencode-telegram-bot.nix
+    ./sops.nix
     ./vicinae.nix
   ]
   ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
