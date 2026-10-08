@@ -1,4 +1,4 @@
-{ pkgs, secrets ? { }, ... }:
+{ pkgs, ... }:
 let
   obs = pkgs.wrapOBS {
     plugins = with pkgs.obs-studio-plugins; [
@@ -21,7 +21,5 @@ in {
     davinci-resolve-studio
   ];
 
-  systemd.user.sessionVariables = {
-    OBS_PASSWORD = secrets.obsWebsocketPassword or "";
-  };
+  # OBS_PASSWORD is exported by the sops-rendered ai-env.sh (common/sops.nix).
 }

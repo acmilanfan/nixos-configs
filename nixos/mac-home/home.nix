@@ -21,6 +21,8 @@
     "${config.home.homeDirectory}/Projects/wd-backend-auth-hardening"
   ];
 
+  ai-agents.antigravity.remoteControl = true;
+
   services.opencode-telegram-bot = {
     enable = true;
     autoStartServer = true;

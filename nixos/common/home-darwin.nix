@@ -1,4 +1,4 @@
-{ pkgs, lib, unstable, secrets, inputs, ... }:
+{ pkgs, lib, unstable, inputs, ... }:
 
 let
   sketchybarReload = ''
@@ -140,7 +140,7 @@ in
   programs.zsh.shellAliases = pkgs.lib.mkMerge [
     {
       # macOS-specific aliases
-      sup = "sudo darwin-rebuild switch --flake $HOME/configs/nixos-configs --impure";
+      sup = "sudo darwin-rebuild switch --flake $HOME/configs/nixos-configs";
 
       # Remote-deploy config changes to the vm-hyprland UTM VM: build here
       # (via nix.linux-builder, since this Mac can't build aarch64-linux
@@ -151,7 +151,7 @@ in
       # authenticate. Override the host with VM_HYPRLAND_HOST=<ip>
       # sup-vm-hyprland if "vm-hyprland" isn't resolvable (no mDNS/SSH
       # config alias set up).
-      sup-vm-hyprland = "nixos-rebuild switch --flake $HOME/configs/nixos-configs#vm-hyprland --target-host \"gentooway@\${VM_HYPRLAND_HOST:-vm-hyprland}\" --build-host localhost --sudo --ask-sudo-password --impure";
+      sup-vm-hyprland = "nixos-rebuild switch --flake $HOME/configs/nixos-configs#vm-hyprland --target-host \"gentooway@\${VM_HYPRLAND_HOST:-vm-hyprland}\" --build-host localhost --sudo --ask-sudo-password";
 
       # macOS system management
       flush-dns = "sudo dscacheutil -flushcache && sudo killall -HUP mDNSResponder";
@@ -288,18 +288,8 @@ in
       '';
     };
 
-    # SyncMon configuration
-    ".syncmon.yaml" = {
-      text = ''
-        syncthing:
-          url: "http://127.0.0.1:8384"
-          apikey: "${secrets.syncthing_api_key}"
-        paths:
-          org: "~/org"
-          configs: "~/configs/nixos-configs"
-          nextcloud: "~/Nextcloud"
-      '';
-    };
+    # ~/.syncmon.yaml is rendered by sops-nix (../home-manager/common/sops.nix)
+    # so the Syncthing API key stays out of /nix/store.
 
     # Hammerspoon
     ".hammerspoon/init.lua".source = ../../dotfiles/hammerspoon/init.lua;

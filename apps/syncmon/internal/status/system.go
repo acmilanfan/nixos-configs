@@ -89,7 +89,6 @@ func CheckNix(flakeDir string) Status {
 
 	args := []string{
 		"build", flakeTarget,
-		"--impure",
 		"--no-write-lock-file",
 		"--no-link",
 		"--print-out-paths",

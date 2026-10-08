@@ -17,7 +17,7 @@ MEMORY_MB="${VM_MEMORY_MB:-4096}"
 CPU_CORES="${VM_CPU_CORES:-4}"
 
 echo "Building .#vm-hyprland-image (first run can take a while)..."
-IMAGE_DIR=$(nix build "$HOME/configs/nixos-configs#vm-hyprland-image" --no-link --print-out-paths --impure)
+IMAGE_DIR=$(nix build "$HOME/configs/nixos-configs#vm-hyprland-image" --no-link --print-out-paths)
 DISK_PATH=$(find "$IMAGE_DIR" -name '*.qcow2' | head -1)
 
 if [ -z "$DISK_PATH" ]; then

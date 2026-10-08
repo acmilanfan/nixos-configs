@@ -18,4 +18,15 @@
       the shared common module.
     '';
   };
+
+  options.ai-agents.antigravity.remoteControl = lib.mkOption {
+    type = lib.types.bool;
+    default = false;
+    description = ''
+      Auto-start `agy remote-control` (on activation, from the agy/antigravity
+      wrappers and the PreInvocation hook), registered under this host's
+      short hostname. Opt-in per host so the work laptop isn't remotely
+      drivable by default.
+    '';
+  };
 }

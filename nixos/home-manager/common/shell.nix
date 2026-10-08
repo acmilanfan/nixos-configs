@@ -48,29 +48,12 @@
       fhs-shell = "nix develop ~/configs/nixos-configs/shell/fhs";
     } // pkgs.lib.optionalAttrs pkgs.stdenv.isLinux {
       # Linux-specific aliases
-      sup = "sudo nixos-rebuild switch --flake $HOME/configs/nixos-configs/#$NIX_SYSTEM --impure && hypr-reload-desktop";
-      # sup = "sudo darwin-rebuild switch --flake $HOME/configs/nixos-configs/#$NIX_SYSTEM --impure";
+      sup = "sudo nixos-rebuild switch --flake $HOME/configs/nixos-configs/#$NIX_SYSTEM && hypr-reload-desktop";
     };
     initContent = ''
       if [ -n "$TMUX" ]; then
         export SSH_AUTH_SOCK="$HOME/.ssh/ssh_auth_sock"
       fi
-
-      # Source decrypted SOPS environment variables if present (AI proxy, MCP tokens)
-      if [ -f "$HOME/.config/sops-nix/secrets/rendered/ai-env.sh" ]; then
-        source "$HOME/.config/sops-nix/secrets/rendered/ai-env.sh"
-      fi
-
-      # Auto-start Antigravity remote-control daemon when opening agy session
-      agy() {
-        if [ "''${1:-}" != "remote-control" ]; then
-          if ! pgrep -f "remote-control.*serve" >/dev/null 2>&1; then
-            local host_name=$(/bin/hostname -s 2>/dev/null || hostname -s 2>/dev/null || echo "antigravity")
-            nohup command agy remote-control start --name "$host_name" >/dev/null 2>&1 &!
-          fi
-        fi
-        command agy "$@"
-      }
 
       autoload -U colors && colors
       PS1="%B%{$fg[cyan]%}$IN_NIX_SHELL%{$fg[red]%}[%{$fg[yellow]%}%n%{$fg[green]%}@%{$fg[blue]%}%M %{$fg[magenta]%}%~%{$fg[red]%}]%{$reset_color%}$%b "

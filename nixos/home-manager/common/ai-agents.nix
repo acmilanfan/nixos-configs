@@ -65,10 +65,7 @@ let
           type = "command";
           command = ''
             export PATH="$PATH:/bin:/usr/bin:/usr/sbin:/sbin"
-            if ! pgrep -f "remote-control.*serve" >/dev/null 2>&1; then
-              HOST_NAME=$(/bin/hostname -s 2>/dev/null || hostname -s 2>/dev/null || echo "antigravity")
-              nohup ${rawAgy}/bin/agy remote-control start --name "$HOST_NAME" >/dev/null 2>&1 &
-            fi
+            ${startRemoteControl}
             agent-state --agent antigravity --state running & printf '{}'
           '';
         }
@@ -191,7 +188,10 @@ let
 
   claudeSettingsJson = builtins.toJSON claudeSettings;
 
-  githubToken = (secrets.github or { }).token or "";
+  # GitHub MCP token: spliced into Antigravity's settings.json at activation
+  # from the sops secret (see installGeminiExtensions), never via /nix/store.
+  githubTokenFile = lib.optionalString (config.sops.secrets ? "github/token")
+    config.sops.secrets."github/token".path;
 
   antigravitySettings = {
     colorScheme = "tokyo night";
@@ -217,11 +217,7 @@ let
       };
       github = {
         serverUrl = "https://api.githubcopilot.com/mcp/";
-      } // (if githubToken != "" then {
-        headers = {
-          Authorization = "Bearer ${githubToken}";
-        };
-      } else {});
+      };
       context7 = {
         serverUrl = "https://mcp.context7.com/mcp";
       };
@@ -241,29 +237,27 @@ let
 
   rawAgy = inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.antigravity-cli;
 
+  # Starts the agy remote-control daemon if it isn't running. Opt-in per host
+  # (ai-agents.antigravity.remoteControl); empty otherwise. Shared by the
+  # wrappers below and the PreInvocation hook.
+  startRemoteControl = lib.optionalString config.ai-agents.antigravity.remoteControl ''
+    if [ "''${1:-}" != "remote-control" ] && ! pgrep -f "remote-control.*serve" >/dev/null 2>&1; then
+      HOST_NAME=$(/bin/hostname -s 2>/dev/null || hostname -s 2>/dev/null || echo "antigravity")
+      nohup "${rawAgy}/bin/agy" remote-control start --name "$HOST_NAME" >/dev/null 2>&1 &
+    fi
+  '';
+
+  mkAgyWrapper = name: pkgs.writeShellScriptBin name ''
+    export PATH="$PATH:/bin:/usr/bin:/usr/sbin:/sbin"
+    ${startRemoteControl}
+    exec "${rawAgy}/bin/agy" "$@"
+  '';
+
   antigravityWrapped = pkgs.symlinkJoin {
     name = "antigravity-cli-wrapped";
     paths = [
-      (pkgs.writeShellScriptBin "agy" ''
-        export PATH="$PATH:/bin:/usr/bin:/usr/sbin:/sbin"
-        if [ "''${1:-}" != "remote-control" ]; then
-          if ! pgrep -f "remote-control.*serve" >/dev/null 2>&1; then
-            HOST_NAME=$(/bin/hostname -s 2>/dev/null || hostname -s 2>/dev/null || echo "antigravity")
-            nohup "${rawAgy}/bin/agy" remote-control start --name "$HOST_NAME" >/dev/null 2>&1 &
-          fi
-        fi
-        exec "${rawAgy}/bin/agy" "$@"
-      '')
-      (pkgs.writeShellScriptBin "antigravity" ''
-        export PATH="$PATH:/bin:/usr/bin:/usr/sbin:/sbin"
-        if [ "''${1:-}" != "remote-control" ]; then
-          if ! pgrep -f "remote-control.*serve" >/dev/null 2>&1; then
-            HOST_NAME=$(/bin/hostname -s 2>/dev/null || hostname -s 2>/dev/null || echo "antigravity")
-            nohup "${rawAgy}/bin/agy" remote-control start --name "$HOST_NAME" >/dev/null 2>&1 &
-          fi
-        fi
-        exec "${rawAgy}/bin/agy" "$@"
-      '')
+      (mkAgyWrapper "agy")
+      (mkAgyWrapper "antigravity")
     ];
   };
 
@@ -323,7 +317,8 @@ EOF
   ];
 
   # Automate extension installation on activation
-  home.activation.installGeminiExtensions = lib.hm.dag.entryAfter ["writeBoundary"] ''
+  # After sops-nix so the GitHub token can be spliced into settings.json.
+  home.activation.installGeminiExtensions = lib.hm.dag.entryAfter ["writeBoundary" "sops-nix"] (''
     # Prepend git but keep system bins at the END so launchctl/hostname and nix tools are available
     export PATH="${pkgs.git}/bin:$PATH:/usr/bin:/bin:/usr/sbin:/sbin"
     # Use system SSH so ~/.ssh/config macOS options (UseKeychain) are supported
@@ -344,19 +339,32 @@ ${builtins.toJSON antigravitySettings}
 EOF
     )
 
+    # GitHub MCP auth header from the sops secret. sops-nix's launchd agent
+    # decrypts asynchronously, so give a fresh decryption a few seconds.
+    GITHUB_TOKEN_FILE="${githubTokenFile}"
+    if [ -n "$GITHUB_TOKEN_FILE" ]; then
+      for _ in 1 2 3 4 5 6 7 8 9 10; do [ -s "$GITHUB_TOKEN_FILE" ] && break; sleep 0.5; done
+      if [ -s "$GITHUB_TOKEN_FILE" ]; then
+        NEW_AGY_SETTINGS=$(printf '%s' "$NEW_AGY_SETTINGS" | ${pkgs.jq}/bin/jq -c --rawfile t "$GITHUB_TOKEN_FILE" \
+          '.mcpServers.github.headers.Authorization = "Bearer " + ($t | rtrimstr("\n"))')
+      fi
+    fi
+
     if [ -L "$AGY_SETTINGS" ]; then
       rm "$AGY_SETTINGS"
     elif [ -f "$AGY_SETTINGS" ]; then
       OLD_AGY_SETTINGS=$(cat "$AGY_SETTINGS")
-      OLD_AGY_NORM=$(printf '%s' "$OLD_AGY_SETTINGS" | ${pkgs.jq}/bin/jq -S .)
-      NEW_AGY_NORM=$(printf '%s' "$NEW_AGY_SETTINGS" | ${pkgs.jq}/bin/jq -S .)
+      # The auth header is left out of the comparison so the drift diff never
+      # prints the token (and a rotated token isn't reported as drift).
+      OLD_AGY_NORM=$(printf '%s' "$OLD_AGY_SETTINGS" | ${pkgs.jq}/bin/jq -S 'del(.mcpServers.github.headers)')
+      NEW_AGY_NORM=$(printf '%s' "$NEW_AGY_SETTINGS" | ${pkgs.jq}/bin/jq -S 'del(.mcpServers.github.headers)')
       if [ "$OLD_AGY_NORM" != "$NEW_AGY_NORM" ]; then
         echo ""
         echo "==> ~/.gemini/antigravity-cli/settings.json has drifted from the Nix-managed config (nixos/home-manager/common/ai-agents.nix)."
         echo "    Diff (live vs. nix-managed), about to be overwritten by the nix-managed version:"
         diff <(printf '%s\n' "$OLD_AGY_NORM") <(printf '%s\n' "$NEW_AGY_NORM") || true
         AGY_BACKUP="$AGY_DIR/settings.json.drift.$(date +%s).json"
-        printf '%s' "$OLD_AGY_SETTINGS" > "$AGY_BACKUP"
+        (umask 077; printf '%s' "$OLD_AGY_SETTINGS" > "$AGY_BACKUP")
         echo "    Live version backed up to: $AGY_BACKUP"
         echo "    If any of these should persist, add them to antigravitySettings in"
         echo "    nixos/home-manager/common/ai-agents.nix."
@@ -366,7 +374,7 @@ EOF
     fi
 
     printf '%s' "$NEW_AGY_SETTINGS" > "$AGY_SETTINGS"
-    chmod 644 "$AGY_SETTINGS"
+    chmod 600 "$AGY_SETTINGS"
 
     # 2. Antigravity Global Hooks Setup (~/.gemini/config/hooks.json)
     AGY_CONFIG_DIR="$HOME/.gemini/config"
@@ -420,10 +428,12 @@ EOF
       fi
     '') geminiExtensions)}
 
-    # 4. Antigravity Remote Control Daemon Setup
+  '' + lib.optionalString config.ai-agents.antigravity.remoteControl ''
+
+    # 4. Antigravity Remote Control Daemon Setup (opt-in per host)
     # Ensure the remote-control daemon is registered with this host's machine name
     HOST_NAME=$(/bin/hostname -s 2>/dev/null || hostname -s 2>/dev/null || echo "antigravity")
     $DRY_RUN_CMD ${rawAgy}/bin/agy remote-control start --name "$HOST_NAME" || true
-  '';
+  '');
 }
 

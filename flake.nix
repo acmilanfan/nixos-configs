@@ -5,6 +5,10 @@
   };
 
   inputs = {
+    # Copy the private secrets submodule into the flake source, so
+    # ./secrets/secrets.nix and secrets.yaml resolve without --impure.
+    self.submodules = true;
+
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
     unstable-nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     musnix.url = "github:musnix/musnix/master";
@@ -111,16 +115,9 @@
       macSystem = "aarch64-darwin";
       vmSystem = "aarch64-linux";
 
-      sudoUser = builtins.getEnv "SUDO_USER";
-      isDarwin = builtins.pathExists "/Users";
-      actualHomeDir =
-        if isDarwin then
-          (if sudoUser != "" then "/Users/${sudoUser}" else builtins.getEnv "HOME")
-        else
-          (if sudoUser != "" then "/home/${sudoUser}" else builtins.getEnv "HOME");
-
-      secretsPath = "${actualHomeDir}/configs/nixos-configs/secrets/secrets.nix";
-      secrets = import secretsPath;
+      # Eval-time values only (emails, marketplace names). Credentials live in
+      # secrets/secrets.yaml and are decrypted at activation by sops-nix.
+      secrets = import ./secrets/secrets.nix;
 
       overlay-howdy = _: prev: {
         howdy = inputs.nixpkgs-howdy.legacyPackages.${prev.stdenv.hostPlatform.system}.howdy;

@@ -12,9 +12,9 @@
 let
   hasSopsNix = inputs ? sops-nix;
 
-  # Path to encrypted secrets file in secrets submodule
+  # Path to encrypted secrets file in secrets submodule. Only present in the
+  # flake source because flake.nix sets `self.submodules = true`.
   secretsFile = ../../../secrets/secrets.yaml;
-  secretsFileExists = builtins.pathExists secretsFile;
 
   cfg = config.customSops;
 in
@@ -24,8 +24,7 @@ in
   options.customSops = {
     enable = lib.mkOption {
       type = lib.types.bool;
-      default = secretsFileExists;
-      defaultText = lib.literalExpression "builtins.pathExists ../../../secrets/secrets.yaml";
+      default = true;
       description = "Enable SOPS secret management via sops-nix.";
     };
 
@@ -36,7 +35,22 @@ in
     };
   };
 
-  config = lib.mkIf (hasSopsNix && cfg.enable && secretsFileExists) {
+  config = lib.mkIf (hasSopsNix && cfg.enable) {
+    # Fail loudly instead of silently rendering nothing (the old pathExists
+    # gate was false whenever the submodule wasn't in the flake source).
+    assertions = [
+      {
+        assertion = builtins.pathExists cfg.secretsFile;
+        message = "customSops: ${toString cfg.secretsFile} is missing; check out the secrets submodule.";
+      }
+    ];
+
+    # .zshenv, not .zshrc: non-interactive shells (`zsh -lc nvim` from
+    # nvim-opener, scripts) need the AI proxy keys too.
+    programs.zsh.envExtra = ''
+      [ -r "${config.sops.templates."ai-env.sh".path}" ] && . "${config.sops.templates."ai-env.sh".path}"
+    '';
+
     sops = {
       defaultSopsFile = cfg.secretsFile;
       defaultSopsFormat = "yaml";
@@ -71,17 +85,30 @@ in
       };
 
       templates = {
-        # Sourced in shell.nix: exports API keys into user shell sessions
-        # without storing any secret values in /nix/store.
+        # Sourced from .zshenv (above) and the opencode-serve launcher: exports
+        # API keys into user sessions without storing any secret values in
+        # /nix/store. Read by avante/minuet (nvim) and opencode's providers.
         "ai-env.sh" = {
           mode = "0600";
           content = ''
             export AI_PROXY_CLAUDE="${config.sops.placeholder."aiProxy/claude"}"
             export AI_PROXY_OPENAI="${config.sops.placeholder."aiProxy/openai"}"
             export AI_PROXY_MISTRAL_COMPLETION="${config.sops.placeholder."aiProxy/mistralCompletion"}"
-            export AI_API_KEY="${config.sops.placeholder."aiProxy/apiKey"}"
-            export SELF_HOSTED_BASE_URL="${config.sops.placeholder."aiProxy/selfHosted"}"
-            export SELF_HOSTED_API_KEY="${config.sops.placeholder."aiProxy/selfHostedKey"}"
+            export AI_PROXY_API_KEY="${config.sops.placeholder."aiProxy/apiKey"}"
+            # Empty selfHosted* (hosts that never had the key) fall back to the
+            # Claude endpoint / shared proxy key, as the old Nix-side default did.
+            SELF_HOSTED_BASE_URL="${config.sops.placeholder."aiProxy/selfHosted"}"
+            # Prefix/suffix expansion, not ''${var//a/b}: zsh keeps the
+            # backslashes of escaped slashes in the replacement.
+            if [ -z "$SELF_HOSTED_BASE_URL" ]; then
+              case "$AI_PROXY_CLAUDE" in
+                */proxy-api/anthropic*) SELF_HOSTED_BASE_URL="''${AI_PROXY_CLAUDE%%/proxy-api/anthropic*}/proxy-api/self-hosted/v1''${AI_PROXY_CLAUDE#*/proxy-api/anthropic}" ;;
+                *) SELF_HOSTED_BASE_URL="$AI_PROXY_CLAUDE" ;;
+              esac
+            fi
+            SELF_HOSTED_API_KEY="${config.sops.placeholder."aiProxy/selfHostedKey"}"
+            [ -n "$SELF_HOSTED_API_KEY" ] || SELF_HOSTED_API_KEY="$AI_PROXY_API_KEY"
+            export SELF_HOSTED_BASE_URL SELF_HOSTED_API_KEY
             export GITHUB_PERSONAL_ACCESS_TOKEN="${config.sops.placeholder."github/token"}"
             export SONAR_API_KEY="${config.sops.placeholder."sonar/apiKey"}"
             export SONAR_URL="${config.sops.placeholder."sonar/url"}"
