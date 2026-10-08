@@ -1,21 +1,26 @@
 { ... }: {
 
+  # settings blocks, not extraConfig: HM renders extraConfig under `Host *`,
+  # and asserts settings."*" exists, which shell.nix only declares on darwin.
   programs.ssh = {
     enable = true;
-    extraConfig = ''
-      Host github.com-secrets
-        Hostname github.com
-        IdentityFile=~/.ssh/id_ed25519
+    settings = {
+      "github.com-secrets" = {
+        HostName = "github.com";
+        IdentityFile = "~/.ssh/id_ed25519";
+      };
 
-      Host github.com-org
-        Hostname github.com
-        IdentityFile=~/.ssh/id_ed25519
+      "github.com-org" = {
+        HostName = "github.com";
+        IdentityFile = "~/.ssh/id_ed25519";
+      };
 
-      Host github.com
-        Hostname ssh.github.com
-        IdentityFile=~/.ssh/id_ed25519
-        Port 443
-    '';
+      "github.com" = {
+        HostName = "ssh.github.com";
+        IdentityFile = "~/.ssh/id_ed25519";
+        Port = 443;
+      };
+    };
   };
 
 }

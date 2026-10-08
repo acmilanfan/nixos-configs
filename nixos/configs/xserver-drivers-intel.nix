@@ -2,15 +2,10 @@
 
   services.xserver.videoDrivers = [ "intel" ];
 
-    # extract vaapi.nix
-  nixpkgs.config.packageOverrides = pkgs: {
-    vaapiIntel = pkgs.vaapiIntel.override { enableHybridCodec = true; };
-  };
-
   hardware.graphics = {
     enable = true;
     extraPackages = with pkgs; [
-      vaapiIntel
+      (intel-vaapi-driver.override { enableHybridCodec = true; })
       libva-vdpau-driver
       libvdpau-va-gl
       intel-media-driver
