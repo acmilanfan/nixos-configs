@@ -13,146 +13,206 @@
 #
 # Consumed by: ai_agents.sh (sketchybar), nanowm/agents.lua (Hammerspoon
 # chooser), hypr-ai-agents (waybar/vicinae dmenu), tmux-agent-switcher (fzf popup).
+#
+# Performance: the only subprocesses are one `ps` snapshot, two tmux queries
+# and one `capture-pane` per agent pane; all matching is done with bash
+# builtins. The previous version forked grep/cut/tr/ps per pane (~6ms each on
+# macOS), which added up to several seconds with a couple dozen panes.
 # ═══════════════════════════════════════════════════════════════
+
+shopt -s extglob
 
 AGENT_PROCESSES="claude .claude-wrapped gemini aider cursor antigravity agy opencode"
 
-# Return 0 (true) if the given pane content shows a confirmation prompt.
-content_is_confirm() {
-  local content="$1"
-  printf '%s\n' "$content" | grep -qF 'Allow once' && return 0
-  printf '%s\n' "$content" | grep -qF 'Allow for this session' && return 0
-  printf '%s\n' "$content" | grep -qF 'Allow in project' && return 0
-  printf '%s\n' "$content" | grep -qF 'Do you want to proceed?' && return 0
-  printf '%s\n' "$content" | grep -qiE '^[[:space:]]*(❯|›)[[:space:]]*(yes|no|deny)[[:space:]]*$' && return 0
-  printf '%s\n' "$content" | grep -qE '\[y/n\]|\[Y/n\]|\(y/n\)' && return 0
-  local tail5
-  tail5=$(printf '%s\n' "$content" | tail -5)
-  [ "$(printf '%s\n' "$tail5" | grep -cE '^\s*[0-9]+\. ')" -ge 2 ] && return 0
+# Whole-word regex per agent name (same semantics as `grep -w`).
+declare -A AGENT_RE
+for proc in $AGENT_PROCESSES; do
+  AGENT_RE[$proc]="(^|[^[:alnum:]_])${proc//./\\.}([^[:alnum:]_]|$)"
+done
+
+# Sets FOUND_AGENT to the first agent name found in the given command lines.
+find_agent() {
+  local proc re
+  FOUND_AGENT=""
+  for proc in $AGENT_PROCESSES; do
+    re=${AGENT_RE[$proc]}
+    if [[ $1 =~ $re ]]; then
+      FOUND_AGENT=$proc
+      return 0
+    fi
+  done
   return 1
 }
 
+# Return 0 (true) if the pane's last 20 lines show a confirmation prompt.
+pane_is_confirm() {
+  local lines line n start count=0 content
+  mapfile -t lines < <(tmux capture-pane -t "$1" -p 2>/dev/null)
+  n=${#lines[@]}
+  start=$(( n > 20 ? n - 20 : 0 ))
+  lines=("${lines[@]:start}")
+  n=${#lines[@]}
+  # Drop trailing empty lines (what $(...) used to strip).
+  while (( n > 0 )) && [[ -z ${lines[n-1]} ]]; do (( n-- )); done
+  (( n == 0 )) && return 1
+  lines=("${lines[@]:0:n}")
+
+  printf -v content '%s\n' "${lines[@]}"
+  case "$content" in
+    *"Allow once"*|*"Allow for this session"*|*"Allow in project"*|*"Do you want to proceed?"*) return 0 ;;
+    *"[y/n]"*|*"[Y/n]"*|*"(y/n)"*) return 0 ;;
+  esac
+
+  local re_choice='^[[:space:]]*(❯|›)[[:space:]]*(yes|no|deny)[[:space:]]*$'
+  shopt -s nocasematch
+  for line in "${lines[@]}"; do
+    if [[ $line =~ $re_choice ]]; then
+      shopt -u nocasematch
+      return 0
+    fi
+  done
+  shopt -u nocasematch
+
+  # Two or more numbered options in the last 5 lines.
+  local re_num='^[[:space:]]*[0-9]+\. '
+  start=$(( n > 5 ? n - 5 : 0 ))
+  for line in "${lines[@]:start}"; do
+    [[ $line =~ $re_num ]] && (( count++ ))
+  done
+  (( count >= 2 ))
+}
+
+# Sets TYPE to the capitalized agent name.
 capitalize_type() {
   case "$1" in
-    *Claude*|*claude*) echo "Claude" ;;
-    *Gemini*|*gemini*|*Test*) echo "Gemini" ;;
-    *Antigravity*|*antigravity*|*agy*) echo "Antigravity" ;;
-    *OpenCode*|*opencode*) echo "OpenCode" ;;
-    *) echo "${1^}" ;;
+    *Claude*|*claude*) TYPE="Claude" ;;
+    *Gemini*|*gemini*|*Test*) TYPE="Gemini" ;;
+    *Antigravity*|*antigravity*|*agy*) TYPE="Antigravity" ;;
+    *OpenCode*|*opencode*) TYPE="OpenCode" ;;
+    *) TYPE="${1^}" ;;
   esac
 }
 
 HOST_FULL=$(hostname 2>/dev/null)
 HOST_SHORT=${HOST_FULL%%.*}
 
-# Turn a raw pane title into a session description, or "" if it is just the
-# shell/tmux default (hostname, a path) or the agent's generic placeholder.
+# Sets TITLE to the session description from a raw pane title, or "" if it is
+# just the shell/tmux default (hostname, a path) or the agent's placeholder.
 clean_title() {
-  local t
-  t=$(printf '%s' "$1" | sed -E 's/^OC \| ?//; s/^[^A-Za-z0-9 ]+ +//; s/[[:space:]]+$//' | tr -d '|\n')
+  local t=$1 re='^[^A-Za-z0-9 ]+ +(.*)$'
+  if [[ $t == "OC |"* ]]; then t=${t#OC |}; t=${t# }; fi
+  [[ $t =~ $re ]] && t=${BASH_REMATCH[1]}
+  t=${t%%+([[:space:]])}
+  t=${t//|/}
+  t=${t//$'\n'/}
   case "$t" in
-    ""|"$HOST_FULL"|"$HOST_SHORT"|/*|"~"*|"Claude Code"|OpenCode|opencode) return ;;
+    ""|"$HOST_FULL"|"$HOST_SHORT"|/*|"~"*|"Claude Code"|OpenCode|opencode) t="" ;;
   esac
-  printf '%s' "$t"
+  TITLE=$t
 }
 
-AGENT_ENV=$(tmux show-environment -g 2>/dev/null | grep '^TMUX_AGENT_PANE_')
-# pane_title goes last: it can contain '|' (OpenCode's "OC | ..."), and the
-# readers below take everything after the 4th separator as the title.
-ALL_PANES=$(tmux list-panes -a -F '#{pane_id}|#{pane_pid}|#{pane_tty}|#{pane_current_path}|#{pane_title}' 2>/dev/null)
+# Sets PROJECT to the last path component of a cwd.
+project_of() {
+  PROJECT=${1%/}
+  PROJECT=${PROJECT##*/}
+  [ -z "$PROJECT" ] && PROJECT=${1:-?}
+  PROJECT=${PROJECT//|/}
+}
 
-if [ -z "$AGENT_ENV" ] && [ -z "$ALL_PANES" ]; then
+# Hook-reported agent state, keyed by pane id.
+declare -A ENV_STATE ENV_AGENT
+while IFS= read -r line; do
+  [[ $line =~ ^TMUX_AGENT_PANE_(%[0-9]+)_(STATE|AGENT)=([^=]*) ]] || continue
+  if [ "${BASH_REMATCH[2]}" = STATE ]; then
+    ENV_STATE[${BASH_REMATCH[1]}]=${BASH_REMATCH[3]}
+  else
+    ENV_AGENT[${BASH_REMATCH[1]}]=${BASH_REMATCH[3]}
+  fi
+done < <(tmux show-environment -g 2>/dev/null)
+
+# pane_title goes last: it can contain '|' (OpenCode's "OC | ..."), and read
+# assigns everything after the 4th separator to the title.
+declare -A PANE_LINE
+PANE_ORDER=()
+while IFS= read -r line; do
+  [ -z "$line" ] && continue
+  PANE_LINE[${line%%|*}]=$line
+  PANE_ORDER+=("${line%%|*}")
+done < <(tmux list-panes -a -F '#{pane_id}|#{pane_pid}|#{pane_tty}|#{pane_current_path}|#{pane_title}' 2>/dev/null)
+
+if (( ${#ENV_STATE[@]} + ${#ENV_AGENT[@]} == 0 && ${#PANE_ORDER[@]} == 0 )); then
   exit 0
 fi
 
-PROCESSED_PANES=""
+# One process snapshot: command lines and summed CPU (in tenths of a percent)
+# per tty, e.g. "ttys019" on macOS or "pts/3" on Linux.
+declare -A TTY_CMDS TTY_CPU
+while read -r tty cpu cmd; do
+  case "$tty" in ""|"?"|"??") continue ;; esac
+  TTY_CMDS[$tty]+="$cmd"$'\n'
+  cpu=${cpu//[.,]/}
+  [[ $cpu =~ ^[0-9]+$ ]] || cpu=0
+  (( TTY_CPU[$tty] += 10#$cpu ))
+done < <(ps -A -o tty=,pcpu=,command= 2>/dev/null)
+
+declare -A PROCESSED
 
 # Phase 1: env-tracked panes (hooks), verified against a live process
-if [ -n "$AGENT_ENV" ]; then
-  PANE_IDS_ENV=$(echo "$AGENT_ENV" | grep -o '%[0-9]*' | sort -u)
-  for pane_id in $PANE_IDS_ENV; do
-    status=$(echo "$AGENT_ENV" | grep "^TMUX_AGENT_PANE_${pane_id}_STATE=" | cut -d= -f2)
-    agent_name=$(echo "$AGENT_ENV" | grep "^TMUX_AGENT_PANE_${pane_id}_AGENT=" | cut -d= -f2)
+if (( ${#ENV_STATE[@]} + ${#ENV_AGENT[@]} > 0 )); then
+  mapfile -t PANE_IDS_ENV < <(printf '%s\n' "${!ENV_STATE[@]}" "${!ENV_AGENT[@]}" | sort -u)
+  for pane_id in "${PANE_IDS_ENV[@]}"; do
+    status=${ENV_STATE[$pane_id]}
+    agent_name=${ENV_AGENT[$pane_id]}
 
     [ -z "$status" ] || [ "$status" = "off" ] && continue
 
-    PANE_INFO=$(echo "$ALL_PANES" | grep "^${pane_id}|" | head -1)
-    if [ -z "$PANE_INFO" ]; then
+    pane_line=${PANE_LINE[$pane_id]}
+    if [ -z "$pane_line" ]; then
       tmux set-environment -ug "TMUX_AGENT_PANE_${pane_id}_STATE" 2>/dev/null
       tmux set-environment -ug "TMUX_AGENT_PANE_${pane_id}_AGENT" 2>/dev/null
       continue
     fi
-
-    tty=$(echo "$PANE_INFO" | cut -d'|' -f3)
+    IFS='|' read -r _ _ tty cwd raw_title <<< "$pane_line"
     tty_short=${tty#/dev/}
-    TTY_PROCS_P1=$(ps -t "$tty_short" -o command= 2>/dev/null)
-    found_proc=0
-    if [ -n "$TTY_PROCS_P1" ]; then
-      for proc in $AGENT_PROCESSES; do
-        if echo "$TTY_PROCS_P1" | grep -qw "$proc"; then
-          found_proc=1; break
-        fi
-      done
-    else
-      # ps found nothing at all for this tty (not even a shell) -- that's a
-      # sign the tty lookup itself failed, not proof the agent process died.
-      # Leave the tracked hook state alone rather than risk deleting it.
-      continue
-    fi
 
-    if [ "$found_proc" -eq 0 ]; then
+    # ps found nothing at all for this tty (not even a shell) -- that's a
+    # sign the tty lookup itself failed, not proof the agent process died.
+    # Leave the tracked hook state alone rather than risk deleting it.
+    [ -z "${TTY_CMDS[$tty_short]}" ] && continue
+
+    if ! find_agent "${TTY_CMDS[$tty_short]}"; then
       tmux set-environment -ug "TMUX_AGENT_PANE_${pane_id}_STATE" 2>/dev/null
       tmux set-environment -ug "TMUX_AGENT_PANE_${pane_id}_AGENT" 2>/dev/null
       continue
     fi
 
-    PROCESSED_PANES="$PROCESSED_PANES $pane_id"
+    PROCESSED[$pane_id]=1
 
-    cwd=$(echo "$PANE_INFO" | cut -d'|' -f4 | tr -d '|\n')
-    title=$(clean_title "$(echo "$PANE_INFO" | cut -d'|' -f5-)")
-    project=$(basename "$cwd" 2>/dev/null || echo "?")
-    project=$(printf '%s' "$project" | tr -d '|\n')
+    pane_is_confirm "$pane_id" && status="needs-input"
 
-    PANE_CONTENT=$(tmux capture-pane -t "$pane_id" -p 2>/dev/null | tail -20)
-    if [ -n "$PANE_CONTENT" ] && content_is_confirm "$PANE_CONTENT"; then
-      status="needs-input"
-    fi
-
-    type=$(capitalize_type "$agent_name")
-    echo "${pane_id}|${status}|${type}|${project}|${cwd}|${title}"
+    capitalize_type "$agent_name"
+    project_of "$cwd"
+    clean_title "$raw_title"
+    printf '%s|%s|%s|%s|%s|%s\n' "$pane_id" "$status" "$TYPE" "$PROJECT" "$cwd" "$TITLE"
   done
 fi
 
 # Phase 2: process/CPU fallback for panes not already covered by phase 1
-while IFS='|' read -r pane_id pid tty cwd raw_title; do
-  [[ " $PROCESSED_PANES " == *" $pane_id "* ]] && continue
+for pane_id in "${PANE_ORDER[@]}"; do
+  [ -n "${PROCESSED[$pane_id]}" ] && continue
 
+  IFS='|' read -r _ _ tty cwd raw_title <<< "${PANE_LINE[$pane_id]}"
   tty_short=${tty#/dev/}
-  TTY_PROCS=$(ps -t "$tty_short" -o command= 2>/dev/null)
-  [ -z "$TTY_PROCS" ] && continue
+  [ -z "${TTY_CMDS[$tty_short]}" ] && continue
+  find_agent "${TTY_CMDS[$tty_short]}" || continue
 
-  found_agent=""
-  for proc in $AGENT_PROCESSES; do
-    if echo "$TTY_PROCS" | grep -qw "$proc"; then
-      found_agent="$proc"
-      break
-    fi
-  done
-  [ -z "$found_agent" ] && continue
-
-  cpu_sum=$(ps -t "$tty_short" -o %cpu= 2>/dev/null | awk '{s+=$1}END{printf "%.0f", s*10}')
   status="idle"
-  [ "${cpu_sum:-0}" -gt 10 ] && status="running"   # > 1.0% CPU total on TTY
+  (( ${TTY_CPU[$tty_short]:-0} > 10 )) && status="running"   # > 1.0% CPU total on TTY
 
-  PANE_CONTENT=$(tmux capture-pane -t "$pane_id" -p 2>/dev/null | tail -20)
-  if [ -n "$PANE_CONTENT" ] && content_is_confirm "$PANE_CONTENT"; then
-    status="needs-input"
-  fi
+  pane_is_confirm "$pane_id" && status="needs-input"
 
-  type=$(capitalize_type "$found_agent")
-  project=$(basename "$cwd" 2>/dev/null || echo "?")
-  project=$(printf '%s' "$project" | tr -d '|\n')
-  cwd=$(printf '%s' "$cwd" | tr -d '\n')
-  title=$(clean_title "$raw_title")
-  echo "${pane_id}|${status}|${type}|${project}|${cwd}|${title}"
-done <<< "$ALL_PANES"
+  capitalize_type "$FOUND_AGENT"
+  project_of "$cwd"
+  clean_title "$raw_title"
+  printf '%s|%s|%s|%s|%s|%s\n' "$pane_id" "$status" "$TYPE" "$PROJECT" "$cwd" "$TITLE"
+done
