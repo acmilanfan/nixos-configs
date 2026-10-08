@@ -33,6 +33,25 @@ let
             type = "command";
             command = "agent-state --agent ${agent} --state done &";
           }
+          # Snapshot the worktree at the end of every turn; with the pre-turn
+          # snapshot below, `agent-checkpoint diff` (and <leader>gat in nvim)
+          # shows exactly what this turn changed.
+          {
+            type = "command";
+            command = "agent-checkpoint hook ${agent} post >/dev/null 2>&1 || true";
+          }
+        ];
+      }
+    ];
+    # Synchronous on purpose: the snapshot must land before the agent starts
+    # editing. Its stdout would be added to the prompt, hence >/dev/null.
+    UserPromptSubmit = [
+      {
+        hooks = [
+          {
+            type = "command";
+            command = "agent-checkpoint hook ${agent} pre >/dev/null 2>&1 || true";
+          }
         ];
       }
     ];
@@ -340,10 +359,12 @@ EOF
     )
 
     # GitHub MCP auth header from the sops secret. sops-nix's launchd agent
-    # decrypts asynchronously, so give a fresh decryption a few seconds.
+    # decrypts asynchronously (GPG took >5s on a first switch), so wait up to
+    # 20s for the file to exist; an empty token (hosts without one) exists
+    # too, so this never stalls a routine switch.
     GITHUB_TOKEN_FILE="${githubTokenFile}"
     if [ -n "$GITHUB_TOKEN_FILE" ]; then
-      for _ in 1 2 3 4 5 6 7 8 9 10; do [ -s "$GITHUB_TOKEN_FILE" ] && break; sleep 0.5; done
+      for _ in $(seq 40); do [ -e "$GITHUB_TOKEN_FILE" ] && break; sleep 0.5; done
       if [ -s "$GITHUB_TOKEN_FILE" ]; then
         NEW_AGY_SETTINGS=$(printf '%s' "$NEW_AGY_SETTINGS" | ${pkgs.jq}/bin/jq -c --rawfile t "$GITHUB_TOKEN_FILE" \
           '.mcpServers.github.headers.Authorization = "Bearer " + ($t | rtrimstr("\n"))')
