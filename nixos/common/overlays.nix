@@ -20,7 +20,7 @@ final: prev: {
     then final.callPackage ./pkgs/warpd.nix { }
     else prev.warpd;
   blueutil-tui = if final.stdenv.hostPlatform.isDarwin
-    then final.callPackage ./pkgs/blueutil-tui.nix { }
+    then final.callPackage ./pkgs/blueutil-tui.nix { src = inputs.blueutil-tui; }
     else prev.blueutil-tui or null;
 
   # arrow-azurefs-test tries to send Azure SDK telemetry over HTTPS

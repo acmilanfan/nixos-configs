@@ -2,12 +2,14 @@
   pkgs,
   lib,
   unstable,
+  inputs,
   ...
 }:
 
 let
   customPlugins = pkgs.callPackage ./neovim/plugins.nix {
     inherit (pkgs.vimUtils) buildVimPlugin;
+    inherit inputs;
   };
   jdtlsWrapped = pkgs.writeShellScriptBin "jdtls" ''
     ${unstable.jdt-language-server}/bin/jdtls \

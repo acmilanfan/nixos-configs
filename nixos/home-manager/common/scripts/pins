@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+# Manage the plain-source flake inputs (`flake = false`) of this repo: the
+# vim/tmux plugins and packages built from a git checkout. flake.lock pins
+# them; this bumps only them, never nixpkgs or the other flakes.
+#
+#   pins [list]               name, locked rev, date, what it tracks
+#   pins outdated             which ones have new upstream commits (git ls-remote)
+#   pins update [name...]     bump all (or the named) ones and print compare links
+#
+# Uses the flake in the current git repo if it has a flake.lock, else
+# $PINS_FLAKE (default ~/configs/nixos-configs).
+set -euo pipefail
+
+flake="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+[ -n "$flake" ] && [ -f "$flake/flake.lock" ] || flake="${PINS_FLAKE:-$HOME/configs/nixos-configs}"
+lock="$flake/flake.lock"
+[ -f "$lock" ] || { echo "pins: no flake.lock in $flake" >&2; exit 1; }
+
+# name<TAB>type<TAB>owner<TAB>repo<TAB>ref<TAB>rev<TAB>lastModified, for
+# direct inputs of the root that are not flakes. Empty fields are "-":
+# `read` with a whitespace IFS would merge adjacent tabs.
+plain() {
+  jq -r '
+    .nodes as $n
+    | $n[.root].inputs | to_entries[]
+    | select((.value | type) == "string")
+    | .key as $name | $n[.value] as $node
+    | select($node.flake == false)
+    | [$name, $node.locked.type, ($node.locked.owner // "-"), ($node.locked.repo // "-"),
+       ($node.original.ref // "-"), $node.locked.rev, ($node.locked.lastModified | tostring)]
+    | @tsv' "$1"
+}
+
+fmt_date() { date -u -r "$1" +%F 2>/dev/null || date -u -d "@$1" +%F; }
+
+cmd="${1:-list}"
+[ $# -gt 0 ] && shift
+
+case "$cmd" in
+  list)
+    plain "$lock" | while IFS=$'\t' read -r name _type owner repo ref rev ts; do
+      [ "$ref" = - ] && ref=""
+      printf '%-22s %s  %s  %s/%s%s\n' "$name" "${rev:0:7}" "$(fmt_date "$ts")" "$owner" "$repo" "${ref:+ ($ref)}"
+    done
+    ;;
+
+  outdated)
+    plain "$lock" | while IFS=$'\t' read -r name type owner repo ref rev _ts; do
+      if [ "$type" != github ]; then
+        printf '%-22s (skipped: %s input)\n' "$name" "$type"
+        continue
+      fi
+      [ "$ref" = - ] && ref=""
+      head="$(git ls-remote "https://github.com/$owner/$repo" "${ref:-HEAD}" 2>/dev/null | awk 'NR == 1 { print $1 }')"
+      if [ -z "$head" ]; then
+        printf '%-22s ? (ls-remote failed)\n' "$name"
+      elif [ "$head" = "$rev" ]; then
+        printf '%-22s up to date\n' "$name"
+      else
+        printf '%-22s https://github.com/%s/%s/compare/%s...%s\n' "$name" "$owner" "$repo" "${rev:0:12}" "${head:0:12}"
+      fi
+    done
+    ;;
+
+  update)
+    if [ $# -gt 0 ]; then
+      names=("$@")
+    else
+      mapfile -t names < <(plain "$lock" | cut -f1)
+    fi
+    before="$(mktemp)"
+    trap 'rm -f "$before"' EXIT
+    cp "$lock" "$before"
+    nix flake update --flake "$flake" "${names[@]}"
+    echo
+    changed=0
+    while IFS=$'\t' read -r name type owner repo _ref rev ts; do
+      old="$(plain "$before" | awk -F'\t' -v n="$name" '$1 == n { print $6 }')"
+      [ -n "$old" ] && [ "$old" != "$rev" ] || continue
+      changed=1
+      if [ "$type" = github ]; then
+        printf '%-22s %s  https://github.com/%s/%s/compare/%s...%s\n' "$name" "$(fmt_date "$ts")" "$owner" "$repo" "${old:0:12}" "${rev:0:12}"
+      else
+        printf '%-22s %s -> %s\n' "$name" "${old:0:7}" "${rev:0:7}"
+      fi
+    done < <(plain "$lock")
+    [ "$changed" = 1 ] || echo "pins: everything already up to date"
+    ;;
+
+  -h|--help|help)
+    awk '/^# /{p=1} /^set -euo/{if(p) exit} p' "$0" | sed 's/^# \{0,1\}//'
+    ;;
+
+  *)
+    echo "pins: unknown command $cmd (try --help)" >&2
+    exit 1
+    ;;
+esac

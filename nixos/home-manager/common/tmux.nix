@@ -1,4 +1,4 @@
-{ pkgs, lib, ... }:
+{ pkgs, lib, inputs, ... }:
 let
   tmuxUpdateEnv = pkgs.writeShellScriptBin "tmux-update-env" ''
     SOCK=$(tmux show-environment -g SSH_AUTH_SOCK | cut -d= -f2)
@@ -8,15 +8,15 @@ let
     fi
   '';
 
+  # flake inputs (flake.lock pins them; `pins update <name>` bumps them)
+  inputVersion = src:
+    let d = src.lastModifiedDate;
+    in "unstable-${lib.substring 0 4 d}-${lib.substring 4 2 d}-${lib.substring 6 2 d}";
+
   tmux-agent-indicator = pkgs.tmuxPlugins.mkTmuxPlugin {
     pluginName = "agent-indicator";
-    version = "unstable-2026-02-23";
-    src = pkgs.fetchFromGitHub {
-      owner = "accessd";
-      repo = "tmux-agent-indicator";
-      rev = "main";
-      hash = "sha256-VCq7Muvpke9goN1RTcIChW+c/SkFHUSJdoEGKH+CaMQ=";
-    };
+    version = inputVersion inputs.tmux-agent-indicator;
+    src = inputs.tmux-agent-indicator;
     postInstall = ''
       cd $out/share/tmux-plugins/agent-indicator
       ln -s agent-indicator.tmux agent_indicator.tmux
@@ -27,19 +27,14 @@ let
   };
 
   # tmux-resurrect patched:
-  #  - src bumped to upstream 2023-03-06 (nixpkgs pins 2022-05-01, which lacks
-  #    the `*` argument restore fixes needed to relaunch agent CLIs)
+  #  - src from upstream master via the flake input (nixpkgs pins 2022-05-01,
+  #    which lacks the `*` argument restore fixes needed to relaunch agent CLIs)
   #  - empty pane titles fall back to the cwd in pane_format; otherwise bash
   #    `read` with IFS=<tab> collapses the empty title field, shifting every
   #    later column (dir becomes "1"), and restore silently falls back to $HOME
   resurrectPatched = pkgs.tmuxPlugins.resurrect.overrideAttrs (old: {
-    name = "tmuxplugin-resurrect-unstable-2023-03-06";
-    src = pkgs.fetchFromGitHub {
-      owner = "tmux-plugins";
-      repo = "tmux-resurrect";
-      rev = "cff343cf9e81983d3da0c8562b01616f12e8d548";
-      hash = "sha256-FcSjYyWjXM1B+WmiK2bqUNJYtH7sJBUsY2IjSur5TjY=";
-    };
+    name = "tmuxplugin-resurrect-${inputVersion inputs.tmux-resurrect}";
+    src = inputs.tmux-resurrect;
     # upstream tests symlink into the tmux-test submodule, which GitHub
     # archives do not include; drop them before fixup flags broken symlinks
     postInstall = (old.postInstall or "") + ''
@@ -238,6 +233,9 @@ in
       ''}
       # AI agent switcher: fzf --tmux popup listing all tracked agent panes
       bind-key A run-shell -b "tmux-agent-switcher"
+      # Review the last agent turn in this pane's worktree (agent-checkpoint +
+      # diffview); q closes the review and the popup
+      bind-key D display-popup -E -w 95% -h 95% -d "#{pane_current_path}" "nvim -c 'let g:agent_review_popup = 1' -c AgentReview"
     '';
     plugins = with pkgs.tmuxPlugins; [
       sensible

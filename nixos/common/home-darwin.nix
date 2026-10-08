@@ -327,10 +327,7 @@ in
     #  sha256 = "0swzy9wvgjc93l0qc89m0zk9j0xk14w71v38vqfy2b96f4qd59p4";
     #};
     ".hammerspoon/Spoons/VimMode.spoon".source = pkgs.runCommand "VimMode.spoon" {} ''
-      cp -r ${pkgs.fetchzip {
-        url = "https://github.com/dbalatero/VimMode.spoon/archive/a428e1ae9cc5d937fa6d148da6e2a779c7594abd.zip";
-        sha256 = "C4WDpMVDF0zuDV4rZYx05gwn8YZf3tOGegBj8dma8vY=";
-      }} $out
+      cp -r ${inputs.vimmode-spoon} $out
       chmod -R u+w $out
       cp ${../../dotfiles/hammerspoon/patches/focus_watcher.lua} $out/lib/focus_watcher.lua
     '';

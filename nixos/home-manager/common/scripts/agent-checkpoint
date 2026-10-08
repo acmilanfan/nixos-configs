@@ -1,0 +1,254 @@
+#!/usr/bin/env bash
+# Per-turn git snapshots of an agent's worktree, without touching the branch,
+# HEAD or the real index (idea borrowed from t3code's turn checkpoints).
+#
+# Each agent session gets one per-worktree ref, refs/worktree/agent/<session>,
+# whose commit chain alternates "pre" (prompt submitted) and "post" (turn
+# finished) snapshots of the whole working tree, untracked files included
+# (.gitignore is respected). Per-worktree refs vanish with `git worktree
+# remove`; in the main checkout use `prune`.
+#
+#   agent-checkpoint save <pre|post> <session> [agent]   snapshot now
+#   agent-checkpoint hook <agent> <pre|post>             same, from hook JSON on stdin
+#   agent-checkpoint list                                sessions in this worktree
+#   agent-checkpoint log [session]                       turns of a session
+#   agent-checkpoint range [-s session] [turn|all]       "<pre> <post>" commits of a turn
+#   agent-checkpoint diff [-s session] [turn|all] [git-diff-args...]
+#   agent-checkpoint restore [-s session] <turn> [--yes] reset files to the turn's pre state
+#   agent-checkpoint restore --undo [--yes]              undo the last restore
+#   agent-checkpoint prune [days]                        drop sessions idle > days (default 14)
+#
+# <session> defaults to the most recently updated session; <turn> defaults to
+# the latest one (1 = first turn, -1 = previous, "all" = whole session).
+set -euo pipefail
+
+NS="refs/worktree/agent"
+UNDO_REF="refs/worktree/agent-undo"
+TMP_INDEX=""
+trap '[ -z "$TMP_INDEX" ] || rm -f "$TMP_INDEX"' EXIT
+
+die() { echo "agent-checkpoint: $*" >&2; exit 1; }
+
+in_repo() { git rev-parse --is-inside-work-tree >/dev/null 2>&1; }
+
+latest_session() {
+  git for-each-ref --sort=-committerdate --count=1 --format='%(refname)' "$NS/" |
+    sed "s#^$NS/##"
+}
+
+resolve_session() {
+  local s="${1:-}"
+  [ -n "$s" ] || s="$(latest_session)"
+  [ -n "$s" ] || die "no agent checkpoints in this worktree"
+  git rev-parse -q --verify "$NS/$s" >/dev/null || die "unknown session: $s"
+  printf '%s' "$s"
+}
+
+# "<hash> <event> <turn>" per checkpoint, oldest first
+entries() {
+  git log --reverse --format='%H %(trailers:key=Agent-Event,valueonly,separator=)%x20%(trailers:key=Agent-Turn,valueonly,separator=)' "$NS/$1"
+}
+
+save() {
+  local event="$1" session="$2" agent="${3:-agent}"
+  case "$event" in pre|post) ;; *) die "event must be pre or post" ;; esac
+  session="$(printf '%s' "$session" | tr -c 'A-Za-z0-9._-' '_')"
+  [ -n "$session" ] || die "empty session id"
+  in_repo || return 0
+  cd "$(git rev-parse --show-toplevel)"
+
+  local ref="$NS/$session" parent="" turn=0 last
+  if parent="$(git rev-parse -q --verify "$ref^{commit}")"; then
+    last="$(git log -1 --format='%(trailers:key=Agent-Turn,valueonly,separator=)' "$parent")"
+    turn="${last:-0}"
+  else
+    parent=""
+  fi
+  [ "$event" = pre ] && turn=$((turn + 1))
+  [ "$turn" -ge 1 ] || turn=1
+
+  # Snapshot through a throwaway index seeded from the real one, so unchanged
+  # files hit the stat cache and the user's staging area is left alone.
+  local commit
+  commit="$(printf '%s turn %s (%s)\n\nAgent-Event: %s\nAgent-Turn: %s\nAgent-Name: %s\n' \
+    "$event" "$turn" "$agent" "$event" "$turn" "$agent" |
+    snapshot_commit "$parent")"
+  # old value guards against two hooks racing on the same session
+  git update-ref -m "agent-checkpoint $event $turn" "$ref" "$commit" "$parent"
+}
+
+# Commit of the current working tree (message on stdin, optional parent),
+# not referenced by anything; must run from the top level.
+snapshot_commit() {
+  local parent="${1:-}" tree
+  local -a parent_args=()
+  [ -n "$parent" ] && parent_args=(-p "$parent")
+  # A throwaway index seeded from the real one: unchanged files hit the stat
+  # cache and the user's staging area is left alone.
+  TMP_INDEX="$(mktemp "${TMPDIR:-/tmp}/agent-checkpoint.XXXXXX")"
+  cp "$(git rev-parse --git-path index)" "$TMP_INDEX" 2>/dev/null || rm -f "$TMP_INDEX"
+  GIT_INDEX_FILE="$TMP_INDEX" git add -A -- . >/dev/null 2>&1
+  tree="$(GIT_INDEX_FILE="$TMP_INDEX" git write-tree)"
+  rm -f "$TMP_INDEX"
+  git commit-tree "$tree" "${parent_args[@]}"
+}
+
+# Resolve a turn selector to "<pre> <post>". A turn still running (no post
+# yet) ends at a live snapshot of the working tree. Plain `git diff <commit>`
+# would not do: it only sees files in the real index, so files the agent
+# created would show up as deleted.
+turn_range() {
+  local session="$1" sel="${2:-}" max pre post
+  local -a lines
+  mapfile -t lines < <(entries "$session")
+  max="$(printf '%s\n' "${lines[@]}" | awk '{ if ($3 > m) m = $3 } END { print m + 0 }')"
+  [ "$max" -ge 1 ] || die "session $session has no turns"
+
+  if [ "$sel" = all ]; then
+    pre="$(printf '%s\n' "${lines[@]}" | awk '$2 == "pre" { print $1; exit }')"
+    post="$(printf '%s\n' "${lines[@]}" | awk '{ h = $1 } END { print h }')"
+    # last snapshot is a "pre": the latest turn is still running
+    [ "$(printf '%s\n' "${lines[-1]}" | awk '{ print $2 }')" = post ] || post="$(live_commit)"
+    printf '%s %s\n' "$pre" "$post"
+    return
+  fi
+
+  local n="${sel:-$max}"
+  [[ "$n" =~ ^-?[0-9]+$ ]] || die "bad turn: $n"
+  [ "$n" -le 0 ] && n=$((max + n))
+  [ "$n" -ge 1 ] && [ "$n" -le "$max" ] || die "turn out of range (1..$max)"
+  pre="$(printf '%s\n' "${lines[@]}" | awk -v n="$n" '$2 == "pre" && $3 == n { print $1; exit }')"
+  post="$(printf '%s\n' "${lines[@]}" | awk -v n="$n" '$2 == "post" && $3 == n { h = $1 } END { print h }')"
+  # a "post" without a recorded "pre" (hook missed): diff against the previous snapshot
+  if [ -z "$pre" ] && [ -n "$post" ]; then
+    pre="$(git rev-parse -q --verify "$post^" || true)"
+  fi
+  [ -n "$pre" ] || die "turn $n has no starting snapshot"
+  [ -n "$post" ] || post="$(live_commit)"
+  printf '%s %s\n' "$pre" "$post"
+}
+
+live_commit() {
+  (cd "$(git rev-parse --show-toplevel)" && echo "working tree" | snapshot_commit)
+}
+
+parse_session_flag() {
+  SESSION=""
+  ARGS=()
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      -s|--session) SESSION="$2"; shift 2 ;;
+      *) ARGS+=("$1"); shift ;;
+    esac
+  done
+}
+
+cmd="${1:-}"
+[ $# -gt 0 ] && shift
+
+case "$cmd" in
+  save)
+    [ $# -ge 2 ] || die "usage: save <pre|post> <session> [agent]"
+    [ "${AGENT_CHECKPOINT:-1}" = 0 ] && exit 0
+    save "$@"
+    ;;
+
+  hook)
+    # Hooks must never fail or print: stdout of a UserPromptSubmit hook is
+    # fed to the model.
+    [ "${AGENT_CHECKPOINT:-1}" = 0 ] && exit 0
+    agent="${1:-agent}" event="${2:-}"
+    input="$(cat)"
+    session="$(printf '%s' "$input" | jq -r '.session_id // .sessionId // .conversationId // empty' 2>/dev/null || true)"
+    dir="$(printf '%s' "$input" | jq -r '.cwd // empty' 2>/dev/null || true)"
+    [ -n "$session" ] || exit 0
+    [ -n "$dir" ] && { cd "$dir" 2>/dev/null || exit 0; }
+    save "$event" "$session" "$agent" >/dev/null 2>&1 || true
+    ;;
+
+  list)
+    in_repo || die "not in a git repository"
+    git for-each-ref --sort=-committerdate \
+      --format='%(refname)%09%(committerdate:relative)%09%(trailers:key=Agent-Name,valueonly,separator=)%09turn %(trailers:key=Agent-Turn,valueonly,separator=)' \
+      "$NS/" | sed "s#^$NS/##" | awk -F'\t' '{ printf "%-40s  %-16s  %-9s  %s\n", $1, $2, $3, $4 }'
+    ;;
+
+  log)
+    in_repo || die "not in a git repository"
+    s="$(resolve_session "${1:-}")"
+    git log --reverse --format='%h  %cr  %s' --shortstat "$NS/$s" | awk 'NF'
+    ;;
+
+  range)
+    in_repo || die "not in a git repository"
+    parse_session_flag "$@"
+    s="$(resolve_session "$SESSION")"
+    turn_range "$s" "${ARGS[0]:-}"
+    ;;
+
+  diff)
+    in_repo || die "not in a git repository"
+    parse_session_flag "$@"
+    s="$(resolve_session "$SESSION")"
+    sel=""
+    if [ ${#ARGS[@]} -gt 0 ] && [[ "${ARGS[0]}" =~ ^(-?[0-9]+|all)$ ]]; then
+      sel="${ARGS[0]}"; ARGS=("${ARGS[@]:1}")
+    fi
+    range="$(turn_range "$s" "$sel")"
+    git diff "${range%% *}" "${range#* }" "${ARGS[@]}"
+    ;;
+
+  restore)
+    in_repo || die "not in a git repository"
+    parse_session_flag "$@"
+    yes=""; sel=""; undo=""
+    for a in "${ARGS[@]}"; do
+      case "$a" in --yes|-y) yes=1 ;; --undo) undo=1 ;; *) sel="$a" ;; esac
+    done
+    if [ -n "$undo" ]; then
+      target="$(git rev-parse -q --verify "$UNDO_REF^{commit}")" || die "nothing to undo"
+      what="the state before the last restore"
+    else
+      [ -n "$sel" ] || die "usage: restore [-s session] <turn> [--yes] | restore --undo [--yes]"
+      s="$(resolve_session "$SESSION")"
+      range="$(turn_range "$s" "$sel")"
+      target="${range%% *}"
+      what="the start of turn $sel of $s"
+    fi
+    cd "$(git rev-parse --show-toplevel)"
+    # Snapshot the current state first, so the restore itself can be undone.
+    prev="$(git rev-parse -q --verify "$UNDO_REF^{commit}" || true)"
+    now="$(echo "before restore" | snapshot_commit "$prev")"
+    if [ -z "$yes" ]; then
+      echo "Reset files in $(pwd) to $what:"
+      git diff --stat "$now" "$target"
+      read -r -p "Proceed? [y/N] " ans
+      [ "$ans" = y ] || [ "$ans" = Y ] || exit 1
+    fi
+    git update-ref -m "agent-checkpoint restore" "$UNDO_REF" "$now"
+    # files added since the target (tracked or not) are removed, the rest is
+    # checked out from it; the real index is not touched
+    git diff --name-only -z --no-renames --diff-filter=A "$target" "$now" |
+      while IFS= read -r -d '' f; do rm -f -- "$f"; done
+    git restore --source="$target" --worktree -- .
+    echo "Restored $what. Undo with: agent-checkpoint restore --undo"
+    ;;
+
+  prune)
+    in_repo || die "not in a git repository"
+    days="${1:-14}"
+    cutoff=$(( $(date +%s) - days * 86400 ))
+    git for-each-ref --format='%(refname) %(committerdate:unix)' "$NS/" "$UNDO_REF" |
+      while read -r ref ts; do
+        if [ "$ts" -lt "$cutoff" ]; then
+          git update-ref -d "$ref" && echo "pruned ${ref#"$NS/"}"
+        fi
+      done
+    ;;
+
+  ""|-h|--help|help)
+    awk '/^# /{p=1} /^set -euo/{if(p) exit} p' "$0" | sed 's/^# \{0,1\}//'
+    ;;
+
+  *) die "unknown command: $cmd (try --help)" ;;
+esac

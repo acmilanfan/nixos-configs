@@ -7,6 +7,17 @@
       (writeShellScriptBin "worktree-switch" (lib.readFile ./scripts/worktree-switch))
       (writeShellScriptBin "worktree-remove" (lib.readFile ./scripts/worktree-remove))
       (writeShellScriptBin "ai-agent-list" (lib.readFile ./scripts/ai-agent-list))
+      (writeShellScriptBin "wt-setup" (lib.readFile ./scripts/wt-setup))
+      (writeShellApplication {
+        name = "pins";
+        runtimeInputs = [ git jq ];
+        text = lib.readFile ./scripts/pins;
+      })
+      (writeShellApplication {
+        name = "agent-checkpoint";
+        runtimeInputs = [ git jq ];
+        text = lib.readFile ./scripts/agent-checkpoint;
+      })
       # Python-backed AI tools: bundle the .py with its wrapper so the store
       # package is self-contained (uvx provides the `openai` SDK at runtime).
       (stdenv.mkDerivation {
@@ -135,11 +146,9 @@
   };
 
   home.file = {
-    ".config/bat/themes/nightfox.tmTheme".source = pkgs.fetchurl {
-      url =
-        "https://raw.githubusercontent.com/EdenEast/nightfox.nvim/main/extra/nightfox/nightfox.tmTheme";
-      sha256 = "sha256-J/0baDEYrV7on7qeHa4dIvLHPY4CH0lVLj4IR2G0pNs= ";
-    };
+    # ships with the nightfox plugin, so it moves with nixpkgs
+    ".config/bat/themes/nightfox.tmTheme".source =
+      "${pkgs.vimPlugins.nightfox-nvim}/extra/nightfox/nightfox.tmTheme";
 
     ".config/bat/config".text = ''
       --theme=nightfox

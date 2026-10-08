@@ -61,6 +61,7 @@ nix build .#vm-hyprland-image
 - **Shared Darwin Config:** `darwin/common.nix` contains system-level defaults, Homebrew integration, and the kanata/startup launchd services. The per-Mac files (`darwin/mac-*.nix`) set up the `nix.linux-builder` VM.
 - **Home Manager:** Used for both Linux and macOS user environments. `nixos/common/home-darwin.nix` holds the shared macOS settings and imports `nixos/home-manager/common/`.
 - **Package channels:** Home Manager gets both `pkgs` (stable `nixos-26.05`) and `unstable` (`nixos-unstable`) through `extraSpecialArgs`.
+- **Pinned sources:** Plugins and packages built from a git checkout (custom vim plugins, tmux plugins, `blueutil-tui`, VimMode.spoon) are `flake = false` inputs in `flake.nix`, not `fetchFromGitHub` with a hand-kept hash. Use them as `src = inputs.<name>`. `pins outdated` lists the ones with new upstream commits, and `pins update [name...]` bumps only those. Release-tagged packages (`opencode-telegram-bot`, `warpd`) still use versioned fetchers.
 - **Dotfile Management:** Files in `dotfiles/` are symlinked to `$HOME` using Home Manager's `home.file` attribute.
 - **Homebrew:** Managed via `nix-homebrew` within `nix-darwin` configurations to ensure a unified setup.
 

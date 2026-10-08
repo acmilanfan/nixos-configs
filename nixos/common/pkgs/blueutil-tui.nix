@@ -1,16 +1,12 @@
-{ pkgs, lib, fetchFromGitHub, python3Packages }:
+{ pkgs, lib, src, python3Packages }:
 
 python3Packages.buildPythonApplication rec {
   pname = "blueutil-tui";
   version = "latest";
   pyproject = true;
 
-  src = fetchFromGitHub {
-    owner = "zaloog";
-    repo = "blueutil-tui";
-    rev = "main";
-    hash = "sha256-CPa3TU3CV9WA5umnLzrFUa6nySnainmv1ymxAGAZazY=";
-  };
+  # flake input `blueutil-tui` (pinned in flake.lock, bump with `pins update`)
+  inherit src;
 
   nativeBuildInputs = with python3Packages; [
     setuptools

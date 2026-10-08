@@ -92,6 +92,25 @@
       inputs.pyproject-nix.follows = "pyproject-nix";
       inputs.uv2nix.follows = "uv2nix";
     };
+
+    # Plain sources (flake = false) for plugins/packages built in this repo.
+    # flake.lock pins them; `pins outdated` / `pins update [name...]` bumps
+    # only these, leaving nixpkgs and the other flakes alone.
+    tmux-agent-indicator = { url = "github:accessd/tmux-agent-indicator"; flake = false; };
+    tmux-resurrect = { url = "github:tmux-plugins/tmux-resurrect"; flake = false; };
+    telescope-orgmode = { url = "github:nvim-orgmode/telescope-orgmode.nvim"; flake = false; };
+    org-bullets = { url = "github:nvim-orgmode/org-bullets.nvim"; flake = false; };
+    nvim-macroni = { url = "github:jesseleite/nvim-macroni"; flake = false; };
+    lsplinks-nvim = { url = "github:icholy/lsplinks.nvim"; flake = false; };
+    nvim-java = { url = "github:nvim-java/nvim-java"; flake = false; };
+    nvim-java-core = { url = "github:nvim-java/nvim-java-core"; flake = false; };
+    nvim-java-dap = { url = "github:nvim-java/nvim-java-dap"; flake = false; };
+    nvim-java-refactor = { url = "github:nvim-java/nvim-java-refactor"; flake = false; };
+    nvim-java-test = { url = "github:nvim-java/nvim-java-test"; flake = false; };
+    lua-async = { url = "github:nvim-java/lua-async"; flake = false; };
+    spring-boot-nvim = { url = "github:JavaHello/spring-boot.nvim"; flake = false; };
+    blueutil-tui = { url = "github:zaloog/blueutil-tui"; flake = false; };
+    vimmode-spoon = { url = "github:dbalatero/VimMode.spoon"; flake = false; };
   };
 
   outputs =

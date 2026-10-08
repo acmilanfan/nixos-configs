@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+# Bootstrap a freshly created git worktree (idea borrowed from t3code's
+# `runOnWorktreeCreate` project scripts). Called by `wt-new`; safe to re-run.
+#
+#   wt-setup [--tmux <session>] [worktree]
+#
+# 1. Symlinks the main checkout's local, untracked files into the worktree:
+#    .env, .env.*, .envrc and .claude/settings.local.json (so per-project
+#    agent permissions carry over). Existing real files are never replaced.
+# 2. Writes a `use_tech` .envrc (tech-envrc) if there still is none.
+# 3. Runs a setup script, if one exists, from the worktree root:
+#      <worktree>/.wt-setup                 committed to the repo, or
+#      ~/.config/wt-setup/<repo-name>       personal, for repos you don't own
+#    with WT_ROOT (main checkout), WT_PATH and WT_BRANCH set. With --tmux it
+#    runs in a background "setup" window of that session, so the agent can
+#    start right away; the window stays open only if the script fails.
+set -euo pipefail
+
+session=""
+if [ "${1:-}" = "--tmux" ]; then
+  session="$2"
+  shift 2
+fi
+
+if [ "${1:-}" = "--run-script" ]; then
+  # internal: the part that runs inside the tmux window
+  run_only=1
+  shift
+else
+  run_only=""
+fi
+
+wt="$(cd "${1:-.}" && git rev-parse --show-toplevel)"
+common="$(git -C "$wt" rev-parse --path-format=absolute --git-common-dir)"
+root="$(dirname "$common")"
+repo="$(basename "$root")"
+
+find_script() {
+  if [ -x "$wt/.wt-setup" ]; then
+    echo "$wt/.wt-setup"
+  elif [ -x "$HOME/.config/wt-setup/$repo" ]; then
+    echo "$HOME/.config/wt-setup/$repo"
+  fi
+}
+
+run_script() {
+  local script
+  script="$(find_script)"
+  [ -n "$script" ] || return 0
+  echo "wt-setup: running $script"
+  cd "$wt"
+  WT_ROOT="$root" WT_PATH="$wt" WT_BRANCH="$(git -C "$wt" branch --show-current)" "$script"
+}
+
+if [ -n "$run_only" ]; then
+  run_script
+  exit
+fi
+
+if [ "$wt" = "$root" ]; then
+  echo "wt-setup: $wt is the main checkout, nothing to do" >&2
+  exit 0
+fi
+
+link_local() {
+  local rel="$1" src="$root/$1" dst="$wt/$1"
+  [ -e "$src" ] || return 0
+  # only files git doesn't track; tracked ones come with the checkout
+  git -C "$root" ls-files --error-unmatch -- "$rel" >/dev/null 2>&1 && return 0
+  if [ -e "$dst" ] && [ ! -L "$dst" ]; then
+    return 0
+  fi
+  [ "$(readlink "$dst" 2>/dev/null)" = "$src" ] && return 0
+  mkdir -p "$(dirname "$dst")"
+  ln -sfn "$src" "$dst"
+  echo "wt-setup: linked $rel"
+}
+
+shopt -s nullglob
+for f in "$root"/.env "$root"/.env.* "$root"/.envrc; do
+  link_local "${f#"$root"/}"
+done
+link_local .claude/settings.local.json
+
+command -v tech-envrc >/dev/null && tech-envrc "$wt"
+
+script="$(find_script)"
+[ -n "$script" ] || exit 0
+if [ -n "$session" ]; then
+  tmux new-window -d -t "$session:" -n setup -c "$wt" \
+    "wt-setup --run-script $(printf '%q' "$wt") || { echo; echo 'wt-setup failed, press enter to close'; read -r _; }"
+  echo "wt-setup: $script running in $session:setup"
+else
+  run_script
+fi

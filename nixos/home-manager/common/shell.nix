@@ -173,11 +173,17 @@
         fi
         echo "Created: $worktree_path"
         agent=$(printf "shell\nclaude\nopencode\nantigravity" | fzf --prompt="Open with > " --height=6)
-        [[ -z "$agent" ]] && return
+        if [[ -z "$agent" ]]; then
+          wt-setup "$worktree_path"
+          return
+        fi
         session_name=$(echo "$repo_name-$branch" | tr '.' '_' | tr '/' '-')
         if ! tmux has-session -t="$session_name" 2>/dev/null; then
           tmux new-session -ds "$session_name" -c "$worktree_path"
         fi
+        # links .env/.envrc/agent permissions, devshell .envrc; a per-repo
+        # setup script (if any) runs in the session's background "setup" window
+        wt-setup --tmux "$session_name" "$worktree_path"
         case "$agent" in
           claude) tmux send-keys -t "$session_name" "claude" Enter ;;
           opencode)

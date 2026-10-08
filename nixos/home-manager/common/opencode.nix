@@ -1019,7 +1019,7 @@ EOF
   home.file.".config/opencode/plugins/agent-state.ts".text = ''
     import type { Plugin } from "@opencode-ai/plugin";
 
-    const AgentStatePlugin: Plugin = async ({ $ }) => {
+    const AgentStatePlugin: Plugin = async ({ $, directory }) => {
       const notify = async (state: string) => {
         try {
           await $`agent-state --agent opencode --state ''${state}`.quiet();
@@ -1028,11 +1028,24 @@ EOF
         }
       };
 
+      // Per-turn worktree snapshots (see agent-checkpoint); "pre" is awaited
+      // so it lands before the agent's first edit.
+      const checkpoint = async (event: "pre" | "post", sessionID?: string) => {
+        if (!sessionID) return;
+        try {
+          await $`agent-checkpoint save ''${event} ''${sessionID} opencode`.cwd(directory).quiet();
+        } catch {
+          // not a git repo, or agent-checkpoint missing
+        }
+      };
+
       return {
         "tool.execute.before": async () => { await notify("running"); },
+        "chat.message": async (input) => { await checkpoint("pre", input.sessionID); },
         event: async ({ event }) => {
           if (event.type === "session.idle") {
             await notify("done");
+            await checkpoint("post", (event as any).properties?.sessionID);
           }
           if (event.type === "session.error") {
             await notify("needs-input");
