@@ -541,6 +541,17 @@ end
 -- Tag Memory Functions
 -- =============================================================================
 
+-- Window titles a browser shows before its content loads. Kept lowercase; getWindowKey compares
+-- against title:lower(). Not exhaustive by design -- extend if another browser is added.
+local PLACEHOLDER_TITLES = {
+    ["mozilla firefox"] = true,
+    ["google chrome"]   = true,
+    ["safari"]          = true,
+    ["arc"]             = true,
+    ["brave browser"]   = true,
+    ["chromium"]        = true,
+}
+
 function M.getWindowKey(win)
     if not win then
         return nil
@@ -558,6 +569,12 @@ function M.getWindowKey(win)
         return nil
     end
     if title == "" or title == "New Tab" or title == "Untitled" then
+        return nil
+    end
+    -- A window's title before its content loads is the browser's own product name (Firefox
+    -- reports "Mozilla Firefox"). Memorising that placeholder made every new browser window
+    -- inherit the tag the placeholder happened to be saved on.
+    if PLACEHOLDER_TITLES[title:lower()] then
         return nil
     end
 

@@ -181,6 +181,32 @@ local function suite_floating_titles()
 end
 
 -- =============================================================================
+-- Suite: tag-memory window keys -- pure
+-- =============================================================================
+
+-- Regression cover: a fresh Firefox window (Alt+B / `open -n`) carries the placeholder title
+-- "Mozilla Firefox" before its content loads. That title was accepted as a memory key, so every
+-- new window inherited whatever tag the placeholder had been saved on (tag 10 in the live state).
+local function suite_tag_memory()
+    local cases = {
+        -- name, app, title, expected key (nil = must not be memorised)
+        { "Firefox placeholder is not memorised", "Firefox",  "Mozilla Firefox",            nil },
+        { "Chrome placeholder is not memorised",  "Google Chrome", "Google Chrome",         nil },
+        { "Safari placeholder is not memorised",  "Safari",   "Safari",                     nil },
+        { "blank title is not memorised",         "Firefox",  "",                           nil },
+        { "New Tab is not memorised",             "Firefox",  "New Tab",                    nil },
+        { "real Firefox title is normalised",     "Firefox",  "Google - Mozilla Firefox",   "Firefox::Google" },
+        { "WebKit-style suffix is stamped too",   "Firefox",  "Inbox \226\128\148 Mozilla Firefox", "Firefox::Inbox" },
+        { "plain title keeps app::title",         "Firefox",  "Weekenduo",                  "Firefox::Weekenduo" },
+    }
+    local base = 910000
+    for i, c in ipairs(cases) do
+        local got = state.getWindowKey(fakeWin(base + i, c[2], c[3]))
+        check(c[1], got == c[4], string.format("app=%q title=%q -> %s", c[2], c[3], tostring(got)))
+    end
+end
+
+-- =============================================================================
 -- Suite: overview grid navigation (M18) -- pure
 -- =============================================================================
 
@@ -550,7 +576,7 @@ function M.run()
 
     -- Synchronous suites first.
     for i, suite in ipairs({ suite_state, suite_classify, suite_floating_titles,
-                             suite_grid, suite_geometry }) do
+                             suite_tag_memory, suite_grid, suite_geometry }) do
         M.progress = "sync suite " .. i
         local ok, err = pcall(suite)
         if not ok then fail("sync suite " .. i .. " crashed", tostring(err)) end
