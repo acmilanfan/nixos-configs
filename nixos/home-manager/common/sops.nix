@@ -45,6 +45,17 @@ in
       }
     ];
 
+    # sops-nix's own activation entry (launchctl bootstrap of its agent plist /
+    # systemctl restart of its unit) is unordered. On a first switch it can run
+    # before HM has written the plist/unit, fail ("Bootstrap failed: 5") and
+    # abort the rest of activation. This entry merges into it, adding only the
+    # ordering (mkDefault data, so sops-nix's own script wins).
+    home.activation.sops-nix = {
+      data = lib.mkDefault "";
+      after = if pkgs.stdenv.hostPlatform.isDarwin then [ "setupLaunchAgents" ] else [ "reloadSystemd" ];
+      before = [ ];
+    };
+
     # .zshenv, not .zshrc: non-interactive shells (`zsh -lc nvim` from
     # nvim-opener, scripts) need the AI proxy keys too.
     programs.zsh.envExtra = ''
