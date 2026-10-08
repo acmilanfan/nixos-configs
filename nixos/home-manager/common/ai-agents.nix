@@ -63,7 +63,14 @@ let
       PreInvocation = [
         {
           type = "command";
-          command = "agent-state --agent antigravity --state running & printf '{}'";
+          command = ''
+            export PATH="$PATH:/bin:/usr/bin:/usr/sbin:/sbin"
+            if ! pgrep -f "remote-control.*serve" >/dev/null 2>&1; then
+              HOST_NAME=$(/bin/hostname -s 2>/dev/null || hostname -s 2>/dev/null || echo "antigravity")
+              nohup ${rawAgy}/bin/agy remote-control start --name "$HOST_NAME" >/dev/null 2>&1 &
+            fi
+            agent-state --agent antigravity --state running & printf '{}'
+          '';
         }
       ];
       PreToolUse = [
@@ -232,7 +239,35 @@ let
     { url = "https://github.com/gemini-cli-extensions/code-review"; dir = "code-review"; }
   ];
 
-  antigravity = "${inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.antigravity-cli}/bin/antigravity";
+  rawAgy = inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.antigravity-cli;
+
+  antigravityWrapped = pkgs.symlinkJoin {
+    name = "antigravity-cli-wrapped";
+    paths = [
+      (pkgs.writeShellScriptBin "agy" ''
+        export PATH="$PATH:/bin:/usr/bin:/usr/sbin:/sbin"
+        if [ "''${1:-}" != "remote-control" ]; then
+          if ! pgrep -f "remote-control.*serve" >/dev/null 2>&1; then
+            HOST_NAME=$(/bin/hostname -s 2>/dev/null || hostname -s 2>/dev/null || echo "antigravity")
+            nohup "${rawAgy}/bin/agy" remote-control start --name "$HOST_NAME" >/dev/null 2>&1 &
+          fi
+        fi
+        exec "${rawAgy}/bin/agy" "$@"
+      '')
+      (pkgs.writeShellScriptBin "antigravity" ''
+        export PATH="$PATH:/bin:/usr/bin:/usr/sbin:/sbin"
+        if [ "''${1:-}" != "remote-control" ]; then
+          if ! pgrep -f "remote-control.*serve" >/dev/null 2>&1; then
+            HOST_NAME=$(/bin/hostname -s 2>/dev/null || hostname -s 2>/dev/null || echo "antigravity")
+            nohup "${rawAgy}/bin/agy" remote-control start --name "$HOST_NAME" >/dev/null 2>&1 &
+          fi
+        fi
+        exec "${rawAgy}/bin/agy" "$@"
+      '')
+    ];
+  };
+
+  antigravity = "${rawAgy}/bin/agy";
 in
 {
   # opencode config/plugins now live in ./opencode.nix.
@@ -282,15 +317,15 @@ EOF
 
   home.packages = [
       inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.claude-code
-      inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.antigravity-cli
+      antigravityWrapped
       inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.opencode
       pkgs.mcp-nixos
   ];
 
   # Automate extension installation on activation
   home.activation.installGeminiExtensions = lib.hm.dag.entryAfter ["writeBoundary"] ''
-    # Prepend git but keep /usr/bin at the END so nix tools take priority
-    export PATH="${pkgs.git}/bin:$PATH:/usr/bin"
+    # Prepend git but keep system bins at the END so launchctl/hostname and nix tools are available
+    export PATH="${pkgs.git}/bin:$PATH:/usr/bin:/bin:/usr/sbin:/sbin"
     # Use system SSH so ~/.ssh/config macOS options (UseKeychain) are supported
     export GIT_SSH_COMMAND="/usr/bin/ssh"
 
@@ -384,6 +419,11 @@ EOF
         $DRY_RUN_CMD ${antigravity} plugin install "${ext.url}" --consent --skip-settings || true
       fi
     '') geminiExtensions)}
+
+    # 4. Antigravity Remote Control Daemon Setup
+    # Ensure the remote-control daemon is registered with this host's machine name
+    HOST_NAME=$(/bin/hostname -s 2>/dev/null || hostname -s 2>/dev/null || echo "antigravity")
+    $DRY_RUN_CMD ${rawAgy}/bin/agy remote-control start --name "$HOST_NAME" || true
   '';
 }
 

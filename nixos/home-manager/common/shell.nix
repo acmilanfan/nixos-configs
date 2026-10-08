@@ -61,6 +61,17 @@
         source "$HOME/.config/sops-nix/secrets/rendered/ai-env.sh"
       fi
 
+      # Auto-start Antigravity remote-control daemon when opening agy session
+      agy() {
+        if [ "''${1:-}" != "remote-control" ]; then
+          if ! pgrep -f "remote-control.*serve" >/dev/null 2>&1; then
+            local host_name=$(/bin/hostname -s 2>/dev/null || hostname -s 2>/dev/null || echo "antigravity")
+            nohup command agy remote-control start --name "$host_name" >/dev/null 2>&1 &!
+          fi
+        fi
+        command agy "$@"
+      }
+
       autoload -U colors && colors
       PS1="%B%{$fg[cyan]%}$IN_NIX_SHELL%{$fg[red]%}[%{$fg[yellow]%}%n%{$fg[green]%}@%{$fg[blue]%}%M %{$fg[magenta]%}%~%{$fg[red]%}]%{$reset_color%}$%b "
 
