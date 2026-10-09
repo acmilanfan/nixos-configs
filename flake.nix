@@ -111,6 +111,9 @@
     spring-boot-nvim = { url = "github:JavaHello/spring-boot.nvim"; flake = false; };
     blueutil-tui = { url = "github:zaloog/blueutil-tui"; flake = false; };
     vimmode-spoon = { url = "github:dbalatero/VimMode.spoon"; flake = false; };
+    # Only its common.js (getRegExpSites), to compile block patterns for the
+    # managed-storage file (nixos/home-manager/common/firefox-managed-storage.nix).
+    leechblockng = { url = "github:proginosko/LeechBlockNG/v1.8"; flake = false; };
   };
 
   outputs =

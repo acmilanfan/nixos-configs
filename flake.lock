@@ -320,6 +320,23 @@
         "type": "github"
       }
     },
+    "leechblockng": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1790536764,
+        "narHash": "sha256-sDb296mvU35mEs/4pXl02/MweCIhm1MV/YMgbbJxISQ=",
+        "owner": "proginosko",
+        "repo": "LeechBlockNG",
+        "rev": "dc7727076e5f097dc01546eecbd425c8f68a78ce",
+        "type": "github"
+      },
+      "original": {
+        "owner": "proginosko",
+        "ref": "v1.8",
+        "repo": "LeechBlockNG",
+        "type": "github"
+      }
+    },
     "llm-agents": {
       "inputs": {
         "bun2nix": "bun2nix",
@@ -926,6 +943,7 @@
         "blueutil-tui": "blueutil-tui",
         "goldfish": "goldfish",
         "home-manager": "home-manager",
+        "leechblockng": "leechblockng",
         "llm-agents": "llm-agents",
         "lsplinks-nvim": "lsplinks-nvim",
         "lua-async": "lua-async",

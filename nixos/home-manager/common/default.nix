@@ -7,6 +7,7 @@
     ./ghostty.nix
     # ./doom.nix
     ./firefox.nix
+    ./firefox-managed-storage.nix
     ./direnv.nix
     ./git-common.nix
     ./ideavim.nix
