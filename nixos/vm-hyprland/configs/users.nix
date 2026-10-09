@@ -8,7 +8,9 @@
     # to run `passwd` once. This VM image boots with no prior activation, so
     # without this the account would likely be locked on first boot.
     # initialPassword only applies on first activation (not re-applied on
-    # rebuilds) - change it immediately after logging in via `passwd`.
+    # rebuilds) - change it immediately after logging in via `passwd`. It is
+    # public (this repo is), but only good for the UTM console: SSH is
+    # key-only (./ssh.nix).
     initialPassword = "changeme";
   };
 
