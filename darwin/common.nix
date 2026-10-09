@@ -391,15 +391,11 @@ in
 
   system.activationScripts.postActivation.text = ''
     # oMLX tuning (see nixos/home-manager/common/opencode.nix: serve-omlx).
-    # 1) Raise the Metal wired limit so oMLX can serve large contexts instead of
-    #    being capped at Apple's default. Re-applied at boot too, since
-    #    org.nixos.activate-system re-runs activation with RunAtLoad (sysctl
-    #    values themselves do not survive a reboot).
-    # 2) Set prefill_priority=speed so the adaptive prefill throttle doesn't
-    #    needlessly slow/stop big-context prefills (it assumes ~9 MB/token;
-    #    measured footprint growth is ~0.24 MB/token). Both are idempotent.
-    echo "Configuring oMLX (Metal wired limit + prefill speed priority)..."
-    sysctl iogpu.wired_limit_mb=46000 2>/dev/null || true
+    # Set prefill_priority=speed so the adaptive prefill throttle doesn't
+    # needlessly slow/stop big-context prefills (it assumes ~9 MB/token;
+    # measured footprint growth is ~0.24 MB/token). Idempotent. The Metal
+    # wired limit is per Mac (RAM-dependent): see mac-home.nix.
+    echo "Configuring oMLX (prefill speed priority)..."
     sudo -u ${user} mkdir -p "/Users/${user}/.omlx" 2>/dev/null || true
     ${pkgs.python3}/bin/python3 - "/Users/${user}/.omlx/settings.json" <<'PY'
 import json, os, sys

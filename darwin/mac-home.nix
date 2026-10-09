@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ pkgs, lib, ... }:
 
 {
   imports = [ ./common.nix ];
@@ -6,6 +6,15 @@
   system.primaryUser = "gentooway";
 
   networking.hostName = "mac-home";
+
+  # oMLX: raise the Metal wired limit so it can serve large contexts instead of
+  # being capped at Apple's default. Sized for this Mac's 48GB; mac-work (18GB)
+  # keeps the default. Re-applied at boot too, since org.nixos.activate-system
+  # re-runs activation with RunAtLoad (sysctl values don't survive a reboot).
+  system.activationScripts.postActivation.text = lib.mkAfter ''
+    echo "Raising Metal wired limit for oMLX..."
+    sysctl iogpu.wired_limit_mb=46000 2>/dev/null || true
+  '';
 
   # Lets `nix build` produce aarch64-linux derivations (e.g. the vm-hyprland
   # image) locally via a small aarch64-linux builder VM. Defaults are 1
