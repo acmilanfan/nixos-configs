@@ -5,6 +5,9 @@
 
 ACTIVE_CONFIG="$HOME/.config/kanata/active_config.kbd"
 SWITCH_SCRIPT="$HOME/.config/kanata/switch-kanata.sh"
+# Root operations: kanata-ctl is the one command sudoers allows NOPASSWD
+# (darwin/common.nix). -n: fail instead of hanging on a prompt.
+KANATA_CTL="sudo -n /run/current-system/sw/bin/kanata-ctl"
 
 update() {
     local target
@@ -102,23 +105,12 @@ case "$SENDER" in
         ;;
     "kanata_rescue_kill")
         sketchybar --set kanata popup.drawing=off
-        # Emergency: kill everything that could be blocking keyboard input.
-        # Order matters: kill grabber first (releases HID open), then kanata,
-        # then force-restart the VirtualHID daemon+dext to clear any stale device locks.
+        # Emergency: kill everything that could be blocking keyboard input
+        # (grabber, kanata, VirtualHID daemon+dext), then bring the VirtualHID
+        # daemon and kanata back. kanata-ctl matches kanata-nix exactly; the old
+        # `pkill -f kanata` also killed this script before it restarted anything.
         echo "$(date): Emergency kill triggered" >> /tmp/sketchybar_kanata_rescue.log
-        sudo /usr/bin/pkill -9 -f karabiner_grabber 2>/dev/null || true
-        sudo /usr/bin/pkill -9 -f "Karabiner-VirtualHIDDevice-Daemon" 2>/dev/null || true
-        sudo /usr/bin/pkill -9 -f "org.pqrs.Karabiner-DriverKit-VirtualHIDDevice" 2>/dev/null || true
-        sudo /usr/bin/pkill -9 -f kanata 2>/dev/null || true
-        sudo /usr/bin/pkill -9 -f "karabiner_console_user_server" 2>/dev/null || true
-        sleep 2
-        # Restart VirtualHID daemon so kanata has a virtual keyboard to emit through
-        sudo /bin/launchctl kickstart -k system/org.pqrs.service.daemon.Karabiner-VirtualHIDDevice-Daemon 2>/dev/null || true
-        sleep 2
-        # Restart kanata
-        sudo /bin/launchctl kickstart -k system/local.kanata 2>/dev/null || true
-        # Also ensure grabber stays dead
-        sudo chmod -x "/Library/Application Support/org.pqrs/Karabiner-Elements/bin/karabiner_grabber" 2>/dev/null || true
+        $KANATA_CTL rescue >> /tmp/sketchybar_kanata_rescue.log 2>&1 || true
         ;;
     "kanata_rescue_reload")
         sketchybar --set kanata popup.drawing=off
@@ -126,7 +118,7 @@ case "$SENDER" in
         # and always restart. The reload script now detects TCC denial and handles
         # dext lock by force-restarting the VirtualHID daemon before restarting kanata.
         if [ -f "$HOME/.config/kanata/reload-kanata.sh" ]; then
-            sudo /bin/bash "$HOME/.config/kanata/reload-kanata.sh" --force &
+            bash "$HOME/.config/kanata/reload-kanata.sh" --force >> /tmp/sketchybar_kanata_rescue.log 2>&1 &
         fi
         ;;
     "kanata_rescue_restore_hid")
@@ -136,13 +128,10 @@ case "$SENDER" in
         # with kickstart -k may not be enough if the grabber re-opens devices faster
         # than they're released. Kill all karabiner processes first, then restart.
         echo "$(date): Restore Virtual HID triggered" >> /tmp/sketchybar_kanata_rescue.log
-        sudo /usr/bin/pkill -9 -f karabiner_grabber 2>/dev/null || true
-        sudo /usr/bin/pkill -9 -f "Karabiner-VirtualHIDDevice-Daemon" 2>/dev/null || true
-        sudo /usr/bin/pkill -9 -f "org.pqrs.Karabiner-DriverKit-VirtualHIDDevice" 2>/dev/null || true
-        sleep 2
-        sudo /bin/launchctl kickstart -k system/org.pqrs.service.daemon.Karabiner-VirtualHIDDevice-Daemon 2>/dev/null || true
+        $KANATA_CTL neutralize || true
+        $KANATA_CTL reset-hid || true
         sleep 1
         # If kanata was running before the HID lock, restart it now that devices are released
-        sudo /bin/launchctl kickstart -k system/local.kanata 2>/dev/null || true
+        $KANATA_CTL restart || true
         ;;
 esac

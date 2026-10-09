@@ -21,37 +21,11 @@ let
 
     echo "--- Darwin Startup Script ($(date)) ---"
 
-    # 1. Karabiner VirtualHIDDevice Driver Setup
-    # We only need the VirtualHIDDevice Daemon + dext for Kanata to emit keystrokes.
-    # We intentionally NEVER open Karabiner-Elements.app because doing so launches
-    # karabiner_grabber, which opens HID keyboards exclusively via the dext.
-    #
-    # If the grabber loses Input Monitoring TCC permission (OS update, JAMF/CrowdStrike
-    # policy changes), it enters a deadlock: it holds exclusive device access but TCC
-    # blocks it from reading events. This blocks ALL keyboard input system-wide,
-    # including external keyboards. The grabber auto-respawns via internal XPC/launchd,
-    # so pkill/bootout is insufficient — we must prevent it from ever executing.
-    KARABINER_BIN="/Library/Application Support/org.pqrs/Karabiner-Elements/bin"
-    if [ -x "$KARABINER_BIN/karabiner_grabber" ]; then
-      echo "Ensuring Karabiner grabber and GUI processes cannot execute..."
-      sudo chmod -x "$KARABINER_BIN/karabiner_grabber" 2>/dev/null || true
-      sudo chmod -x "$KARABINER_BIN/karabiner_console_user_server" 2>/dev/null || true
-      sudo chmod -x "$KARABINER_BIN/karabiner_session_monitor" 2>/dev/null || true
-      sudo pkill -9 -f karabiner_grabber 2>/dev/null || true
-    fi
-
-    # VirtualHIDDevice-Daemon auto-starts via its own launchd plist at boot.
-    # If it isn't running (e.g. after a fresh install), start it so Kanata has
-    # the virtual keyboard device to emit through.
-    if ! ioreg -rn "Karabiner VirtualHIDKeyboard" >/dev/null 2>&1; then
-      echo "VirtualHIDKeyboard not found — ensuring daemon is started..."
-      VIRTUALHID_DAEMON="/Library/Application Support/org.pqrs/Karabiner-DriverKit-VirtualHIDDevice/Applications/Karabiner-VirtualHIDDevice-Daemon.app/Contents/MacOS/Karabiner-VirtualHIDDevice-Daemon"
-      if [ -x "$VIRTUALHID_DAEMON" ]; then
-        sudo /bin/launchctl kickstart -k system/org.pqrs.service.daemon.Karabiner-VirtualHIDDevice-Daemon 2>/dev/null || \
-          "$VIRTUALHID_DAEMON" &
-        sleep 2
-      fi
-    fi
+    # 1. Karabiner VirtualHIDDevice driver: keeping karabiner_grabber unable to
+    # run and the VirtualHID daemon up needs root, so it's done by
+    # `kanata-ctl neutralize` / `ensure-hid` in postActivation (which also runs
+    # as root at every boot via org.nixos.activate-system). This script runs as
+    # the user and needs no sudo.
 
     # 2. Start GUI Utilities
     # 3. Ensure apps are running
@@ -137,6 +111,65 @@ let
 
     echo "Startup script completed."
   '';
+
+  # The only root operations the kanata/Karabiner GUI scripts need (sketchybar
+  # menu, Hammerspoon hotkey, reload-kanata.sh), behind fixed subcommands.
+  # sudoers allows just this command NOPASSWD, instead of blanket
+  # launchctl/chmod/pkill/killall/sysctl/pmset/log rules that let any
+  # process running as the user become root. Callers: `sudo -n kanata-ctl ...`.
+  kanataCtl = pkgs.writeShellScriptBin "kanata-ctl" ''
+    export PATH=/usr/bin:/bin:/usr/sbin:/sbin
+    KARABINER_BIN="/Library/Application Support/org.pqrs/Karabiner-Elements/bin"
+    VHID=system/org.pqrs.service.daemon.Karabiner-VirtualHIDDevice-Daemon
+
+    # karabiner_grabber/Karabiner-Core-Service open HID keyboards exclusively;
+    # without Input Monitoring TCC that blocks ALL keyboard input. They respawn
+    # via Karabiner's XPC, so killing them isn't enough: make them unexecutable.
+    neutralize() {
+      for b in karabiner_grabber karabiner_console_user_server karabiner_session_monitor; do
+        [ -e "$KARABINER_BIN/$b" ] && chmod -x "$KARABINER_BIN/$b"
+      done
+      launchctl bootout system/org.pqrs.service.daemon.Karabiner-Core-Service 2>/dev/null
+      launchctl bootout system/org.pqrs.service.daemon.karabiner_grabber 2>/dev/null
+      pkill -9 -x Karabiner-Core-Service 2>/dev/null
+      pkill -9 -f karabiner_grabber 2>/dev/null
+      pkill -9 -f karabiner_console_user_server 2>/dev/null
+      true
+    }
+
+    # Kill the VirtualHID daemon and its dext (releases a stale exclusive HID
+    # lock), then start it again so kanata has a virtual keyboard to emit to.
+    reset_hid() {
+      pkill -9 -f Karabiner-VirtualHIDDevice-Daemon 2>/dev/null
+      pkill -9 -f org.pqrs.Karabiner-DriverKit-VirtualHIDDevice 2>/dev/null
+      sleep 2
+      launchctl kickstart -k "$VHID" 2>/dev/null
+      true
+    }
+
+    case "''${1:-}" in
+      neutralize) neutralize ;;
+      reset-hid) reset_hid ;;
+      ensure-hid)
+        ioreg -rn "Karabiner VirtualHIDKeyboard" >/dev/null 2>&1 \
+          || launchctl kickstart -k "$VHID" 2>/dev/null || true ;;
+      restart) launchctl kickstart -k system/local.kanata ;;
+      kill) pkill -9 -x kanata-nix; true ;;  # KeepAlive restarts it
+      rescue)
+        neutralize
+        pkill -9 -x kanata-nix
+        reset_hid
+        sleep 2
+        launchctl kickstart -k system/local.kanata ;;
+      tcc-denied)
+        log show --last 5m --style compact \
+          --predicate 'eventMessage CONTAINS "TCC deny IOHIDDeviceOpen" AND process == "karabiner_grabber"' \
+          2>/dev/null | grep -q "TCC deny" ;;
+      *)
+        echo "usage: kanata-ctl neutralize|reset-hid|ensure-hid|restart|kill|rescue|tcc-denied" >&2
+        exit 2 ;;
+    esac
+  '';
 in
 {
   ## TODO things to fix
@@ -151,6 +184,7 @@ in
     zsh
     unstable.aerospace
     startupScript
+    kanataCtl
     pkgs.warpd
     unstable.kanata
     pkgs.blueutil-tui
@@ -174,16 +208,11 @@ in
     };
   };
 
+  # Only kanata-ctl (see its definition above). /run/current-system is
+  # root-owned and points into the read-only store, so the path can't be
+  # swapped by the user.
   security.sudo.extraConfig = ''
-    %admin ALL=(ALL) NOPASSWD: /usr/local/bin/kanata-nix
-    %admin ALL=(ALL) NOPASSWD: /opt/homebrew/bin/kanata
-    %admin ALL=(ALL) NOPASSWD: /usr/bin/killall
-    %admin ALL=(ALL) NOPASSWD: /bin/launchctl
-    %admin ALL=(ALL) NOPASSWD: /usr/bin/pkill
-    %admin ALL=(ALL) NOPASSWD: /usr/bin/pmset
-    %admin ALL=(ALL) NOPASSWD: SETENV: /bin/chmod
-    %admin ALL=(ALL) NOPASSWD: /usr/bin/log
-    %admin ALL=(ALL) NOPASSWD: /usr/sbin/sysctl
+    %admin ALL=(root) NOPASSWD: /run/current-system/sw/bin/kanata-ctl
   '';
 
   launchd.agents.darwin-startup = {
@@ -370,7 +399,7 @@ in
     #    needlessly slow/stop big-context prefills (it assumes ~9 MB/token;
     #    measured footprint growth is ~0.24 MB/token). Both are idempotent.
     echo "Configuring oMLX (Metal wired limit + prefill speed priority)..."
-    sudo sysctl iogpu.wired_limit_mb=46000 2>/dev/null || true
+    sysctl iogpu.wired_limit_mb=46000 2>/dev/null || true
     sudo -u ${user} mkdir -p "/Users/${user}/.omlx" 2>/dev/null || true
     ${pkgs.python3}/bin/python3 - "/Users/${user}/.omlx/settings.json" <<'PY'
 import json, os, sys
@@ -394,6 +423,12 @@ PY
       ln -sf "/Users/${user}/.config/kanata/kanata-homerow.kbd" "/Users/${user}/.config/kanata/active_config.kbd"
     fi
     chown -R ${user}:staff "/Users/${user}/.config/kanata"
+
+    # Keep karabiner_grabber unable to run and the VirtualHID daemon (kanata's
+    # output device) up. Runs as root here and at every boot.
+    echo "Neutralizing Karabiner grabber, ensuring VirtualHID daemon..."
+    ${kanataCtl}/bin/kanata-ctl neutralize
+    ${kanataCtl}/bin/kanata-ctl ensure-hid
 
     # Setup password-store symlink (pass expects ~/.password-store)
     echo "Setting up password-store symlink..."
@@ -568,9 +603,9 @@ PY
 
     # Power management (balanced: powernap off, wake-on-LAN off, TCPKeepAlive off)
     echo "Applying power management settings..."
-    sudo pmset -b displaysleep 3 disksleep 10 sleep 10 powernap 0 womp 0 || true
-    sudo pmset -c displaysleep 10 disksleep 30 sleep 30 powernap 0 womp 0 || true
-    sudo pmset -a hibernatemode 3 standby 1 standbydelaylow 600 standbydelayhigh 3600 || true
+    pmset -b displaysleep 3 disksleep 10 sleep 10 powernap 0 womp 0 || true
+    pmset -c displaysleep 10 disksleep 30 sleep 30 powernap 0 womp 0 || true
+    pmset -a hibernatemode 3 standby 1 standbydelaylow 600 standbydelayhigh 3600 || true
 
     # Spotlight: exclude subdirectories by planting a .metadata_never_index marker.
     # mdutil -i off only works on volumes; for subdirs mds respects this file.

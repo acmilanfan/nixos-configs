@@ -6,6 +6,10 @@
 
 export PATH="/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/opt/homebrew/bin:$PATH"
 
+# Root operations go through kanata-ctl, the one command sudoers allows
+# NOPASSWD (darwin/common.nix). -n: fail instead of prompting (GUI callers).
+KANATA_CTL="sudo -n /run/current-system/sw/bin/kanata-ctl"
+
 # Colors
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -51,7 +55,7 @@ fi
 #    The grabber may have already been killed, but the dext lock persists until
 #    the VirtualHIDDevice-Daemon (and its dext) is restarted.
 if [ "$RELOAD_REQUIRED" = false ]; then
-    if sudo /usr/bin/log show --predicate 'eventMessage CONTAINS "TCC deny IOHIDDeviceOpen" AND process == "karabiner_grabber"' --last 5m --style compact 2>/dev/null | grep -q "TCC deny"; then
+    if $KANATA_CTL tcc-denied; then
         RELOAD_REQUIRED=true
         REASON="karabiner_grabber denied TCC on IOHIDDeviceOpen — HID devices may be locked by dext"
     fi
@@ -86,11 +90,7 @@ if [ "$RELOAD_REQUIRED" = true ]; then
         print_error "└──────────────────────────────────────────────────────────────┘"
         osascript -e 'display notification "karabiner_grabber TCC denied — restarting VirtualHID daemon to unlock keyboards" with title "Keyboard Input Blocked" sound name "Glass"' 2>/dev/null || true
         print_status "Killing VirtualHIDDevice-Daemon and dext to release HID devices..."
-        sudo /usr/bin/pkill -9 -f "Karabiner-VirtualHIDDevice-Daemon" 2>/dev/null || true
-        sudo /usr/bin/pkill -9 -f "org.pqrs.Karabiner-DriverKit-VirtualHIDDevice" 2>/dev/null || true
-        sleep 2
-        print_status "Restarting VirtualHIDDevice-Daemon..."
-        sudo /bin/launchctl kickstart -k system/org.pqrs.service.daemon.Karabiner-VirtualHIDDevice-Daemon 2>/dev/null || true
+        $KANATA_CTL reset-hid || true
         sleep 2
     fi
 
@@ -121,26 +121,19 @@ if [ "$RELOAD_REQUIRED" = true ]; then
 
     if [ "$VIRTUALHID_OK" = false ]; then
         print_warning "Karabiner VirtualHIDKeyboard not found in ioreg — attempting to restart VirtualHIDDevice-Daemon..."
-        sudo /bin/launchctl kickstart -k system/org.pqrs.service.daemon.Karabiner-VirtualHIDDevice-Daemon 2>/dev/null || true
+        $KANATA_CTL ensure-hid || true
         sleep 2
         print_status "VirtualHIDDevice-Daemon restarted."
     fi
 
     # 1b. Restart kanata - kickstart -k handles killing and starting
     # This is the fastest way to get the keyboard back.
-    sudo /bin/launchctl kickstart -k system/local.kanata
+    $KANATA_CTL restart
 
     # 2. Parallel background cleanup of interfering processes
     # The grabber auto-respawns via Karabiner's internal XPC, so pkill alone is
     # insufficient. Make it non-executable as defense-in-depth so it cannot respawn.
-    (
-        KARABINER_BIN="/Library/Application Support/org.pqrs/Karabiner-Elements/bin"
-        sudo chmod -x "$KARABINER_BIN/karabiner_grabber" 2>/dev/null || true
-        sudo /bin/launchctl bootout system/org.pqrs.service.daemon.Karabiner-Core-Service 2>/dev/null || true
-        sudo /bin/launchctl bootout system/org.pqrs.service.daemon.karabiner_grabber 2>/dev/null || true
-        sudo /usr/bin/pkill -x "Karabiner-Core-Service" 2>/dev/null || true
-        sudo /usr/bin/pkill -x "karabiner_grabber" 2>/dev/null || true
-    ) >/dev/null 2>&1 &
+    $KANATA_CTL neutralize >/dev/null 2>&1 &
 
     print_status "✓ Reload initiated (fast path)."
 else
