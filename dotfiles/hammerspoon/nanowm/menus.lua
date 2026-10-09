@@ -168,35 +168,36 @@ end
 
 function M.openKanataMenu()
     state.actionsCache = {}
+    local active = integrations.currentKanataMode()
     local choices = {
         {
             text = "Home Row Mods + Layers",
-            subText = (state.kanataMode == "homerow") and "ACTIVE" or "Switch to home row mods and layers",
+            subText = (active == "homerow") and "ACTIVE" or "Switch to home row mods and layers",
             uuid = "homerow",
         },
         {
             text = "Split Layout (Experimental)",
-            subText = (state.kanataMode == "split") and "ACTIVE" or "Home row on QWERTY, ZXCV as thumbs",
+            subText = (active == "split") and "ACTIVE" or "Home row on QWERTY, ZXCV as thumbs",
             uuid = "split",
         },
         {
             text = "Standard Mode",
-            subText = (state.kanataMode == "default") and "ACTIVE" or "Switch to standard keyboard behavior",
+            subText = (active == "default") and "ACTIVE" or "Switch to standard keyboard behavior",
             uuid = "default",
         },
         {
             text = "Angle Mod Layout",
-            subText = (state.kanataMode == "angle") and "ACTIVE" or "Shift bottom row keys to the left",
+            subText = (active == "angle") and "ACTIVE" or "Shift bottom row keys to the left",
             uuid = "angle",
         },
         {
             text = "Disabled Mode",
-            subText = (state.kanataMode == "disabled") and "ACTIVE" or "Block all internal keyboard input",
+            subText = (active == "disabled") and "ACTIVE" or "Block all internal keyboard input",
             uuid = "disabled",
         },
         {
             text = "Training Mode (Forced HRM)",
-            subText = (state.kanataMode == "training") and "ACTIVE" or "Disable non-home-row mods to enforce correct technique",
+            subText = (active == "training") and "ACTIVE" or "Disable non-home-row mods to enforce correct technique",
             uuid = "training",
         },
         {

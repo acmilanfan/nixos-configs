@@ -303,8 +303,19 @@ function M.reloadKanataManual()
     M.reloadKanata(true)
 end
 
+-- Current mode from the active_config.kbd symlink (-> kanata-<mode>.kbd), so it
+-- is right however the mode was switched (sketchybar, shell, here). Falls back
+-- to the last mode switched from Hammerspoon.
+function M.currentKanataMode()
+    local link = config.home() .. "/.config/kanata/active_config.kbd"
+    local p = io.popen('/usr/bin/readlink "' .. link .. '" 2>/dev/null')
+    local target = p and p:read("*l")
+    if p then p:close() end
+    return (target and target:match("kanata%-(%a+)%.kbd$")) or state.kanataMode
+end
+
 function M.toggleKanata()
-    local nextMode = (state.kanataMode == "homerow") and "default" or "homerow"
+    local nextMode = (M.currentKanataMode() == "homerow") and "default" or "homerow"
     M.switchKanata(nextMode)
 end
 
