@@ -9,18 +9,23 @@
 # remove`; in the main checkout use `prune`.
 #
 #   agent-checkpoint save <pre|post> <session> [agent]   snapshot now
-#   agent-checkpoint hook <agent> <pre|post>             same, from hook JSON on stdin
+#   agent-checkpoint hook <agent> <pre|pre-once|post>    same, from hook JSON on stdin
 #   agent-checkpoint list                                sessions in this worktree
 #   agent-checkpoint log [session]                       turns of a session
-#   agent-checkpoint range [-s session] [turn|all]       "<pre> <post>" commits of a turn
+#   agent-checkpoint range [-s session] [turn|all]       "<pre> <post> <session> <turn>"
 #   agent-checkpoint diff [-s session] [turn|all] [git-diff-args...]
 #   agent-checkpoint restore [-s session] <turn> [--yes] reset files to the turn's pre state
 #   agent-checkpoint restore --undo [--yes]              undo the last restore
 #   agent-checkpoint prune [days]                        drop sessions idle > days (default 14)
 #
-# <session> defaults to the most recently updated session; <turn> defaults to
-# the latest one (1 = first turn, -1 = previous, "all" = whole session).
+# Without a turn, the latest turn that changed files is used, across all
+# sessions in this worktree (or within -s). A numbered turn (1 = first,
+# -1 = previous) or "all" refers to -s, else to that same session.
+# pre-once (for hooks firing before every model call, e.g. Antigravity's
+# PreInvocation) only starts a turn if the previous one has ended.
 set -euo pipefail
+# errors inside $(...) must abort too (die in resolve_session etc.)
+shopt -s inherit_errexit
 
 NS="refs/worktree/agent"
 UNDO_REF="refs/worktree/agent-undo"
@@ -44,15 +49,17 @@ resolve_session() {
   printf '%s' "$s"
 }
 
-# "<hash> <event> <turn>" per checkpoint, oldest first
+# "<hash> <commit-time> <event> <turn>" per checkpoint, oldest first
 entries() {
-  git log --reverse --format='%H %(trailers:key=Agent-Event,valueonly,separator=)%x20%(trailers:key=Agent-Turn,valueonly,separator=)' "$NS/$1"
+  git log --reverse --format='%H %ct %(trailers:key=Agent-Event,valueonly,separator=)%x20%(trailers:key=Agent-Turn,valueonly,separator=)' "$NS/$1"
 }
+
+sanitize() { printf '%s' "$1" | tr -c 'A-Za-z0-9._-' '_'; }
 
 save() {
   local event="$1" session="$2" agent="${3:-agent}"
   case "$event" in pre|post) ;; *) die "event must be pre or post" ;; esac
-  session="$(printf '%s' "$session" | tr -c 'A-Za-z0-9._-' '_')"
+  session="$(sanitize "$session")"
   [ -n "$session" ] || die "empty session id"
   in_repo || return 0
   cd "$(git rev-parse --show-toplevel)"
@@ -93,43 +100,109 @@ snapshot_commit() {
   git commit-tree "$tree" "${parent_args[@]}"
 }
 
-# Resolve a turn selector to "<pre> <post>". A turn still running (no post
-# yet) ends at a live snapshot of the working tree. Plain `git diff <commit>`
-# would not do: it only sees files in the real index, so files the agent
-# created would show up as deleted.
-turn_range() {
-  local session="$1" sel="${2:-}" max pre post
-  local -a lines
-  mapfile -t lines < <(entries "$session")
-  max="$(printf '%s\n' "${lines[@]}" | awk '{ if ($3 > m) m = $3 } END { print m + 0 }')"
-  [ "$max" -ge 1 ] || die "session $session has no turns"
+# One line per turn, newest first: "<turn> <pre> <post> <post-time>", with
+# "-" for a missing end (a running or interrupted turn has no post).
+turns() {
+  entries "$1" | awk '
+    { if ($4 > m) m = $4 }
+    $3 == "pre" && !($4 in pre) { pre[$4] = $1 }
+    $3 == "post" { post[$4] = $1; t[$4] = $2 }
+    END {
+      for (n = m; n >= 1; n--)
+        print n, (n in pre ? pre[n] : "-"), (n in post ? post[n] : "-"), (n in t ? t[n] : "-")
+    }'
+}
+
+# A running turn ends at a live snapshot of the working tree. Plain
+# `git diff <commit>` would not do: it only sees files in the real index, so
+# files the agent created would show up as deleted.
+LIVE=""
+ensure_live() {
+  [ -n "$LIVE" ] || LIVE="$(cd "$(git rev-parse --show-toplevel)" && echo "working tree" | snapshot_commit)"
+}
+
+same_tree() { [ "$(git rev-parse "$1^{tree}")" = "$(git rev-parse "$2^{tree}")" ]; }
+
+# Newest turn that changed files, as "<pre> <post> <session> <turn>", over
+# all sessions or just $1. Finished turns are ranked by when they ended, a
+# running one by when it started, so a turn left open (agent quit mid-turn)
+# doesn't shadow everything that happened after it.
+latest_changed() {
+  local best="" best_t=-1 s n pre post t newest
+  local -a sessions
+  if [ -n "${1:-}" ]; then
+    sessions=("$1")
+  else
+    # most recently updated first, so it wins ties (several running turns
+    # all end at the same live snapshot)
+    mapfile -t sessions < <(git for-each-ref --sort=-committerdate --format='%(refname:lstrip=3)' "$NS/")
+  fi
+  for s in "${sessions[@]}"; do
+    newest=1
+    while read -r n pre post t; do
+      if [ "$post" = - ]; then
+        # only the newest turn can still be running; older open ones were
+        # interrupted and have no reliable end
+        [ "$newest" = 1 ] || continue
+        [ "$pre" != - ] || continue
+        ensure_live
+        post="$LIVE" t="$(git log -1 --format=%ct "$pre")"
+      fi
+      newest=0
+      if [ "$pre" = - ]; then
+        pre="$(git rev-parse -q --verify "$post^" || true)"
+        [ -n "$pre" ] || continue
+      fi
+      same_tree "$pre" "$post" && continue
+      if [ "$t" -gt "$best_t" ]; then
+        best="$pre $post $s $n" best_t="$t"
+      fi
+      break
+    done < <(turns "$s")
+  done
+  [ -n "$best" ] || die "no agent turn changed any files${1:+ in session $1}"
+  printf '%s\n' "$best"
+}
+
+# Resolve [session] [turn|all] to "<pre> <post> <session> <turn>".
+select_turn() {
+  local session="${1:-}" sel="${2:-}" max line n pre post
+  [ -z "$session" ] || session="$(resolve_session "$session")"
+  if [ -z "$sel" ]; then
+    latest_changed "$session"
+    return
+  fi
+  if [ -z "$session" ]; then
+    session="$(latest_changed 2>/dev/null | awk '{ print $3 }' || true)"
+    session="$(resolve_session "$session")"
+  fi
+  local -a table
+  mapfile -t table < <(turns "$session")
+  [ ${#table[@]} -gt 0 ] || die "session $session has no turns"
+  max="${table[0]%% *}"
 
   if [ "$sel" = all ]; then
-    pre="$(printf '%s\n' "${lines[@]}" | awk '$2 == "pre" { print $1; exit }')"
-    post="$(printf '%s\n' "${lines[@]}" | awk '{ h = $1 } END { print h }')"
-    # last snapshot is a "pre": the latest turn is still running
-    [ "$(printf '%s\n' "${lines[-1]}" | awk '{ print $2 }')" = post ] || post="$(live_commit)"
-    printf '%s %s\n' "$pre" "$post"
+    pre="$(printf '%s\n' "${table[@]}" | awk '$2 != "-" { p = $2 } END { print p }')"
+    read -r _ _ post _ <<<"${table[0]}"
+    if [ "$post" = - ]; then ensure_live; post="$LIVE"; fi
+    [ -n "$pre" ] || die "session $session has no starting snapshot"
+    printf '%s %s %s all\n' "$pre" "$post" "$session"
     return
   fi
 
-  local n="${sel:-$max}"
+  n="$sel"
   [[ "$n" =~ ^-?[0-9]+$ ]] || die "bad turn: $n"
   [ "$n" -le 0 ] && n=$((max + n))
   [ "$n" -ge 1 ] && [ "$n" -le "$max" ] || die "turn out of range (1..$max)"
-  pre="$(printf '%s\n' "${lines[@]}" | awk -v n="$n" '$2 == "pre" && $3 == n { print $1; exit }')"
-  post="$(printf '%s\n' "${lines[@]}" | awk -v n="$n" '$2 == "post" && $3 == n { h = $1 } END { print h }')"
-  # a "post" without a recorded "pre" (hook missed): diff against the previous snapshot
-  if [ -z "$pre" ] && [ -n "$post" ]; then
+  line="$(printf '%s\n' "${table[@]}" | awk -v n="$n" '$1 == n')"
+  read -r _ pre post _ <<<"$line"
+  if [ "$post" = - ]; then ensure_live; post="$LIVE"; fi
+  if [ "$pre" = - ]; then
+    # a "post" without a recorded "pre" (hook missed): use the snapshot before it
     pre="$(git rev-parse -q --verify "$post^" || true)"
   fi
   [ -n "$pre" ] || die "turn $n has no starting snapshot"
-  [ -n "$post" ] || post="$(live_commit)"
-  printf '%s %s\n' "$pre" "$post"
-}
-
-live_commit() {
-  (cd "$(git rev-parse --show-toplevel)" && echo "working tree" | snapshot_commit)
+  printf '%s %s %s %s\n' "$pre" "$post" "$session" "$n"
 }
 
 parse_session_flag() {
@@ -159,10 +232,17 @@ case "$cmd" in
     [ "${AGENT_CHECKPOINT:-1}" = 0 ] && exit 0
     agent="${1:-agent}" event="${2:-}"
     input="$(cat)"
+    # Claude: session_id + cwd. Antigravity: conversationId + workspacePaths
+    # (its hooks run in the directory holding hooks.json, not the project).
     session="$(printf '%s' "$input" | jq -r '.session_id // .sessionId // .conversationId // empty' 2>/dev/null || true)"
-    dir="$(printf '%s' "$input" | jq -r '.cwd // empty' 2>/dev/null || true)"
+    dir="$(printf '%s' "$input" | jq -r '.cwd // .workspacePaths[0] // empty' 2>/dev/null || true)"
     [ -n "$session" ] || exit 0
     [ -n "$dir" ] && { cd "$dir" 2>/dev/null || exit 0; }
+    if [ "$event" = pre-once ]; then
+      event=pre
+      last="$(git log -1 --format='%(trailers:key=Agent-Event,valueonly,separator=)' "$NS/$(sanitize "$session")" 2>/dev/null || true)"
+      [ "$last" = pre ] && exit 0
+    fi
     save "$event" "$session" "$agent" >/dev/null 2>&1 || true
     ;;
 
@@ -182,20 +262,20 @@ case "$cmd" in
   range)
     in_repo || die "not in a git repository"
     parse_session_flag "$@"
-    s="$(resolve_session "$SESSION")"
-    turn_range "$s" "${ARGS[0]:-}"
+    select_turn "$SESSION" "${ARGS[0]:-}"
     ;;
 
   diff)
     in_repo || die "not in a git repository"
     parse_session_flag "$@"
-    s="$(resolve_session "$SESSION")"
     sel=""
     if [ ${#ARGS[@]} -gt 0 ] && [[ "${ARGS[0]}" =~ ^(-?[0-9]+|all)$ ]]; then
       sel="${ARGS[0]}"; ARGS=("${ARGS[@]:1}")
     fi
-    range="$(turn_range "$s" "$sel")"
-    git diff "${range%% *}" "${range#* }" "${ARGS[@]}"
+    range="$(select_turn "$SESSION" "$sel")"
+    read -r pre post s n <<<"$range"
+    echo "# session $s, turn $n" >&2
+    git diff "$pre" "$post" "${ARGS[@]}"
     ;;
 
   restore)
@@ -210,10 +290,9 @@ case "$cmd" in
       what="the state before the last restore"
     else
       [ -n "$sel" ] || die "usage: restore [-s session] <turn> [--yes] | restore --undo [--yes]"
-      s="$(resolve_session "$SESSION")"
-      range="$(turn_range "$s" "$sel")"
-      target="${range%% *}"
-      what="the start of turn $sel of $s"
+      range="$(select_turn "$SESSION" "$sel")"
+      read -r target _ s n <<<"$range"
+      what="the start of turn $n of $s"
     fi
     cd "$(git rev-parse --show-toplevel)"
     # Snapshot the current state first, so the restore itself can be undone.

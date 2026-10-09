@@ -84,7 +84,12 @@ let
           type = "command";
           command = ''
             export PATH="$PATH:/bin:/usr/bin:/usr/sbin:/sbin"
+            input=$(cat)
             ${startRemoteControl}
+            # Fires before every model call; pre-once only snapshots the first
+            # one of a turn (agy has no prompt-submit hook). Synchronous so it
+            # lands before the agent edits anything.
+            printf '%s' "$input" | agent-checkpoint hook antigravity pre-once >/dev/null 2>&1 || true
             agent-state --agent antigravity --state running & printf '{}'
           '';
         }
@@ -142,6 +147,7 @@ let
             else
               agent-state --agent antigravity --state done &
             fi
+            printf '%s' "$input" | agent-checkpoint hook antigravity post >/dev/null 2>&1 || true
             printf '{}'
           '';
         }

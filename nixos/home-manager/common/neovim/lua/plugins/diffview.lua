@@ -30,7 +30,8 @@ local function system(cmd)
   return out
 end
 
--- :AgentReview [turn|all]   latest turn by default, 1 = first, -1 = previous
+-- :AgentReview [turn|all]   latest turn that changed files by default,
+-- 1 = first, -1 = previous (of that session), all = whole session
 local function agent_review(turn)
   local cmd = { "agent-checkpoint", "range" }
   if turn and turn ~= "" then
@@ -44,8 +45,9 @@ local function agent_review(turn)
     end
     return
   end
-  local pre, post = out[1]:match("^(%S+) (%S+)$")
+  local pre, post, session, n = out[1]:match("^(%S+) (%S+) (%S+) (%S+)$")
   vim.cmd(("DiffviewOpen %s..%s"):format(pre, post))
+  vim.notify(("Agent turn %s of session %s"):format(n, session:sub(1, 8)))
 end
 
 vim.api.nvim_create_user_command("AgentReview", function(o) agent_review(o.args) end, {
