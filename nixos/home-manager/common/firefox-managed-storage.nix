@@ -7,7 +7,8 @@
 #   - uBlock Origin: adminSettings (a full backup) is re-applied every launch.
 #   - LeechBlock NG (>= 1.7.3): every key given overwrites its local storage.
 # So changes made in either extension's UI are reverted on the next start;
-# re-export and replace the file in dotfiles/ instead. Vimium C and Dark Reader
+# re-export and overwrite dotfiles/ublock/ublock-backup.txt or
+# dotfiles/firefox/extensions/LeechBlockOptions.json instead. Vimium C and Dark Reader
 # don't read managed storage; they rely on Firefox Sync.
 { pkgs, inputs, ... }:
 
@@ -22,7 +23,7 @@ let
     name = "uBlock0@raymondhill.net";
     description = "uBlock Origin settings managed by nixos-configs";
     type = "storage";
-    data.adminSettings = builtins.readFile ../../../dotfiles/ublock/my-ublock-backup_2024-09-13_19.07.28.txt;
+    data.adminSettings = builtins.readFile ../../../dotfiles/ublock/ublock-backup.txt;
   };
 
   # Adds the compiled block patterns LeechBlock only builds on Save, and drops
