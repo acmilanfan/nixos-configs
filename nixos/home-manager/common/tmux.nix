@@ -226,8 +226,6 @@ in
       set -g @resurrect-hook-post-save-layout '${agentPinSessions}/bin/agent-pin-sessions'
 
       ${lib.optionalString pkgs.stdenv.isDarwin ''
-        # Tmux Agent Indicator macOS integration
-        set -g @agent-indicator-notification-command "sketchybar --trigger ai_agent_update; /usr/bin/open -g \"hammerspoon://nanowm?cmd=agentState&state=$AGENT_STATE&name=$AGENT_NAME\"; case $AGENT_STATE in done|off) sleep 3 && sketchybar --trigger ai_agent_update;; esac"
         # Trigger sketchybar refresh on pane exit (catches agent exits without SessionEnd hooks, e.g. Claude)
         set-hook -g pane-exited "run-shell -b 'sketchybar --trigger ai_agent_update 2>/dev/null'"
       ''}
@@ -238,7 +236,20 @@ in
       bind-key D display-popup -E -w 95% -h 95% -d "#{pane_current_path}" "nvim -c 'let g:agent_review_popup = 1' -c AgentReview"
     '';
     plugins = with pkgs.tmuxPlugins; [
-      sensible
+      {
+        # HM writes a plugin's extraConfig right before its run-shell, and
+        # programs.tmux.extraConfig after all plugins. Settings the plugins
+        # read at load time (status-right, @continuum-*, @agent-indicator-*)
+        # must come first, so they ride on the first plugin.
+        plugin = sensible;
+        extraConfig = ''
+          ${lib.readFile ./tmux/before-plugins.conf}
+          ${lib.optionalString pkgs.stdenv.isDarwin ''
+            # Tmux Agent Indicator macOS integration
+            set -g @agent-indicator-notification-command "sketchybar --trigger ai_agent_update; /usr/bin/open -g \"hammerspoon://nanowm?cmd=agentState&state=$AGENT_STATE&name=$AGENT_NAME\"; case $AGENT_STATE in done|off) sleep 3 && sketchybar --trigger ai_agent_update;; esac"
+          ''}
+        '';
+      }
       yank
       # vim-tmux-navigator
       tmux-fzf
