@@ -1,0 +1,114 @@
+#!/usr/bin/env bash
+# Open a window in the running Ghostty instead of starting another Ghostty process.
+#
+#   ghostty-window [--title TITLE] [--cwd DIR] [COMMAND]
+#
+# COMMAND is a single string run by a login zsh (empty: just the configured shell).
+# Prints the new window's AppleScript id.
+#
+# Why not `open -n -a Ghostty --args ...`: every such process gets its own Dock tile, and a
+# Dock restart (each darwin-rebuild switch) folds all running Ghostty processes into one tile
+# owned by just one of them. When that process quits, the others are left with no Dock icon.
+#
+# How COMMAND runs: as the window's AppleScript `command`, through this script's --run mode.
+# Ghostty 1.3.1 leaves such a window open after the command exits, whatever `wait after
+# command` says, so --run closes its own terminal afterwards. It learns which terminal that is
+# from a token file the launcher writes once the window exists. (Typing ` exec COMMAND` into a
+# shell window closes it naturally, but the typed line is echoed on screen before zsh starts.)
+#
+# TITLE is set with an OSC 2 escape just before COMMAND starts. Unlike `ghostty --title`, it
+# is not pinned: a program that sets the terminal title replaces it (yazi does; nvim does not).
+set -euo pipefail
+
+bundle="com.mitchellh.ghostty"
+tokens="${TMPDIR:-/tmp}/ghostty-window"
+
+if [[ "${1:-}" == "--run" ]]; then
+  token="$2" title="$3" command="$4"
+  [[ -n "$title" ]] && printf '\033]2;%s\007' "$title"
+  zsh -lc "$command" || true
+  for _ in $(seq 50); do
+    [[ -s "$tokens/$token" ]] && break
+    sleep 0.1
+  done
+  terminal="$(cat "$tokens/$token" 2>/dev/null || true)"
+  rm -f "$tokens/$token"
+  [[ -n "$terminal" ]] && osascript -e "tell application id \"$bundle\" to close (terminal id \"$terminal\")" >/dev/null
+  exit 0
+fi
+
+app="$HOME/Applications/Home Manager Apps/Ghostty.app"
+
+title=""
+cwd=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --title) title="$2"; shift 2 ;;
+    --cwd) cwd="$2"; shift 2 ;;
+    --) shift; break ;;
+    *) break ;;
+  esac
+done
+command="${*:-}"
+
+token=""
+runner=""
+if [[ -n "$command" ]]; then
+  mkdir -p "$tokens"
+  token="$(date +%s)-$$-$RANDOM"
+  self="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
+  # Ghostty runs this through bash -c, so %q quoting is what it expects.
+  printf -v runner '%q ' "$self" --run "$token" "$title" "$command"
+fi
+
+ghostty_running() {
+  [[ "$(osascript -e "application id \"$bundle\" is running")" == "true" ]]
+}
+
+window_ids() {
+  osascript -e "tell application id \"$bundle\" to get id of every window" | tr -d ' ' | tr ',' '\n'
+}
+
+# A cold start opens Ghostty's initial window. A plain new terminal is done at that point;
+# otherwise that initial window is closed once ours exists.
+stale=()
+if ! ghostty_running; then
+  open -a "$app"
+  for _ in $(seq 50); do
+    ghostty_running && [[ -n "$(window_ids 2>/dev/null)" ]] && break
+    sleep 0.1
+  done
+  if [[ -z "$runner$cwd" ]]; then
+    exit 0
+  fi
+  while IFS= read -r id; do
+    [[ -n "$id" ]] && stale+=("$id")
+  done < <(window_ids)
+fi
+
+# Prints "<window id>|<terminal id>".
+ids="$(osascript - "$runner" "$cwd" "${stale[@]}" <<'EOF'
+on run argv
+  set theCommand to item 1 of argv
+  set theCwd to item 2 of argv
+  tell application id "com.mitchellh.ghostty"
+    set cfg to new surface configuration
+    if theCommand is not "" then set command of cfg to theCommand
+    if theCwd is not "" then set initial working directory of cfg to theCwd
+    set w to new window with configuration cfg
+    set t to focused terminal of selected tab of w
+    repeat with i from 3 to count of argv
+      close window (window id (item i of argv))
+    end repeat
+    activate
+    return (id of w) & "|" & (id of t)
+  end tell
+end run
+EOF
+)"
+
+if [[ -n "$token" ]]; then
+  printf '%s' "${ids#*|}" > "$tokens/$token.tmp"
+  mv "$tokens/$token.tmp" "$tokens/$token"
+fi
+printf '%s\n' "${ids%%|*}"

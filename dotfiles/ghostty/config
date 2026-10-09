@@ -15,6 +15,16 @@ window-padding-x = 0
 window-padding-y = 0
 window-padding-balance = false
 
+# Every new window starts on the frame where nanowm (Hammerspoon) centres its 0.6 popups
+# (ORGINDEX, SCRATCHPAD) on the 1512x950 built-in screen: 302,222 907x570. Without this a new
+# window copies the front window's size, so a popup flashed large before nanowm shrank it.
+# Tiled windows are moved off this frame right away. Cells are 9.5x21 pt at font-size 16, so
+# 95x27 is 903x567; y is below the menu bar. Position is macOS-only.
+window-position-x = 302
+window-position-y = 190
+window-width = 95
+window-height = 27
+
 # Lifecycle: quit app when last window closes (prevents lingering dock icons)
 quit-after-last-window-closed = true
 

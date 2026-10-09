@@ -187,7 +187,7 @@ function M.setup()
     -- APPLICATIONS
     -- =========================================================================
     hs.hotkey.bind(alt, "return", function()
-        core.launchTask("/usr/bin/open", { "-n", "-a", "Ghostty" })
+        core.launchGhosttyWindow()
     end)
     hs.hotkey.bind(alt, "b", function()
         core.launchTask("/usr/bin/open", { "-n", "-a", "Firefox" })
@@ -226,7 +226,8 @@ function M.setup()
     -- =========================================================================
     -- APP WINDOWS (Focus or Create)
     -- =========================================================================
-    local function focusOrCreateApp(titlePattern, launchCmd, sizeFactor, appName)
+    -- `launch` is core.launchGhosttyWindow's { cwd, command }; titlePattern doubles as the title.
+    local function focusOrCreateApp(titlePattern, launch, sizeFactor, appName)
         local allWins = require("nanowm.watchers").getManagedWindows()
         local targetWin = nil
         local lowerPattern = titlePattern:lower()
@@ -261,16 +262,7 @@ function M.setup()
                             if wid and wid > 0 then
                                 local title = w:title() or ""
                                 if title:lower():find(lowerPattern, 1, true) then
-                                    state.floatingOverrides[wid] = true
-                                    state.lastIntendedFocusId = wid
-                                    local screen = hs.screen.mainScreen():frame()
-                                    local newW = math.floor(screen.w * sizeFactor)
-                                    local newH = math.floor(screen.h * sizeFactor)
-                                    local newX = math.floor(screen.x + (screen.w - newW) / 2)
-                                    local newY = math.floor(screen.y + (screen.h - newH) / 2)
-                                    w:setFrame({ x = newX, y = newY, w = newW, h = newH })
-                                    w:raise()
-                                    w:focus()
+                                    core.floatCentered(w, sizeFactor)
                                     return
                                 end
                             end
@@ -282,13 +274,16 @@ function M.setup()
             poll()
         end
 
-        core.launchTask("/bin/zsh", { "-c", launchCmd })
+        core.launchGhosttyWindow({
+            title = titlePattern, cwd = launch.cwd, command = launch.command, float = sizeFactor,
+        })
     end
 
     hs.hotkey.bind(altShift, "o", function()
         focusOrCreateApp(
             "ORGINDEX-AGENDA",
-            string.format('open -n -a Ghostty --args --window-height=20 --window-width=100 --title="ORGINDEX-AGENDA" -e zsh -c "nvim --cmd \\"cd %s/org/life\\" -c \\"lua require(\\\\\\"orgmode.api.agenda\\\\\\").agenda({span = 1})\\""', home),
+            { cwd = home .. "/org/life",
+              command = [[nvim -c 'lua require("orgmode.api.agenda").agenda({span = 1})']] },
             0.6,
             "Ghostty"
         )
@@ -297,7 +292,7 @@ function M.setup()
     hs.hotkey.bind(altShift, "w", function()
         focusOrCreateApp(
             "ORGINDEX-WORK",
-            string.format('open -n -a Ghostty --args --window-height=20 --window-width=100 --title="ORGINDEX-WORK" -e zsh -c "cd %s/org/life && vim %s/org/life/work/work.org"', home, home),
+            { cwd = home .. "/org/life", command = "vim work/work.org" },
             0.6,
             "Ghostty"
         )
@@ -306,7 +301,7 @@ function M.setup()
     hs.hotkey.bind(altShift, "d", function()
         focusOrCreateApp(
             "ORGINDEX-DUMP",
-            string.format('open -n -a Ghostty --args --window-height=20 --window-width=100 --title="ORGINDEX-DUMP" -e zsh -c "cd %s/org/life && vim %s/org/life/dump.org"', home, home),
+            { cwd = home .. "/org/life", command = "vim dump.org" },
             0.6,
             "Ghostty"
         )
@@ -315,7 +310,7 @@ function M.setup()
     hs.hotkey.bind(altShift, "y", function()
         focusOrCreateApp(
             "ORGINDEX-YOUTUBE",
-            string.format('open -n -a Ghostty --args --window-height=20 --window-width=100 --title="ORGINDEX-YOUTUBE" -e zsh -c "cd %s/org/consume && vim %s/org/consume/youtube/youtube1.org"', home, home),
+            { cwd = home .. "/org/consume", command = "vim youtube/youtube1.org" },
             0.6,
             "Ghostty"
         )
@@ -324,7 +319,7 @@ function M.setup()
     hs.hotkey.bind(altShift, "f", function()
         focusOrCreateApp(
             "ORGINDEX-CALORIES",
-            string.format('open -n -a Ghostty --args --window-height=20 --window-width=100 --title="ORGINDEX-CALORIES" -e zsh -c "cd %s/org/life && vim %s/org/life/calories.org"', home, home),
+            { cwd = home .. "/org/life", command = "vim calories.org" },
             0.6,
             "Ghostty"
         )
@@ -334,7 +329,7 @@ function M.setup()
     hs.hotkey.bind({ "cmd", "alt", "ctrl" }, "s", function()
         focusOrCreateApp(
             "SCRATCHPAD",
-            'open -n -a Ghostty --args --window-height=20 --window-width=100 --title="SCRATCHPAD" -e zsh -lc "nvim-scratchpad"',
+            { command = "nvim-scratchpad" },
             0.6,
             "Ghostty"
         )
@@ -343,7 +338,7 @@ function M.setup()
     local function openYazi()
         focusOrCreateApp(
             "YAZI",
-            string.format('open -n -a Ghostty --args --window-height=20 --window-width=100 --title="YAZI" -e zsh -c "yazi"', home),
+            { command = "yazi" },
             0.8,
             "Ghostty"
         )

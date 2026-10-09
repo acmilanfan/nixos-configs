@@ -903,6 +903,7 @@ function M.setup()
                 local retryId = win:id()
                 if retryId and retryId ~= 0 then
                     _trackedWins[retryId] = win
+                    core.claimPendingTerminalFloat(win)
                     core.registerWindow(win)
                     layout.tile()
                     local captureId = retryId
@@ -913,6 +914,7 @@ function M.setup()
         end
 
         _trackedWins[id] = win
+        core.claimPendingTerminalFloat(win)
         core.registerWindow(win)
         layout.tile()
         local captureId = id

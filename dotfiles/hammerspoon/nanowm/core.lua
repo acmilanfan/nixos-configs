@@ -537,8 +537,9 @@ end
 -- Utility Functions
 -- =============================================================================
 
--- Windows of every Ghostty process. `open -n -a Ghostty` starts a separate process per launch,
--- and hs.application.get("Ghostty") returns just one of them.
+-- Windows of every Ghostty process. Launchers now open windows in the running Ghostty
+-- (M.launchGhosttyWindow), but a stray `open -n` or a direct binary run still starts another
+-- process, and hs.application.get("Ghostty") returns just one of them.
 local function ghosttyWindows()
     local wins = {}
     for _, app in ipairs(hs.application.applicationsForBundleID("com.mitchellh.ghostty")) do
@@ -555,8 +556,24 @@ local function findGhosttyWindow(titleLower)
     return nil
 end
 
+-- Float `w`, centre it on the main screen at `sizeFactor` of the screen's size, and focus it.
+local function floatCentered(w, sizeFactor)
+    local wid = w:id()
+    state.floatingOverrides[wid] = true
+    state.lastIntendedFocusId = wid
+    local screen = hs.screen.mainScreen():frame()
+    local newW = math.floor(screen.w * sizeFactor)
+    local newH = math.floor(screen.h * sizeFactor)
+    local newX = math.floor(screen.x + (screen.w - newW) / 2)
+    local newY = math.floor(screen.y + (screen.h - newH) / 2)
+    w:setFrame({ x = newX, y = newY, w = newW, h = newH })
+    w:raise()
+    w:focus()
+end
+M.floatCentered = floatCentered
+
 -- Float, centre and focus the first Ghostty window whose title contains `titleLower`. Polls
--- because the window appears after launch, and Ghostty applies --title only after creating it:
+-- because the window appears after launch, and its title is set only once its command starts:
 -- the window is first classified (tiled) under a generic title, so the title-based float rule
 -- alone leaves it floating at its tiled frame. `onDone(found)` runs when polling ends.
 local function floatTerminalWindow(titleLower, sizeFactor, onDone)
@@ -572,17 +589,7 @@ local function floatTerminalWindow(titleLower, sizeFactor, onDone)
             hs.timer.doAfter(0.2, poll)
             return
         end
-        local wid = w:id()
-        state.floatingOverrides[wid] = true
-        state.lastIntendedFocusId = wid
-        local screen = hs.screen.mainScreen():frame()
-        local newW = math.floor(screen.w * sizeFactor)
-        local newH = math.floor(screen.h * sizeFactor)
-        local newX = math.floor(screen.x + (screen.w - newW) / 2)
-        local newY = math.floor(screen.y + (screen.h - newH) / 2)
-        w:setFrame({ x = newX, y = newY, w = newW, h = newH })
-        w:raise()
-        w:focus()
+        floatCentered(w, sizeFactor)
         if onDone then onDone(true) end
     end
     poll()
@@ -604,9 +611,7 @@ function M.launchSyncMon()
     syncMonLaunching = true
 
     hs.alert.show("🚀 Launching Sync Dashboard...")
-    -- Login shell so syncmon (a nix profile binary) is on PATH inside the terminal.
-    M.launchTask("/usr/bin/open", { "-n", "-a", "Ghostty", "--args",
-        "--title=SyncMon Dashboard", "-e", "zsh", "-lc", "syncmon" })
+    M.launchGhosttyWindow({ title = "SyncMon Dashboard", command = "syncmon", float = 0.8 })
     floatTerminalWindow("syncmon dashboard", 0.8, function() syncMonLaunching = false end)
 end
 
@@ -633,14 +638,45 @@ function M.launchApp(appName, appArgs)
     M.launchTask("/usr/bin/open", args)
 end
 
-function M.openInTerminal(command, sizeFactor)
-    -- Include common paths where wifitui or blueutil-tui might be located
-    -- Using -n to ensure a NEW window is opened even if Ghostty is already running
-    -- Using -e to run the command
-    local shellCmd = string.format("export PATH=$PATH:/opt/homebrew/bin:/usr/local/bin:/run/current-system/sw/bin; %s; zsh", command)
-    local fullCmd = string.format("/usr/bin/open -n -a Ghostty --args --title='%s' -e zsh -c \"%s\"", command, shellCmd)
+-- New window in the running Ghostty, via the ghostty-window script. Every `open -n -a Ghostty`
+-- process gets its own Dock tile, and a Dock restart (each darwin-rebuild switch) folds them all
+-- into one tile owned by one process: when that one quits, the rest have no Dock icon.
+-- opts.command runs in a login zsh and the window closes when it exits. opts.title is not pinned
+-- like `ghostty --title`: a program that sets the terminal title (yazi) replaces it. opts.float (a size factor) floats and centres the window as
+-- soon as it is created; see M.claimPendingTerminalFloat.
+function M.launchGhosttyWindow(opts)
+    opts = opts or {}
+    if opts.float then
+        state.pendingTerminalFloat = { size = opts.float, t = hs.timer.secondsSinceEpoch() }
+    end
+    local args = {}
+    if opts.title then table.insert(args, "--title"); table.insert(args, opts.title) end
+    if opts.cwd then table.insert(args, "--cwd"); table.insert(args, opts.cwd) end
+    if opts.command then table.insert(args, "--"); table.insert(args, opts.command) end
+    M.launchTask(config.ghosttyWindowBin, args)
+end
 
-    hs.task.new("/bin/zsh", nil, { "-c", fullCmd }):start()
+-- Called by windowCreated before a window is first tiled. The title-based float rule only
+-- catches a popup once its command has set the title, by which point it has been tiled and then
+-- visibly jumps to the centre. Instead, the first Ghostty window created within 3 s of a popup
+-- launch is taken to be that popup and floated straight away.
+function M.claimPendingTerminalFloat(win)
+    local pending = state.pendingTerminalFloat
+    if not pending then return end
+    if hs.timer.secondsSinceEpoch() - pending.t > 3 then
+        state.pendingTerminalFloat = nil
+        return
+    end
+    local app = win:application()
+    if not app or app:bundleID() ~= "com.mitchellh.ghostty" then return end
+    state.pendingTerminalFloat = nil
+    floatCentered(win, pending.size)
+end
+
+function M.openInTerminal(command, sizeFactor)
+    -- Shell kept open after the TUI exits; common paths where wifitui or blueutil-tui live.
+    local shellCmd = string.format("export PATH=$PATH:/opt/homebrew/bin:/usr/local/bin:/run/current-system/sw/bin; %s; exec zsh", command)
+    M.launchGhosttyWindow({ title = command, command = shellCmd, float = sizeFactor })
     if sizeFactor then floatTerminalWindow(command:lower(), sizeFactor) end
 end
 

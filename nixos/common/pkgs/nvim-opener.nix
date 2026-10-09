@@ -6,7 +6,7 @@ let
 in
 stdenv.mkDerivation {
   pname = name;
-  version = "1.1.7";
+  version = "1.1.8";
 
   dontUnpack = true;
 
@@ -15,7 +15,7 @@ stdenv.mkDerivation {
   ];
 
   buildPhase = ''
-    cat <<EOF > main.m
+    cat <<'EOF' > main.m
     #import <Cocoa/Cocoa.h>
     #include <unistd.h>
     #include <stdlib.h>
@@ -60,13 +60,30 @@ stdenv.mkDerivation {
             setenv("PATH", [[NSString stringWithFormat:@"%@/.nix-profile/bin:/etc/profiles/per-user/%@/bin:/run/current-system/sw/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin", home, userName] UTF8String], 1);
 
             NSString *shellCmd;
+            NSString *nvimCmd = @"nvim";
+            NSString *dir = home;
             if (filename) {
-                NSString *dir = [filename stringByDeletingLastPathComponent];
+                dir = [filename stringByDeletingLastPathComponent];
                 NSString *safeFile = [filename stringByReplacingOccurrencesOfString:@"'" withString:@"'\\'''"];
                 NSString *safeDir = [dir stringByReplacingOccurrencesOfString:@"'" withString:@"'\\'''"];
                 shellCmd = [NSString stringWithFormat:@"cd '%@' && nvim '%@'", safeDir, safeFile];
+                nvimCmd = [NSString stringWithFormat:@"nvim '%@'", safeFile];
             } else {
                 shellCmd = @"nvim";
+            }
+
+            // A window in the running Ghostty rather than another Ghostty process, so every
+            // terminal stays under one Dock tile (see the ghostty-window script).
+            NSString *ghosttyWindow = [NSString stringWithFormat:@"/etc/profiles/per-user/%@/bin/ghostty-window", userName];
+            if ([[NSFileManager defaultManager] isExecutableFileAtPath:ghosttyWindow]) {
+                char *args[] = {
+                    (char *)[ghosttyWindow UTF8String],
+                    (char *)"--cwd",
+                    (char *)[dir UTF8String],
+                    (char *)[nvimCmd UTF8String],
+                    NULL
+                };
+                execv(args[0], args);
             }
 
             if (terminal) {
@@ -152,9 +169,9 @@ stdenv.mkDerivation {
         <key>CFBundlePackageType</key>
         <string>APPL</string>
         <key>CFBundleShortVersionString</key>
-        <string>1.1.7</string>
+        <string>1.1.8</string>
         <key>CFBundleVersion</key>
-        <string>12</string>
+        <string>13</string>
         <key>LSMinimumSystemVersion</key>
         <string>10.10</string>
         <key>NSHighResolutionCapable</key>

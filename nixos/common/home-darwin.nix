@@ -131,6 +131,8 @@ in
       # Place the external screen above/left/right of the MacBook screen via displayplacer
       # (Homebrew, darwin/common.nix), resolving screen ids at run time.
       (pkgs.writeShellScriptBin "display-arrange" (lib.readFile ./scripts/display-arrange))
+      # New window in the running Ghostty instead of another Ghostty process (one Dock tile).
+      (pkgs.writeShellScriptBin "ghostty-window" (lib.readFile ./scripts/ghostty-window))
     ]
     ++ lib.optionals pkgs.stdenv.isDarwin [
       # Darwin-specific packages
@@ -181,7 +183,7 @@ in
       reload-kanata-logs = "~/.config/kanata/reload-kanata.sh --show-logs";
 
       # Sync Dashboard
-      syncmon = "ghostty --title='SyncMon Dashboard' -e syncmon";
+      syncmon = "ghostty-window --title 'SyncMon Dashboard' syncmon";
     }
   ];
 

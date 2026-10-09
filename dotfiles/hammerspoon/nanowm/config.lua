@@ -140,6 +140,9 @@ M.specialDimAlpha = 0.4  -- how dark the rest of the screen gets while the speci
 -- names are never parsed as shell syntax.
 M.sketchybarBin = "/etc/profiles/per-user/" .. (os.getenv("USER") or "") .. "/bin/sketchybar"
 M.sketchybarHeight = 32  -- sketchybar's bar height (defaults.sh); was 35, a 3 px gap under the bar
+-- Opens a window in the running Ghostty (nixos/common/scripts/ghostty-window). See
+-- core.launchGhosttyWindow.
+M.ghosttyWindowBin = "/etc/profiles/per-user/" .. (os.getenv("USER") or "") .. "/bin/ghostty-window"
 
 -- =============================================================================
 -- Shared helpers
