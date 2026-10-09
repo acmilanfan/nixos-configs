@@ -10,9 +10,6 @@
   ];
 
   services.tlp.enable = false;
-  security.sudo.extraConfig = ''
-    gentooway  ALL=(ALL) NOPASSWD: ${pkgs.systemd}/bin/systemctl
-  '';
 
   musnix = {
     enable = true;
