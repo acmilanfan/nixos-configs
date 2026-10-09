@@ -5,7 +5,7 @@ SIGNAL_INFO=$(system_profiler SPAirPortDataType 2>/dev/null | grep "Signal / Noi
 
 if [ -n "$SIGNAL_INFO" ]; then
   # Extract signal strength (e.g., "-55 dBm")
-  RSSI=$(echo "$SIGNAL_INFO" | sed 's/.*: /' | cut -d' ' -f1)
+  RSSI=$(echo "$SIGNAL_INFO" | sed 's/.*: //' | cut -d' ' -f1)
 
   if [ -n "$RSSI" ] && [ "$RSSI" -lt 0 ] 2>/dev/null; then
     # WiFi is connected - show signal strength icon and value
