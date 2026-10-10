@@ -8,6 +8,8 @@
 // Compute them with LeechBlock's own getRegExpSites, exactly as Save does.
 // Per-set passwords (passwordSetSpec<n>) are dropped: keys absent from managed
 // storage are left alone, so a password set once in the UI survives.
+// Exported strings (customStyle, etc.) are escaped with \n by LeechBlock's
+// exportOptions; unescape them so runtime local storage gets real newlines.
 
 const fs = require("fs");
 const vm = require("vm");
@@ -20,6 +22,9 @@ vm.runInContext(fs.readFileSync(commonPath, "utf8"), ctx, { filename: commonPath
 const options = JSON.parse(fs.readFileSync(exportPath, "utf8"));
 for (const key of Object.keys(options)) {
   if (/^passwordSetSpec\d+$/.test(key)) delete options[key];
+  if (typeof options[key] === "string") {
+    options[key] = options[key].replace(/\\n/g, "\n");
+  }
 }
 for (let set = 1; set <= options.numSets; set++) {
   const re = ctx.getRegExpSites(options[`sites${set}`], options.matchSubdomains);
