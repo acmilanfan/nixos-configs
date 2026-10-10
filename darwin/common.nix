@@ -182,7 +182,6 @@ in
     wget
     tree
     zsh
-    unstable.aerospace
     startupScript
     kanataCtl
     pkgs.warpd

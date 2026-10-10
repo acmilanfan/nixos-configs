@@ -100,11 +100,6 @@ in
       (pass.withExtensions (exts: [ exts.pass-otp ]))
       gnupg
       pinentry_mac
-      # Scripts need to be handled. They were in ./scripts/ relative to mac-work/home.nix.
-      # We need to make sure they are accessible.
-      # (writeShellScriptBin "pip-pop" (lib.readFile ./scripts/pip-pop))
-      # (writeShellScriptBin "fullscreen-raise" (lib.readFile ./scripts/fullscreen-raise))
-
       # Nvim scratchpad: bare `nvim` (not a store path) so the configured
       # programs.neovim wrapper + orgmode is used. Copies to clipboard on
       # :wq; :cq exits non-zero so pbcopy is skipped and clipboard is untouched.
@@ -168,11 +163,6 @@ in
       docker-env = "colima-testcontainers-env";
       lzd = "lazydocker";
 
-      # AeroSpace shortcuts
-      aerospace-reload = "aerospace reload-config";
-      aerospace-list = "aerospace list-windows --all";
-      aerospace-debug = "aerospace debug-windows";
-
       # Clipboard shortcuts
       clipboard-history = "open -a Maccy";
       clipboard-clear = "defaults delete org.p0deje.Maccy";
@@ -206,8 +196,6 @@ in
     # root/nixos/common/home-darwin.nix
     # root/dotfiles
     # so ../../dotfiles is correct.
-
-    ".config/aerospace/aerospace.toml".source = ../../dotfiles/aerospace/aerospace.toml;
 
     # Karabiner-Elements configuration
     ".config/karabiner/karabiner.json" = {

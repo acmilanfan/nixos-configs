@@ -2,7 +2,6 @@
 {
 
   imports = [
-    ./aerospace.nix
     ./alacritty.nix
     ./ghostty.nix
     # ./doom.nix

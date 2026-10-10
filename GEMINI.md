@@ -47,7 +47,7 @@ nix build .#vm-hyprland-image
 ## Key Components & Configurations
 
 - **Keyboard Management:** `kanata` is used heavily for keyboard remapping on both platforms (layouts in `dotfiles/kanata/`). On macOS, Karabiner-Elements is installed only for its VirtualHIDDevice driver, which kanata needs. Its grabber is deliberately disabled in `darwin/common.nix`.
-- **macOS Window Management:** custom `hammerspoon` scripts (`NanoWM` tiling WM in `dotfiles/hammerspoon/nanowm/`, plus vim-navigation and key remapping), `aerospace`, and `jankyborders`.
+- **macOS Window Management:** custom `hammerspoon` scripts (`NanoWM` tiling WM in `dotfiles/hammerspoon/nanowm/`, plus vim-navigation and key remapping) and `jankyborders`.
 - **macOS Status Bar:** `sketchybar`.
 - **Linux Desktops:** Hyprland (main, with `waybar` and many `hypr-*` helper scripts in `nixos/home-manager/common/scripts/`), plus AwesomeWM, GNOME, and optional Sway/KDE modules.
 - **Launcher:** `vicinae` on both platforms (`nixos/home-manager/common/vicinae.nix`).
@@ -73,4 +73,4 @@ nix build .#vm-hyprland-image
 - `darwin/common.nix`: Shared macOS system modules.
 - `nixos/common/home-darwin.nix`: Shared Home Manager configuration for macOS.
 - `nixos/common/overlays.nix`: Custom package overlay (packages from `nixos/common/pkgs/`).
-- `dotfiles/`: Contains raw configuration for tools like `kitty`, `nvim`, `aerospace`, `hammerspoon`, `kanata`, etc.
+- `dotfiles/`: Contains raw configuration for tools like `kitty`, `nvim`, `hammerspoon`, `kanata`, etc.
