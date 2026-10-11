@@ -137,7 +137,7 @@ local function runPass(entry, callback)
 end
 
 local function clipAndClear(password, label)
-    -- Write password then mark as concealed so Raycast/Maccy skip recording it
+    -- Write password then mark as concealed so Raycast/Vicinae skip recording it
     hs.pasteboard.clearContents()
     hs.pasteboard.writeObjects(password)
     hs.pasteboard.writeDataForUTI("org.nspasteboard.ConcealedType", "", true)

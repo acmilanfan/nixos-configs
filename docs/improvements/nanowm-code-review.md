@@ -612,7 +612,7 @@ cost, but it defeats the point of `wrap` returning a reusable function.
   itself blocking) are genuinely valuable and should survive any refactor. P2 is a gap in this
   model, not an argument against it.
 - **`pass.lua`.** Password never on a command line, clipboard marked
-  `org.nspasteboard.ConcealedType` so Raycast/Maccy skip it, auto-clear after 45 s only if the
+  `org.nspasteboard.ConcealedType` so Raycast/Vicinae skip it, auto-clear after 45 s only if the
   clipboard still holds the same value (`pass.lua:105-119`). The `writeObjects` /
   `writeDataForUTI` calls are both correct per the installed HS docs.
 - **Persistence.** `hs.settings` → JSON migration with a fallback path (`state.lua:204-244`),

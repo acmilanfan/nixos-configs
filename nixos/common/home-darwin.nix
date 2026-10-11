@@ -163,9 +163,10 @@ in
       docker-env = "colima-testcontainers-env";
       lzd = "lazydocker";
 
-      # Clipboard shortcuts
-      clipboard-history = "open -a Maccy";
-      clipboard-clear = "defaults delete org.p0deje.Maccy";
+      # Clipboard is handled by Vicinae; open its clipboard history view
+      # (deeplink: https://docs.vicinae.com/deeplinks).
+      clipboard-history = "vicinae 'vicinae://launch/clipboard/history'";
+      clipboard-clear = "vicinae cmd launch clipboard:clear-history";
 
       # Kanata configuration management
       reload-kanata = "~/.config/kanata/reload-kanata.sh";
