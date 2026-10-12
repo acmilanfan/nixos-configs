@@ -10,6 +10,76 @@
 let
   user = config.system.primaryUser;
 
+  # Unlike caffeinate's idle-sleep assertions, disablesleep also prevents
+  # lid-close sleep on battery. This is a persistent, system-wide toggle;
+  # activation must leave its value alone so rebuilds preserve the choice.
+  noSleep = pkgs.writeShellScriptBin "no-sleep" ''
+    set -euo pipefail
+
+    sleep_disabled() {
+      local settings key value rest
+      settings=$(/usr/bin/pmset -g) || return
+      while read -r key value rest; do
+        if [ "$key" = "SleepDisabled" ]; then
+          echo "$value"
+          return
+        fi
+      done <<< "$settings"
+      # macOS omits SleepDisabled until it has been explicitly set.
+      echo 0
+    }
+
+    if [ "$#" -gt 1 ]; then
+      echo "usage: no-sleep [on|off|toggle|status|state]" >&2
+      exit 2
+    fi
+
+    case "''${1:-status}" in
+      on|off|toggle)
+        # GUI callers have no terminal for authentication. The sudo rule
+        # below permits only these fixed subcommands through this root-owned
+        # path, never arbitrary pmset arguments.
+        if [ "$EUID" -ne 0 ]; then
+          exec /usr/bin/sudo -n /run/current-system/sw/bin/no-sleep "$1"
+        fi
+        desired=0
+        case "$1" in
+          on) desired=1 ;;
+          toggle)
+            actual=$(sleep_disabled)
+            [ "$actual" = "1" ] || desired=1
+            ;;
+        esac
+        /usr/bin/pmset -a disablesleep "$desired"
+        # pmset may print an error without a nonzero exit status for this
+        # system-wide setting, so confirm it was actually saved.
+        actual=$(sleep_disabled)
+        if [ "$actual" != "$desired" ]; then
+          echo "no-sleep: failed to change the macOS sleep-disable setting" >&2
+          exit 1
+        fi
+        ;;
+      status|state) actual=$(sleep_disabled) ;;
+      *)
+        echo "usage: no-sleep [on|off|toggle|status|state]" >&2
+        exit 2
+        ;;
+    esac
+
+    # Machine-readable state for SketchyBar; query macOS rather than caching
+    # another state in Hammerspoon that could drift after CLI changes/reloads.
+    if [ "''${1:-status}" = "state" ]; then
+      if [ "$actual" = "1" ]; then echo on; else echo off; fi
+      exit 0
+    fi
+
+    if [ "$actual" = "1" ]; then
+      echo "no-sleep: on (system sleep disabled, including lid-close sleep on battery and AC)"
+    else
+      echo "no-sleep: off (normal macOS sleep policy allowed)"
+    fi
+  '';
+
   # Dedicated startup script for GUI apps and driver initialization.
   # Runs under Apple's /bin/bash, not nix bash: launchd makes the interpreter
   # the TCC-responsible process, and every new nix bash store path triggered a
@@ -184,6 +254,7 @@ in
     zsh
     startupScript
     kanataCtl
+    noSleep
     pkgs.warpd
     unstable.kanata
     pkgs.blueutil-tui
@@ -207,11 +278,12 @@ in
     };
   };
 
-  # Only kanata-ctl (see its definition above). /run/current-system is
+  # Fixed helpers only (see their definitions above). /run/current-system is
   # root-owned and points into the read-only store, so the path can't be
   # swapped by the user.
   security.sudo.extraConfig = ''
     %admin ALL=(root) NOPASSWD: /run/current-system/sw/bin/kanata-ctl
+    ${user} ALL=(root) NOPASSWD: /run/current-system/sw/bin/no-sleep on, /run/current-system/sw/bin/no-sleep off, /run/current-system/sw/bin/no-sleep toggle
   '';
 
   launchd.agents.darwin-startup = {
@@ -615,7 +687,8 @@ PY
       fi
     fi
 
-    # Power management (balanced: powernap off, wake-on-LAN off, TCPKeepAlive off)
+    # Power management (balanced: powernap off, wake-on-LAN off, TCPKeepAlive off).
+    # Leave disablesleep untouched: `no-sleep on|off` manages that separately.
     echo "Applying power management settings..."
     pmset -b displaysleep 3 disksleep 10 sleep 10 powernap 0 womp 0 || true
     pmset -c displaysleep 10 disksleep 30 sleep 30 powernap 0 womp 0 || true

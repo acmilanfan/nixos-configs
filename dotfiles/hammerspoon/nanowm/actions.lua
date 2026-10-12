@@ -616,4 +616,27 @@ function M.toggleCaffeinate()
     hs.task.new("/bin/zsh", nil, { "-c", "sketchybar --trigger nanowm_caffeinate STATE=" .. status }):start()
 end
 
+-- Closed-lid mode is a macOS setting, independent of the display-idle toggle.
+-- Retain the asynchronous task and ignore extra clicks until it finishes.
+local noSleepTask
+function M.toggleNoSleep()
+    if noSleepTask then return end
+    noSleepTask = hs.task.new("/run/current-system/sw/bin/no-sleep", function(code, stdout, stderr)
+        noSleepTask = nil
+        if code == 0 and (stdout or ""):find("^no%-sleep: on") then
+            hs.alert.show("Closed-lid mode: ON (battery + AC)")
+        elseif code == 0 and (stdout or ""):find("^no%-sleep: off") then
+            hs.alert.show("Closed-lid mode: OFF")
+        else
+            print("[NanoWM] no-sleep failed: " .. (stderr or "") .. (stdout or ""))
+            hs.alert.show("Closed-lid toggle failed; apply the Darwin configuration and check no-sleep status")
+        end
+        hs.task.new(config.sketchybarBin, nil, { "--trigger", "no_sleep_changed" }):start()
+    end, { "toggle" })
+    if not noSleepTask or not noSleepTask:start() then
+        noSleepTask = nil
+        hs.alert.show("Closed-lid toggle failed to start; apply the Darwin configuration")
+    end
+end
+
 return M

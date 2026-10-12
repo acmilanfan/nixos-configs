@@ -547,13 +547,14 @@ function M.setup()
     -- [s]ystem Sub-modal
     leader:bind("", "s", function()
         leader:exit()
-        hs.alert.show("System: [p] Battery [g] Bar [d] Sync [k/K] Kanata [l] Lock", 999999)
+        hs.alert.show("System: [p] Battery [g] Bar [d] Sync [k/K] Kanata [n] Closed-lid [l] Lock", 999999)
         systemModal:enter()
     end)
 
     systemModal:bind("", "escape", exitAll)
     systemModal:bind("", "q", exitAll)
     systemModal:bind("", "p", function() integrations.toggleBatterySaver(); exitAll() end)
+    systemModal:bind("", "n", function() exitAll(); actions.toggleNoSleep() end)
     systemModal:bind("", "g", function() integrations.toggleSketchybar(); exitAll() end)
     systemModal:bind("", "d", function()
         core.launchSyncMon()
@@ -579,6 +580,7 @@ function M.setup()
     end)
     hs.hotkey.bind(ctrlAltShift, "c", hs.toggleConsole)
     hs.hotkey.bind(cmdAltShift, "c", actions.toggleCaffeinate)
+    hs.hotkey.bind(cmdAltShift, "n", actions.toggleNoSleep)
     hs.hotkey.bind(cmdAltShiftCtrl, "l", function() hs.caffeinate.lockScreen() end)
 end
 

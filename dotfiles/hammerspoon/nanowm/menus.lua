@@ -43,6 +43,10 @@ function M.openMenu(mode)
             },
             { t = "Toggle Free Mode (current tag)", fn = tags.toggleFreeMode },
             {
+                t = "Toggle Closed-lid No-sleep Mode (battery + AC)",
+                fn = function() require("nanowm.actions").toggleNoSleep() end,
+            },
+            {
                 t = "Show Tag Memory",
                 fn = function()
                     local count = 0
@@ -401,7 +405,7 @@ function M.showKeybindMenu()
             category = "Leader Mode (Alt + ,)",
             binds = {
                 { key = "a -> t/f/s", desc = "Apps: Term / Firefox / Slack", fn = function() end },
-                { key = "s -> p/g/k/l", desc = "System: Power / Bar / Kanata / Lock", fn = function() end },
+                { key = "s -> p/g/k/n/l", desc = "System: Power / Bar / Kanata / Closed-lid / Lock", fn = function() end },
                 { key = "c -> m/a/w/b", desc = "Control: Mixer / Audio / WiFi / BT", fn = function() end },
                 { key = "v",         desc = "Enter Vim Mode", fn = function() end },
                 { key = "k",         desc = "Toggle HS Console", fn = function() end },
@@ -424,6 +428,7 @@ function M.showKeybindMenu()
                 { key = "Ctrl+Alt+Shift+R", desc = "Reload config", fn = hs.reload },
                 { key = "Ctrl+Alt+Shift+C", desc = "Toggle HS console", fn = hs.toggleConsole },
                 { key = "Cmd+Alt+Shift+C", desc = "Toggle Caffeinate", fn = actions.toggleCaffeinate },
+                { key = "Cmd+Alt+Shift+N", desc = "Toggle closed-lid no-sleep mode (battery + AC)", fn = actions.toggleNoSleep },
                 { key = "Cmd+Alt+Shift+Ctrl+L", desc = "Lock Screen", fn = function() hs.caffeinate.lockScreen() end },
             },
         },

@@ -11,6 +11,7 @@ source "$CONFIG_DIR/defaults.sh"
 # --- Setup Custom Events ---
 sketchybar --add event nanowm_update
 sketchybar --add event nanowm_caffeinate
+sketchybar --add event no_sleep_changed
 sketchybar --add event kanata_changed
 sketchybar --add event clock_tick
 sketchybar --add event system_info_update
@@ -176,6 +177,22 @@ sketchybar --add item caffeinate left \
                  drawing=off \
                  script="$CONFIG_DIR/plugins/caffeinate.sh" \
            --subscribe caffeinate nanowm_caffeinate
+
+# --- Closed-lid mode (system sleep, including battery clamshell) ---
+# Always visible so it can be enabled by clicking; grey means normal sleep.
+sketchybar --add item no_sleep left \
+           --set no_sleep \
+                 icon="󰌢" \
+                 icon.color=$INACTIVE_COLOR \
+                 background.color=$ITEM_BG_COLOR \
+                 background.drawing=on \
+                 label="LID" \
+                 label.drawing=off \
+                 label.padding_right=8 \
+                 update_freq=30 \
+                 script="$CONFIG_DIR/plugins/caffeinate.sh" \
+                 click_script="/usr/bin/open -g 'hammerspoon://nanowm?cmd=toggleNoSleep'" \
+           --subscribe no_sleep no_sleep_changed system_woke power_source_change
 
 # --- Front App ---
 sketchybar --add item front_app left \

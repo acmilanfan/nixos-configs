@@ -44,6 +44,35 @@ nix build .#vm-hyprland-image
 
 *Note: evaluation is pure, so no `--impure`. `flake.nix` sets `inputs.self.submodules = true`, so the `secrets/` submodule is part of the flake source. It must be checked out (`git submodule update --init`), and its whole contents are copied into the world-readable `/nix/store`. Keep only encrypted or non-sensitive data there.*
 
+### Closed-lid operation on macOS
+
+Both `mac-home` and `mac-work` include `no-sleep` from `darwin/common.nix`.
+After applying the configuration on each Mac, use:
+
+```bash
+no-sleep on      # Keep running with the lid closed, on battery or AC
+no-sleep status  # Show the system-wide sleep-disable setting (also the default command)
+no-sleep off     # Allow normal macOS sleep behavior again
+no-sleep toggle  # Switch between the two modes
+```
+
+SketchyBar has a clickable laptop icon next to the caffeine indicator: dim means
+off, highlighted with `LID` means on, and `LID ?` means the setting could not be read.
+Hammerspoon also toggles it with **Cmd+Alt+Shift+N**, **Alt+, → s → n**, or the
+closed-lid entry in the keybind menu (**Alt+/** / SketchyBar's help button).
+It is also searchable in the commands menu (**Alt+P**).
+GUI toggles refresh the bar immediately; terminal changes appear within 30 seconds.
+The indicator reads macOS's actual setting, including after boot or reload.
+
+`on`, `off`, and `toggle` use a passwordless sudo rule restricted to those exact
+subcommands of the root-owned helper, for the Mac's primary user. Installing that
+rule still requires a normal authenticated Darwin rebuild.
+The command uses `pmset -a disablesleep`,
+so the choice persists across reboots and rebuilds. Enable it before closing the
+lid for background tasks or external-display use on battery; disable it when done.
+Display idle timers remain in effect. The existing Hammerspoon caffeine toggle
+controls display idle sleep separately and does not provide closed-lid mode.
+
 ## Key Components & Configurations
 
 - **Keyboard Management:** `kanata` is used heavily for keyboard remapping on both platforms (layouts in `dotfiles/kanata/`). On macOS, Karabiner-Elements is installed only for its VirtualHIDDevice driver, which kanata needs. Its grabber is deliberately disabled in `darwin/common.nix`.

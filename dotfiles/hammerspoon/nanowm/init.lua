@@ -55,6 +55,7 @@ local urlCommands = {
     end,
     toggleSpecial = function() tags.toggleSpecial() end,
     keybindMenu = function() menus.showKeybindMenu() end,
+    toggleNoSleep = function() actions.toggleNoSleep() end,
     focusAgent = function(p)
         if p.pane and p.pane ~= "" then agents.focusAgent(p.pane) end
     end,
@@ -135,6 +136,7 @@ M.resizeFloatingWindow = actions.resizeFloatingWindow
 M.moveFloatingWindow = actions.moveFloatingWindow
 M.toggleGaps = actions.toggleGaps
 M.toggleCaffeinate = actions.toggleCaffeinate
+M.toggleNoSleep = actions.toggleNoSleep
 
 function M.toggleOverview()
     if state.overviewActive then
