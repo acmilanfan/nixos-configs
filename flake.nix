@@ -37,7 +37,22 @@
 
     nix-homebrew = {
       url = "github:zhaofengli/nix-homebrew";
+      inputs.brew-src.follows = "homebrew-brew";
     };
+
+    # Keep the Homebrew engine in step with tap DSL changes rather than
+    # relying on nix-homebrew's older release-tagged brew-src input.
+    homebrew-brew = { url = "github:Homebrew/brew"; flake = false; };
+
+    # Homebrew definitions are pinned alongside Nix packages. Update these
+    # inputs explicitly, then rebuild; `brew update` does not manage them.
+    homebrew-core = { url = "github:homebrew/homebrew-core"; flake = false; };
+    homebrew-cask = { url = "github:homebrew/homebrew-cask"; flake = false; };
+    homebrew-formulae = { url = "github:FelixKratz/homebrew-formulae"; flake = false; };
+    homebrew-autoraise = { url = "github:Dimentium/homebrew-autoraise"; flake = false; };
+    homebrew-k06a = { url = "github:k06a/homebrew-tap"; flake = false; };
+    homebrew-omlx = { url = "github:jundot/omlx"; flake = false; };
+
     mac-app-util.url = "github:hraban/mac-app-util";
 
     vicinae-extensions = {

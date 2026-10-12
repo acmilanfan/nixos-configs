@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Manage the plain-source flake inputs (`flake = false`) of this repo: the
-# vim/tmux plugins and packages built from a git checkout. flake.lock pins
-# them; this bumps only them, never nixpkgs or the other flakes.
+# vim/tmux plugins, packages built from a git checkout, and Homebrew engine/taps.
+# flake.lock pins them; this bumps only them, never nixpkgs or the other flakes.
 #
 #   pins [list]               name, locked rev, date, what it tracks
 #   pins outdated             which ones have new upstream commits (git ls-remote)

@@ -63,7 +63,39 @@ nix build .#vm-hyprland-image
 - **Package channels:** Home Manager gets both `pkgs` (stable `nixos-26.05`) and `unstable` (`nixos-unstable`) through `extraSpecialArgs`.
 - **Pinned sources:** Plugins and packages built from a git checkout (custom vim plugins, tmux plugins, `blueutil-tui`, VimMode.spoon) are `flake = false` inputs in `flake.nix`, not `fetchFromGitHub` with a hand-kept hash. Use them as `src = inputs.<name>`. `pins outdated` lists the ones with new upstream commits, and `pins update [name...]` bumps only those. Release-tagged packages (`opencode-telegram-bot`, `warpd`) still use versioned fetchers.
 - **Dotfile Management:** Files in `dotfiles/` are symlinked to `$HOME` using Home Manager's `home.file` attribute.
-- **Homebrew:** Managed via `nix-homebrew` within `nix-darwin` configurations to ensure a unified setup.
+- **Homebrew:** Homebrew's engine (`homebrew-brew`) and all six taps are `flake = false` inputs pinned in `flake.lock`. `nix-homebrew.inputs.brew-src` follows `homebrew-brew`; `darwin/common.nix` uses that source directly as `nix-homebrew.package` to avoid stale version metadata from nix-homebrew's internal lockfile. The engine tracks upstream's default branch so `up` refreshes it alongside the taps: newer formulas may require DSL features absent from nix-homebrew's default release. Both Macs and their Rosetta prefixes use `mutableTaps = false`, with `homebrew.taps` derived from `nix-homebrew.taps`. Declaring `homebrew/homebrew-core` makes the brew wrapper disable the live package API. Activation upgrades packages from the pinned definitions without updating taps. Third-party trust is declared via `nix-homebrew.trust` and mirrored into the Brewfile's tap entries so Bundle cleanup preserves it.
+
+### Homebrew updates (macOS)
+
+From the repository root, update the desired tap inputs and apply them:
+
+```bash
+nix flake update homebrew-brew homebrew-core homebrew-cask homebrew-formulae homebrew-autoraise homebrew-k06a homebrew-omlx
+sup
+```
+
+For official packages only, use `nix flake update homebrew-brew homebrew-core homebrew-cask`. For oMLX only, use `nix flake update homebrew-omlx`. `pins update <input-name...>` also works; bare `pins update` now updates the Homebrew engine and taps as well as the other plain-source inputs. Bare `up` updates all flake inputs; `sup` applies them. Review the `flake.lock` diff to see what changed. Update `nix-homebrew` separately for changes to the installation manager. Use Nix input updates rather than `brew update` for these immutable sources.
+
+**First activation on each existing Mac:** nix-homebrew refuses to overwrite a mutable `Library/Taps` directory. Before the first `sup`, move any existing directories aside (the backups contain tap definitions, not installed packages):
+
+```bash
+for taps in /opt/homebrew/Library/Taps /usr/local/Homebrew/Library/Taps; do
+  if [ -d "$taps" ] && [ ! -L "$taps" ]; then
+    sudo mv "$taps" "$taps.before-nix-$(date +%Y%m%d-%H%M%S)"
+  fi
+done
+sup
+```
+
+This is a one-time migration; subsequent rebuilds manage the tap symlinks. The backups can be removed after a successful activation.
+
+Pinned definitions are not exact installed-state rollback: Homebrew does not automatically downgrade packages when reverting the lockfile, and self-updating apps, moving download URLs, and formula-specific dependency installers can still drift.
+
+### GitHub authentication for Nix
+
+`nixos/home-manager/common/sops.nix` renders `github/personal_token` into a mode-0600 `nix-github.conf` at runtime. This personal-account credential is separate from the work credential at `github/token` used by the existing developer integrations. Home Manager's `~/.config/nix/nix.conf` includes it via `!include`, so user-level Nix commands such as `up` authenticate GitHub requests. The generated Nix-store config contains only the include path, not the token. The token is read from the file on each invocation; no shell restart is required after activation.
+
+After applying this configuration with `sup`, use `up --refresh` to retry inputs that fell back to cached revisions because of GitHub rate limits. A successful update with `using cached version` warnings does not establish that all inputs are current. This authentication is user-level; root's Nix commands do not read the user's config.
 
 ## Key Files
 

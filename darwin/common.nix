@@ -268,18 +268,44 @@ in
     };
   };
 
-  # Homebrew packages that don't work well with nix-darwin
+  # Pin every tap for both Macs (including their Rosetta prefixes). The
+  # homebrew-core tap makes nix-homebrew disable the live Homebrew API.
+  nix-homebrew = {
+    # nix-homebrew derives version metadata from its own lockfile even when
+    # brew-src follows another input. Use the actual source directly, without
+    # stamping that stale release version onto our newer Homebrew checkout.
+    package = inputs.homebrew-brew // { name = "brew-${inputs.homebrew-brew.shortRev}"; };
+    mutableTaps = false;
+    taps = {
+      "homebrew/homebrew-core" = inputs.homebrew-core;
+      "homebrew/homebrew-cask" = inputs.homebrew-cask;
+      "felixkratz/homebrew-formulae" = inputs.homebrew-formulae;
+      "dimentium/homebrew-autoraise" = inputs.homebrew-autoraise;
+      "k06a/homebrew-tap" = inputs.homebrew-k06a;
+      # The repository is jundot/omlx, but Homebrew's tap directory still
+      # needs the homebrew- prefix to resolve jundot/omlx/omlx correctly.
+      "jundot/homebrew-omlx" = inputs.homebrew-omlx;
+    };
+    trust = {
+      taps = [
+        "dimentium/autoraise"
+        "felixkratz/formulae"
+        "k06a/tap"
+        "jundot/omlx"
+      ];
+      formulae = [ "k06a/tap/macpow" ];
+    };
+  };
+
+  # Homebrew packages that don't work well with nix-darwin. Upgrades use
+  # only the definitions pinned in flake.lock; see GEMINI.md for updates.
   homebrew = {
     enable = true;
-    # global.autoUpdate = true;
     global.autoUpdate = false;
     onActivation = {
-      # cleanup = "none";
       cleanup = "zap";
       autoUpdate = false;
-      # autoUpdate = true;
-      upgrade = false;
-      # upgrade = true;
+      upgrade = true;
     };
 
     casks = [
@@ -316,22 +342,15 @@ in
       "displayplacer" # screen arrangement CLI, used by the display-arrange script
     ];
 
-    taps = [
-      "FelixKratz/formulae"
-      "dimentium/autoraise"
-      "k06a/tap"
-      {
-        name = "jundot/omlx";
-        clone_target = "https://github.com/jundot/omlx";
-      }
-    ];
+    # Bundle cleanup resets trust from the Brewfile, so retain the same
+    # tap-wide grants declared above. Homebrew strips homebrew- from names.
+    taps = lib.mapAttrsToList (name: _: {
+      inherit name;
+      trusted = builtins.elem
+        (lib.replaceStrings [ "/homebrew-" ] [ "/" ] name)
+        config.nix-homebrew.trust.taps;
+    }) config.nix-homebrew.taps;
   };
-
-  system.activationScripts.homebrew.text = lib.mkBefore ''
-    echo "Trusting third-party Homebrew taps..."
-    sudo -u ${user} HOME=/Users/${user} /opt/homebrew/bin/brew trust dimentium/autoraise felixkratz/formulae k06a/tap jundot/omlx || true
-    sudo -u ${user} HOME=/Users/${user} /opt/homebrew/bin/brew trust --formula k06a/tap/macpow || true
-  '';
 
   # Fonts
   fonts.packages = with pkgs; [

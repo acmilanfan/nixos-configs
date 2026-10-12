@@ -62,6 +62,16 @@ in
       [ -r "${config.sops.templates."ai-env.sh".path}" ] && . "${config.sops.templates."ai-env.sh".path}"
     '';
 
+    # Nix does not use GITHUB_PERSONAL_ACCESS_TOKEN automatically. Include a
+    # runtime-rendered config so flake updates authenticate without placing
+    # the token in the generated, world-readable nix.conf in /nix/store.
+    nix = {
+      package = lib.mkDefault pkgs.nix;
+      extraOptions = ''
+        !include ${config.sops.templates."nix-github.conf".path}
+      '';
+    };
+
     sops = {
       defaultSopsFile = cfg.secretsFile;
       defaultSopsFormat = "yaml";
@@ -85,6 +95,8 @@ in
 
         # MCP / Developer Tools
         "github/token" = { };
+        # Personal-account credential for Nix downloads.
+        "github/personal_token" = { };
         "sonar/apiKey" = { };
         "sonar/url" = { };
         "mcp/ragUrl" = { };
@@ -96,6 +108,13 @@ in
       };
 
       templates = {
+        "nix-github.conf" = {
+          mode = "0600";
+          content = ''
+            extra-access-tokens = github.com=${config.sops.placeholder."github/personal_token"}
+          '';
+        };
+
         # Sourced from .zshenv (above) and the opencode-serve launcher: exports
         # API keys into user sessions without storing any secret values in
         # /nix/store. Read by avante/minuet (nvim) and opencode's providers.
