@@ -9,6 +9,7 @@ let
     activate_on_single_click = true;
     close_on_focus_loss = true;
     consider_preedit = true;
+    keybinding = "vim";
     # Keep navigation state when the window closes. Among other things this
     # lets extension commands survive the browser taking focus during an
     # OAuth flow: the window hides on focus loss but the extension worker
