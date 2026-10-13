@@ -361,7 +361,11 @@
         };
       };
 
-      packages.aarch64-darwin.vm-hyprland-image =
-        self.nixosConfigurations.vm-hyprland.config.system.build.images.qemu-efi;
+      packages = nixpkgs.lib.genAttrs [ linuxSystem macSystem vmSystem ] (system:
+        {
+          inherit (pkgsFor system) opencode opencode-telegram-bot;
+        } // nixpkgs.lib.optionalAttrs (system == macSystem) {
+          vm-hyprland-image = self.nixosConfigurations.vm-hyprland.config.system.build.images.qemu-efi;
+        });
     };
 }

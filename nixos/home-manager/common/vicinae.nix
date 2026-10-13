@@ -253,6 +253,7 @@ let
     opencode-sessions = raycastExtensionBuilds.opencode-sessions.overrideAttrs (old: {
       postPatch = (old.postPatch or "") + ''
         python3 ${./patches/opencode-sessions-ghostty.py}
+        python3 ${./patches/opencode-sessions-v2.py} ${./opencode/vicinae-storage.mjs} ${pkgs.opencode}/bin/opencode
       '';
     });
     raycast-ollama = patchManifest ''

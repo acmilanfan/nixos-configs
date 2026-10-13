@@ -22,7 +22,7 @@
 
 shopt -s extglob
 
-AGENT_PROCESSES="claude .claude-wrapped gemini aider cursor antigravity agy opencode"
+AGENT_PROCESSES="claude .claude-wrapped gemini aider cursor antigravity agy opencode opencode2"
 
 # Whole-word regex per agent name (same semantics as `grep -w`).
 declare -A AGENT_RE

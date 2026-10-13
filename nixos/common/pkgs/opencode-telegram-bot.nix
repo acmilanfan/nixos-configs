@@ -8,18 +8,18 @@
 
 buildNpmPackage (finalAttrs: {
   pname = "opencode-telegram-bot";
-  version = "0.25.1";
+  version = "0.26.3";
 
   src = fetchFromGitHub {
     owner = "grinev";
     repo = "opencode-telegram-bot";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-+0FJ+GrodlFABxOs6WUnWFidDgiCaMuGC0mi5eZG/5g=";
+    hash = "sha256-kgD1TXOqDPalocW7HNiZz31bbUMiyJ6xu0cPYBVzjhs=";
   };
 
   nodejs = nodejs_24;
 
-  npmDepsHash = "sha256-Ai1hgKivY3S9BLDCF5EdmtlI3JpCh7V70C/hE0VTjwM=";
+  npmDepsHash = "sha256-1PeS2g4rU/E2+ITWYO3troB1v3FlnHFWrIWlZWImjHg=";
 
   passthru.updateScript = nix-update-script { };
 
@@ -31,4 +31,3 @@ buildNpmPackage (finalAttrs: {
     platforms = lib.platforms.unix;
   };
 })
-

@@ -38,6 +38,8 @@ final: prev: {
 
   opencode-telegram-bot = final.callPackage ./pkgs/opencode-telegram-bot.nix { };
 
+  opencode = final.callPackage ./pkgs/opencode.nix { inherit inputs; };
+
   mtplx = if final.stdenv.hostPlatform.isDarwin
     then final.callPackage ./pkgs/mtplx { inherit inputs; }
     else prev.mtplx or null;

@@ -240,6 +240,8 @@ let
 
   opencodeSettings = {
     "$schema" = "https://opencode.ai/config.json";
+    # Upgrades are managed through the flake, never the in-app installer.
+    autoupdate = false;
 
     # model = if isWork then "anthropic/claude-sonnet-5" else "opencode-go/deepseek-v4-pro";
     model = if isWork then "self-hosted/Qwen/Qwen3.6-35B-A3B-FP8" else "opencode-go/deepseek-v4.1-flash";
@@ -1016,113 +1018,18 @@ EOF
     chmod 644 "$OPENCODE_SETTINGS"
   '';
 
-  home.file.".config/opencode/plugins/agent-state.ts".text = ''
-    import type { Plugin } from "@opencode-ai/plugin";
-
-    const AgentStatePlugin: Plugin = async ({ $, directory }) => {
-      const notify = async (state: string) => {
-        try {
-          await $`agent-state --agent opencode --state ''${state}`.quiet();
-        } catch {
-          // Ignore if agent-state is not in PATH or fails
-        }
-      };
-
-      // Per-turn worktree snapshots (see agent-checkpoint); "pre" is awaited
-      // so it lands before the agent's first edit.
-      const checkpoint = async (event: "pre" | "post", sessionID?: string) => {
-        if (!sessionID) return;
-        try {
-          await $`agent-checkpoint save ''${event} ''${sessionID} opencode`.cwd(directory).quiet();
-        } catch {
-          // not a git repo, or agent-checkpoint missing
-        }
-      };
-
-      return {
-        "tool.execute.before": async () => { await notify("running"); },
-        "chat.message": async (input) => { await checkpoint("pre", input.sessionID); },
-        event: async ({ event }) => {
-          if (event.type === "session.idle") {
-            await notify("done");
-            await checkpoint("post", (event as any).properties?.sessionID);
-          }
-          if (event.type === "session.error") {
-            await notify("needs-input");
-          }
-        },
-      };
-    };
-
-    export default AgentStatePlugin;
+  # v2 server checkpoints + client-local pane status (one directory plugin
+  # exposes both entrypoints). Client status has the correct TMUX_PANE even
+  # when all terminal clients share one background service.
+  # v2 checks that a directory plugin's real entrypoint stays inside its real
+  # root. Individual home.file symlinks point outside that root and are skipped;
+  # build one directory and symlink the whole package instead.
+  home.file.".config/opencode/plugins/agent-state-v2".source = pkgs.runCommand "opencode-agent-state-plugin" { } ''
+    mkdir -p "$out"
+    cp ${./opencode/agent-state.mjs} "$out/index.js"
+    cp ${./opencode/agent-state-tui.mjs} "$out/tui.js"
   '';
-
-  # Automatically open a new tmux window running `opencode attach` whenever a
-  # session is created on the background server (e.g. from the Telegram bot).
-  home.file.".config/opencode/plugins/tmux-session.ts".text = ''
-    import type { Plugin } from "@opencode-ai/plugin";
-    import { execFile } from "node:child_process";
-    import { promisify } from "node:util";
-
-    const execFileAsync = promisify(execFile);
-    const TMUX_BIN = "${pkgs.tmux}/bin/tmux";
-
-    const TmuxSessionPlugin: Plugin = async () => {
-      return {
-        event: async ({ event }) => {
-          if (event.type === "session.created") {
-            const info = (event as any).properties?.info;
-            if (!info || !info.id) return;
-
-            // Only trigger when the session was created on the headless background server
-            // (e.g. from the Telegram bot), not when interacting directly in a terminal TUI.
-            const isServer = process.argv.includes("serve") || !process.stdin.isTTY;
-            if (!isServer) return;
-
-            const sessionId = info.id;
-            const dir = (info.directory && info.directory !== "/")
-              ? info.directory
-              : process.env.HOME || "/";
-            const dirName = dir.split("/").filter(Boolean).pop() || "opencode";
-            const title = info.title && !info.title.startsWith("New session")
-              ? info.title.slice(0, 16)
-              : `oc-''${sessionId.slice(-4)}`;
-
-            try {
-              // Check if tmux server is running
-              const { stdout: sessionsRaw } = await execFileAsync(TMUX_BIN, [
-                "list-sessions",
-                "-F",
-                "#{session_name}"
-              ]);
-              const sessions = sessionsRaw
-                .split("\n")
-                .map(s => s.trim())
-                .filter(Boolean);
-              if (sessions.length === 0) return;
-
-              // If a tmux session exists matching the project directory name, target it;
-              // otherwise add to the currently active session.
-              const targetSession = sessions.includes(dirName) ? `''${dirName}:` : "";
-              const args = [
-                "new-window",
-                ...(targetSession ? ["-t", targetSession] : []),
-                "-c", dir,
-                "-n", title,
-                "opencode", "attach", "http://localhost:4096", "--session", sessionId
-              ];
-
-              await execFileAsync(TMUX_BIN, args);
-            } catch {
-              // Ignore safely if tmux server is not active or command fails
-            }
-          }
-        },
-      };
-    };
-
-    export default TmuxSessionPlugin;
-  '';
+  home.file.".config/opencode/plugins/tmux-session.js".source = ./opencode/tmux-session.mjs;
 
   home.file.".config/opencode/AGENTS.md" = lib.mkIf (!isWork) {
     text = ''

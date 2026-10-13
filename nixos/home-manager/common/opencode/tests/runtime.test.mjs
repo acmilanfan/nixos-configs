@@ -1,0 +1,192 @@
+// Real v2 server smoke tests, with all config/data/logs isolated in artifacts.
+import assert from "node:assert/strict";
+import { after, before, test } from "node:test";
+import { execFile, spawn } from "node:child_process";
+import { promisify } from "node:util";
+import { mkdir, writeFile, readFile, open, rm, symlink } from "node:fs/promises";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { createServer } from "node:http";
+import { createRequest, createStorage } from "../vicinae-storage.mjs";
+
+const execute = promisify(execFile);
+const root = process.env.OPENCODE_TEST_HOME;
+const bin = process.env.OPENCODE_TEST_BIN;
+const pluginPackage = process.env.OPENCODE_TEST_PLUGIN_DIR;
+if (!root || !bin || !pluginPackage) throw new Error("Set OPENCODE_TEST_HOME, OPENCODE_TEST_BIN, and OPENCODE_TEST_PLUGIN_DIR (built directory plugin)");
+const plugins = fileURLToPath(new URL("..", import.meta.url));
+const project = resolve(root, "project");
+let child, log, request, storage, env, provider;
+
+before(async () => {
+  env = {
+    ...process.env, HOME: root, XDG_CONFIG_HOME: resolve(root, "config"),
+    XDG_DATA_HOME: resolve(root, "data"), XDG_STATE_HOME: resolve(root, "state"),
+    XDG_CACHE_HOME: resolve(root, "cache"), TMUX: "", TMUX_PANE: "", TMUX_TMPDIR: resolve(root, "tmux"),
+    GIT_AUTHOR_NAME: "OpenCode test", GIT_AUTHOR_EMAIL: "test@example.invalid",
+    GIT_COMMITTER_NAME: "OpenCode test", GIT_COMMITTER_EMAIL: "test@example.invalid",
+  };
+  delete env.OPENCODE_CONFIG;
+  delete env.OPENCODE_CONFIG_CONTENT;
+  delete env.OPENCODE_DB;
+  for (const path of [project, env.TMUX_TMPDIR, resolve(env.XDG_CONFIG_HOME, "opencode")]) await mkdir(path, { recursive: true });
+  await execute("git", ["init", "-q", project], { env });
+  await writeFile(resolve(project, "fixture.txt"), "before\n");
+  await execute("git", ["add", "fixture.txt"], { cwd: project, env });
+  provider = createServer((req, res) => {
+    req.resume();
+    req.on("end", () => {
+      res.writeHead(200, { "content-type": "text/event-stream" });
+      const chunk = (delta, finish_reason = null) => `data: ${JSON.stringify({
+        id: "chatcmpl_fixture", object: "chat.completion.chunk", created: 1, model: "mock",
+        choices: [{ index: 0, delta, finish_reason }],
+      })}\n\n`;
+      res.end(chunk({ role: "assistant", content: "Migration fixture needle" }) + chunk({}, "stop") + "data: [DONE]\n\n");
+    });
+  });
+  await new Promise((r) => provider.listen(0, "127.0.0.1", r));
+  const pluginDirectory = resolve(env.XDG_CONFIG_HOME, "opencode/plugins");
+  await mkdir(pluginDirectory, { recursive: true });
+  await rm(resolve(pluginDirectory, "agent-state"), { recursive: true, force: true });
+  // Exercise Home Manager's actual whole-directory symlink, not copies. The
+  // v2 loader checks real entrypoint containment inside the resolved root.
+  await symlink(pluginPackage, resolve(pluginDirectory, "agent-state"), "dir");
+  await writeFile(resolve(pluginDirectory, "tmux-session.js"), await readFile(resolve(plugins, "tmux-session.mjs")));
+  await writeFile(resolve(env.XDG_CONFIG_HOME, "opencode/opencode.json"), JSON.stringify({
+    autoupdate: false,
+    model: "fixture/mock", small_model: "fixture/mock",
+    provider: { fixture: {
+      npm: "@ai-sdk/openai-compatible",
+      options: { baseURL: `http://127.0.0.1:${provider.address().port}/v1`, apiKey: "fixture" },
+      models: { mock: { name: "Mock", limit: { context: 16000, output: 1000 } } },
+    } },
+  }));
+  // Mirror the ordered Nix activation: initialize once before either process
+  // can generate a credential, including on an initially empty installation.
+  await rm(resolve(env.XDG_CONFIG_HOME, "opencode/service.json"), { force: true });
+  await execute(bin, ["service", "get", "password"], { env });
+  await execute(bin, ["service", "set", "port", "49375"], { env });
+  log = await open(resolve(root, "server.log"), "a");
+  child = spawn(bin, ["serve", "--service", "--port", "49375"], { env, cwd: project, stdio: ["ignore", log.fd, log.fd] });
+  const state = resolve(env.XDG_STATE_HOME, "opencode/service.json");
+  let healthy = false;
+  for (let i = 0; i < 120; i++) {
+    try {
+      const service = JSON.parse(await readFile(state, "utf8"));
+      const auth = Buffer.from(`opencode:${service.password}`).toString("base64");
+      const response = await fetch(`${service.url}/api/info`, { headers: { authorization: `Basic ${auth}` } });
+      if (response.ok) { healthy = true; break; }
+    } catch {}
+    if (child.exitCode !== null) throw new Error(`Test server exited: ${await readFile(resolve(root, "server.log"), "utf8")}`);
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  assert.equal(healthy, true, "isolated v2 service became healthy");
+  // The transport reads only these XDG paths; its official CLI bootstrap also
+  // inherits this environment and cannot touch the live OpenCode service.
+  Object.assign(process.env, env);
+  request = createRequest(bin);
+  storage = createStorage(request, async () => []);
+}, { timeout: 60000 });
+
+after(async () => {
+  if (env) await execute("tmux", ["kill-server"], { env }).catch(() => {});
+  if (env) await execute(bin, ["service", "stop"], { env, timeout: 15000 }).catch(() => {});
+  child?.kill();
+  await log?.close();
+  if (provider) await new Promise((r) => provider.close(r));
+});
+
+test("real service accepts the migrated server plugin entrypoints", async () => {
+  assert.equal(await storage.checkDatabase(), null);
+  let result;
+  for (let i = 0; i < 40; i++) {
+    result = await request("/api/plugin", { query: { "location[directory]": project } });
+    if (result.data.some((p) => p.id === "agent-state" && p.state.status === "active")) break;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  const ids = result.data.map((p) => p.id);
+  assert.ok(ids.includes("agent-state"), JSON.stringify(ids));
+  assert.ok(ids.includes("tmux-session"), JSON.stringify(ids));
+  assert.equal(result.data.find((p) => p.id === "agent-state").features.tui, true);
+});
+
+test("initialized credentials are shared by concurrently starting clients and the registered server", async () => {
+  const clients = await Promise.all([1, 2].map(() => execute(bin, ["service", "get", "password"], { env })));
+  const service = JSON.parse(await readFile(resolve(env.XDG_STATE_HOME, "opencode/service.json"), "utf8"));
+  // Do not print credentials in an assertion failure.
+  assert.ok(clients.every((client) => client.stdout.trim() === service.password));
+});
+
+test("session browser creates, reads, searches and deletes real v2 sessions", async () => {
+  const created = await request("/api/session", { method: "POST", body: {
+    title: "V2 smoke unique", location: { directory: project },
+  } });
+  const session = created.data;
+  assert.ok(session.id);
+  await request(`/api/session/${session.id}/prompt`, { method: "POST", body: { text: "Return the fixture text" } });
+  let transcript = [];
+  for (let i = 0; i < 100; i++) {
+    transcript = await storage.loadTranscript(session.id);
+    if (transcript.some((e) => e.message.role === "assistant" && e.message.time.completed)) break;
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  assert.ok((await storage.loadSessions()).some((s) => s.id === session.id && s.directory === project));
+  assert.ok(transcript.some((e) => e.parts.some((p) => p.text === "Migration fixture needle")), JSON.stringify(transcript));
+  assert.ok((await storage.searchSessions("fixture needle")).some((s) => s.id === session.id));
+  const projectInfo = (await storage.loadProjects()).find((p) => p.id === session.projectID);
+  assert.ok(projectInfo);
+  assert.equal(typeof projectInfo.worktree.split("/").at(-1), "string");
+  await request(`/api/session/${session.id}/shell`, { method: "POST", body: { command: "printf 'shell fixture output'" } });
+  let shell = "";
+  for (let i = 0; i < 30; i++) {
+    shell = (await storage.loadTranscript(session.id)).flatMap((e) => e.parts.map((p) => p.text || "")).join("\n");
+    if (shell.includes("[exited; exit 0]\nshell fixture output")) break;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  assert.ok(shell.includes("$ printf 'shell fixture output'\n[exited; exit 0]\nshell fixture output"));
+  assert.deepEqual(await storage.getOpenSessions(), []);
+  // The real context hook + event subscription must create pre/post git refs.
+  let checkpoints = "";
+  for (let i = 0; i < 20; i++) {
+    checkpoints = (await execute("git", ["log", "--format=%(trailers:key=Agent-Event,valueonly)", `refs/worktree/agent/${session.id}`], { cwd: project, env }).catch(() => ({ stdout: "" }))).stdout;
+    if (checkpoints.includes("post")) break;
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  assert.ok(checkpoints.includes("pre") && checkpoints.includes("post"), checkpoints);
+  await storage.deleteSession({ id: session.id });
+  assert.equal((await storage.loadSessions()).some((s) => s.id === session.id), false);
+});
+
+test("the real TUI pins its session and reports state to its own tmux pane without duplicate windows", async () => {
+  const created = await request("/api/session", { method: "POST", body: {
+    title: "Pane smoke", location: { directory: project },
+  } });
+  const id = created.data.id;
+  const { stdout } = await execute("tmux", ["new-session", "-d", "-P", "-F", "#{pane_id}",
+    "-s", "opencode-v2-smoke", "-c", project, `${bin} --session ${id}`], { env });
+  const pane = stdout.trim();
+  let marker = "";
+  for (let i = 0; i < 60; i++) {
+    marker = (await execute("tmux", ["show-options", "-p", "-v", "-t", pane, "@opencode-session"], { env }).catch(() => ({ stdout: "" }))).stdout.trim();
+    if (marker === id) break;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  const screen = (await execute("tmux", ["capture-pane", "-p", "-t", pane], { env })).stdout;
+  assert.equal(marker, id, screen);
+  let state = "";
+  for (let i = 0; i < 30; i++) {
+    state = (await execute("tmux", ["show-environment", "-g", `TMUX_AGENT_PANE_${pane}_STATE`], { env }).catch(() => ({ stdout: "" }))).stdout;
+    if (state.includes("=done")) break;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  assert.match(state, /=done/);
+  const script = fileURLToPath(new URL("../../scripts/ai-agent-list", import.meta.url));
+  const detected = (await execute("bash", [script], { env })).stdout;
+  assert.match(detected, /\|done\|OpenCode\|project\|/);
+  // The delayed headless-session opener must see the TUI marker and skip it.
+  await new Promise((r) => setTimeout(r, 1700));
+  const windows = (await execute("tmux", ["list-windows", "-t", "opencode-v2-smoke", "-F", "#{window_id}"], { env })).stdout.trim().split("\n");
+  assert.equal(windows.length, 1);
+  await execute("tmux", ["kill-server"], { env });
+  await storage.deleteSession({ id });
+});

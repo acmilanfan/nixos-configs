@@ -337,7 +337,7 @@ EOF
   home.packages = [
       inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.claude-code
       antigravityWrapped
-      inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.opencode
+      pkgs.opencode
       pkgs.mcp-nixos
   ];
 
@@ -463,4 +463,3 @@ EOF
     $DRY_RUN_CMD ${rawAgy}/bin/agy remote-control start --name "$HOST_NAME" || true
   '');
 }
-

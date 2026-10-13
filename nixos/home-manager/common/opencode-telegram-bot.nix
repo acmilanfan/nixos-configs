@@ -7,14 +7,13 @@
   config,
   lib,
   pkgs,
-  inputs,
   ...
 }:
 
 let
   cfg = config.services.opencode-telegram-bot;
 
-  opencode = inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.opencode;
+  opencode = pkgs.opencode;
 
   isDarwin = pkgs.stdenv.hostPlatform.isDarwin;
   isLinux = pkgs.stdenv.hostPlatform.isLinux;
@@ -47,7 +46,22 @@ let
     if [ -f "$HOME/.config/sops-nix/secrets/rendered/ai-env.sh" ]; then
       . "$HOME/.config/sops-nix/secrets/rendered/ai-env.sh"
     fi
-    exec "${opencode}/bin/opencode" serve --port "${toString cfg.serverPort}" "$@"
+    # --service registers this server for TUI/CLI discovery as well as the bot.
+    exec "${opencode}/bin/opencode" serve --service --hostname 127.0.0.1 --port "${toString cfg.serverPort}" "$@"
+  '';
+
+  botScript = pkgs.writeShellScript "opencode-telegram-start" ''
+    set -eu
+    export PATH="${servicePath}"
+    export OPENCODE_SERVER_VERSION=v2
+    export OPENCODE_API_URL="${cfg.apiUrl}"
+    export OPENCODE_SERVER_USERNAME=opencode
+    ${lib.optionalString cfg.useLocalServicePassword ''
+      # OpenCode generates/persists this credential in its private service.json.
+      # Read it at runtime, not through a Nix expression or a store .env file.
+      export OPENCODE_SERVER_PASSWORD="$("${opencode}/bin/opencode" service get password)"
+    ''}
+    exec "${pkgs.opencode-telegram-bot}/bin/opencode-telegram" start
   '';
 
   appDataDir =
@@ -74,22 +88,22 @@ in
       type = lib.types.bool;
       default = false;
       description = ''
-        Also run a persistent `opencode serve --port <port>` service.
+        Also run a registered OpenCode v2 background server on serverPort.
         Off by default: then use /opencode_start in Telegram (the bot spawns
-        opencode itself) or run `opencode --port <port>` in a terminal to
-        track a live TUI session.
+        opencode itself). Terminal clients discover the shared service, or can
+        select a server explicitly with `opencode --server <url>`.
       '';
     };
 
     serverPort = lib.mkOption {
       type = lib.types.port;
-      default = 4096;
+      default = 49374;
       description = "Port where OpenCode server listens.";
     };
 
     apiUrl = lib.mkOption {
       type = lib.types.str;
-      default = "http://localhost:${toString cfg.serverPort}";
+      default = "http://127.0.0.1:${toString cfg.serverPort}";
       description = "URL of the OpenCode API the bot connects to.";
     };
 
@@ -97,6 +111,16 @@ in
       type = lib.types.str;
       default = "opencode";
       description = "Default model provider (e.g. opencode, anthropic, openai).";
+    };
+
+    useLocalServicePassword = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        Read the local OpenCode v2 service password at bot startup. Set false
+        for a remote server and supply OPENCODE_SERVER_PASSWORD in the bot's
+        private runtime .env instead.
+      '';
     };
 
     modelId = lib.mkOption {
@@ -119,6 +143,19 @@ in
   config = lib.mkIf cfg.enable {
     home.packages = [ pkgs.opencode-telegram-bot ];
 
+    # Initialize the private credential once before launchd/systemd can race to
+    # generate it, and persist the port so every discovery/start uses it.
+    home.activation.opencodeServiceConfig = lib.hm.dag.entryBetween
+      [ "setupLaunchAgents" "reloadSystemd" ]
+      [ "opencodeSettings" "opencodeTelegramDirs" "opencodeSuperpowers" ] ''
+      ${lib.optionalString cfg.useLocalServicePassword ''
+        $DRY_RUN_CMD ${opencode}/bin/opencode service get password >/dev/null
+      ''}
+      if [ "$(${opencode}/bin/opencode service get port)" != "${toString cfg.serverPort}" ]; then
+        $DRY_RUN_CMD ${opencode}/bin/opencode service set port ${toString cfg.serverPort}
+      fi
+    '';
+
     # Ensure app data & log directories exist
     home.activation.opencodeTelegramDirs = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
       mkdir -p "${appDataDir}"
@@ -135,6 +172,7 @@ in
         OPENCODE_MODEL_PROVIDER=${cfg.modelProvider}
         OPENCODE_MODEL_ID=${cfg.modelId}
         OPENCODE_API_URL=${cfg.apiUrl}
+        OPENCODE_SERVER_VERSION=v2
         OPENCODE_TELEGRAM_RUNTIME_MODE=installed
       '';
     };
@@ -145,8 +183,7 @@ in
       config = {
         Label = "opencode-telegram-bot";
         ProgramArguments = [
-          "${pkgs.opencode-telegram-bot}/bin/opencode-telegram"
-          "start"
+          "${botScript}"
         ];
         KeepAlive = true;
         RunAtLoad = true;
@@ -184,7 +221,7 @@ in
         After = [ "network.target" ];
       };
       Service = {
-        ExecStart = "${pkgs.opencode-telegram-bot}/bin/opencode-telegram start";
+        ExecStart = "${botScript}";
         Restart = "on-failure";
         RestartSec = "15s";
         Environment = [
