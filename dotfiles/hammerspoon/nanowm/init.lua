@@ -59,7 +59,7 @@ local urlCommands = {
     focusAgent = function(p)
         if p.pane and p.pane ~= "" then agents.focusAgent(p.pane) end
     end,
-    agentState = function(p) agents.onAgentStateChange(p.state, p.name) end,
+    agentState = function(p) agents.onAgentStateChange(p.state, p.name, p.pane, p.where, p.focused) end,
     -- Run the regression suite (nanowm/spec.lua) and write its report to a file, for callers
     -- that can't read the HS console: open -g "hammerspoon://nanowm?cmd=spec", then read
     -- ~/.hammerspoon/nanowm_spec_report.txt (the suite's watchdog reports within ~30 s).

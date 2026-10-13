@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+# Turn a task description into a git branch name (idea from t3code, which
+# names a thread's branch from its first prompt).
+#
+#   ai-branch-name "CFE-20112 carlead returns 500 when the VIN is missing"
+#   -> CFE-20112-fix-carlead-missing-vin
+#
+# A Jira-style key in the text becomes the prefix (the CFE-12345-short-slug
+# convention); the slug comes from a small model (Claude Haiku, else
+# opencode's default model) and falls back to the first words of the text.
+# AI_BRANCH_NAMER="claude opencode" (the default order), or "none".
+set -euo pipefail
+shopt -s inherit_errexit
+
+task="$*"
+[ -n "$task" ] || { echo "usage: ai-branch-name <task description>" >&2; exit 1; }
+key="$(grep -oE '\b[A-Z][A-Z0-9]+-[0-9]+\b' <<<"$task" | head -1 || true)"
+
+prompt="Reply with ONLY a git branch slug: 2 to 5 lowercase English words joined by hyphens, no ticket key, no prefix like feat/, summarizing this task: $task"
+
+slugify() { tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//'; }
+
+# One fixed directory: no repo (agent-checkpoint is a no-op there) and only
+# one entry in the agents' per-project session lists.
+cache="${XDG_CACHE_HOME:-$HOME/.cache}/ai-branch-name"
+mkdir -p "$cache"
+cd "$cache"
+# The agents' own hooks must not mark any tmux pane for this call.
+export AGENT_STATE_OFF=1 AGENT_CHECKPOINT=0
+unset TMUX_PANE
+
+ask_claude() {
+  command -v claude >/dev/null || return 0
+  # project-only settings: none of the user's hooks or plugins; prompt on
+  # stdin because --tools takes a list
+  printf '%s' "$prompt" |
+    timeout 25 claude -p --model haiku --setting-sources project --tools "" --no-session-persistence 2>/dev/null || true
+}
+ask_opencode() {
+  command -v opencode >/dev/null || return 0
+  timeout 40 opencode run --pure "$prompt" 2>/dev/null || true
+}
+
+slug=""
+for namer in ${AI_BRANCH_NAMER:-claude opencode}; do
+  case "$namer" in
+    claude) out="$(ask_claude)" ;;
+    opencode) out="$(ask_opencode)" ;;
+    *) out="" ;;
+  esac
+  # last non-empty line, at most 5 words
+  slug="$(printf '%s\n' "$out" | awk 'NF { l = $0 } END { print l }' | slugify | cut -d- -f1-5)"
+  [ -n "$slug" ] && break
+done
+
+if [ -z "$slug" ]; then
+  slug="$(printf '%s' "${task//"$key"/}" | slugify | cut -d- -f1-5)"
+fi
+
+if [ -n "$key" ]; then
+  # the model may still repeat the key
+  lower_key="$(printf '%s' "$key" | tr '[:upper:]' '[:lower:]')"
+  slug="${slug#"$lower_key"}"
+  slug="${slug#-}"
+  name="$key${slug:+-$slug}"
+else
+  name="${slug:-task-$(date +%m%d-%H%M)}"
+fi
+name="${name:0:60}"
+name="${name%-}"
+git check-ref-format --branch "$name" >/dev/null 2>&1 || name="task-$(date +%m%d-%H%M)"
+printf '%s\n' "$name"

@@ -205,6 +205,67 @@ let
       { print }
     ' "$save_file" >"$save_file.tmp.$$" && mv "$save_file.tmp.$$" "$save_file"
   '';
+  # Every agent hook calls this. On top of the indicator's own state script
+  # it marks the agent's pane (@agent_state, shown per pane in the window
+  # list by before-plugins.conf) and notifies: Hammerspoon on macOS (with
+  # the pane, so a click focuses it), notify-send on Linux. Nothing is sent
+  # when the state didn't change or you're already looking at that pane.
+  agentState = pkgs.writeShellScriptBin "agent-state" ''
+    # one-shot helper calls (ai-branch-name) must not touch any pane: without
+    # TMUX_PANE the indicator would pick another agent pane of the same kind
+    [ "''${AGENT_STATE_OFF:-}" = 1 ] && exit 0
+    "${tmux-agent-indicator}/share/tmux-plugins/agent-indicator/scripts/agent-state.sh" "$@"
+
+    AGENT="" STATE=""
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        --agent) AGENT="$2"; shift 2 ;;
+        --state) STATE="$2"; shift 2 ;;
+        *) shift ;;
+      esac
+    done
+    [ -n "$AGENT" ] && [ -n "$STATE" ] || exit 0
+
+    pane="''${TMUX_PANE:-}"
+    where="" focused="" prev=""
+    if [ -n "$pane" ] && tmux display -p -t "$pane" "" >/dev/null 2>&1; then
+      prev="$(tmux show -pqv -t "$pane" @agent_state)"
+      where="$(tmux display -p -t "$pane" '#{session_name}:#{window_name}')"
+      focused="$(tmux display -p -t "$pane" '#{&&:#{pane_active},#{&&:#{window_active},#{session_attached}}}')"
+      # "idle" = finished and seen: no marker, but still known as an agent
+      # pane (pr-watch only types into those)
+      if [ "$STATE" = off ]; then
+        tmux set -pu -t "$pane" @agent_state
+      elif [ "$STATE" = done ] && [ "$focused" = 1 ]; then
+        tmux set -p -t "$pane" @agent_state idle
+      else
+        tmux set -p -t "$pane" @agent_state "$STATE"
+      fi
+      [ "$prev" != "$STATE" ] && tmux refresh-client -S 2>/dev/null
+    fi
+    # PreToolUse fires on every tool call: only transitions notify
+    [ -n "$pane" ] && [ "$prev" = "$STATE" ] && exit 0
+
+    ${lib.optionalString pkgs.stdenv.isDarwin ''
+      if pgrep -x "Hammerspoon" > /dev/null; then
+        enc() { ${pkgs.jq}/bin/jq -rn --arg v "$1" '$v|@uri'; }
+        # nanowm's URL handler, not `hs -c`: a backgrounded hs -c per state change could
+        # overlap and wedge Hammerspoon's IPC port
+        /usr/bin/open -g "hammerspoon://nanowm?cmd=agentState&state=$STATE&name=$AGENT&pane=$(enc "$pane")&where=$(enc "$where")&focused=$focused"
+      fi
+    ''}
+    ${lib.optionalString pkgs.stdenv.isLinux ''
+      notify-send() { ${pkgs.libnotify}/bin/notify-send "$@"; }
+      if [ "$focused" != 1 ]; then
+        label="$(printf '%s' "$AGENT" | sed 's/./\U&/')"
+        case "$STATE" in
+          # critical: most daemons keep it until dismissed
+          needs-input) notify-send -a "$label" -u critical "$label needs input" "$where" ;;
+          done) notify-send -a "$label" -u low -t 5000 "$label finished" "$where" ;;
+        esac
+      fi
+    ''}
+  '';
 in
 {
 
@@ -229,6 +290,12 @@ in
         # Trigger sketchybar refresh on pane exit (catches agent exits without SessionEnd hooks, e.g. Claude)
         set-hook -g pane-exited "run-shell -b 'sketchybar --trigger ai_agent_update 2>/dev/null'"
       ''}
+      # Visiting a finished agent's pane clears its ✓ in the window list.
+      # Fixed hook indexes keep re-sourcing the config idempotent.
+      set-hook -g 'pane-focus-in[90]' 'if -F "#{==:#{@agent_state},done}" "set -p @agent_state idle"'
+      set-hook -g 'after-select-window[90]' 'if -F "#{==:#{@agent_state},done}" "set -p @agent_state idle"'
+      set-hook -g 'after-select-pane[90]' 'if -F "#{==:#{@agent_state},done}" "set -p @agent_state idle"'
+
       # AI agent switcher: fzf --tmux popup listing all tracked agent panes
       bind-key A run-shell -b "tmux-agent-switcher"
       # Review the last agent turn in this pane's worktree (agent-checkpoint +
@@ -246,7 +313,8 @@ in
           ${lib.readFile ./tmux/before-plugins.conf}
           ${lib.optionalString pkgs.stdenv.isDarwin ''
             # Tmux Agent Indicator macOS integration
-            set -g @agent-indicator-notification-command "sketchybar --trigger ai_agent_update; /usr/bin/open -g \"hammerspoon://nanowm?cmd=agentState&state=$AGENT_STATE&name=$AGENT_NAME\"; case $AGENT_STATE in done|off) sleep 3 && sketchybar --trigger ai_agent_update;; esac"
+            # Hammerspoon is notified by the agent-state wrapper (with the pane)
+            set -g @agent-indicator-notification-command "sketchybar --trigger ai_agent_update; case $AGENT_STATE in done|off) sleep 3 && sketchybar --trigger ai_agent_update;; esac"
           ''}
         '';
       }
@@ -269,28 +337,7 @@ in
     agentResume
     agentPinSessions
     (pkgs.writeShellScriptBin "tmux-agent-switcher" (lib.readFile ./scripts/tmux-agent-switcher))
-    (pkgs.writeShellScriptBin "agent-state" ''
-      "${tmux-agent-indicator}/share/tmux-plugins/agent-indicator/scripts/agent-state.sh" "$@"
-
-      ${lib.optionalString pkgs.stdenv.isDarwin ''
-        # Notify Hammerspoon of agent state changes for hs.alert notifications
-        AGENT="" STATE=""
-        while [ $# -gt 0 ]; do
-          case "$1" in
-            --agent) AGENT="$2"; shift 2 ;;
-            --state) STATE="$2"; shift 2 ;;
-            *) shift ;;
-          esac
-        done
-        if [ -n "$AGENT" ] && [ -n "$STATE" ]; then
-          if pgrep -x "Hammerspoon" > /dev/null; then
-            # nanowm's URL handler, not `hs -c`: a backgrounded hs -c per state change could
-            # overlap and wedge Hammerspoon's IPC port
-            /usr/bin/open -g "hammerspoon://nanowm?cmd=agentState&state=$STATE&name=$AGENT"
-          fi
-        fi
-      ''}
-    '')
+    agentState
   ];
 
 }

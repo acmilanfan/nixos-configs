@@ -1,0 +1,175 @@
+#!/usr/bin/env bash
+# Remove finished linked git worktrees and old agent checkpoints (idea from
+# t3code's worktree cleanup policy). Run weekly by the agent-cleanup job.
+#
+#   wt-prune [--apply] [--idle-days N] [--checkpoint-days N] [repo...]
+#
+# Without repo arguments it scans the git repos directly under the project
+# roots (~/Projects, ~/IdeaProjects, ~/Work/IdeaProjects, ~/configs).
+# A linked worktree is removed only if it is clean (`git status` empty), no
+# tmux pane is inside it, it is not locked, and its branch either
+#   - was squash-merged into the default branch (patch-equivalent), or
+#   - has no commits of its own (merged, or never used) and the worktree has
+#     been idle for --idle-days (default 3).
+# Branches with unmerged commits are never touched, only reported.
+# --apply also drops agent-checkpoint sessions idle for --checkpoint-days
+# (default 14). Without --apply nothing changes (dry run).
+set -euo pipefail
+shopt -s inherit_errexit
+
+apply="" idle_days=3 checkpoint_days=14
+repos=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --apply) apply=1; shift ;;
+    --idle-days) idle_days="$2"; shift 2 ;;
+    --checkpoint-days) checkpoint_days="$2"; shift 2 ;;
+    -h|--help) awk '/^# /{p=1} /^set -euo/{if(p) exit} p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) repos+=("$1"); shift ;;
+  esac
+done
+
+if [ ${#repos[@]} -eq 0 ]; then
+  for root in "$HOME/Projects" "$HOME/IdeaProjects" "$HOME/Work/IdeaProjects" "$HOME/configs"; do
+    [ -d "$root" ] || continue
+    # main checkouts only: linked worktrees have a .git *file*
+    for g in "$root"/*/.git; do
+      [ -d "$g" ] && repos+=("${g%/.git}")
+    done
+  done
+fi
+
+# fetch without prompting (ssh passphrase, host keys) from a background job
+export GIT_SSH_COMMAND="${GIT_SSH_COMMAND:-ssh} -o BatchMode=yes -o ConnectTimeout=10"
+export GIT_TERMINAL_PROMPT=0
+
+now="$(date +%s)"
+pane_paths="$(tmux list-panes -a -F '#{pane_current_path}' 2>/dev/null || true)"
+
+# per-repo report, printed only if the repo had something to say
+report=()
+say() { report+=("$*"); }
+
+# GNU first: BSD stat rejects -c cleanly, GNU `stat -f %m` would not
+mtime() { stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null || echo 0; }
+
+default_ref() {
+  local repo="$1" r
+  r="$(git -C "$repo" symbolic-ref -q --short refs/remotes/origin/HEAD 2>/dev/null || true)"
+  if [ -n "$r" ]; then printf '%s' "$r"; return; fi
+  for r in origin/main origin/master main master; do
+    if git -C "$repo" rev-parse -q --verify "$r^{commit}" >/dev/null; then printf '%s' "$r"; return; fi
+  done
+}
+
+in_use() {
+  local wt="$1" p
+  while IFS= read -r p; do
+    [ -n "$p" ] || continue
+    case "$p/" in "$wt"/*) return 0 ;; esac
+  done <<<"$pane_paths"
+  return 1
+}
+
+# latest of: branch tip commit, worktree index, HEAD reflog
+last_activity() {
+  local wt="$1" tip="$2" gitdir t latest
+  gitdir="$(git -C "$wt" rev-parse --absolute-git-dir)"
+  latest="$(git -C "$wt" log -1 --format=%ct "$tip")"
+  for f in "$gitdir/index" "$gitdir/logs/HEAD"; do
+    [ -e "$f" ] || continue
+    t="$(mtime "$f")"
+    [ "$t" -gt "$latest" ] && latest="$t"
+  done
+  printf '%s' "$latest"
+}
+
+# branch's own changes already in base as one squashed commit?
+squash_merged() {
+  local repo="$1" base="$2" tip="$3" mb tmp
+  mb="$(git -C "$repo" merge-base "$base" "$tip")" || return 1
+  tmp="$(git -C "$repo" commit-tree "$tip^{tree}" -p "$mb" -m squash-probe)"
+  [ "$(git -C "$repo" cherry "$base" "$tmp" | cut -c1)" = "-" ]
+}
+
+remove_worktree() {
+  local repo="$1" wt="$2" branch="$3" reason="$4"
+  if [ -z "$apply" ]; then
+    say "  would remove $wt [$branch] ($reason)"
+    return
+  fi
+  if git -C "$repo" worktree remove "$wt"; then
+    # verified above: no commits of its own, or all of them already upstream
+    git -C "$repo" branch -D "$branch" >/dev/null 2>&1 || true
+    say "  removed $wt [$branch] ($reason)"
+  else
+    say "  FAILED to remove $wt"
+  fi
+}
+
+prune_checkpoints() {
+  [ -n "$apply" ] || return 0
+  command -v agent-checkpoint >/dev/null || return 0
+  (cd "$1" && agent-checkpoint prune "$checkpoint_days" | sed 's/^/  checkpoint: /') || true
+}
+
+flush() {
+  if [ ${#report[@]} -gt 0 ]; then
+    printf '%s\n' "$1" "${report[@]}"
+  fi
+  report=()
+}
+
+for repo in "${repos[@]}"; do
+  repo="$(cd "$repo" && git rev-parse --show-toplevel 2>/dev/null)" || continue
+  git -C "$repo" fetch -q --prune origin 2>/dev/null || say "  (fetch failed, using local refs)"
+  # admin entries of worktree folders deleted by hand
+  if [ -n "$apply" ]; then
+    while IFS= read -r l; do
+      [ -n "$l" ] && say "  $l"
+    done <<<"$(git -C "$repo" worktree prune -v 2>&1)"
+  fi
+  base="$(default_ref "$repo")"
+  prune_checkpoints "$repo"
+  [ -n "$base" ] || { say "  no default branch, skipping worktrees"; flush "$repo"; continue; }
+
+  # porcelain records: worktree/HEAD/branch/locked lines, blank-separated
+  first=1 wt="" branch="" locked=""
+  while IFS= read -r line; do
+    case "$line" in
+      "worktree "*) wt="${line#worktree }" ;;
+      "branch refs/heads/"*) branch="${line#branch refs/heads/}" ;;
+      locked*) locked=1 ;;
+      "")
+        if [ -n "$wt" ] && [ -z "$first" ]; then
+          if [ -n "$locked" ]; then say "  kept $wt (locked)"
+          elif [ ! -d "$wt" ]; then say "  ${apply:+kept}${apply:-would prune} $wt (folder is gone)"
+          elif [ -z "$branch" ]; then say "  kept $wt (detached HEAD)"
+          elif in_use "$wt"; then say "  kept $wt [$branch] (tmux pane inside)"
+          elif [ -n "$(git -C "$wt" status --porcelain 2>/dev/null)" ]; then say "  kept $wt [$branch] (uncommitted changes)"
+          else
+            prune_checkpoints "$wt"
+            tip="$(git -C "$repo" rev-parse "refs/heads/$branch")"
+            ahead="$(git -C "$repo" rev-list --count "$base..$tip")"
+            if [ "$ahead" -eq 0 ]; then
+              idle=$(( (now - $(last_activity "$wt" "$tip")) / 86400 ))
+              if [ "$idle" -ge "$idle_days" ]; then
+                remove_worktree "$repo" "$wt" "$branch" "no own commits, idle ${idle}d"
+              else
+                say "  kept $wt [$branch] (no own commits, idle ${idle}d < ${idle_days}d)"
+              fi
+            elif squash_merged "$repo" "$base" "$tip"; then
+              remove_worktree "$repo" "$wt" "$branch" "squash-merged into $base"
+            else
+              say "  kept $wt [$branch] ($ahead unmerged commits)"
+            fi
+          fi
+        fi
+        [ -n "$wt" ] && first=""
+        wt="" branch="" locked=""
+        ;;
+    esac
+  # the extra echo closes the last record (no trailing blank line on some git versions)
+  done < <(git -C "$repo" worktree list --porcelain; echo)
+  flush "$repo"
+done

@@ -135,25 +135,49 @@ end
 -- Event-driven state change handler (called via hs IPC from tmux)
 -- =============================================================================
 
--- Track per-agent last notified state to avoid duplicate alerts
+-- Last notified state per pane (or per agent name when the caller has no pane,
+-- e.g. an agent without hooks), so two agents of the same kind don't share one.
 local lastNotifiedState = {}
 
-function M.onAgentStateChange(agentState, agentName)
+local function terminalFrontmost()
+    local app = hs.application.frontmostApplication()
+    return app ~= nil and TERMINALS[app:name()] == true
+end
+
+-- paneId/where/focused come from the agent-state wrapper (tmux.nix): the tmux
+-- pane, "session:window" for the message, and "1" if that pane is the active
+-- one of an attached client.
+function M.onAgentStateChange(agentState, agentName, paneId, where, focused)
     if not agentState or not agentName then return end
+    if paneId == "" then paneId = nil end
+    if where == "" then where = nil end
+    local key = paneId or agentName
 
     -- Only notify once per state transition per agent
-    if lastNotifiedState[agentName] == agentState then return end
-    lastNotifiedState[agentName] = agentState
+    if lastNotifiedState[key] == agentState then return end
+    lastNotifiedState[key] = agentState
+
+    if agentState == "off" then
+        lastNotifiedState[key] = nil
+        return
+    end
+    -- already looking at it
+    if focused == "1" and terminalFrontmost() then return end
 
     local label = agentName:sub(1,1):upper() .. agentName:sub(2)
 
     if agentState == "needs-input" then
-        hs.alert.show(label .. " needs input", 3)
+        -- Stays in Notification Center until dismissed; clicking it focuses the pane
+        hs.notify.new(function()
+            if paneId then M.focusAgent(paneId) end
+        end, {
+            title = label .. " needs input",
+            informativeText = where,
+            soundName = hs.notify.defaultNotificationSound,
+            withdrawAfter = 0,
+        }):send()
     elseif agentState == "done" then
-        hs.alert.show(label .. " finished", 3)
-    elseif agentState == "off" then
-        -- Clean up tracking for exited agents
-        lastNotifiedState[agentName] = nil
+        hs.alert.show(label .. " finished" .. (where and ("  ·  " .. where) or ""), 3)
     end
 end
 

@@ -22,6 +22,7 @@
     ./lazygit.nix
     ./ai-agents.nix
     ./ai-agents-options.nix
+    ./agent-workflow.nix
     ./opencode.nix
     ./opencode-telegram-bot.nix
     ./sops.nix

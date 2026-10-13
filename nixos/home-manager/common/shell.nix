@@ -152,16 +152,29 @@
       }
       bindkey -s '^xw' 'wt-sw\n'
 
-      # Worktree new: Ctrl+X n → prompt for branch, create worktree sibling, optionally open agent
+      # Worktree new: Ctrl+X n → prompt for a task or branch, create worktree
+      # sibling, optionally open an agent. A task (anything with a space) is
+      # named by ai-branch-name (CFE-123-short-slug) and becomes the agent's
+      # first prompt.
       wt-new() {
-        local branch git_root parent_dir repo_name worktree_path agent session_name
+        local input task branch git_root parent_dir repo_name worktree_path agent session_name
         git_root=$(git rev-parse --show-toplevel 2>/dev/null)
         if [[ -z "$git_root" ]]; then
           echo "Not in a git repository" >&2
           return 1
         fi
-        read "branch?Branch name: "
-        [[ -z "$branch" ]] && return
+        read "input?Task or branch name: "
+        [[ -z "$input" ]] && return
+        if [[ "$input" == *" "* ]]; then
+          task="$input"
+          echo "naming the branch ..."
+          local suggested
+          suggested=$(ai-branch-name "$task")
+          read "branch?Branch [$suggested]: " || return
+          [[ -z "$branch" ]] && branch="$suggested"
+        else
+          branch="$input"
+        fi
         repo_name=$(basename "$git_root")
         parent_dir=$(dirname "$git_root")
         # Sibling pattern: <parent>/<repo>-<branch>
@@ -185,7 +198,7 @@
         # setup script (if any) runs in the session's background "setup" window
         wt-setup --tmux "$session_name" "$worktree_path"
         case "$agent" in
-          claude) tmux send-keys -t "$session_name" "claude" Enter ;;
+          claude) tmux send-keys -t "$session_name" "claude''${task:+ ''${(qq)task}}" Enter ;;
           opencode)
             # Local model servers are on-demand; offer to start one detached
             # (own ai-models tmux session, no focus steal) before launching.
@@ -198,7 +211,7 @@
                 echo "models starting in the ai-models session ..."
                 ;;
             esac
-            tmux send-keys -t "$session_name" "opencode" Enter ;;
+            tmux send-keys -t "$session_name" "opencode''${task:+ --prompt ''${(qq)task}}" Enter ;;
           antigravity) tmux send-keys -t "$session_name" "antigravity" Enter ;;
         esac
         tmux switch-client -t "$session_name"

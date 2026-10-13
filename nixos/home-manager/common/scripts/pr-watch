@@ -1,0 +1,220 @@
+#!/usr/bin/env bash
+# Watch a GitHub PR and wake the agent in a tmux pane only when it needs to
+# act, so the agent can end its turn instead of polling CI (idea from
+# t3code's watch_pull_request).
+#
+#   pr-watch [pr-number|url|branch] [--pane %N] [--interval SECONDS]
+#   pr-watch --list | --stop [pr]
+#
+# Defaults: the PR of the current branch, the calling pane ($TMUX_PANE),
+# every 120s. It runs detached inside the tmux server (survives the agent's
+# shell) and types a one-line message into the pane when:
+#   - a check fails on the PR's head commit
+#   - every check on the head commit has passed
+#   - someone else comments or reviews
+#   - the PR gets a merge conflict
+# A message is only typed while the agent is idle (not running, not asking
+# a question), and only into a pane that runs an agent. It stops when the PR
+# is merged or closed, after 10 wakes, 8 failed reads in a row, or 24h.
+# Re-running it for a PR already watched does nothing. Logs and state live
+# in ~/.local/state/pr-watch/.
+set -euo pipefail
+shopt -s inherit_errexit
+
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/pr-watch"
+mkdir -p "$STATE_DIR"
+
+die() { echo "pr-watch: $*" >&2; exit 1; }
+log() { printf '%s %s\n' "$(date '+%F %T')" "$*"; }
+
+sel="" pane="${TMUX_PANE:-}" interval=120 foreground="" mode=watch
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --pane) pane="$2"; shift 2 ;;
+    --interval) interval="$2"; shift 2 ;;
+    --foreground) foreground=1; shift ;;
+    --list) mode=list; shift ;;
+    --stop) mode=stop; shift ;;
+    -h|--help) awk '/^# /{p=1} /^set -euo/{if(p) exit} p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) sel="$1"; shift ;;
+  esac
+done
+
+alive() { [ -f "$1" ] && kill -0 "$(cat "$1")" 2>/dev/null; }
+
+case "$mode" in
+  list)
+    for pid in "$STATE_DIR"/*.pid; do
+      [ -e "$pid" ] || continue
+      alive "$pid" && printf '%s  (pane %s)\n' "$(basename "${pid%.pid}")" "$(cat "${pid%.pid}.pane" 2>/dev/null)"
+    done
+    exit 0
+    ;;
+  stop) ;;
+esac
+
+# Resolve to a URL once; later reads use it from anywhere.
+info="$(gh pr view ${sel:+"$sel"} --json number,url,headRepositoryOwner,headRepository 2>/dev/null)" ||
+  die "no PR found${sel:+ for $sel}"
+url="$(jq -r .url <<<"$info")"
+number="$(jq -r .number <<<"$info")"
+slug="$(sed -E 's#https://github.com/([^/]+)/([^/]+)/pull/.*#\1-\2#' <<<"$url")-$number"
+api_path="$(sed -E 's#https://github.com/([^/]+)/([^/]+)/pull/([0-9]+).*#repos/\1/\2/pulls/\3#' <<<"$url")"
+pidfile="$STATE_DIR/$slug.pid"
+logfile="$STATE_DIR/$slug.log"
+
+if [ "$mode" = stop ]; then
+  if alive "$pidfile"; then kill "$(cat "$pidfile")"; echo "stopped watching $url"; else echo "not watching $url"; fi
+  exit 0
+fi
+
+[ -n "$pane" ] || die "no tmux pane: run inside tmux or pass --pane"
+tmux display -p -t "$pane" '' >/dev/null 2>&1 || die "pane $pane does not exist"
+
+if [ -z "$foreground" ]; then
+  if alive "$pidfile"; then
+    echo "already watching $url (pane $(cat "$STATE_DIR/$slug.pane" 2>/dev/null))"
+    exit 0
+  fi
+  # run-shell -b: a child of the tmux server, not of the agent's shell
+  tmux run-shell -b "$(printf '%q ' "$0" "$url" --pane "$pane" --interval "$interval" --foreground) >>$(printf '%q' "$logfile") 2>&1"
+  echo "watching $url -> pane $pane every ${interval}s (log: $logfile)"
+  exit 0
+fi
+
+echo $$ >"$pidfile"
+echo "$pane" >"$STATE_DIR/$slug.pane"
+trap 'rm -f "$pidfile" "$STATE_DIR/$slug.pane"' EXIT
+
+me="$(gh api user --jq .login 2>/dev/null || true)"
+
+# Only type into a pane that runs an agent, and only while it waits for us.
+agent_pane() {
+  local cmd st
+  st="$(tmux show -pqv -t "$pane" @agent_state 2>/dev/null || true)"
+  [ -n "$st" ] && return 0
+  cmd="$(tmux display -p -t "$pane" '#{pane_current_command}' 2>/dev/null || true)"
+  case "$cmd" in claude|.claude-wrapped|opencode|.opencode-wrapped) return 0 ;; esac
+  return 1
+}
+agent_idle() {
+  case "$(tmux show -pqv -t "$pane" @agent_state 2>/dev/null || true)" in
+    running|needs-input) return 1 ;;
+  esac
+  return 0
+}
+
+deliver() {
+  local msg="$1"
+  tmux send-keys -t "$pane" -l -- "$msg"
+  sleep 0.3
+  tmux send-keys -t "$pane" Enter
+  log "delivered: $msg"
+}
+
+read_pr() {
+  gh pr view "$url" --json state,mergeable,headRefOid,statusCheckRollup,comments,reviews
+}
+
+# ids of comments/reviews by others; inline review comments come from the REST API
+others_ids() {
+  {
+    jq -r --arg me "$me" '(.comments[], .reviews[]) | select(.author.login != $me) | .id' <<<"$1"
+    gh api "$api_path/comments" --paginate --jq ".[] | select(.user.login != \"$me\") | \"rc\(.id)\"" 2>/dev/null || true
+  } | sort -u
+}
+
+comment_text() {
+  local data="$1" id="$2"
+  if [[ "$id" == rc* ]]; then
+    gh api "$api_path/comments/${id#rc}" --jq '"\(.user.login) on \(.path): \(.body | gsub("\n"; " ") | .[0:200])"' 2>/dev/null
+  else
+    jq -r --arg id "$id" '(.comments[], .reviews[]) | select(.id == $id)
+      | "\(.author.login)\(if .state then " (\(.state | ascii_downcase | gsub("_"; " ")))" else "" end): \(.body | gsub("\n"; " ") | .[0:200])"' <<<"$data"
+  fi
+}
+
+started="$(date +%s)" wakes=0 errors=0
+pending="" seen_sha="" reported_fail="" reported_green="" reported_conflict=""
+seen_comments=""
+
+log "watching $url -> pane $pane"
+while :; do
+  if ! tmux display -p -t "$pane" '' >/dev/null 2>&1; then log "pane $pane is gone, stopping"; exit 0; fi
+  if [ $(( $(date +%s) - started )) -gt 86400 ]; then log "24h limit, stopping"; exit 0; fi
+
+  if ! data="$(read_pr 2>/dev/null)"; then
+    errors=$((errors + 1))
+    log "read failed ($errors)"
+    [ "$errors" -ge 8 ] && { log "8 failed reads, stopping"; exit 1; }
+    sleep "$interval"; continue
+  fi
+  errors=0
+
+  state="$(jq -r .state <<<"$data")"
+  if [ "$state" != OPEN ]; then
+    log "PR is ${state,,}, stopping"
+    exit 0
+  fi
+
+  sha="$(jq -r .headRefOid <<<"$data")"
+  if [ "$sha" != "$seen_sha" ]; then
+    seen_sha="$sha" reported_fail="" reported_green="" reported_conflict=""
+  fi
+  short="${sha:0:7}"
+
+  # CheckRun (status/conclusion) and StatusContext (state, e.g. Jenkins).
+  # Re-runs appear once per run: keep the newest per name. CANCELLED is
+  # usually a run superseded by a newer push, so it doesn't count as failed.
+  checks="$(jq -r '[.statusCheckRollup[]? |
+      { name: (.name // .context),
+        at: (.completedAt // .startedAt // .createdAt // ""),
+        s: (if .__typename == "StatusContext" then .state
+            elif .status == "COMPLETED" then .conclusion else "PENDING" end) }]
+    | group_by(.name) | map(max_by(.at)) | .[] | [.name, .s] | @tsv' <<<"$data")"
+  failed="$(awk -F'\t' '$2 ~ /^(FAILURE|ERROR|TIMED_OUT|ACTION_REQUIRED|STARTUP_FAILURE)$/ { print $1 }' <<<"$checks" | paste -sd, - | sed 's/,/, /g')"
+  total="$(grep -c . <<<"$checks" || true)"
+  passed="$(awk -F'\t' '$2 ~ /^(SUCCESS|NEUTRAL|SKIPPED|CANCELLED)$/' <<<"$checks" | grep -c . || true)"
+
+  if [ -n "$failed" ] && [ -z "$reported_fail" ]; then
+    pending+="checks failed on $short: $failed. "
+    reported_fail=1
+  elif [ "$total" -gt 0 ] && [ "$passed" -eq "$total" ] && [ -z "$reported_green" ]; then
+    pending+="all $total checks passed on $short. "
+    reported_green=1
+  fi
+
+  if [ "$(jq -r .mergeable <<<"$data")" = CONFLICTING ] && [ -z "$reported_conflict" ]; then
+    pending+="it has merge conflicts with its base branch. "
+    reported_conflict=1
+  fi
+
+  ids="$(others_ids "$data")"
+  if [ -z "${seen_comments_init:-}" ]; then
+    # comments from before the watch started are not news
+    seen_comments="$ids" seen_comments_init=1
+  else
+    while IFS= read -r id; do
+      [ -n "$id" ] || continue
+      grep -qxF "$id" <<<"$seen_comments" && continue
+      seen_comments+=$'\n'"$id"
+      pending+="new comment from $(comment_text "$data" "$id"). "
+    done <<<"$ids"
+  fi
+
+  if [ -n "$pending" ]; then
+    if ! agent_pane; then
+      log "pane $pane no longer runs an agent, stopping"
+      exit 0
+    fi
+    if agent_idle; then
+      deliver "[pr-watch] PR #$number: ${pending% } Take a look and act on it if needed; the watcher keeps running."
+      pending=""
+      wakes=$((wakes + 1))
+      [ "$wakes" -ge 10 ] && { log "10 wakes, stopping"; exit 0; }
+    else
+      log "agent busy, holding: $pending"
+    fi
+  fi
+  sleep "$interval"
+done

@@ -1,9 +1,27 @@
 # direnv stdlib extension: tech-based devshell selection.
 # Put `use_tech` in a project's .envrc and the nix flake is picked from
 # project marker files. Shared devshells live in ~/configs/nixos-configs/shell.
+# Linked git worktrees get their own stable block of 10 ports, derived from
+# the worktree path, so several checkouts of one service can run at once:
+# WT_PORT (first of the block), SERVER_PORT (Spring Boot) and PORT (node
+# tools) = WT_PORT. The main checkout keeps the project's own defaults.
+use_worktree_ports() {
+  local gitdir common top sum
+  gitdir="$(git rev-parse --absolute-git-dir 2>/dev/null)" || return 0
+  common="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || return 0
+  [[ "$gitdir" != "$common" ]] || return 0
+  top="$(git rev-parse --show-toplevel)"
+  sum="$(printf '%s' "$top" | cksum | cut -d' ' -f1)"
+  export WT_PORT=$(( 20000 + (sum % 1000) * 10 ))
+  export SERVER_PORT="$WT_PORT" PORT="$WT_PORT"
+  log_status "worktree ports $WT_PORT-$((WT_PORT + 9)) (SERVER_PORT, PORT)"
+}
+
 use_tech() {
   local shells="$HOME/configs/nixos-configs/shell"
   local variant=""
+
+  use_worktree_ports
 
   # go-node/java have macOS-specific flakes (the default ones are Linux-oriented)
   if [[ "$(uname -s)" == "Darwin" ]]; then
