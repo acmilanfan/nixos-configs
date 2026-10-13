@@ -247,6 +247,10 @@ let
     model = if isWork then "self-hosted/Qwen/Qwen3.6-35B-A3B-FP8" else "opencode-go/deepseek-v4.1-flash";
     small_model = if isWork then "self-hosted/Qwen/Qwen3.6-35B-A3B-FP8" else "opencode-go/mimo-v2.6-flash";
 
+    # Small local notes, no background extraction/consolidation model calls.
+    # Pin the experimental plugin; learned blocks stay outside the Nix store.
+    plugins = [ "opencode-agent-memory@0.3.0" ];
+
     provider = localProviders // (if isWork then remoteProviders else { }) // {
       # Built-in provider; this only overrides per-model options. DeepSeek
       # defaults agent traffic to max effort, high is enough and faster.
@@ -983,7 +987,9 @@ in
   # installed plugin, a model switch) gets surfaced instead of silently
   # discarded. See ai-agents.nix's claudeSettings activation for the same
   # pattern.
-  home.activation.opencodeSettings = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+  # Seed before enabling the plugin in a watched config: a running v2 service
+  # must not win the race by creating empty upstream defaults first.
+  home.activation.opencodeSettings = lib.hm.dag.entryAfter [ "writeBoundary" "opencodeMemory" ] ''
     OPENCODE_DIR="$HOME/.config/opencode"
     OPENCODE_SETTINGS="$OPENCODE_DIR/opencode.json"
     mkdir -p "$OPENCODE_DIR"
@@ -1031,6 +1037,16 @@ EOF
   '';
   home.file.".config/opencode/plugins/tmux-session.js".source = ./opencode/tmux-session.mjs;
 
+  home.file.".config/opencode/agent-memory.json".text = builtins.toJSON {
+    memory.enabled = true;
+    journal.enabled = false;
+  };
+
+  home.activation.opencodeMemory = lib.hm.dag.entryAfter [ "writeBoundary" "opencodeWorkspace" ] ''
+    $DRY_RUN_CMD ${pkgs.bash}/bin/bash ${./opencode/memory-init.sh} \
+      ${./opencode/memory} "$HOME/.config/opencode/memory"
+  '';
+
   home.file.".config/opencode/AGENTS.md" = lib.mkIf (!isWork) {
     text = ''
       # opencode instructions
@@ -1050,29 +1066,15 @@ EOF
         `~/ai/artifacts/<project-name>/` instead of the repo working tree or
         `/tmp`, so it survives past the session. See `~/ai/instructions/README.md`
         for the full folder convention.
+      - Maintain small memory blocks with the memory tools when there is a
+        durable preference, verified recurring fix, or useful handoff pointer.
+        Keep project/company details out of global memory, never store secrets,
+        and link to repository docs or artifacts instead of duplicating them.
     '';
   };
 
-  home.file.".local/share/ai-workspace-readme" = {
-    text = ''
-      ~/ai workspace layout:
-        projects/     throwaway scratch clones only — a repo/tool you want an
-                      agent to poke at that isn't real project work. Actual
-                      projects and their features stay in ~/Work/IdeaProjects
-                      (or ~/IdeaProjects) and wt-new worktree siblings; this
-                      folder never competes with that.
-        docs/         design docs, research notes, plans that outlive a
-                      single repo/worktree (survives after a worktree is
-                      wt-rm'd)
-        instructions/ AGENTS.md / CLAUDE.md fragments to symlink into a
-                      project root when you want to share guidance across
-                      projects (human-managed, not auto-read by agents)
-        models/       local GGUF (qwen) + MLX cache used by serve-qwen/serve-gemma
-        artifacts/    scratch/debug output (logs, transcripts, error dumps)
-                      per project — agents write here instead of discarding
-                      it or littering the repo; kept out of git
-    '';
-  };
+  home.file.".local/share/ai-workspace-readme".source = ./opencode/ai-workspace.md;
+  home.file."ai/instructions/README.md".source = ./opencode/ai-workspace.md;
 
   # Note: agentConverter is a bare writers.writePython3 script (a file, not a
   # package with bin/), so it's invoked directly by path from the activation
@@ -1081,6 +1083,8 @@ EOF
   home.packages = [
     pkgs.uv
     aiModels
+    # Binary only: MCP registration/indexing is opt-in per trial repository.
+    unstable.codebase-memory-mcp
   ] ++ lib.optionals pkgs.stdenv.isDarwin [
     # serveQwen/serveGemma reference Darwin-only Nix-store packages
     # (unstable.mtplx, unstable.python312Packages.mlx-lm) — this file is
