@@ -82,7 +82,17 @@ for f in "$root"/.env "$root"/.env.* "$root"/.envrc; do
 done
 link_local .claude/settings.local.json
 
-command -v tech-envrc >/dev/null && tech-envrc "$wt"
+if [ -f "$wt/.gitmodules" ]; then
+  git -C "$wt" submodule update --init --recursive
+fi
+
+# devshell .envrc: only under project roots (matching tmux-sessionizer;
+# avoids e.g. ~/configs which has a flake.nix but no devshell)
+case "$wt" in
+  "$HOME/Projects"|"$HOME/Projects"/*|"$HOME/IdeaProjects"|"$HOME/IdeaProjects"/*|"$HOME/Work/IdeaProjects"|"$HOME/Work/IdeaProjects"/*)
+    command -v tech-envrc >/dev/null && tech-envrc "$wt"
+    ;;
+esac
 
 script="$(find_script)"
 [ -n "$script" ] || exit 0

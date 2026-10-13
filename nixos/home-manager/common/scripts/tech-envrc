@@ -8,6 +8,11 @@ d="${1:-.}"
 
 [ -f "$d/.envrc" ] && exit 0
 
+# Never touch ~/configs (flake has no devshell)
+case "$(cd "$d" 2>/dev/null && pwd -P)" in
+  "$HOME/configs"|"$HOME/configs"/*) exit 0 ;;
+esac
+
 if [ -f "$d/go.mod" ] \
   || [ -f "$d/package.json" ] \
   || [ -f "$d/pom.xml" ] \
