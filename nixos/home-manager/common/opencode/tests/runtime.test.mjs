@@ -5,7 +5,7 @@ import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
 import { mkdir, writeFile, readFile, open, rm, symlink } from "node:fs/promises";
 import { resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { createServer } from "node:http";
 import { createRequest, createStorage } from "../vicinae-storage.mjs";
 
@@ -13,10 +13,12 @@ const execute = promisify(execFile);
 const root = process.env.OPENCODE_TEST_HOME;
 const bin = process.env.OPENCODE_TEST_BIN;
 const pluginPackage = process.env.OPENCODE_TEST_PLUGIN_DIR;
+const memoryPlugin = process.env.OPENCODE_TEST_MEMORY_PLUGIN;
 if (!root || !bin || !pluginPackage) throw new Error("Set OPENCODE_TEST_HOME, OPENCODE_TEST_BIN, and OPENCODE_TEST_PLUGIN_DIR (built directory plugin)");
 const plugins = fileURLToPath(new URL("..", import.meta.url));
 const project = resolve(root, "project");
 let child, log, request, storage, env, provider;
+const modelRequests = [];
 
 before(async () => {
   env = {
@@ -34,14 +36,30 @@ before(async () => {
   await writeFile(resolve(project, "fixture.txt"), "before\n");
   await execute("git", ["add", "fixture.txt"], { cwd: project, env });
   provider = createServer((req, res) => {
-    req.resume();
+    if (req.method === "GET" && req.url === "/page") {
+      res.writeHead(200, { "content-type": "text/plain" });
+      res.end("Research fixture source");
+      return;
+    }
+    let body = "";
+    req.on("data", (chunk) => { body += chunk; });
     req.on("end", () => {
+      const requestBody = JSON.parse(body);
+      modelRequests.push(requestBody);
       res.writeHead(200, { "content-type": "text/event-stream" });
       const chunk = (delta, finish_reason = null) => `data: ${JSON.stringify({
         id: "chatcmpl_fixture", object: "chat.completion.chunk", created: 1, model: "mock",
         choices: [{ index: 0, delta, finish_reason }],
       })}\n\n`;
-      res.end(chunk({ role: "assistant", content: "Migration fixture needle" }) + chunk({}, "stop") + "data: [DONE]\n\n");
+      if (requestBody.tools?.some((tool) => tool.function.name === "webfetch")
+          && requestBody.messages.some((m) => m.role === "user" && m.content.startsWith("Profile check research"))
+          && !requestBody.messages.some((m) => m.role === "tool")) {
+        res.end(chunk({ role: "assistant", tool_calls: [{ index: 0, id: "call_research_page", type: "function",
+          function: { name: "webfetch", arguments: JSON.stringify({ url: `http://127.0.0.1:${provider.address().port}/page`, format: "text" }) },
+        }] }) + chunk({}, "tool_calls") + "data: [DONE]\n\n");
+      } else {
+        res.end(chunk({ role: "assistant", content: "Migration fixture needle" }) + chunk({}, "stop") + "data: [DONE]\n\n");
+      }
     });
   });
   await new Promise((r) => provider.listen(0, "127.0.0.1", r));
@@ -52,8 +70,37 @@ before(async () => {
   // v2 loader checks real entrypoint containment inside the resolved root.
   await symlink(pluginPackage, resolve(pluginDirectory, "agent-state"), "dir");
   await writeFile(resolve(pluginDirectory, "tmux-session.js"), await readFile(resolve(plugins, "tmux-session.mjs")));
+  const configModule = fileURLToPath(new URL("../../opencode.nix", import.meta.url));
+  const evaluated = await execute("nix-instantiate", ["--eval", "--strict", "--json", "--expr", `
+    let m = import ${configModule} {
+      config.home.username = "gentooway"; secrets = {}; unstable = {}; inputs = {};
+      pkgs = { mcp-nixos = "/fixture/mcp-nixos"; jq = "/fixture/jq";
+        runCommand = name: env: script: "/fixture/" + name; };
+      lib.hm.dag.entryAfter = _: value: value;
+    }; in m.home.activation.opencodeSettings
+  `]);
+  const activation = JSON.parse(evaluated.stdout);
+  const settings = JSON.parse(activation.split("cat <<'EOF'\n")[1].split("\nEOF")[0]);
+  const contextPlugins = [];
+  if (memoryPlugin) {
+    // Real pinned memory implementation, then the exact configured filter.
+    const memoryDirectory = resolve(root, "memory-plugin");
+    await mkdir(memoryDirectory, { recursive: true });
+    await writeFile(resolve(memoryDirectory, "index.js"), `export { default } from ${JSON.stringify(new URL("dist/index.js", pathToFileURL(memoryPlugin + "/")).href)};\n`);
+    const sources = new Map([
+      ["opencode-agent-memory@0.3.0", memoryDirectory],
+      ["/fixture/opencode-research-context-plugin", resolve(plugins, "research-context")],
+    ]);
+    // Preserve Nix's evaluated ordering, not a parallel hand-written list.
+    for (const target of settings.plugins) {
+      assert.ok(sources.has(target), `provide a real fixture for configured plugin ${target}`);
+      contextPlugins.push(sources.get(target));
+    }
+  }
   await writeFile(resolve(env.XDG_CONFIG_HOME, "opencode/opencode.json"), JSON.stringify({
     autoupdate: false,
+    agents: settings.agents,
+    plugins: contextPlugins,
     model: "fixture/mock", small_model: "fixture/mock",
     provider: { fixture: {
       npm: "@ai-sdk/openai-compatible",
@@ -115,6 +162,54 @@ test("initialized credentials are shared by concurrently starting clients and th
   const service = JSON.parse(await readFile(resolve(env.XDG_STATE_HOME, "opencode/service.json"), "utf8"));
   // Do not print credentials in an assertion failure.
   assert.ok(clients.every((client) => client.stdout.trim() === service.password));
+});
+
+test("Nix research profile sends only web tools and no memory while local/build retain it", { skip: !memoryPlugin }, async () => {
+  for (const agent of ["build", "local", "research"]) {
+    const session = (await request("/api/session", { method: "POST", body: {
+      agent, model: { providerID: "fixture", id: "mock" },
+      title: `Profile ${agent}`, location: { directory: project },
+    } })).data;
+    const text = `Profile check ${agent}`;
+    await request(`/api/session/${session.id}/prompt`, { method: "POST", body: { text } });
+    let outgoing;
+    for (let i = 0; i < 100; i++) {
+      outgoing = modelRequests.find((body) => body.tools?.length && body.messages.some((m) => m.role === "user" && m.content === text));
+      if (outgoing) break;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    assert.ok(outgoing, `captured ${agent} request`);
+    const prompt = JSON.stringify(outgoing.messages);
+    assert.equal(prompt.includes("<memory_blocks>"), agent !== "research");
+    const tools = outgoing.tools.map((tool) => tool.function.name).sort();
+    if (agent === "research") {
+      assert.deepEqual(tools, ["webfetch", "websearch"]);
+      assert.equal(prompt.includes("# Code Mode"), false);
+      assert.equal(prompt.includes("<available_skills>"), false);
+      assert.match(prompt, /conversational research assistant/);
+    } else {
+      assert.ok(tools.includes("execute"));
+      assert.ok(prompt.includes("memory_get"));
+    }
+    // Do not leave headless sessions for the delayed tmux opener to resurrect
+    // when the following TUI test starts its isolated tmux server.
+    // A completed assistant message may only be an intermediate tool call.
+    // Wait for the execution's async checkpoint subscriber before deleting it.
+    let finished = false;
+    for (let i = 0; i < 100; i++) {
+      const { stdout } = await execute("git", ["log", "--format=%(trailers:key=Agent-Event,valueonly)",
+        `refs/worktree/agent/${session.id}`], { cwd: project, env }).catch(() => ({ stdout: "" }));
+      if (stdout.includes("post")) { finished = true; break; }
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    assert.ok(finished, `${agent} execution and post-checkpoint completed`);
+    if (agent === "research") {
+      assert.ok(modelRequests.some((body) => body.messages.some((m) => m.role === "tool"
+        && typeof m.content === "string" && m.content.includes("Research fixture source"))),
+      "research can execute webfetch and receive the page without a permission prompt");
+    }
+    await storage.deleteSession({ id: session.id });
+  }
 });
 
 test("session browser creates, reads, searches and deletes real v2 sessions", async () => {
