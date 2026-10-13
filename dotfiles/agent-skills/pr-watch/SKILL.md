@@ -1,8 +1,6 @@
 ---
 name: pr-watch
 description: Use right after opening a pull request or pushing new commits to one, instead of polling CI or sleeping. Starts a background watcher that types a message into this session when a check fails, all checks pass, someone comments or reviews, or the PR gets a merge conflict.
-metadata:
-  opencode/slash: "true"
 ---
 
 # Watch a PR instead of polling it

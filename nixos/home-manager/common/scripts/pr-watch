@@ -94,7 +94,7 @@ agent_pane() {
   st="$(tmux show -pqv -t "$pane" @agent_state 2>/dev/null || true)"
   [ -n "$st" ] && return 0
   cmd="$(tmux display -p -t "$pane" '#{pane_current_command}' 2>/dev/null || true)"
-  case "$cmd" in claude|.claude-wrapped|opencode|.opencode-wrapped) return 0 ;; esac
+  case "$cmd" in claude|.claude-wrapped|opencode|.opencode-wrapped|opencode2) return 0 ;; esac
   return 1
 }
 agent_idle() {

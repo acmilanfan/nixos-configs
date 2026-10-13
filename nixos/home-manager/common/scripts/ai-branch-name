@@ -29,25 +29,35 @@ cd "$cache"
 export AGENT_STATE_OFF=1 AGENT_CHECKPOINT=0
 unset TMUX_PANE
 
+# Output only counts on a clean exit: error text must not become a name.
 ask_claude() {
   command -v claude >/dev/null || return 0
   # project-only settings: none of the user's hooks or plugins; prompt on
   # stdin because --tools takes a list
   printf '%s' "$prompt" |
-    timeout 25 claude -p --model haiku --setting-sources project --tools "" --no-session-persistence 2>/dev/null || true
+    timeout 25 claude -p --model haiku --setting-sources project --tools "" --no-session-persistence 2>/dev/null
 }
 ask_opencode() {
   command -v opencode >/dev/null || return 0
-  timeout 40 opencode run --pure "$prompt" 2>/dev/null || true
+  # opencode v2: a private server, not the shared background service (whose
+  # Telegram/Vicinae clients would see the session), and no reachable tmux,
+  # so its tmux-session plugin can't open a window for this headless session
+  mkdir -p "$cache/no-tmux"
+  env -u TMUX TMUX_TMPDIR="$cache/no-tmux" \
+    timeout 40 opencode run --standalone "$prompt" 2>/dev/null | grep -v '^> '
 }
 
 slug=""
 for namer in ${AI_BRANCH_NAMER:-claude opencode}; do
+  out=""
   case "$namer" in
-    claude) out="$(ask_claude)" ;;
-    opencode) out="$(ask_opencode)" ;;
-    *) out="" ;;
+    claude) ask=ask_claude ;;
+    opencode) ask=ask_opencode ;;
+    *) continue ;;
   esac
+  if ! out="$("$ask")"; then
+    out=""
+  fi
   # last non-empty line, at most 5 words
   slug="$(printf '%s\n' "$out" | awk 'NF { l = $0 } END { print l }' | slugify | cut -d- -f1-5)"
   [ -n "$slug" ] && break
