@@ -21,6 +21,23 @@ buildNpmPackage (finalAttrs: {
 
   npmDepsHash = "sha256-1PeS2g4rU/E2+ITWYO3troB1v3FlnHFWrIWlZWImjHg=";
 
+  # Avoid notifying about requests immediately auto-approved by a TUI client.
+  patches = [ ./opencode-telegram-bot/auto-permission-notices.patch ];
+
+  postPatch = ''
+    mkdir -p tests/bot/events
+    cp ${./opencode-telegram-bot/background-notice-delivery.test.ts} tests/bot/events/background-notice-delivery.test.ts
+  '';
+
+  doCheck = true;
+  checkPhase = ''
+    runHook preCheck
+    npm run typecheck
+    npm run lint
+    npm test
+    runHook postCheck
+  '';
+
   passthru.updateScript = nix-update-script { };
 
   meta = {
