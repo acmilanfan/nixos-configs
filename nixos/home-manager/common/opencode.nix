@@ -243,6 +243,26 @@ let
     cp ${./opencode/research-context/index.js} "$out/index.js"
   '';
 
+  # Terminal preferences belong in cli.json, not the server config. Only these
+  # fields are managed; keep other preferences changed through the TUI.
+  opencodeCliSettings = {
+    "$schema" = "https://opencode.ai/v2/cli.json";
+    tabs.mode = "off";
+    theme = {
+      name = "tokyonight";
+      mode = "system";
+    };
+    attention = {
+      notifications = true;
+      sound = true;
+    };
+    prompt.image_preview = true;
+    session = {
+      sidebar = "hide";
+      image_preview = false;
+    };
+  };
+
   opencodeSettings = {
     "$schema" = "https://opencode.ai/config.json";
     # Upgrades are managed through the flake, never the in-app installer.
@@ -1101,6 +1121,44 @@ EOF
 
     printf '%s' "$NEW_OC_SETTINGS" > "$OPENCODE_SETTINGS"
     chmod 644 "$OPENCODE_SETTINGS"
+  '';
+
+  # Keep this writable: the TUI settings dialog updates it in place. Merge only
+  # Nix-owned fields so a rebuild cannot discard unrelated live preferences.
+  home.activation.opencodeCliSettings = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    OC_CLI_SETTINGS="$HOME/.config/opencode/cli.json"
+    OLD_OC_CLI_SETTINGS='{}'
+    if [ -f "$OC_CLI_SETTINGS" ]; then
+      OLD_OC_CLI_SETTINGS=$(cat "$OC_CLI_SETTINGS")
+    fi
+    NEW_OC_CLI_SETTINGS=$(printf '%s' "$OLD_OC_CLI_SETTINGS" | ${pkgs.jq}/bin/jq -es \
+      --argjson managed '${builtins.toJSON opencodeCliSettings}' '
+        if length == 1 and (.[0] | type) == "object" then .[0] * $managed
+        else error("cli.json must contain exactly one JSON object") end')
+    if [ -f "$OC_CLI_SETTINGS" ]; then
+      OLD_OC_CLI_NORM=$(printf '%s' "$OLD_OC_CLI_SETTINGS" | ${pkgs.jq}/bin/jq -S .)
+      NEW_OC_CLI_NORM=$(printf '%s' "$NEW_OC_CLI_SETTINGS" | ${pkgs.jq}/bin/jq -S .)
+      if [ "$OLD_OC_CLI_NORM" != "$NEW_OC_CLI_NORM" ]; then
+        echo ""
+        echo "==> ~/.config/opencode/cli.json has drifted from the Nix-managed CLI settings (nixos/home-manager/common/opencode.nix)."
+        echo "    Diff (live vs. merged nix-managed settings), about to restore the managed fields:"
+        diff <(printf '%s\n' "$OLD_OC_CLI_NORM") <(printf '%s\n' "$NEW_OC_CLI_NORM") || true
+        OC_CLI_BACKUP="$OC_CLI_SETTINGS.drift.$(date +%s).$$.json"
+        $DRY_RUN_CMD cp "$OC_CLI_SETTINGS" "$OC_CLI_BACKUP"
+        echo "    Live version backed up to: $OC_CLI_BACKUP"
+        echo "    To keep a managed preference change, add it to opencodeCliSettings in"
+        echo "    nixos/home-manager/common/opencode.nix. Unmanaged preferences are preserved."
+        echo ""
+        ls -1t "$OC_CLI_SETTINGS".drift.*.json 2>/dev/null | tail -n +6 | while read -r f; do
+          $DRY_RUN_CMD rm -f "$f"
+        done || true
+      fi
+    fi
+    if [ "$OLD_OC_CLI_SETTINGS" != "$NEW_OC_CLI_SETTINGS" ]; then
+      $DRY_RUN_CMD mkdir -p "$HOME/.config/opencode"
+      $DRY_RUN_CMD ${pkgs.bash}/bin/bash -c 'printf "%s\n" "$1" > "$2"' \
+        -- "$NEW_OC_CLI_SETTINGS" "$OC_CLI_SETTINGS"
+    fi
   '';
 
   # v2 server checkpoints + client-local pane status (one directory plugin
