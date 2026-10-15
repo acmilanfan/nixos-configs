@@ -345,7 +345,14 @@ let
       };
     } else { });
 
+    # V2 normalizes these V1 keys into ordered rules after its built-in
+    # `* allow`. Unlike V1, it no longer asks before touching paths outside
+    # the project, so external_directory must be set explicitly; `execute`
+    # is V2 Code Mode (MCP tool calls), which otherwise runs unprompted.
+    # Check with `opencode api GET /api/agent/build`.
     permission = {
+      external_directory = "ask";
+      execute = "ask";
       read = {
         ".env" = "deny";
         ".env.*" = "deny";
@@ -353,6 +360,16 @@ let
         "~/.aws/**" = "deny";
         "~/.zshrc" = "deny";
         "~/.bashrc" = "deny";
+        # Credentials a (possibly Telegram-driven) session must never read,
+        # even after an external_directory approval.
+        "~/.ssh/**" = "deny";
+        "~/.gnupg/**" = "deny";
+        "~/.config/sops-nix/**" = "deny";
+        "~/.config/opencode/service.json" = "deny";
+        "~/.local/state/opencode/service.json" = "deny";
+        "~/.local/share/opencode/auth.json" = "deny";
+        "~/.local/share/opencode/mcp-auth.json" = "deny";
+        "${if pkgs.stdenv.isDarwin then "~/Library/Application Support" else "~/.config"}/opencode-telegram-bot/**" = "deny";
       };
       bash = {
         "npm *" = "deny";
