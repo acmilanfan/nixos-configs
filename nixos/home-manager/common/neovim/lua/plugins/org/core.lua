@@ -4,6 +4,12 @@ function M.root()
   return vim.fs.normalize(vim.fn.expand(vim.g.org_root or "~/org"))
 end
 
+-- Path-prefix containment; a bare substring test would also match sibling names (consume vs consumer-service).
+function M.within(path, dir)
+  path, dir = vim.fs.normalize(path), vim.fs.normalize(dir)
+  return path == dir or vim.startswith(path, dir .. "/")
+end
+
 function M.paths(scope)
   if scope == "refile" then
     return vim.list_extend(M.paths("execution"), M.paths("knowledge"))

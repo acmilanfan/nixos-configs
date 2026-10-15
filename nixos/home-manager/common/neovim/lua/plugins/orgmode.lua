@@ -9,7 +9,7 @@ local org_dir = org_root .. "/life"
 local cwd = vim.fn.getcwd()
 local agenda_files = {}
 
-if cwd:find("/consume/youtube") or cwd:find("/consume") then
+if core.within(cwd, org_root .. "/consume") then
   agenda_files = { ("%s/**/*.org"):format(cwd) }
 elseif vim.fn.isdirectory(org_dir) == 1 then
   agenda_files = core.paths("execution")
@@ -157,7 +157,9 @@ vim.api.nvim_create_autocmd("FileType", {
   group = vim.api.nvim_create_augroup("orgmode_custom_settings", { clear = true }),
   callback = function()
     pcall(vim.cmd, "TableModeEnable")
-    vim.keymap.set("n", "<leader>op", notes.refile, { buffer = 0, desc = "Refile to knowledge or project" })
+    -- nowait: the global <leader>op{c,p,r} project maps would otherwise delay this one.
+    vim.keymap.set("n", "<leader>op", "<cmd>OrgKnowledgeRefile<CR>",
+      { buffer = 0, nowait = true, desc = "Refile to knowledge or project" })
     vim.keymap.set("n", "<leader>os", require("telescope").extensions.orgmode.search_headings, { buffer = 0, desc = "Search headings" })
 
     -- Buffer-local YouTube keymaps

@@ -1,8 +1,13 @@
+local core = require("plugins.org.core")
 local M = {}
 
 -- ── Calorie Tracker ──────────────────────────────────────────────
--- Food library is read from the table under "* Food Library" in ~/org/life/calories.org.
+-- Food library is read from the table under "* Food Library" in <org root>/life/calories.org.
 -- Add/edit rows there — no rebuild needed.
+
+local function calories_path()
+  return core.root() .. "/life/calories.org"
+end
 
 local function fmt_num(n)
   n = tonumber(n) or 0
@@ -32,7 +37,7 @@ local function eval_grams(input_str)
 end
 
 local function append_to_food_library(name, cal, pro, carb, fat)
-  local path = vim.fn.expand("~/org/life/calories.org")
+  local path = calories_path()
   local bufnr = vim.fn.bufnr(path)
   local is_buf = (bufnr ~= -1 and vim.api.nvim_buf_is_loaded(bufnr))
   local lines = is_buf and vim.api.nvim_buf_get_lines(bufnr, 0, -1, false) or vim.fn.readfile(path)
@@ -185,7 +190,7 @@ local function parse_food_input(input)
 end
 
 local function load_food_library()
-  local path = vim.fn.expand("~/org/life/calories.org")
+  local path = calories_path()
   local bufnr = vim.fn.bufnr(path)
   local lines
   if bufnr ~= -1 and vim.api.nvim_buf_is_loaded(bufnr) then
@@ -862,6 +867,9 @@ _G.calc_daily_totals = function()
 end
 
 
+-- <leader>or intentionally shadows orgmode's org_refile (<prefix>r) in calories.org only;
+-- <leader>ow shares its key with org_edit_src_save, which lives in src edit buffers.
+-- <leader>on is nowait so the global <leader>on* note maps do not delay it.
 function M.setup_buffer_keymaps()
   vim.keymap.set("n", "<leader>od", "<cmd>lua _G.create_calorie_day()<CR>", { buffer = 0, desc = "New calorie day" })
   vim.keymap.set("n", "<leader>of", "<cmd>lua _G.add_food_row()<CR>", { buffer = 0, desc = "Add food" })
@@ -870,7 +878,7 @@ function M.setup_buffer_keymaps()
   vim.keymap.set("n", "<leader>ob", "<cmd>lua _G.lookup_barcode()<CR>", { buffer = 0, desc = "Barcode / OpenFoodFacts lookup" })
   vim.keymap.set("n", "<leader>ol", "<cmd>lua _G.calc_daily_totals()<CR>", { buffer = 0, desc = "Calc totals" })
   vim.keymap.set("n", "<leader>or", "<cmd>lua _G.recalc_current_row()<CR>", { buffer = 0, desc = "Recalc row" })
-  vim.keymap.set("n", "<leader>on", "<cmd>lua _G.goto_today()<CR>", { buffer = 0, desc = "Go to today" })
+  vim.keymap.set("n", "<leader>on", "<cmd>lua _G.goto_today()<CR>", { buffer = 0, nowait = true, desc = "Go to today" })
 end
 
 function M.setup()

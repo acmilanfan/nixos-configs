@@ -412,7 +412,36 @@ test("transactional refiling can move a subtree within its file without losing s
   eq(vim.fn.readfile(path), { "* First", "* Second", "Other body", "", "** Move", "Body" })
 end)
 
+test("consume detection is a path-prefix test, not a substring match", function()
+  local core = workflow("core")
+  assert(core.within(root .. "/consume", root .. "/consume"))
+  assert(core.within(root .. "/consume/youtube/", root .. "/consume"))
+  assert(not core.within(root .. "/consumer-service", root .. "/consume"))
+  assert(not core.within("/elsewhere/consume", root .. "/consume"))
+end)
+
+test("youtube items include every open keyword, strip tags and refresh after a write", function()
+  local path = fixture("consume/youtube/youtube1.org", {
+    "* Videos :video:youtube:", "** TODO First video :music:", ":PROPERTIES:", ":Duration: 100", ":END:",
+    "** DOING Second video", "** HOLD Third video :a:b:", "** DONE Watched video", "*** TODO Nested note",
+  })
+  local youtube = workflow("youtube")
+  youtube.setup_commands()
+  local function titles()
+    return vim.tbl_map(function(item) return item.headline.todo_value .. " " .. item.headline.title end, youtube.collect())
+  end
+  eq(titles(), { "TODO First video", "DOING Second video", "HOLD Third video" })
+  eq(youtube.collect()[1].headline:get_property("Duration"), "100")
+  vim.cmd("edit " .. vim.fn.fnameescape(path))
+  vim.api.nvim_buf_set_lines(0, 7, 8, false, { "** TODO Rewatch video :later:" })
+  vim.cmd("write")
+  eq(titles(), { "TODO First video", "DOING Second video", "HOLD Third video", "TODO Rewatch video" })
+  vim.cmd("bwipeout!")
+end)
+
+-- Fixtures are disposable; remove them on success and failure alike.
+vim.fn.delete(root, "rf")
 if #failures > 0 then
   error(string.format("%d passed, %d failed\n%s", passed, #failures, table.concat(failures, "\n")))
 end
-print(string.format("%d workflow checks passed; fixtures: %s", passed, root))
+print(string.format("%d workflow checks passed", passed))

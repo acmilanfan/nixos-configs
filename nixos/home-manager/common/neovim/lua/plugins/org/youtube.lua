@@ -1,3 +1,4 @@
+local core = require("plugins.org.core")
 local M = {}
 
 -- ── YouTube helpers ─────────────────────────────────────────────
@@ -40,20 +41,6 @@ local function matches_query(headline, query)
   return true
 end
 
--- Helper: Inherited Tags
-local function has_youtube_tag(headline)
-  local current = headline
-  while current do
-    for _, tag in ipairs(current.tags or {}) do
-      if tag == "youtube" then
-        return true
-      end
-    end
-    current = current.parent
-  end
-  return false
-end
-
 -- Helper: Parse Date
 local function parse_date(date_str)
   if not date_str then
@@ -66,6 +53,18 @@ local function parse_date(date_str)
   return os.time({ year = Y, month = M, day = D, hour = h, min = m, sec = s })
 end
 
+local function youtube_dir()
+  return core.root() .. "/consume/youtube"
+end
+
+-- Open = any not-done keyword (TODO/DOING/HOLD/...), matching orgmode's own todo_type.
+local function open_keyword(keyword)
+  local found = require("orgmode.config"):get_todo_keywords():find(keyword)
+  return found ~= nil and found.type == "TODO"
+end
+
+-- Invalidated on :OrgYoutubeReload and on writes under youtube_dir(); the TTL
+-- only catches edits made outside Neovim (sync, scripts).
 local _cached_youtube_items = nil
 local _cache_time = 0
 
@@ -75,8 +74,7 @@ local function get_all_youtube_items(force_reload)
     return _cached_youtube_items
   end
 
-  local yt_glob = vim.fn.fnamemodify("~/org/consume/youtube/*.org", ":p")
-  local yt_paths = vim.fn.glob(yt_glob, false, true)
+  local yt_paths = vim.fn.glob(youtube_dir() .. "/*.org", false, true)
   local items = {}
 
   for _, path in ipairs(yt_paths) do
@@ -84,17 +82,22 @@ local function get_all_youtube_items(force_reload)
     if ok and lines then
       local current_h = nil
       for lnum, line in ipairs(lines) do
-        local title = line:match("^%*%*%s+TODO%s+(.+)$")
-        if title then
+        local keyword, title = line:match("^%*%*%s+(%S+)%s+(.+)$")
+        if keyword and open_keyword(keyword) then
           if current_h then
             table.insert(items, { headline = current_h, path = path })
           end
+          local tags = { "youtube" }
+          local tag_group = title:match("%s:([%w_@#%%:]+):%s*$")
+          for tag in (tag_group or ""):gmatch("[^:]+") do
+            table.insert(tags, tag)
+          end
           current_h = {
-            title = title,
-            todo_value = "TODO",
+            title = vim.trim((title:gsub("%s+:[%w_@#%%:]+:%s*$", ""))),
+            todo_value = keyword,
             todo_type = "TODO",
             position = { start_line = lnum },
-            tags = { "youtube" },
+            tags = tags,
             props = {},
             get_property = function(self, k)
               return self.props[k] or self.props[k:lower()]
@@ -121,6 +124,8 @@ local function get_all_youtube_items(force_reload)
   _cache_time = now
   return items
 end
+
+M.collect = get_all_youtube_items
 
 local function open_youtube_query(opts)
   local query_string = opts.args or ""
@@ -391,6 +396,15 @@ function M.setup_commands()
     get_all_youtube_items(true)
     print("Reloaded YouTube items cache.")
   end, {})
+  vim.api.nvim_create_autocmd("BufWritePost", {
+    group = vim.api.nvim_create_augroup("org_youtube_cache", { clear = true }),
+    pattern = "*.org",
+    callback = function(args)
+      if core.within(args.match, youtube_dir()) then
+        _cached_youtube_items = nil
+      end
+    end,
+  })
 end
 
 function M.setup_buffer_keymaps()
