@@ -51,7 +51,15 @@ before(async () => {
         id: "chatcmpl_fixture", object: "chat.completion.chunk", created: 1, model: "mock",
         choices: [{ index: 0, delta, finish_reason }],
       })}\n\n`;
-      if (requestBody.tools?.some((tool) => tool.function.name === "webfetch")
+      const hybridTask = requestBody.messages.find((m) => m.role === "user"
+        && typeof m.content === "string" && m.content.startsWith("Hybrid routing "));
+      if (hybridTask && !requestBody.messages.some((m) => m.role === "tool")) {
+        const agent = hybridTask.content.slice("Hybrid routing ".length);
+        res.end(chunk({ role: "assistant", tool_calls: [{ index: 0, id: "call_hybrid_child", type: "function",
+          function: { name: "subagent", arguments: JSON.stringify({ agent,
+            description: "Check hybrid worker routing", prompt: `Hybrid child ${agent}: report the fixture text.` }) },
+        }] }) + chunk({}, "tool_calls") + "data: [DONE]\n\n");
+      } else if (requestBody.tools?.some((tool) => tool.function.name === "webfetch")
           && requestBody.messages.some((m) => m.role === "user" && m.content.startsWith("Profile check research"))
           && !requestBody.messages.some((m) => m.role === "tool")) {
         res.end(chunk({ role: "assistant", tool_calls: [{ index: 0, id: "call_research_page", type: "function",
@@ -100,12 +108,23 @@ before(async () => {
   await writeFile(resolve(env.XDG_CONFIG_HOME, "opencode/opencode.json"), JSON.stringify({
     autoupdate: false,
     agents: settings.agents,
+    commands: settings.commands,
     plugins: contextPlugins,
     model: "fixture/mock", small_model: "fixture/mock",
     provider: { fixture: {
       npm: "@ai-sdk/openai-compatible",
       options: { baseURL: `http://127.0.0.1:${provider.address().port}/v1`, apiKey: "fixture" },
       models: { mock: { name: "Mock", limit: { context: 16000, output: 1000 } } },
+    }, openai: {
+      npm: "@ai-sdk/openai-compatible",
+      options: { baseURL: `http://127.0.0.1:${provider.address().port}/v1`, apiKey: "fixture" },
+      models: { "gpt-6.1-sol": { name: "Lead fixture", limit: { context: 16000, output: 1000 } } },
+    }, "opencode-go": {
+      // Redirect the real configured worker model to the local fixture. This
+      // verifies selection without credentials, paid calls, or live providers.
+      npm: "@ai-sdk/openai-compatible",
+      options: { baseURL: `http://127.0.0.1:${provider.address().port}/v1`, apiKey: "fixture" },
+      models: { "deepseek-v4.1-flash": { name: "Flash fixture", limit: { context: 16000, output: 1000 } } },
     } },
   }));
   // Mirror the ordered Nix activation: initialize once before either process
@@ -162,6 +181,65 @@ test("initialized credentials are shared by concurrently starting clients and th
   const service = JSON.parse(await readFile(resolve(env.XDG_STATE_HOME, "opencode/service.json"), "utf8"));
   // Do not print credentials in an assertion failure.
   assert.ok(clients.every((client) => client.stdout.trim() === service.password));
+});
+
+test("hybrid command selects Sol and delegates to Flash workers without inheriting its lead model", async () => {
+  let agents = [];
+  for (let i = 0; i < 40; i++) {
+    agents = (await request("/api/agent", { query: { "location[directory]": project } })).data;
+    // Builtins appear before asynchronously discovered user configuration.
+    if (agents.some((agent) => agent.id === "local")) break;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  assert.ok(agents.some((agent) => agent.id === "hybrid"), `Nix registers the hybrid primary agent: ${agents.map((agent) => agent.id)}`);
+  for (const agent of ["hybrid-explore", "hybrid-worker"]) {
+    const session = (await request("/api/session", { method: "POST", body: {
+      agent: "build", model: { providerID: "fixture", id: "mock" },
+      title: `Routing ${agent}`, location: { directory: project },
+    } })).data;
+    const start = modelRequests.length;
+    await request(`/api/session/${session.id}/command`, { method: "POST", body: { name: "hybrid", text: `Hybrid routing ${agent}` } });
+    let transcript = [];
+    for (let i = 0; i < 150; i++) {
+      transcript = await storage.loadTranscript(session.id);
+      if (transcript.some((e) => e.parts.some((p) => p.type === "tool" && p.tool === "subagent"
+        && ["completed", "error"].includes(p.state.status)))) break;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    const call = transcript.flatMap((e) => e.parts).find((p) => p.tool === "subagent");
+    assert.equal(call?.state.status, "completed", JSON.stringify(call));
+    const assistant = transcript.find((e) => e.message.role === "assistant" && e.message.agent);
+    assert.equal(assistant?.message.agent, "hybrid", "command changes the previously selected session agent");
+    const lead = modelRequests.slice(start).find((body) => body.messages.some((m) => m.role === "user"
+      && m.content === `Hybrid routing ${agent}`));
+    assert.ok(lead, "captured the lead's command request");
+    assert.equal(lead.model, "gpt-6.1-sol", "command changes the previously selected session model");
+    const child = modelRequests.slice(start).find((body) => body.messages.some((m) => m.role === "user"
+      && typeof m.content === "string" && m.content.endsWith(`Hybrid child ${agent}: report the fixture text.`)));
+    assert.ok(child, `captured ${agent} request through real subagent execution`);
+    assert.equal(child.model, "deepseek-v4.1-flash");
+    const tools = child.tools.map((tool) => tool.function.name);
+    assert.equal(tools.includes("subagent"), false, "workers cannot recursively delegate");
+    assert.equal(tools.includes("question"), false, "workers report blockers to their lead");
+    if (agent === "hybrid-explore") {
+      for (const name of ["patch", "edit", "write", "shell", "execute"]) assert.equal(tools.includes(name), false, `explorer cannot use ${name}`);
+      assert.ok(tools.includes("read"));
+      assert.ok(tools.includes("grep"));
+    } else {
+      assert.ok(tools.some((name) => ["patch", "edit", "write"].includes(name)), `worker has editing tools: ${tools}`);
+      assert.ok(tools.includes("shell"));
+    }
+    // Wait for the parent's final answer/checkpoint before deleting its session.
+    let finished = false;
+    for (let i = 0; i < 100; i++) {
+      const { stdout } = await execute("git", ["log", "--format=%(trailers:key=Agent-Event,valueonly)",
+        `refs/worktree/agent/${session.id}`], { cwd: project, env }).catch(() => ({ stdout: "" }));
+      if (stdout.includes("post")) { finished = true; break; }
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    assert.ok(finished, `${agent} lead finished`);
+    await storage.deleteSession({ id: session.id });
+  }
 });
 
 test("Nix research profile sends only web tools and no memory while local/build retain it", { skip: !memoryPlugin }, async () => {
