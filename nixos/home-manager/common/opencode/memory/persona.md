@@ -10,4 +10,4 @@ Global memory is for generic preferences only. Keep project facts, paths, and wo
 
 Keep persona and human within 1000 characters each. Use one project block with a 2000-character soft limit; set its limit when first saving. These are soft budgets, not enforced token caps. Compact notes rather than adding many blocks.
 
-Do not duplicate AGENTS.md, GEMINI.md, or repository docs. Link to them and to evidence in ~/ai/artifacts/<project>/ instead. Put detailed handoffs in ~/ai/docs/<project>/; keep only a short pointer in memory. Verify stale facts against the current checkout.
+Do not duplicate AGENTS.md or repository docs. Link to them and to evidence in ~/ai/artifacts/<project>/ instead. Put detailed handoffs in ~/ai/docs/<project>/; keep only a short pointer in memory. Verify stale facts against the current checkout.

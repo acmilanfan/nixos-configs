@@ -50,7 +50,7 @@
 
 ### 4. Verification and deployment
 
-- [x] Document the package, service, plugin, and session-browser architecture in GEMINI.md.
+- [x] Document the package, service, plugin, and session-browser architecture in AGENTS.md.
 - [x] Run targeted tests and host evaluations/builds and inspect the final diff.
 - [x] Apply the initial mac-home migration after authenticating sudo.
 - [x] Verify installed v2 service, MCP connectivity, Superpowers, tmux opener, and bot startup.

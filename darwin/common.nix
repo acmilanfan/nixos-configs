@@ -370,7 +370,7 @@ in
   };
 
   # Homebrew packages that don't work well with nix-darwin. Upgrades use
-  # only the definitions pinned in flake.lock; see GEMINI.md for updates.
+  # only the definitions pinned in flake.lock; see AGENTS.md for updates.
   homebrew = {
     enable = true;
     global.autoUpdate = false;
