@@ -398,6 +398,7 @@ in
       "cursorcerer"
       "finetune"
       "utm"
+      "chatgpt"
     ];
 
     brews = [
