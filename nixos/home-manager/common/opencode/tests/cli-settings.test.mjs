@@ -33,6 +33,33 @@ test("fresh CLI settings do not report drift or create a backup", options, async
   assert.deepEqual(await backups(), []);
 });
 
+test("CLI activation disables noisy builtin notifications", options, async () => {
+  const { config, run } = await fixture();
+  await run();
+  const live = JSON.parse(await readFile(config, "utf8"));
+  assert.deepEqual(live.plugins, ["-opencode.notifications"]);
+  assert.equal(live.attention.sound, true);
+});
+
+test("notification override preserves unrelated CLI plugin order and options", options, async () => {
+  const { config, run, backups } = await fixture();
+  await run();
+  const live = JSON.parse(await readFile(config, "utf8"));
+  const external = { package: "example-plugin", options: { compact: true } };
+  live.plugins = ["-opencode.notifications", "*", external, "-team.*", "-opencode.notifications"];
+  live.session.permissions = "autoaccept";
+  await writeFile(config, JSON.stringify(live));
+  await run();
+  const merged = JSON.parse(await readFile(config, "utf8"));
+  assert.deepEqual(merged.plugins, ["*", external, "-team.*", "-opencode.notifications"]);
+  assert.equal(merged.session.permissions, "autoaccept");
+  const saved = await backups();
+  assert.equal(saved.length, 1);
+  const second = await run();
+  assert.doesNotMatch(second.stdout, /has drifted/);
+  assert.deepEqual(await backups(), saved);
+});
+
 test("managed CLI drift warns and backs up the exact live file before merging", options, async () => {
   const { config, directory, run, backups } = await fixture();
   await run();

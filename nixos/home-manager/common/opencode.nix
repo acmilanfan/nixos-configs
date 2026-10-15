@@ -247,6 +247,9 @@ let
   # fields are managed; keep other preferences changed through the TUI.
   opencodeCliSettings = {
     "$schema" = "https://opencode.ai/v2/cli.json";
+    # The discovered attention-v2 CLI plugin retains actionable alerts without
+    # sounding for auto-approved permissions or every child completion.
+    plugins = [ "-opencode.notifications" ];
     tabs.mode = "off";
     theme = {
       name = "tokyonight";
@@ -1262,7 +1265,12 @@ EOF
     fi
     NEW_OC_CLI_SETTINGS=$(printf '%s' "$OLD_OC_CLI_SETTINGS" | ${pkgs.jq}/bin/jq -es \
       --argjson managed '${builtins.toJSON opencodeCliSettings}' '
-        if length == 1 and (.[0] | type) == "object" then .[0] * $managed
+        if length == 1 and (.[0] | type) == "object" then
+          .[0] as $live | ($live * $managed) |
+          # Keep unrelated plugin directives/options in order. Managed disable
+          # directives go last so a live wildcard cannot re-enable the builtin.
+          .plugins = (($live.plugins // [] |
+            map(. as $entry | select($managed.plugins | index($entry) | not))) + $managed.plugins)
         else error("cli.json must contain exactly one JSON object") end')
     if [ -f "$OC_CLI_SETTINGS" ]; then
       OLD_OC_CLI_NORM=$(printf '%s' "$OLD_OC_CLI_SETTINGS" | ${pkgs.jq}/bin/jq -S .)
@@ -1300,6 +1308,11 @@ EOF
     mkdir -p "$out"
     cp ${./opencode/agent-state.mjs} "$out/index.js"
     cp ${./opencode/agent-state-tui.mjs} "$out/tui.js"
+  '';
+  home.file.".config/opencode/plugins/attention-v2".source = pkgs.runCommand "opencode-attention-plugin" { } ''
+    mkdir -p "$out"
+    cp ${./opencode/attention-tui.mjs} "$out/tui.js"
+    cp ${./opencode/attention.LICENSE} "$out/LICENSE"
   '';
   home.file.".config/opencode/plugins/tmux-session.js".source = ./opencode/tmux-session.mjs;
 
