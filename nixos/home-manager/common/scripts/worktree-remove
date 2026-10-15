@@ -20,10 +20,11 @@ selected=$(printf '%s\n' "${worktrees[@]}" \
 
 [[ -z "$selected" ]] && exit 0
 
-# Check for uncommitted changes
-if ! git -C "$selected" diff --quiet 2>/dev/null || \
-   ! git -C "$selected" diff --cached --quiet 2>/dev/null; then
-  read -r -p "Worktree has uncommitted changes. Remove anyway? [y/N] " confirm
+# Check for uncommitted changes. `git status --porcelain` covers staged,
+# unstaged, and untracked changes (ignored files excluded) — the same
+# conditions under which `git worktree remove` refuses without --force.
+if [[ -n "$(git -C "$selected" status --porcelain 2>/dev/null)" ]]; then
+  read -r -p "Worktree has uncommitted or untracked changes. Remove anyway? [y/N] " confirm
   [[ "$confirm" != [yY] ]] && exit 0
   force="--force"
 fi
@@ -31,14 +32,41 @@ fi
 # Kill leftover nvim processes whose cwd is this worktree
 # (prevents orphaned --embed nvim from leaking after tmux kill-session)
 for pid in $(pgrep nvim 2>/dev/null); do
-  cwd=$(lsof -p "$pid" -F n 2>/dev/null | sed -n 's/^n//p')
+  # -a (AND) + -d cwd + -F n prints just the cwd record; a plain
+  # `lsof -p "$pid" -F n` lists every open file, so it never equals a path.
+  cwd=$(lsof -a -p "$pid" -d cwd -F n 2>/dev/null | sed -n 's/^n//p')
   if [[ "$cwd" == "$selected" ]]; then
     kill "$pid" 2>/dev/null
     echo "Killed orphaned nvim (PID $pid) in $selected"
   fi
 done
 
-git worktree remove $force "$selected"
+# Remove the worktree, honouring the dirty flag set above.
+try_remove() {
+  if [[ -n "${force:-}" ]]; then
+    git worktree remove --force "$selected"
+  else
+    git worktree remove "$selected"
+  fi
+}
+
+# git can still refuse (locked worktree, or dirtiness git sees and we do not),
+# so retry once with --force on request and never report a removal that failed.
+removed=0
+if try_remove; then
+  removed=1
+else
+  read -r -p "git could not remove the worktree. Force removal? [y/N] " force_confirm
+  if [[ "$force_confirm" == [yY] ]] && git worktree remove --force "$selected"; then
+    removed=1
+  fi
+fi
+
+if ((removed == 0)); then
+  echo "Failed to remove: $selected" >&2
+  exit 1
+fi
+
 echo "Removed: $selected"
 
 # Kill the associated tmux session if it exists
