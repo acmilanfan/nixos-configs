@@ -63,7 +63,18 @@ root=$(cd "$path" && pwd -P)
 head=$(git -C "$root" rev-parse --verify HEAD 2>/dev/null || echo '(no-commits)')
 # Fold HEAD and the scoped dirty state (matching CBM's own git watcher) into one
 # signature, so a commit, a branch switch, or an uncommitted edit all count.
-dirty=$(git -C "$root" status --porcelain -uall -- . ':(exclude).codebase-memory')
+# Hash content, not just porcelain paths: a second edit to a file that is
+# already modified (or untracked) must change the signature too.
+scope=(-- . ':(exclude).codebase-memory')
+dirty=$(
+  git -C "$root" status --porcelain -uall "${scope[@]}"
+  git -C "$root" diff --binary "${scope[@]}"
+  git -C "$root" diff --cached --binary "${scope[@]}"
+  while IFS= read -r -d '' file; do
+    printf '%s ' "$file"
+    git -C "$root" hash-object -- "$file"
+  done < <(git -C "$root" ls-files -z -o --exclude-standard "${scope[@]}")
+)
 signature=$(printf '%s\n%s' "$head" "$dirty" | git -C "$root" hash-object --stdin)
 
 state_dir=${CBM_REFRESH_STATE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/codebase-memory-mcp/cbm-refresh}

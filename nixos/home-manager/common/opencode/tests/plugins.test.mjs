@@ -46,6 +46,22 @@ test("failed and interrupted executions close the checkpoint turn", async () => 
   }
 });
 
+test("a failed session lookup does not wedge later turns for that session", async () => {
+  const { createCheckpoints } = await server();
+  const calls = [];
+  let lookups = 0;
+  const ctx = sessionContext();
+  const get = ctx.session.get;
+  // First lookup rejects (session deleted mid-run), later ones succeed.
+  ctx.session.get = async (...args) => (++lookups === 1 ? Promise.reject(new Error("gone")) : get(...args));
+  const hooks = createCheckpoints(ctx, async (_cmd, args) => calls.push(args[1]));
+  await hooks.before({ sessionID: "ses_one" });
+  await hooks.event({ type: "session.execution.failed", data: { sessionID: "ses_one" } });
+  await hooks.before({ sessionID: "ses_one" });
+  await hooks.event({ type: "session.execution.succeeded", data: { sessionID: "ses_one" } });
+  assert.deepEqual(calls, ["post", "pre", "post"]);
+});
+
 function clientContext({ route = "ses_one", running = false, permission = false, form = false, outcome } = {}) {
   return {
     ui: { router: { current: () => route ? { type: "session", sessionID: route } : { type: "home" } } },

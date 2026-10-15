@@ -9,14 +9,16 @@ const terminalEvents = new Set([
 export function createCheckpoints(ctx, run = execute) {
   const turns = new Map();
   const save = async (event, sessionID) => {
-    const session = await ctx.session.get({ sessionID });
-    const directory = session.location.directory;
-    // Events are global; a plugin instance belongs to one location.
-    if (directory !== ctx.location.directory) return;
+    // Never reject: a rejected promise would stay in `turns` and fail every
+    // later context hook for the session (e.g. one deleted mid-run).
     try {
+      const session = await ctx.session.get({ sessionID });
+      const directory = session.location.directory;
+      // Events are global; a plugin instance belongs to one location.
+      if (directory !== ctx.location.directory) return;
       await run("agent-checkpoint", ["save", event, sessionID, "opencode"], { cwd: directory });
     } catch {
-      // Missing helper or non-git location must not prevent a model request.
+      // Missing session/helper or non-git location must not prevent a model request.
     }
   };
   return {
@@ -45,7 +47,12 @@ export default {
     void (async () => {
       try {
         for await (const event of ctx.event.subscribe({ signal: controller.signal })) {
-          await hooks.event(event);
+          // One failing event must not end the subscription for every session.
+          try {
+            await hooks.event(event);
+          } catch (error) {
+            console.error("[agent-state] event", error);
+          }
         }
       } catch (error) {
         if (!controller.signal.aborted) console.error("[agent-state] event stream", error);

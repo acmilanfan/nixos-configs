@@ -14,13 +14,15 @@ const root = process.env.OPENCODE_TEST_HOME;
 const bin = process.env.OPENCODE_TEST_BIN;
 const pluginPackage = process.env.OPENCODE_TEST_PLUGIN_DIR;
 const memoryPlugin = process.env.OPENCODE_TEST_MEMORY_PLUGIN;
-if (!root || !bin || !pluginPackage) throw new Error("Set OPENCODE_TEST_HOME, OPENCODE_TEST_BIN, and OPENCODE_TEST_PLUGIN_DIR (built directory plugin)");
+// Integration suite: skip (not fail) without a prepared test environment.
+const skip = (!root || !bin || !pluginPackage) && "Set OPENCODE_TEST_HOME, OPENCODE_TEST_BIN, and OPENCODE_TEST_PLUGIN_DIR (built directory plugin)";
 const plugins = fileURLToPath(new URL("..", import.meta.url));
-const project = resolve(root, "project");
+const project = skip ? "" : resolve(root, "project");
 let child, log, request, storage, env, provider;
 const modelRequests = [];
 
 before(async () => {
+  if (skip) return;
   env = {
     ...process.env, HOME: root, XDG_CONFIG_HOME: resolve(root, "config"),
     XDG_DATA_HOME: resolve(root, "data"), XDG_STATE_HOME: resolve(root, "state"),
@@ -155,6 +157,7 @@ before(async () => {
 }, { timeout: 60000 });
 
 after(async () => {
+  if (skip) return;
   if (env) await execute("tmux", ["kill-server"], { env }).catch(() => {});
   if (env) await execute(bin, ["service", "stop"], { env, timeout: 15000 }).catch(() => {});
   child?.kill();
@@ -162,7 +165,7 @@ after(async () => {
   if (provider) await new Promise((r) => provider.close(r));
 });
 
-test("real service accepts the migrated server plugin entrypoints", async () => {
+test("real service accepts the migrated server plugin entrypoints", { skip }, async () => {
   assert.equal(await storage.checkDatabase(), null);
   let result;
   for (let i = 0; i < 40; i++) {
@@ -176,14 +179,14 @@ test("real service accepts the migrated server plugin entrypoints", async () => 
   assert.equal(result.data.find((p) => p.id === "agent-state").features.tui, true);
 });
 
-test("initialized credentials are shared by concurrently starting clients and the registered server", async () => {
+test("initialized credentials are shared by concurrently starting clients and the registered server", { skip }, async () => {
   const clients = await Promise.all([1, 2].map(() => execute(bin, ["service", "get", "password"], { env })));
   const service = JSON.parse(await readFile(resolve(env.XDG_STATE_HOME, "opencode/service.json"), "utf8"));
   // Do not print credentials in an assertion failure.
   assert.ok(clients.every((client) => client.stdout.trim() === service.password));
 });
 
-test("hybrid command selects Sol and delegates to Flash workers without inheriting its lead model", async () => {
+test("hybrid command selects Sol and delegates to Flash workers without inheriting its lead model", { skip }, async () => {
   let agents = [];
   for (let i = 0; i < 40; i++) {
     agents = (await request("/api/agent", { query: { "location[directory]": project } })).data;
@@ -242,7 +245,7 @@ test("hybrid command selects Sol and delegates to Flash workers without inheriti
   }
 });
 
-test("Nix research profile sends only web tools and no memory while local/build retain it", { skip: !memoryPlugin }, async () => {
+test("Nix research profile sends only web tools and no memory while local/build retain it", { skip: skip || (!memoryPlugin && "Set OPENCODE_TEST_MEMORY_PLUGIN") }, async () => {
   for (const agent of ["build", "local", "research"]) {
     const session = (await request("/api/session", { method: "POST", body: {
       agent, model: { providerID: "fixture", id: "mock" },
@@ -290,7 +293,7 @@ test("Nix research profile sends only web tools and no memory while local/build 
   }
 });
 
-test("session browser creates, reads, searches and deletes real v2 sessions", async () => {
+test("session browser creates, reads, searches and deletes real v2 sessions", { skip }, async () => {
   const created = await request("/api/session", { method: "POST", body: {
     title: "V2 smoke unique", location: { directory: project },
   } });
@@ -330,7 +333,7 @@ test("session browser creates, reads, searches and deletes real v2 sessions", as
   assert.equal((await storage.loadSessions()).some((s) => s.id === session.id), false);
 });
 
-test("the real TUI pins its session and reports state to its own tmux pane without duplicate windows", async () => {
+test("the real TUI pins its session and reports state to its own tmux pane without duplicate windows", { skip }, async () => {
   const created = await request("/api/session", { method: "POST", body: {
     title: "Pane smoke", location: { directory: project },
   } });

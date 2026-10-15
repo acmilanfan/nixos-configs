@@ -118,6 +118,25 @@ case_dirty_triggers_then_stable() {
     bad "dirty edit reindexes once, a re-run with no further change skips" "first=$first second=$second"
 }
 
+case_second_edit_stale() {
+  echo "== a second edit to an already-modified or untracked file is stale =="
+  local dir; dir=$(repo secondedit)
+  echo one >> "$dir/a.txt"
+  echo draft > "$dir/new.txt"
+  run "$dir" >/dev/null 2>&1
+  echo two >> "$dir/a.txt"
+  reset_log
+  run --check "$dir"
+  local tracked=$CODE
+  run "$dir" >/dev/null 2>&1
+  echo more >> "$dir/new.txt"
+  run --check "$dir"
+  local untracked=$CODE
+  [[ $tracked -eq 1 && $untracked -eq 1 ]] &&
+    ok "re-edits of modified and untracked files make --check stale" ||
+    bad "re-edits of modified and untracked files make --check stale" "tracked-exit=$tracked untracked-exit=$untracked"
+}
+
 case_check_stale() {
   echo "== --check reports staleness without reindexing =="
   local dir; dir=$(repo checkstale)
@@ -188,6 +207,7 @@ case_no_change_skips
 case_commit_triggers
 case_dirty_triggers_then_stable
 case_check_stale
+case_second_edit_stale
 case_check_fresh
 case_force
 case_mode_passthrough

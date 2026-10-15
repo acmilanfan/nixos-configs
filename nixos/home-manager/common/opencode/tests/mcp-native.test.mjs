@@ -20,8 +20,9 @@ import { createRequest } from "../vicinae-storage.mjs";
 const execute = promisify(execFile);
 const root = process.env.OPENCODE_TEST_HOME;
 const bin = process.env.OPENCODE_TEST_BIN;
-if (!root || !bin) throw new Error("Set OPENCODE_TEST_HOME and OPENCODE_TEST_BIN");
-const project = resolve(root, "mcp-project");
+// Integration suite: skip (not fail) without a prepared test environment.
+const skip = (!root || !bin) && "Set OPENCODE_TEST_HOME and OPENCODE_TEST_BIN";
+const project = skip ? "" : resolve(root, "mcp-project");
 let child, log, request, env, provider;
 const modelRequests = [];
 
@@ -49,6 +50,7 @@ process.stdin.on("data", (chunk) => {
 `;
 
 before(async () => {
+  if (skip) return;
   env = {
     ...process.env, HOME: root, XDG_CONFIG_HOME: resolve(root, "config"),
     XDG_DATA_HOME: resolve(root, "data"), XDG_STATE_HOME: resolve(root, "state"),
@@ -128,13 +130,14 @@ before(async () => {
 }, { timeout: 60000 });
 
 after(async () => {
+  if (skip) return;
   if (env) await execute(bin, ["service", "stop"], { env, timeout: 15000 }).catch(() => {});
   child?.kill();
   await log?.close();
   if (provider) await new Promise((r) => provider.close(r));
 });
 
-test("native MCP read tool reaches an agent that denies Code Mode", async () => {
+test("native MCP read tool reaches an agent that denies Code Mode", { skip }, async () => {
   const session = (await request("/api/session", { method: "POST", body: {
     agent: "explorer", model: { providerID: "fixture", id: "mock" },
     title: "MCP native access", location: { directory: project },

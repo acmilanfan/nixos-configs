@@ -1295,16 +1295,30 @@ EOF
     if [ -f "$OC_CLI_SETTINGS" ]; then
       OLD_OC_CLI_SETTINGS=$(cat "$OC_CLI_SETTINGS")
     fi
-    NEW_OC_CLI_SETTINGS=$(printf '%s' "$OLD_OC_CLI_SETTINGS" | ${pkgs.jq}/bin/jq -es \
-      --argjson managed '${builtins.toJSON opencodeCliSettings}' '
-        if length == 1 and (.[0] | type) == "object" then
-          .[0] as $live | ($live * $managed) |
-          # Keep unrelated plugin directives/options in order. Managed disable
-          # directives go last so a live wildcard cannot re-enable the builtin.
-          .plugins = (($live.plugins // [] |
-            map(. as $entry | select($managed.plugins | index($entry) | not))) + $managed.plugins)
-        else error("cli.json must contain exactly one JSON object") end')
-    if [ -f "$OC_CLI_SETTINGS" ]; then
+    oc_cli_merge() {
+      printf '%s' "$1" | ${pkgs.jq}/bin/jq -es \
+        --argjson managed '${builtins.toJSON opencodeCliSettings}' '
+          if length == 1 and (.[0] | type) == "object" then
+            .[0] as $live | ($live * $managed) |
+            # Keep unrelated plugin directives/options in order. Managed disable
+            # directives go last so a live wildcard cannot re-enable the builtin.
+            .plugins = (($live.plugins | if type == "array" then . else [] end |
+              map(. as $entry | select($managed.plugins | index($entry) | not))) + $managed.plugins)
+          else error("cli.json must contain exactly one JSON object") end'
+    }
+    # The TUI rewrites cli.json in place; a truncated or hand-broken file must
+    # not abort the rest of the activation. Keep it and start from managed.
+    OC_CLI_INVALID=""
+    if ! NEW_OC_CLI_SETTINGS=$(oc_cli_merge "$OLD_OC_CLI_SETTINGS" 2>/dev/null); then
+      OC_CLI_INVALID=1
+      OC_CLI_BACKUP="$OC_CLI_SETTINGS.invalid.$(date +%s).$$.json"
+      echo "==> ~/.config/opencode/cli.json is not a single JSON object; backed up to $OC_CLI_BACKUP"
+      echo "    and replaced with the Nix-managed CLI settings."
+      $DRY_RUN_CMD cp "$OC_CLI_SETTINGS" "$OC_CLI_BACKUP"
+      OLD_OC_CLI_SETTINGS='{}'
+      NEW_OC_CLI_SETTINGS=$(oc_cli_merge "$OLD_OC_CLI_SETTINGS")
+    fi
+    if [ -f "$OC_CLI_SETTINGS" ] && [ -z "$OC_CLI_INVALID" ]; then
       OLD_OC_CLI_NORM=$(printf '%s' "$OLD_OC_CLI_SETTINGS" | ${pkgs.jq}/bin/jq -S .)
       NEW_OC_CLI_NORM=$(printf '%s' "$NEW_OC_CLI_SETTINGS" | ${pkgs.jq}/bin/jq -S .)
       if [ "$OLD_OC_CLI_NORM" != "$NEW_OC_CLI_NORM" ]; then
@@ -1346,7 +1360,13 @@ EOF
     cp ${./opencode/attention-tui.mjs} "$out/tui.js"
     cp ${./opencode/attention.LICENSE} "$out/LICENSE"
   '';
-  home.file.".config/opencode/plugins/tmux-session.js".source = ./opencode/tmux-session.mjs;
+  # Same directory shape: as a single home.file symlink (tmux-session.js) the
+  # server rejected it ("Plugin must export a default definition"), so no
+  # tmux window ever opened for Telegram/headless sessions.
+  home.file.".config/opencode/plugins/tmux-session".source = pkgs.runCommand "opencode-tmux-session-plugin" { } ''
+    mkdir -p "$out"
+    cp ${./opencode/tmux-session.mjs} "$out/index.js"
+  '';
 
   home.file.".config/opencode/agent-memory.json".text = builtins.toJSON {
     memory.enabled = true;
