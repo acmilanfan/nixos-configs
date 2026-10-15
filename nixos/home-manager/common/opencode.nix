@@ -1425,18 +1425,18 @@ EOF
     mkdir -p "$HOME/.config/opencode/agent" "$HOME/.config/opencode/command"
   '';
 
-  # Generic (both machines): pull superpowers' skills + its native opencode
-  # plugin straight from the public repo, the same way installGeminiExtensions
-  # already does for Gemini — plain git clone/pull, no flake pinning needed
-  # for content that's meant to stay current.
+  # Generic (both machines): superpowers' skills + its native opencode plugin,
+  # pinned as a flake input (`pins update superpowers` to bump). Its plugin
+  # runs inside the opencode server, so it must not change between switches
+  # the way the old activation-time `git pull` of upstream HEAD did.
+  # superpowersDir stays the path superpowers.mjs imports from, now a symlink.
   home.activation.opencodeSuperpowers = lib.hm.dag.entryAfter [ "writeBoundary" "opencodeWorkspace" ] ''
-    export PATH="${pkgs.git}/bin:$PATH:/usr/bin"
-
-    if [ -d "${superpowersDir}/.git" ]; then
-      $DRY_RUN_CMD git -C "${superpowersDir}" pull -q --ff-only || true
-    else
-      $DRY_RUN_CMD git clone --depth 1 https://github.com/obra/superpowers "${superpowersDir}" || true
+    # Replace the old self-updating clone (a plain directory) once.
+    if [ -d "${superpowersDir}" ] && [ ! -L "${superpowersDir}" ]; then
+      $DRY_RUN_CMD rm -rf "${superpowersDir}"
     fi
+    $DRY_RUN_CMD mkdir -p "$(dirname "${superpowersDir}")"
+    $DRY_RUN_CMD ln -sfn "${inputs.superpowers}" "${superpowersDir}"
 
     # Skills are intentionally NOT symlinked into ~/.config/opencode/skills/ —
     # the superpowers.js plugin below registers "${superpowersDir}/skills"

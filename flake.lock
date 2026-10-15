@@ -1072,6 +1072,7 @@
         "pyproject-nix": "pyproject-nix",
         "sops-nix": "sops-nix",
         "spring-boot-nvim": "spring-boot-nvim",
+        "superpowers": "superpowers",
         "telescope-orgmode": "telescope-orgmode",
         "tmux-agent-indicator": "tmux-agent-indicator",
         "tmux-resurrect": "tmux-resurrect",
@@ -1137,6 +1138,22 @@
       "original": {
         "owner": "JavaHello",
         "repo": "spring-boot.nvim",
+        "type": "github"
+      }
+    },
+    "superpowers": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1791592084,
+        "narHash": "sha256-UCVI+T7j1Xh1LDkrvnJduis7eHFqrizCyGTWAGW5d6U=",
+        "owner": "obra",
+        "repo": "superpowers",
+        "rev": "bb92a77741419a4ab5f06e711a283343f1ada0c3",
+        "type": "github"
+      },
+      "original": {
+        "owner": "obra",
+        "repo": "superpowers",
         "type": "github"
       }
     },

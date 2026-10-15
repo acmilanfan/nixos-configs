@@ -129,6 +129,9 @@
     # Only its common.js (getRegExpSites), to compile block patterns for the
     # managed-storage file (nixos/home-manager/common/firefox-managed-storage.nix).
     leechblockng = { url = "github:proginosko/LeechBlockNG/v1.8"; flake = false; };
+    # Skills + the opencode plugin the server imports
+    # (nixos/home-manager/common/opencode.nix). Bump with `pins update superpowers`.
+    superpowers = { url = "github:obra/superpowers"; flake = false; };
   };
 
   outputs =
