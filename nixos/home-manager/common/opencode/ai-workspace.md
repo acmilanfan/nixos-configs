@@ -57,3 +57,23 @@ Project config is local to those repositories; there is no global CBM MCP entry.
 The initial indexes use moderate mode; some SQL and CSS/SCSS constructs are
 partially parsed. Graph results guide exploration, not proofs that a symbol or
 relationship is absent. Confirm important findings against the source.
+
+Each registration sets `codemode: false`, so the read-only `scout` tools appear on
+the provider's native tool list instead of only inside Code Mode. That lets a
+read-only agent such as `hybrid-explore`, which denies `execute`, still run graph
+queries. Per-tool `permissions` (for example denying `codebase-memory_*`) hide a
+tool from the model entirely.
+
+An index goes stale on every commit or uncommitted edit, and the `scout` profile
+never registers CBM's background watcher, so refresh before trusting structural
+results:
+
+```bash
+cbm-refresh --check ~/Projects/wd-backend   # exit 1 when a refresh is needed
+cbm-refresh ~/Projects/wd-backend           # reindex only if the checkout changed
+```
+
+`cbm-refresh` folds the git HEAD and dirty state into a signature and reindexes
+(moderate mode by default) only when it differs from the last successful refresh,
+so repeated calls on an unchanged checkout are a no-op. Verify a stale index with
+the graph's own `check_index_coverage`/`index_status`, then refresh.

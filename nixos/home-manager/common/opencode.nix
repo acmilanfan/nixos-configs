@@ -972,6 +972,16 @@ print("model_settings: default=%s" % want)
   ocGemma31b  = ocOllama "gemma4:31b-mlx"     "gemma31b";
   ocNemotron  = ocOllama "hf.co/unsloth/Llama-3_3-Nemotron-Super-49B-v1_5-GGUF:Q4_K_M" "nemotron";
 
+  # Signature-guarded refresh for the codebase-memory-mcp trial indexes. The
+  # read-only scout MCP profile never registers CBM's background watcher, so an
+  # index goes stale on every commit or uncommitted edit; this reindexes only
+  # when the checkout actually changed. See opencode/ai-workspace.md.
+  cbmRefresh = pkgs.writeShellApplication {
+    name = "cbm-refresh";
+    runtimeInputs = [ pkgs.jq pkgs.git unstable.codebase-memory-mcp ];
+    text = lib.readFile ./opencode/cbm-refresh.sh;
+  };
+
   # Puts the on-demand local model servers in one detached tmux session (one
   # window each) instead of tying up a foreground pane, then switches/attaches
   # to it. The 27B-class engines can't share 48 GB with each other, so pick
@@ -1349,6 +1359,10 @@ EOF
         durable preference, verified recurring fix, or useful handoff pointer.
         Keep project/company details out of global memory, never store secrets,
         and link to repository docs or artifacts instead of duplicating them.
+      - Where `codebase-memory-mcp` is configured (the trial repositories only),
+        run `cbm-refresh --check <path>` before trusting structural graph
+        results and `cbm-refresh <path>` to reindex a changed checkout. Its
+        scout tools are read-only; confirm important findings against source.
     '';
   };
 
@@ -1362,6 +1376,7 @@ EOF
   home.packages = [
     pkgs.uv
     aiModels
+    cbmRefresh
     # Binary only: MCP registration/indexing is opt-in per trial repository.
     unstable.codebase-memory-mcp
   ] ++ lib.optionals pkgs.stdenv.isDarwin [
