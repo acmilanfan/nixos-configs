@@ -1,0 +1,16 @@
+{
+  "name": "opencode-agent-memory",
+  "version": "0.3.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "exports": {
+    ".": "./dist/index.js",
+    "./server": "./dist/index.js"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@opencode/plugin": "^2.0.12",
+    "js-yaml": "^4.1.0",
+    "zod": "^4.1.13"
+  }
+}

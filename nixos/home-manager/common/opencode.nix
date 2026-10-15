@@ -276,9 +276,14 @@ let
     small_model = if isWork then "self-hosted/Qwen/Qwen3.6-35B-A3B-FP8" else "opencode-go/mimo-v2.6-flash";
 
     # Small local notes, no background extraction/consolidation model calls.
-    # Pin the experimental plugin; learned blocks stay outside the Nix store.
+    # The memory plugin is Nix-built with every dependency pinned by hash
+    # (nixos/common/pkgs/opencode-agent-memory), not installed from npm at
+    # runtime; learned blocks stay outside the Nix store.
     # Ordering matters: research-context filters memory only after its injection.
-    plugins = [ "opencode-agent-memory@0.3.0" (toString researchContextPlugin) ];
+    plugins = [
+      "${pkgs.opencode-agent-memory}/lib/node_modules/opencode-agent-memory"
+      (toString researchContextPlugin)
+    ];
 
     provider = localProviders // (if isWork then remoteProviders else { }) // {
       # Built-in provider; this only overrides per-model options. DeepSeek

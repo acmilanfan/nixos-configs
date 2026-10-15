@@ -38,6 +38,8 @@ final: prev: {
 
   opencode-telegram-bot = final.callPackage ./pkgs/opencode-telegram-bot.nix { };
 
+  opencode-agent-memory = final.callPackage ./pkgs/opencode-agent-memory { };
+
   opencode = final.callPackage ./pkgs/opencode.nix { inherit inputs; };
 
   mtplx = if final.stdenv.hostPlatform.isDarwin
