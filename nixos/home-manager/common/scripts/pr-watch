@@ -11,10 +11,13 @@
 # shell) and types a one-line message into the pane when:
 #   - a check fails on the PR's head commit
 #   - every check on the head commit has passed
-#   - someone else comments or reviews
+#   - someone else comments or reviews (the text is quoted only for the
+#     repo's owners, members and collaborators; anyone else's comment is
+#     reported by login alone, so a stranger can't type into the agent)
 #   - the PR gets a merge conflict
 # A message is only typed while the agent is idle (not running, not asking
-# a question), and only into a pane that runs an agent. It stops when the PR
+# a question) and the pane is not in copy/view mode, and only into a pane
+# that runs an agent. It stops when the PR
 # is merged or closed, after 10 wakes, 8 failed reads in a row, or 24h.
 # Re-running it for a PR already watched does nothing. Logs and state live
 # in ~/.local/state/pr-watch/.
@@ -76,8 +79,10 @@ if [ -z "$foreground" ]; then
     echo "already watching $url (pane $(cat "$STATE_DIR/$slug.pane" 2>/dev/null))"
     exit 0
   fi
-  # run-shell -b: a child of the tmux server, not of the agent's shell
-  tmux run-shell -b "$(printf '%q ' "$0" "$url" --pane "$pane" --interval "$interval" --foreground) >>$(printf '%q' "$logfile") 2>&1"
+  # run-shell -b: a child of the tmux server, not of the agent's shell.
+  # `; true`: a job that fails (or is killed by --stop) would put the
+  # client's current pane into view mode to report its exit status.
+  tmux run-shell -b "$(printf '%q ' "$0" "$url" --pane "$pane" --interval "$interval" --foreground) >>$(printf '%q' "$logfile") 2>&1; true"
   echo "watching $url -> pane $pane every ${interval}s (log: $logfile)"
   exit 0
 fi
@@ -85,8 +90,21 @@ fi
 echo $$ >"$pidfile"
 echo "$pane" >"$STATE_DIR/$slug.pane"
 trap 'rm -f "$pidfile" "$STATE_DIR/$slug.pane"' EXIT
+# --stop sends TERM: end cleanly and take the pending sleep with us
+sleep_pid=""
+trap '[ -n "$sleep_pid" ] && kill "$sleep_pid" 2>/dev/null; exit 0' TERM INT
 
-me="$(gh api user --jq .login 2>/dev/null || true)"
+# backgrounded so the TERM trap runs at once, not after the sleep
+nap() { sleep "$1" & sleep_pid=$!; wait "$sleep_pid"; sleep_pid=""; }
+
+# Without our own login every comment would look like someone else's, so
+# comment wakes wait until it resolves (retried every cycle).
+me=""
+whoami() {
+  [ -n "$me" ] && return 0
+  me="$(gh api user --jq .login 2>/dev/null || true)"
+  [ -n "$me" ] || { log "gh api user failed, comment wakes paused"; return 1; }
+}
 
 # Only type into a pane that runs an agent, and only while it waits for us.
 agent_pane() {
@@ -101,7 +119,8 @@ agent_idle() {
   case "$(tmux show -pqv -t "$pane" @agent_state 2>/dev/null || true)" in
     running|needs-input) return 1 ;;
   esac
-  return 0
+  # copy/view mode would swallow the keys (and Enter would act on it)
+  [ "$(tmux display -p -t "$pane" '#{pane_in_mode}' 2>/dev/null || true)" != 1 ]
 }
 
 deliver() {
@@ -120,18 +139,33 @@ read_pr() {
 others_ids() {
   {
     jq -r --arg me "$me" '(.comments[], .reviews[]) | select(.author.login != $me) | .id' <<<"$1"
-    gh api "$api_path/comments" --paginate --jq ".[] | select(.user.login != \"$me\") | \"rc\(.id)\"" 2>/dev/null || true
+    gh api "$api_path/comments" --paginate 2>/dev/null |
+      jq -r --arg me "$me" '.[] | select(.user.login != $me) | "rc\(.id)"' || true
   } | sort -u
 }
 
+# The body goes into the agent's prompt, so it is quoted only for people
+# with write access; anyone else gets "<login>" and the agent can look.
+# Control characters are flattened: \r or ESC would act as keys in the pane.
+# shellcheck disable=SC2016 # a jq program: its $vars are jq's
+COMMENT_JQ='
+  def clean: gsub("\\p{Cc}+"; " ");
+  def trusted: IN("OWNER", "MEMBER", "COLLABORATOR");
+  (.author.login // .user.login // "someone" | clean) as $who
+  | (.authorAssociation // .author_association) as $assoc
+  | (if .state then " (\(.state | ascii_downcase | gsub("_"; " ")))" else "" end) as $state
+  | if ($assoc | trusted) then
+      "\($who)\($state)\(if .path then " on \(.path | clean)" else "" end): \(.body // "" | clean | .[0:200])"
+    else "\($who)\($state)" end'
+
 comment_text() {
-  local data="$1" id="$2"
+  local data="$1" id="$2" text
   if [[ "$id" == rc* ]]; then
-    gh api "$api_path/comments/${id#rc}" --jq '"\(.user.login) on \(.path): \(.body | gsub("\n"; " ") | .[0:200])"' 2>/dev/null
+    text="$(gh api "$api_path/comments/${id#rc}" 2>/dev/null | jq -r "$COMMENT_JQ" 2>/dev/null || true)"
   else
-    jq -r --arg id "$id" '(.comments[], .reviews[]) | select(.id == $id)
-      | "\(.author.login)\(if .state then " (\(.state | ascii_downcase | gsub("_"; " ")))" else "" end): \(.body | gsub("\n"; " ") | .[0:200])"' <<<"$data"
+    text="$(jq -r --arg id "$id" "(.comments[], .reviews[]) | select(.id == \$id) | $COMMENT_JQ" <<<"$data" 2>/dev/null || true)"
   fi
+  printf '%s' "${text:-someone}"
 }
 
 started="$(date +%s)" wakes=0 errors=0
@@ -147,7 +181,7 @@ while :; do
     errors=$((errors + 1))
     log "read failed ($errors)"
     [ "$errors" -ge 8 ] && { log "8 failed reads, stopping"; exit 1; }
-    sleep "$interval"; continue
+    nap "$interval"; continue
   fi
   errors=0
 
@@ -189,17 +223,19 @@ while :; do
     reported_conflict=1
   fi
 
-  ids="$(others_ids "$data")"
-  if [ -z "${seen_comments_init:-}" ]; then
-    # comments from before the watch started are not news
-    seen_comments="$ids" seen_comments_init=1
-  else
-    while IFS= read -r id; do
-      [ -n "$id" ] || continue
-      grep -qxF "$id" <<<"$seen_comments" && continue
-      seen_comments+=$'\n'"$id"
-      pending+="new comment from $(comment_text "$data" "$id"). "
-    done <<<"$ids"
+  if whoami; then
+    ids="$(others_ids "$data")"
+    if [ -z "${seen_comments_init:-}" ]; then
+      # comments from before the watch started are not news
+      seen_comments="$ids" seen_comments_init=1
+    else
+      while IFS= read -r id; do
+        [ -n "$id" ] || continue
+        grep -qxF "$id" <<<"$seen_comments" && continue
+        seen_comments+=$'\n'"$id"
+        pending+="new comment from $(comment_text "$data" "$id"). "
+      done <<<"$ids"
+    fi
   fi
 
   if [ -n "$pending" ]; then
@@ -213,8 +249,8 @@ while :; do
       wakes=$((wakes + 1))
       [ "$wakes" -ge 10 ] && { log "10 wakes, stopping"; exit 0; }
     else
-      log "agent busy, holding: $pending"
+      log "agent busy or pane in a mode, holding: $pending"
     fi
   fi
-  sleep "$interval"
+  nap "$interval"
 done
