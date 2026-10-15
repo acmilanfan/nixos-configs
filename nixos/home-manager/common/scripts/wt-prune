@@ -11,7 +11,10 @@
 #   - was squash-merged into the default branch (patch-equivalent), or
 #   - has no commits of its own (merged, or never used) and the worktree has
 #     been idle for --idle-days (default 3).
-# Branches with unmerged commits are never touched, only reported.
+# Branches with unmerged commits are never touched, only reported, and
+# neither is a worktree on the default branch (or local main/master).
+# Note: "clean" ignores git-ignored files, and `git worktree remove` deletes
+# them with the folder (local notes, .env files, build output).
 # --apply also drops agent-checkpoint sessions idle for --checkpoint-days
 # (default 14). Without --apply nothing changes (dry run).
 set -euo pipefail
@@ -98,6 +101,7 @@ remove_worktree() {
     say "  would remove $wt [$branch] ($reason)"
     return
   fi
+  # deletes git-ignored files in it too (see the header)
   if git -C "$repo" worktree remove "$wt"; then
     # verified above: no commits of its own, or all of them already upstream
     git -C "$repo" branch -D "$branch" >/dev/null 2>&1 || true
@@ -143,8 +147,11 @@ for repo in "${repos[@]}"; do
       "")
         if [ -n "$wt" ] && [ -z "$first" ]; then
           if [ -n "$locked" ]; then say "  kept $wt (locked)"
-          elif [ ! -d "$wt" ]; then say "  ${apply:+kept}${apply:-would prune} $wt (folder is gone)"
+          elif [ ! -d "$wt" ]; then
+            # --apply already ran `worktree prune`, which skipped this one
+            if [ -n "$apply" ]; then say "  kept $wt (folder is gone)"; else say "  would prune $wt (folder is gone)"; fi
           elif [ -z "$branch" ]; then say "  kept $wt (detached HEAD)"
+          elif [[ "$branch" =~ ^(main|master)$ || "$branch" == "${base#origin/}" ]]; then say "  kept $wt [$branch] (default branch)"
           elif in_use "$wt"; then say "  kept $wt [$branch] (tmux pane inside)"
           elif [ -n "$(git -C "$wt" status --porcelain 2>/dev/null)" ]; then say "  kept $wt [$branch] (uncommitted changes)"
           else

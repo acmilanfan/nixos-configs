@@ -3,8 +3,9 @@
 # Skips the main worktree (HEAD).
 # Passes --force if the worktree has uncommitted changes.
 
-# Collect all worktrees except the primary one
-mapfile -t all < <(git worktree list --porcelain 2>/dev/null | awk '/^worktree / {print $2}')
+# Collect all worktrees except the primary one (the whole rest of the line:
+# paths may contain spaces)
+mapfile -t all < <(git worktree list --porcelain 2>/dev/null | sed -n 's/^worktree //p')
 if [[ ${#all[@]} -lt 2 ]]; then
   echo "No linked worktrees to remove." >&2
   exit 0
@@ -50,14 +51,28 @@ try_remove() {
   fi
 }
 
+# "locked" line of the selected worktree's porcelain record, if any
+lock_line() {
+  git worktree list --porcelain 2>/dev/null |
+    P="$selected" awk '$0 == "worktree " ENVIRON["P"] { f = 1; next } /^$/ { f = 0 } f && /^locked/ { print; exit }'
+}
+
 # git can still refuse (locked worktree, or dirtiness git sees and we do not),
 # so retry once with --force on request and never report a removal that failed.
+# A locked worktree needs --force twice.
 removed=0
 if try_remove; then
   removed=1
 else
+  force_args=(--force)
+  lock="$(lock_line)"
+  if [[ -n "$lock" ]]; then
+    reason="${lock#locked}"
+    echo "Worktree is locked${reason:+:${reason}}." >&2
+    force_args=(--force --force)
+  fi
   read -r -p "git could not remove the worktree. Force removal? [y/N] " force_confirm
-  if [[ "$force_confirm" == [yY] ]] && git worktree remove --force "$selected"; then
+  if [[ "$force_confirm" == [yY] ]] && git worktree remove "${force_args[@]}" "$selected"; then
     removed=1
   fi
 fi

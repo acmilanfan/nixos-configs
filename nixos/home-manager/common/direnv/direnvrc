@@ -5,6 +5,7 @@
 # the worktree path, so several checkouts of one service can run at once:
 # WT_PORT (first of the block), SERVER_PORT (Spring Boot) and PORT (node
 # tools) = WT_PORT. The main checkout keeps the project's own defaults.
+# 1000 blocks from a path hash: two worktrees can collide (~4% with 10).
 use_worktree_ports() {
   local gitdir common top sum
   gitdir="$(git rev-parse --absolute-git-dir 2>/dev/null)" || return 0

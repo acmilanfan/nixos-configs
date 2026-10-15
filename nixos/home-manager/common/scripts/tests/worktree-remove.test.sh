@@ -7,6 +7,9 @@
 #     refused `worktree remove` without --force, so the worktree stayed.
 #  2. git's exit status was ignored, so the script printed "Removed: <path>"
 #     and exited 0 even when nothing was removed.
+#  3. The worktree list was parsed with awk '{print $2}', which cut paths at
+#     the first space, so such a worktree was never offered.
+#  4. The force retry passed one --force, but a locked worktree needs two.
 #
 # Notes on the harness:
 #  - fzf is stubbed, since selection is interactive.
@@ -32,11 +35,12 @@ mkdir -p "$SHIM" "$GIT_SHIM"
 export GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=test@example.com
 export GIT_COMMITTER_NAME=test GIT_COMMITTER_EMAIL=test@example.com
 
-# fzf stand-in: drain the candidate list and print the path the test selected.
+# fzf stand-in: print the path the test selected, but only if it was among
+# the candidates (as with the real fzf), so list parsing is covered too.
 cat > "$SHIM/fzf" <<'SH'
 #!/usr/bin/env bash
-cat >/dev/null
-printf '%s\n' "$SELECTED"
+grep -qxF -- "$SELECTED" && printf '%s\n' "$SELECTED"
+exit 0
 SH
 
 # git stand-in: records `worktree remove` calls and fails them, so the
@@ -118,7 +122,7 @@ fixture() {
   echo base > "$MAIN/file.txt"
   git -C "$MAIN" add file.txt
   git -C "$MAIN" commit -qm base
-  git -C "$MAIN" worktree add -q "$WT" -b "feat-$1"
+  git -C "$MAIN" worktree add -q "$WT" -b "feat-${1// /-}"
 }
 
 # run_script <stdin> [fake-git] [extra-shim-dir] — runs the script from inside
@@ -243,6 +247,53 @@ case_remove_failure_force() {
     bad "failed forced removal leaves the worktree registered" "worktree is gone"
 }
 
+case_space_in_path() {
+  echo "== worktree path with a space =="
+  fixture "with space"
+  run_script ''
+  [[ "$RUN_OUT" == *"Removed: $WT"* ]] &&
+    ok "a path with a space is offered and removed" ||
+    bad "a path with a space is offered and removed" "stdout: $RUN_OUT stderr: $RUN_ERR"
+  ! listed && [[ ! -d "$WT" ]] &&
+    ok "worktree with a space is actually gone" ||
+    bad "worktree with a space is actually gone" "listed=$(listed && echo yes || echo no)"
+}
+
+case_locked_force() {
+  echo "== locked worktree, force retry accepted =="
+  fixture locked-force
+  git -C "$MAIN" worktree lock --reason "on a usb disk" "$WT"
+  run_script 'y\n'
+  [[ "$RUN_ERR" == *"locked: on a usb disk"* ]] &&
+    ok "the lock and its reason are reported" ||
+    bad "the lock and its reason are reported" "stderr: $RUN_ERR"
+  [[ "$RUN_OUT" == *"Removed:"* && $RUN_EXIT -eq 0 ]] && ! listed && [[ ! -d "$WT" ]] &&
+    ok "locked worktree is removed after confirming" ||
+    bad "locked worktree is removed after confirming" \
+        "exit $RUN_EXIT listed=$(listed && echo yes || echo no) stdout: $RUN_OUT stderr: $RUN_ERR"
+}
+
+case_locked_decline() {
+  echo "== locked worktree, force retry declined =="
+  fixture locked-decline
+  git -C "$MAIN" worktree lock "$WT"
+  run_script 'n\n'
+  listed && [[ -d "$WT" && $RUN_EXIT -ne 0 && "$RUN_OUT" != *"Removed:"* ]] &&
+    ok "declined locked worktree stays" ||
+    bad "declined locked worktree stays" "exit $RUN_EXIT stdout: $RUN_OUT"
+}
+
+case_locked_args() {
+  echo "== locked worktree, failing git records the retry =="
+  fixture locked-args
+  git -C "$MAIN" worktree lock "$WT"
+  rm -f "$ARGS_LOG"
+  run_script 'y\n' fake-git
+  [[ "$(attempt 2)" == *"--force --force"* ]] &&
+    ok "locked retry passes --force twice" ||
+    bad "locked retry passes --force twice" "second: $(attempt 2)"
+}
+
 case_nvim_orphan() {
   echo "== orphaned nvim cleanup =="
   local pid
@@ -275,6 +326,10 @@ case_tracked_decline
 case_nvim_orphan
 case_remove_failure_eof
 case_remove_failure_force
+case_space_in_path
+case_locked_force
+case_locked_decline
+case_locked_args
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 if (( fail > 0 )); then

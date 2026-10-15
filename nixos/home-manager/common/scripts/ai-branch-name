@@ -9,12 +9,23 @@
 # convention); the slug comes from a small model (Claude Haiku, else
 # opencode's default model) and falls back to the first words of the text.
 # AI_BRANCH_NAMER="claude opencode" (the default order), or "none".
+# AI_BRANCH_JIRA_PREFIXES="CFE OPS" accepts only those projects' keys;
+# unset, any KEY-12 counts except spec names like UTF-8, SHA-256, ISO-8601.
 set -euo pipefail
 shopt -s inherit_errexit
 
 task="$*"
 [ -n "$task" ] || { echo "usage: ai-branch-name <task description>" >&2; exit 1; }
-key="$(grep -oE '\b[A-Z][A-Z0-9]+-[0-9]+\b' <<<"$task" | head -1 || true)"
+read -ra prefixes <<<"$(tr ',[:lower:]' ' [:upper:]' <<<"${AI_BRANCH_JIRA_PREFIXES:-}")"
+if [ ${#prefixes[@]} -gt 0 ]; then
+  key_re="\\b($(IFS='|'; printf '%s' "${prefixes[*]}"))-[0-9]+\\b"
+  not_key='^$'
+else
+  # 2+ letters and 2+ digits, and not a spec or encoding name
+  key_re='\b[A-Z]{2,}[A-Z0-9_]*-[0-9]{2,}\b'
+  not_key='^(UTF|UCS|SHA|ISO|IEC|RFC|HTTP|TLS|SSL|ES|ECMA|CVE|CWE|IEEE|ANSI|PEP|JSR|AES|RSA|CP|WIN)-'
+fi
+key="$(grep -oE "$key_re" <<<"$task" | grep -vE "$not_key" | head -1 || true)"
 
 prompt="Reply with ONLY a git branch slug: 2 to 5 lowercase English words joined by hyphens, no ticket key, no prefix like feat/, summarizing this task: $task"
 

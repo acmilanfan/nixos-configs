@@ -167,10 +167,15 @@ function M.onAgentStateChange(agentState, agentName, paneId, where, focused)
     local label = agentName:sub(1,1):upper() .. agentName:sub(2)
 
     if agentState == "needs-input" then
-        -- Stays in Notification Center until dismissed; clicking it focuses the pane
-        hs.notify.new(function()
+        -- Stays in Notification Center until dismissed; clicking it focuses the pane.
+        -- One callback tag per pane, replaced in place: hs.notify.new(fn) would
+        -- register a new uniquely tagged callback per notification and never drop it.
+        -- Never unregistered, since an old notification can still be clicked.
+        local tag = "nanowm-agent-input:" .. key
+        hs.notify.register(tag, function()
             if paneId then M.focusAgent(paneId) end
-        end, {
+        end)
+        hs.notify.new(tag, {
             title = label .. " needs input",
             informativeText = where,
             soundName = hs.notify.defaultNotificationSound,

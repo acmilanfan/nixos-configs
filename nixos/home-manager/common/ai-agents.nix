@@ -17,11 +17,12 @@ let
             # success, computer-use enter/exit, ... Only the ones that wait on
             # the user mark the pane "needs input". The hook payload field is
             # snake_case notification_type (camelCase is Claude's internal name).
+            # elicitation_*: an MCP server asking the user for input or a URL.
             command = ''
               input=$(cat)
               type=$(printf '%s' "$input" | ${pkgs.jq}/bin/jq -r '.notification_type // .notificationType // empty' 2>/dev/null)
               case "$type" in
-                permission_prompt|worker_permission_prompt|agent_needs_input)
+                permission_prompt|worker_permission_prompt|agent_needs_input|elicitation_dialog|elicitation_url_dialog)
                   agent-state --agent ${agent} --state needs-input & ;;
               esac
             '';
