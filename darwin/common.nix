@@ -738,7 +738,9 @@ PY
   system.defaults = {
     universalaccess = {
       # reduceTransparency = true;
-      reduceMotion = true;
+      # OFF on purpose: while true, browsers report `prefers-reduced-motion: reduce`
+      # and web apps (Weekenduo/Ionic), plus canvas-confetti, skip all animations.
+      reduceMotion = false;
       mouseDriverCursorSize = 1.5;
       # Zoom: hold Control and scroll with two fingers (needs a re-login the first time)
       closeViewScrollWheelToggle = true;
