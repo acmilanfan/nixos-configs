@@ -32,10 +32,26 @@ fi
 choice="$(printf '%s\n' "$entries" | vicinae dmenu -W 500 -H 500 -p "OTP entry: ")" || exit 0
 [ -n "$choice" ] || exit 0
 
-code="$(pass otp "$choice" 2>&1)" || {
-  echo "$code" | head -3
+# stderr apart from the code: a gpg warning must never be copied with it.
+err="$(mktemp)"
+trap 'rm -f "$err"' EXIT
+code="$(pass otp "$choice" 2>"$err")" || {
+  head -3 "$err"
   exit 1
 }
 
-printf '%s' "$code" | pbcopy
-echo "OTP code copied to clipboard"
+# Same handling as the nanowm pass module: mark the entry concealed so
+# clipboard managers (Vicinae, Maccy) don't keep it in history, and clear it
+# after 45s unless something else was copied meanwhile.
+OTP_CODE="$code" osascript -l JavaScript >/dev/null <<'JS'
+ObjC.import("AppKit");
+const code = $.NSProcessInfo.processInfo.environment.objectForKey("OTP_CODE");
+const pb = $.NSPasteboard.generalPasteboard;
+pb.clearContents;
+pb.setStringForType(code, $.NSPasteboardTypeString);
+pb.setStringForType($(""), $("org.nspasteboard.ConcealedType"));
+JS
+OTP_CODE="$code" nohup /bin/sh -c \
+  'sleep 45; [ "$(pbpaste)" = "$OTP_CODE" ] && printf "" | pbcopy' \
+  >/dev/null 2>&1 &
+echo "OTP code copied to clipboard (cleared in 45s)"

@@ -5,16 +5,30 @@
 }:
 
 {
+  # No whitelist: a prefix whitelist ran any cloned repo's .envrc on `cd`
+  # (including repos agents clone). tech-envrc and wt-setup grant trust for
+  # the .envrc files they create or link; anything else needs `direnv allow`.
   programs.direnv = {
     enable = true;
     nix-direnv.enable = true;
-    # Auto-allow any .envrc under these roots - no manual `direnv allow` needed
-    config.whitelist.prefix = [
-      "~/Projects"
-      "~/IdeaProjects"
-      "~/Work/IdeaProjects"
-    ];
   };
+
+  # One-time: keep trusting the .envrc files the old whitelist already covered,
+  # so existing checkouts don't all start blocked. Only runs once (marker), so
+  # repos cloned later are not swept in.
+  home.activation.direnvTrustExisting = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    marker="''${XDG_STATE_HOME:-$HOME/.local/state}/direnv/whitelist-migrated"
+    if [ ! -e "$marker" ]; then
+      for root in "$HOME/Projects" "$HOME/IdeaProjects" "$HOME/Work/IdeaProjects"; do
+        [ -d "$root" ] || continue
+        find "$root" -maxdepth 3 -name .envrc 2>/dev/null | while IFS= read -r rc; do
+          $DRY_RUN_CMD ${pkgs.direnv}/bin/direnv allow "$(dirname "$rc")" || true
+        done
+      done
+      $DRY_RUN_CMD mkdir -p "$(dirname "$marker")"
+      $DRY_RUN_CMD touch "$marker"
+    fi
+  '';
 
   # `use_tech` stdlib extension: picks the right devshell flake from project
   # marker files (go.mod / package.json / pom.xml / pyproject.toml / flake.nix)

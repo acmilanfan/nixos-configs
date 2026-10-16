@@ -23,5 +23,9 @@ if [ -f "$d/go.mod" ] \
   || [ -f "$d/uv.lock" ] \
   || [ -f "$d/flake.nix" ]; then
   printf 'use_tech\n' > "$d/.envrc"
+  # We just wrote it (one line, no repo content), so trust it explicitly:
+  # direnv has no blanket whitelist; a cloned repo's own .envrc still needs
+  # a manual `direnv allow`.
+  command -v direnv >/dev/null && direnv allow "$d"
   echo "tech-envrc: created $d/.envrc"
 fi

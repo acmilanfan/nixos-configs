@@ -646,7 +646,9 @@ PY
       ${pkgs.openssl}/bin/openssl pkcs12 -export -legacy \
         -out "$CERT_DIR/cert.p12" -inkey "$CERT_DIR/key.pem" -in "$CERT_DIR/cert.pem" \
         -passout "pass:$P12_PASS" >/dev/null 2>&1
-      security import "$CERT_DIR/cert.p12" -k /Library/Keychains/System.keychain -P "$P12_PASS" -T /usr/bin/codesign -A
+      # -T /usr/bin/codesign only (no -A): the private key must not be usable
+      # by every application on the Mac without a prompt.
+      security import "$CERT_DIR/cert.p12" -k /Library/Keychains/System.keychain -P "$P12_PASS" -T /usr/bin/codesign
       security add-trusted-cert -d -r trustRoot -p codeSign "$CERT_DIR/cert.pem"
       rm -rf "$CERT_DIR"
       echo "> Created and trusted $KANATA_CODESIGN_IDENTITY for local code signing."

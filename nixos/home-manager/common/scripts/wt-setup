@@ -82,6 +82,14 @@ for f in "$root"/.env "$root"/.env.* "$root"/.envrc; do
 done
 link_local .claude/settings.local.json
 
+# direnv trusts per path, and nothing is whitelisted wholesale. A worktree's
+# linked .envrc is the main checkout's file, so carry over the trust only if
+# the user already allowed it there (allowed: 0 in `direnv status --json`).
+if [ -L "$wt/.envrc" ] && command -v direnv >/dev/null &&
+  [ "$(cd "$root" && direnv status --json 2>/dev/null | jq -r '.state.foundRC.allowed // empty' 2>/dev/null)" = 0 ]; then
+  direnv allow "$wt"
+fi
+
 if [ -f "$wt/.gitmodules" ]; then
   git -C "$wt" submodule update --init --recursive
 fi
