@@ -1,4 +1,7 @@
-{ pkgs, ... }:
+# imports may not depend on `pkgs` (with useGlobalPkgs it comes from the
+# config being built, so that recurses); HM's integration passes osClass
+# ("nixos" or "darwin") as a special argument for exactly this.
+{ lib, osClass, ... }:
 {
 
   imports = [
@@ -27,7 +30,7 @@
     ./sops.nix
     ./vicinae.nix
   ]
-  ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
+  ++ lib.optionals (osClass == "nixos") [
     ./awesome.nix
     ./dconf.nix
     ./default-apps.nix

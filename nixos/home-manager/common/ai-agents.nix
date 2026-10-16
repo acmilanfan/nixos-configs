@@ -257,11 +257,14 @@ let
   };
 
   # List of { url, dir } pairs — dir is the actual directory name under ~/.gemini/extensions/
+  # Pinned flake inputs (`pins update <name>`), installed from the store
+  # instead of from GitHub heads. dir = the name agy installs it under (from
+  # the extension's manifest, not the source path).
   geminiExtensions = [
-    { url = "https://github.com/samber/cc-skills-golang";           dir = "cc-skills-golang"; }
-    { url = "https://github.com/obra/superpowers";                  dir = "superpowers"; }
-    { url = "https://github.com/gemini-cli-extensions/security";    dir = "gemini-cli-security"; }
-    { url = "https://github.com/gemini-cli-extensions/code-review"; dir = "code-review"; }
+    { src = inputs.cc-skills-golang;       dir = "cc-skills-golang"; }
+    { src = inputs.superpowers;            dir = "superpowers"; }
+    { src = inputs.gemini-cli-security;    dir = "gemini-cli-security"; }
+    { src = inputs.gemini-cli-code-review; dir = "code-review"; }
   ];
 
   rawAgy = inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.antigravity-cli;
@@ -449,13 +452,20 @@ EOF
       $DRY_RUN_CMD ${antigravity} plugin import gemini --consent || true
     fi
 
-    # Ensure all required extensions are installed in antigravity
+    # Ensure all required extensions are installed in antigravity, from the
+    # pinned source. A marker records which source each was installed from,
+    # so bumping a pin reinstalls it (and replaces an older unpinned install).
+    AGY_PLUGIN_SOURCES="$HOME/.gemini/config/.nix-plugin-sources"
+    $DRY_RUN_CMD mkdir -p "$AGY_PLUGIN_SOURCES"
     ${builtins.concatStringsSep "\n" (map (ext: ''
-      if [ -d "$AGY_PLUGINS_DIR/${ext.dir}" ]; then
+      if [ -d "$AGY_PLUGINS_DIR/${ext.dir}" ] && [ "$(cat "$AGY_PLUGIN_SOURCES/${ext.dir}" 2>/dev/null)" = "${ext.src}" ]; then
         echo "Antigravity plugin already installed: ${ext.dir}"
       else
-        echo "Installing Antigravity plugin: ${ext.url}"
-        $DRY_RUN_CMD ${antigravity} plugin install "${ext.url}" --consent --skip-settings || true
+        echo "Installing Antigravity plugin: ${ext.dir} (${ext.src.shortRev or "pinned"})"
+        $DRY_RUN_CMD rm -rf "$AGY_PLUGINS_DIR/${ext.dir}"
+        if $DRY_RUN_CMD ${antigravity} plugin install "${ext.src}" --consent --skip-settings; then
+          $DRY_RUN_CMD ${pkgs.bash}/bin/bash -c 'printf "%s" "$1" > "$2"' -- "${ext.src}" "$AGY_PLUGIN_SOURCES/${ext.dir}"
+        fi
       fi
     '') geminiExtensions)}
 

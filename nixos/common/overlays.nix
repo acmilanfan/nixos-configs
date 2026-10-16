@@ -6,8 +6,9 @@ final: prev: {
 
   # ffmpeg-python's test suite calls the ffmpeg binary which gets SIGKILL'd
   # under the macOS nix sandbox (aarch64-darwin). Skip checks to unblock
-  # the gftools → jetbrains-mono → fonts build chain.
-  python3 = prev.python3.override {
+  # the gftools → jetbrains-mono → fonts build chain. Darwin only: on Linux
+  # the override would just turn every python3 dependant into a local build.
+  python3 = if !final.stdenv.hostPlatform.isDarwin then prev.python3 else prev.python3.override {
     packageOverrides = pyFinal: pyPrev: {
       ffmpeg-python = pyPrev.ffmpeg-python.overrideAttrs (_: {
         doCheck = false;
@@ -15,7 +16,7 @@ final: prev: {
       });
     };
   };
-  python3Packages = final.python3.pkgs;
+  python3Packages = if !final.stdenv.hostPlatform.isDarwin then prev.python3Packages else final.python3.pkgs;
   warpd = if final.stdenv.hostPlatform.isDarwin
     then final.callPackage ./pkgs/warpd.nix { }
     else prev.warpd;
@@ -25,7 +26,8 @@ final: prev: {
 
   # arrow-azurefs-test tries to send Azure SDK telemetry over HTTPS
   # but the sandbox has no CA certs, causing "unable to get local issuer certificate"
-  arrow-cpp = prev.arrow-cpp.overrideAttrs (old: {
+  # (macOS sandbox; Linux uses the cached upstream build).
+  arrow-cpp = if !final.stdenv.hostPlatform.isDarwin then prev.arrow-cpp else prev.arrow-cpp.overrideAttrs (old: {
     installCheckPhase = builtins.replaceStrings
       [ "--exclude-regex '^(" ]
       [ "--exclude-regex '^(arrow-azurefs-test|" ]

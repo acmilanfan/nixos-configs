@@ -158,7 +158,4 @@
 
   pam.sessionVariables = { MOZ_USE_XINPUT2 = "DEFAULT=1"; };
 
-  nixpkgs.config.firefox.enableBrowserpass = true;
-  nixpkgs.config.firefox.enableGnomeExtensions = true;
-
 }

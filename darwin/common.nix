@@ -261,9 +261,7 @@ in
     pkgs.nvim-opener
   ];
 
-  nixpkgs.overlays = [
-    (import ../nixos/common/overlays.nix { inherit inputs; })
-  ];
+  # nixpkgs.overlays/config come from sharedPkgsModule in flake.nix.
 
   launchd.daemons.kanata = {
     command = "/bin/bash -c 'exec /usr/local/bin/kanata-nix -n --cfg /Users/${user}/.config/kanata/active_config.kbd --port 5829'";

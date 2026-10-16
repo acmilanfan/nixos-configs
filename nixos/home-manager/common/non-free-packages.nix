@@ -1,16 +1,7 @@
 { config, pkgs, lib, ... }: {
 
-  nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [
-    "vanilla-dmz"
-    "slack"
-    "idea-ultimate"
-    "matte-black-violet-theme"
-    "zoom"
-    "faac"
-    "genymotion"
-    "discord"
-    "electron"
-  ];
+  # Unfree is allowed globally (nixpkgsConfig in flake.nix); an HM-level
+  # allowUnfreePredicate here was never applied (HM used the flake's pkgs).
 
   home.packages = with pkgs;
     lib.optionals (pkgs.stdenv.hostPlatform.system == "x86_64-linux") [

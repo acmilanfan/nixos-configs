@@ -14,16 +14,11 @@
     musnix.url = "github:musnix/musnix/master";
     musnix.inputs.nixpkgs.follows = "nixpkgs";
 
-    nur.url = "github:nix-community/NUR";
     home-manager.url = "github:nix-community/home-manager/release-26.05";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
 
     nixos-hardware.url = "github:NixOS/nixos-hardware/master";
-
-    minimal-tmux = {
-      url = "github:niksingh710/minimal-tmux-status";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
+    nixos-hardware.inputs.nixpkgs.follows = "nixpkgs";
 
     auto-cpufreq = {
       url = "github:AdnanHodzic/auto-cpufreq";
@@ -52,8 +47,6 @@
     homebrew-autoraise = { url = "github:Dimentium/homebrew-autoraise"; flake = false; };
     homebrew-k06a = { url = "github:k06a/homebrew-tap"; flake = false; };
     homebrew-omlx = { url = "github:jundot/omlx"; flake = false; };
-
-    mac-app-util.url = "github:hraban/mac-app-util";
 
     vicinae-extensions = {
       url = "github:vicinaehq/extensions";
@@ -100,10 +93,12 @@
     };
     uv2nix = {
       url = "github:pyproject-nix/uv2nix";
+      inputs.nixpkgs.follows = "unstable-nixpkgs";
       inputs.pyproject-nix.follows = "pyproject-nix";
     };
     pyproject-build-systems = {
       url = "github:pyproject-nix/build-system-pkgs";
+      inputs.nixpkgs.follows = "unstable-nixpkgs";
       inputs.pyproject-nix.follows = "pyproject-nix";
       inputs.uv2nix.follows = "uv2nix";
     };
@@ -132,6 +127,11 @@
     # Skills + the opencode plugin the server imports
     # (nixos/home-manager/common/opencode.nix). Bump with `pins update superpowers`.
     superpowers = { url = "github:obra/superpowers"; flake = false; };
+    # Antigravity extensions installed from these pinned sources
+    # (nixos/home-manager/common/ai-agents.nix), not from GitHub heads.
+    cc-skills-golang = { url = "github:samber/cc-skills-golang"; flake = false; };
+    gemini-cli-security = { url = "github:gemini-cli-extensions/security"; flake = false; };
+    gemini-cli-code-review = { url = "github:gemini-cli-extensions/code-review"; flake = false; };
   };
 
   outputs =
@@ -140,13 +140,11 @@
       nixpkgs,
       unstable-nixpkgs,
       musnix,
-      nur,
       home-manager,
       nixos-hardware,
       auto-cpufreq,
       nix-darwin,
       nix-homebrew,
-      mac-app-util,
       mcp-nixos,
       ...
     }:
@@ -172,19 +170,38 @@
         mcp-nixos.overlays.default
         overlay-fastmcp-slim-fix;
 
+      # One nixpkgs config and overlay list for everything: each host's system
+      # package set (nixpkgs.*) and, through useGlobalPkgs, its Home Manager
+      # user. Previously HM got its own `pkgs` via extraSpecialArgs with more
+      # overlays than the system, so system-level overlays (DaVinci) never
+      # reached HM packages and HM-level nixpkgs.config was silently ignored.
+      nixpkgsConfig = {
+        allowUnfree = true;
+        permittedInsecurePackages = [
+          "pnpm-9.15.9"
+        ];
+      };
+      sharedOverlays = [
+        overlay-howdy
+        overlay-custom
+        overlay-mcp-nixos
+      ];
+
+      sharedPkgsModule = {
+        nixpkgs.config = nixpkgsConfig;
+        nixpkgs.overlays = sharedOverlays;
+        home-manager.useGlobalPkgs = true;
+        home-manager.useUserPackages = true;
+        home-manager.backupFileExtension = "backup";
+      };
+
+      # Same set outside a host (flake `packages`).
       pkgsFor =
         system:
         import inputs.nixpkgs {
           inherit system;
-          config.allowUnfree = true;
-          config.permittedInsecurePackages = [
-            "pnpm-9.15.9"
-          ];
-          overlays = [
-            overlay-howdy
-            overlay-custom
-            overlay-mcp-nixos
-          ];
+          config = nixpkgsConfig;
+          overlays = sharedOverlays;
         };
 
       unstableFor =
@@ -200,7 +217,7 @@
         };
 
       overlay-davinci-resolve = _: prev: {
-        davinci-resolve = prev.davinci-resolve-studio.override (old: {
+        davinci-resolve-studio = prev.davinci-resolve-studio.override (old: {
           buildFHSEnv =
             a:
             old.buildFHSEnv (
@@ -222,18 +239,14 @@
             ./nixos/t480-home/configuration.nix
             home-manager.nixosModules.home-manager
             {
-              # home-manager.useGlobalPkgs = true;
-              home-manager.useUserPackages = true;
-              home-manager.backupFileExtension = "backup";
               home-manager.users.gentooway = import ./nixos/t480-home/home.nix;
               home-manager.extraSpecialArgs = {
-                pkgs = pkgsFor linuxSystem;
                 unstable = unstableFor linuxSystem;
                 inherit inputs linuxSystem secrets;
               };
             }
             nixos-hardware.nixosModules.lenovo-thinkpad-t480
-            ({ ... }: { nixpkgs.overlays = [ overlay-howdy ]; })
+            sharedPkgsModule
           ];
         };
 
@@ -244,12 +257,8 @@
             ./nixos/yogabook-gen10/configuration.nix
             home-manager.nixosModules.home-manager
             {
-              # home-manager.useGlobalPkgs = true;
-              home-manager.useUserPackages = true;
-              home-manager.backupFileExtension = "backup";
               home-manager.users.gentooway = import ./nixos/yogabook-gen10/home.nix;
               home-manager.extraSpecialArgs = {
-                pkgs = pkgsFor linuxSystem;
                 unstable = unstableFor linuxSystem;
                 inherit inputs linuxSystem secrets;
               };
@@ -261,12 +270,8 @@
             nixos-hardware.nixosModules.common-cpu-intel
             nixos-hardware.nixosModules.common-gpu-intel
             auto-cpufreq.nixosModules.default
-            (
-              { config, pkgs, ... }:
-              {
-                nixpkgs.overlays = [ overlay-davinci-resolve overlay-howdy ];
-              }
-            )
+            sharedPkgsModule
+            { nixpkgs.overlays = [ overlay-davinci-resolve ]; }
           ];
         };
 
@@ -277,17 +282,14 @@
             ./nixos/vm-hyprland/configuration.nix
             home-manager.nixosModules.home-manager
             {
-              home-manager.useUserPackages = true;
-              home-manager.backupFileExtension = "backup";
               home-manager.users.gentooway = import ./nixos/vm-hyprland/home.nix;
               home-manager.extraSpecialArgs = {
-                pkgs = pkgsFor vmSystem;
                 unstable = unstableFor vmSystem;
                 inherit inputs secrets;
                 linuxSystem = vmSystem;
               };
             }
-            ({ ... }: { nixpkgs.overlays = [ overlay-howdy ]; })
+            sharedPkgsModule
           ];
         };
       };
@@ -301,7 +303,6 @@
           };
           modules = [
             ./darwin/mac-work.nix
-            # mac-app-util.darwinModules.default
             nix-homebrew.darwinModules.nix-homebrew
             {
               nix-homebrew = {
@@ -312,15 +313,10 @@
               };
             }
             home-manager.darwinModules.home-manager
+            sharedPkgsModule
             {
-              # home-manager.useGlobalPkgs = true;
-              home-manager.useUserPackages = true;
-              home-manager.backupFileExtension = "backup";
-              # home-manager.sharedModules =
-              #   [ mac-app-util.homeManagerModules.default ];
               home-manager.users.andreishumailov = import ./nixos/mac-work/home.nix;
               home-manager.extraSpecialArgs = {
-                pkgs = pkgsFor macSystem;
                 unstable = unstableFor macSystem;
                 inherit inputs secrets;
               };
@@ -336,7 +332,6 @@
           };
           modules = [
             ./darwin/mac-home.nix
-            # mac-app-util.darwinModules.default
             nix-homebrew.darwinModules.nix-homebrew
             {
               nix-homebrew = {
@@ -347,15 +342,10 @@
               };
             }
             home-manager.darwinModules.home-manager
+            sharedPkgsModule
             {
-              # home-manager.useGlobalPkgs = true;
-              home-manager.useUserPackages = true;
-              home-manager.backupFileExtension = "backup";
-              # home-manager.sharedModules =
-              #   [ mac-app-util.homeManagerModules.default ];
               home-manager.users.gentooway = import ./nixos/mac-home/home.nix;
               home-manager.extraSpecialArgs = {
-                pkgs = pkgsFor macSystem;
                 unstable = unstableFor macSystem;
                 inherit inputs secrets;
               };
