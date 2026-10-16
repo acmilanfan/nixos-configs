@@ -1,6 +1,7 @@
 package book
 
 import (
+	"strconv"
 	"strings"
 
 	"tg2kobo/internal/epub"
@@ -51,12 +52,14 @@ func TitleFor(m render.Message) string {
 }
 
 // FilenameFor builds a date-prefixed, filesystem-safe EPUB filename.
+// The inbox message ID makes it unique: several media-only messages
+// (an album, a burst of forwards) share a minute and an empty slug.
 func FilenameFor(m render.Message) string {
 	slug := Slug(m.Text, 40)
 	if slug == "" {
 		slug = "media"
 	}
-	return m.Date.Format("2006-01-02-1504") + "-" + slug + ".epub"
+	return m.Date.Format("2006-01-02-1504") + "-" + strconv.Itoa(m.ID) + "-" + slug + ".epub"
 }
 
 // Slug reduces text to a safe filename component: letters and digits

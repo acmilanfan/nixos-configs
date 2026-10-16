@@ -67,36 +67,65 @@ func ToHTML(text string, ents []Entity) (string, error) {
 			sorted[i].URL = string(utf16.Decode(units[sorted[i].Offset:sorted[i].end()]))
 		}
 	}
-	sort.SliceStable(sorted, func(i, j int) bool {
-		if sorted[i].Offset != sorted[j].Offset {
-			return sorted[i].Offset < sorted[j].Offset
-		}
-		return sorted[i].Length > sorted[j].Length
-	})
+	sortEntities(sorted)
 	return apply(units, sorted), nil
 }
 
+// sortEntities orders entities by offset, longest (outermost) first.
+func sortEntities(ents []Entity) {
+	sort.SliceStable(ents, func(i, j int) bool {
+		if ents[i].Offset != ents[j].Offset {
+			return ents[i].Offset < ents[j].Offset
+		}
+		return ents[i].Length > ents[j].Length
+	})
+}
+
+// apply renders units with ents (sorted, offsets relative to units).
+// Entities that overlap without nesting (allowed by Telegram, e.g.
+// bold 0-10 + italic 5-15) cannot map onto well-formed tags: such an
+// entity is split at the enclosing entity's end, so every UTF-16 unit
+// is emitted exactly once.
 func apply(units []uint16, ents []Entity) string {
 	var b strings.Builder
 	pos := 0
-	i := 0
-	for i < len(ents) {
-		e := ents[i]
+	for len(ents) > 0 {
+		e := ents[0]
+		ents = ents[1:]
+		if e.Offset < pos { // defensive: never re-emit rendered text
+			if e.end() <= pos {
+				continue
+			}
+			e.Length = e.end() - pos
+			e.Offset = pos
+		}
 		if e.Offset > pos {
 			b.WriteString(html.EscapeString(string(utf16.Decode(units[pos:e.Offset]))))
 		}
-		var children []Entity
-		j := i + 1
-		for ; j < len(ents) && ents[j].end() <= e.end(); j++ {
-			c := ents[j]
-			c.Offset -= e.Offset
-			children = append(children, c)
+		var children, rest []Entity
+		for _, c := range ents {
+			switch {
+			case c.Offset >= e.end():
+				rest = append(rest, c)
+			case c.end() <= e.end():
+				c.Offset -= e.Offset
+				children = append(children, c)
+			default: // crosses e's end: inner part nests, tail renders later
+				tail := c
+				tail.Offset, tail.Length = e.end(), c.end()-e.end()
+				rest = append(rest, tail)
+				c.Length = e.end() - c.Offset
+				c.Offset -= e.Offset
+				children = append(children, c)
+			}
 		}
+		sortEntities(children)
+		sortEntities(rest)
 		b.WriteString(openTag(e))
 		b.WriteString(apply(units[e.Offset:e.end()], children))
 		b.WriteString(closeTag(e))
 		pos = e.end()
-		i = j
+		ents = rest
 	}
 	if pos < len(units) {
 		b.WriteString(html.EscapeString(string(utf16.Decode(units[pos:]))))

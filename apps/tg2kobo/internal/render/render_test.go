@@ -131,3 +131,40 @@ func TestMessageXHTMLNoFromOmitsSeparator(t *testing.T) {
 		t.Fatalf("unexpected meta formatting:\n%s", got)
 	}
 }
+
+func TestOutOfRangeEntityIsAnError(t *testing.T) {
+	if _, err := ToHTML("short", []Entity{{Kind: KindBold, Offset: 2, Length: 10}}); err == nil {
+		t.Fatal("ToHTML() = nil error for an entity past the end of the text")
+	}
+}
+
+// Telegram allows entities that overlap without nesting. Every
+// character must be emitted exactly once, with well-formed tags.
+func TestOverlappingEntitiesSplitNotDuplicated(t *testing.T) {
+	got, err := ToHTML("abcdefghij", []Entity{
+		{Kind: KindBold, Offset: 0, Length: 6},
+		{Kind: KindItalic, Offset: 3, Length: 7},
+	})
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	want := "<strong>abc<em>def</em></strong><em>ghij</em>"
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestOverlapDoesNotDropLaterNestedEntity(t *testing.T) {
+	got, err := ToHTML("0123456789xyz", []Entity{
+		{Kind: KindBold, Offset: 0, Length: 10},
+		{Kind: KindItalic, Offset: 5, Length: 8}, // crosses bold's end
+		{Kind: KindCode, Offset: 6, Length: 2},   // nested in both
+	})
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	want := "<strong>01234<em>5<code>67</code>89</em></strong><em>xyz</em>"
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}

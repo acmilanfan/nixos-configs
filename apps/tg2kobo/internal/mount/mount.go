@@ -25,15 +25,19 @@ func Find(candidates []string) (string, bool) {
 
 // DefaultCandidates lists the mount roots to scan on the current OS.
 func DefaultCandidates() []string {
-	var roots []string
 	switch runtime.GOOS {
 	case "darwin":
-		roots = []string{"/Volumes"}
+		return candidatesIn([]string{"/Volumes"})
 	case "linux":
-		roots = []string{"/run/media", "/media"}
+		return candidatesIn([]string{"/run/media", "/media"})
 	default:
 		return nil
 	}
+}
+
+// candidatesIn lists the entries of every existing root; missing roots
+// are skipped.
+func candidatesIn(roots []string) []string {
 	var out []string
 	for _, r := range roots {
 		if entries, err := os.ReadDir(r); err == nil {
@@ -45,9 +49,13 @@ func DefaultCandidates() []string {
 	return out
 }
 
-// CopyTo copies src into dir under its base name and returns the destination path.
-func CopyTo(src, dir string) (string, error) {
-	dst := filepath.Join(dir, filepath.Base(src))
+// CopyTo copies src into dir under its base name and returns the
+// destination path. The copy is fsynced and its close error checked:
+// on a FAT-formatted Kobo a deferred, unchecked Close could report a
+// truncated book as copied (and drop it from the queue). A failed copy
+// removes the partial file.
+func CopyTo(src, dir string) (dst string, err error) {
+	dst = filepath.Join(dir, filepath.Base(src))
 	in, err := os.Open(src)
 	if err != nil {
 		return "", err
@@ -57,9 +65,21 @@ func CopyTo(src, dir string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer out.Close()
-	if _, err := io.Copy(out, in); err != nil {
-		return "", err
+	defer func() {
+		if err != nil {
+			out.Close()
+			os.Remove(dst)
+			dst = ""
+		}
+	}()
+	if _, err = io.Copy(out, in); err != nil {
+		return dst, err
+	}
+	if err = out.Sync(); err != nil {
+		return dst, err
+	}
+	if err = out.Close(); err != nil {
+		return dst, err
 	}
 	return dst, nil
 }

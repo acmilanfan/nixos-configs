@@ -9,7 +9,7 @@ buildGoModule {
 
   src = ../../../apps/tg2kobo;
 
-  vendorHash = "sha256-hzZcL4dZUOfCx8amgWFL9zKZvqegPyoKFE3dqjoyG30=";
+  vendorHash = "sha256-gQU9CdA9BXj+uhlDfODQ9uCvn0Vs8VM00pS8tZ8TMa0=";
 
   meta = {
     description = "Export selected Telegram messages to EPUB and copy them to a Kobo reader";

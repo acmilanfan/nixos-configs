@@ -65,8 +65,41 @@ func TestCopyToPlacesFileUnderDir(t *testing.T) {
 	}
 }
 
-func TestDefaultCandidatesNonEmpty(t *testing.T) {
-	if len(DefaultCandidates()) == 0 {
-		t.Fatal("DefaultCandidates() is empty")
+// Environment-independent: real mount roots (/Volumes, /run/media,
+// /media) may be empty or missing, e.g. in the nix build sandbox.
+func TestCandidatesInListsEntriesAndSkipsMissingRoots(t *testing.T) {
+	root := t.TempDir()
+	for _, name := range []string{"KOBOeReader", "USB"} {
+		if err := os.Mkdir(filepath.Join(root, name), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got := candidatesIn([]string{filepath.Join(root, "missing"), root})
+	want := []string{filepath.Join(root, "KOBOeReader"), filepath.Join(root, "USB")}
+	if len(got) != len(want) {
+		t.Fatalf("candidatesIn() = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("candidatesIn()[%d] = %q, want %q", i, got[i], want[i])
+		}
+	}
+	if dir, ok := Find(got); !ok || dir != want[0] {
+		t.Fatalf("Find(candidatesIn()) = %q,%v; want %q,true", dir, ok, want[0])
+	}
+}
+
+func TestCopyToFailureLeavesNoPartialFile(t *testing.T) {
+	dstDir := t.TempDir()
+	srcDir := t.TempDir() // a directory: Open works, reading fails
+	if _, err := CopyTo(srcDir, dstDir); err == nil {
+		t.Fatal("CopyTo(directory) = nil error")
+	}
+	entries, err := os.ReadDir(dstDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("partial copy left behind: %v", entries)
 	}
 }

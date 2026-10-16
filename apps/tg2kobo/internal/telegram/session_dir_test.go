@@ -18,6 +18,20 @@ func TestEnsureParentDirCreatesMissingDirs(t *testing.T) {
 	}
 }
 
+func TestEnsureParentDirIsPrivate(t *testing.T) {
+	target := filepath.Join(t.TempDir(), "tg2kobo", "session.json")
+	if err := EnsureParentDir(target); err != nil {
+		t.Fatalf("EnsureParentDir() = %v", err)
+	}
+	st, err := os.Stat(filepath.Dir(target))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if perm := st.Mode().Perm(); perm&0o077 != 0 {
+		t.Fatalf("session dir perms = %o, want no group/other access", perm)
+	}
+}
+
 func TestEnsureParentDirExistingOK(t *testing.T) {
 	dir := t.TempDir()
 	if err := EnsureParentDir(filepath.Join(dir, "session.json")); err != nil {

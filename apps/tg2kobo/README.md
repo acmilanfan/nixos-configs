@@ -34,7 +34,7 @@ you like (`pass`, shell profile, direnv).
 
 ```bash
 tg2kobo                 # export + copy if Kobo mounted, else queue
-tg2kobo -no-copy        # build EPUB into the out dir only
+tg2kobo -no-copy        # build EPUBs into the out dir only; they stay queued for the next run
 tg2kobo -inbox "My Q"   # different inbox title (default "Kobo Inbox", env TG2KOBO_INBOX)
 tg2kobo -out ~/books    # custom output/state dir
 ```

@@ -87,17 +87,36 @@ func TestSlugTruncatesAndTrims(t *testing.T) {
 }
 
 func TestFilenameFor(t *testing.T) {
-	m := render.Message{Date: dateAt(24, 14, 3), Text: "My / fancy link"}
-	want := "2026-08-24-1403-My-fancy-link.epub"
+	m := render.Message{ID: 42, Date: dateAt(24, 14, 3), Text: "My / fancy link"}
+	want := "2026-08-24-1403-42-My-fancy-link.epub"
 	if got := FilenameFor(m); got != want {
 		t.Fatalf("FilenameFor = %q, want %q", got, want)
 	}
 }
 
 func TestFilenameForMedia(t *testing.T) {
-	m := render.Message{Date: dateAt(24, 14, 3)}
-	want := "2026-08-24-1403-media.epub"
+	m := render.Message{ID: 7, Date: dateAt(24, 14, 3)}
+	want := "2026-08-24-1403-7-media.epub"
 	if got := FilenameFor(m); got != want {
 		t.Fatalf("FilenameFor = %q, want %q", got, want)
+	}
+}
+
+// An album or a burst of forwards: same minute, same (empty or equal)
+// text — each message still needs its own file.
+func TestFilenameForUniqueWithinMinute(t *testing.T) {
+	msgs := []render.Message{
+		{ID: 100, Date: dateAt(24, 14, 3)},
+		{ID: 101, Date: dateAt(24, 14, 3)},
+		{ID: 102, Date: dateAt(24, 14, 3), Text: "same"},
+		{ID: 103, Date: dateAt(24, 14, 3), Text: "same"},
+	}
+	seen := map[string]int{}
+	for _, m := range msgs {
+		name := FilenameFor(m)
+		if prev, dup := seen[name]; dup {
+			t.Fatalf("messages %d and %d both map to %q", prev, m.ID, name)
+		}
+		seen[name] = m.ID
 	}
 }
