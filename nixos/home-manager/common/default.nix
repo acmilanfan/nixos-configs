@@ -13,7 +13,6 @@
     ./kitty.nix
     ./neovim.nix
     ./non-free-packages.nix
-    ./nur.nix
     ./packages.nix
     ./shell.nix
     ./unstable-packages.nix

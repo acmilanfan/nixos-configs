@@ -2,6 +2,9 @@
 
   programs.firefox = {
     enable = true;
+    # NUR, if this comes back: pkgs.nur doesn't exist here (HM gets pkgs via
+    # extraSpecialArgs); use the pinned flake input, e.g.
+    # (import inputs.nur { nurpkgs = pkgs; inherit pkgs; }).repos.rycee.firefox-addons
     #    extensions = lib.mkIf config.programs.firefox.enable (
     #      with pkgs.nur.repos.rycee.firefox-addons;
     #        [
