@@ -1431,6 +1431,14 @@ EOF
     cp ${./opencode/tmux-session.mjs} "$out/index.js"
   '';
 
+  # Usage limits with a known reset time (ChatGPT subscription) become one
+  # long retry that resumes the same turn instead of failing it; Claude Code
+  # does this on its own. OPENCODE_LIMIT_RESUME=0 disables it.
+  home.file.".config/opencode/plugins/usage-limit".source = pkgs.runCommand "opencode-usage-limit-plugin" { } ''
+    mkdir -p "$out"
+    cp ${./opencode/usage-limit.mjs} "$out/index.js"
+  '';
+
   home.file.".config/opencode/agent-memory.json".text = builtins.toJSON {
     memory.enabled = true;
     journal.enabled = false;

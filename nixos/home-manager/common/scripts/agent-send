@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# Send text on stdin to the agent in the same tmux session (idea from
+# t3code's terminal excerpts attached to a prompt). The text lands in the
+# agent's input box as a fenced block, not submitted, and the agent's pane
+# is focused so you can add your question.
+#
+#   ... | agent-send [source-pane]
+#
+# tmux: `a` in vi copy mode sends the selection, prefix S the visible screen
+# of the current pane. The target is an agent pane (one with @agent_state,
+# or running claude/opencode) other than the source: the current window's
+# first, else the most recently active one in the session.
+set -euo pipefail
+shopt -s inherit_errexit
+
+src="${1:-${TMUX_PANE:-}}"
+[ -n "$src" ] || { echo "agent-send: run inside tmux or pass the source pane" >&2; exit 1; }
+
+# drop trailing blank lines (copy mode and capture-pane both add them)
+text="$(cat | sed -e :a -e '/^[[:space:]]*$/{$d;N;ba' -e '}')"
+[ -n "$text" ] || exit 0
+
+session="$(tmux display -p -t "$src" '#{session_id}')"
+window="$(tmux display -p -t "$src" '#{window_id}')"
+
+target="$(tmux list-panes -s -t "$session" \
+    -F '#{pane_id}	#{window_id}	#{window_activity}	#{@agent_state}	#{pane_current_command}' |
+  awk -F'\t' -v src="$src" -v win="$window" '
+    $1 == src { next }
+    $4 == "" && $5 !~ /^(claude|\.claude-wrapped|opencode|\.opencode-wrapped|opencode2|\.opencode2-wrapped)$/ { next }
+    { print ($2 == win ? 1 : 0) "\t" $3 "\t" $1 }' |
+  sort -t$'\t' -k1,1nr -k2,2nr | awk -F'\t' 'NR == 1 { print $3 }')"
+
+if [ -z "$target" ]; then
+  tmux display-message "agent-send: no agent pane in this session"
+  exit 0
+fi
+
+what="$(tmux display -p -t "$src" '#{pane_current_command} in #{b:pane_current_path}')"
+lines="$(printf '%s\n' "$text" | wc -l | tr -d ' ')"
+# -p: bracketed paste, so the newlines don't submit the prompt
+# shellcheck disable=SC2016 # literal backticks: the markdown fence
+printf 'Output from %s:\n```\n%s\n```\n' "$what" "$text" | tmux load-buffer -b agent-send -
+tmux paste-buffer -p -d -b agent-send -t "$target"
+tmux select-window -t "$target"
+tmux select-pane -t "$target"
+tmux display-message "agent-send: $lines lines from $what"

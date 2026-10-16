@@ -23,6 +23,11 @@ let
     text = lib.readFile ./scripts/pr-watch;
   };
 
+  agentSend = pkgs.writeShellApplication {
+    name = "agent-send";
+    text = lib.readFile ./scripts/agent-send;
+  };
+
   # timeout(1) from coreutils: macOS has none
   aiBranchName = pkgs.writeShellApplication {
     name = "ai-branch-name";
@@ -49,7 +54,7 @@ let
   cleanupLog = "${home}/Library/Logs/agent-cleanup.log";
 in
 {
-  home.packages = [ wtPrune prWatch aiBranchName ];
+  home.packages = [ wtPrune prWatch aiBranchName agentSend ];
 
   home.file = lib.listToAttrs (map (name: {
     name = ".claude/skills/${name}";

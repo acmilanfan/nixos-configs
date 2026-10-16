@@ -298,6 +298,11 @@ in
 
       # AI agent switcher: fzf --tmux popup listing all tracked agent panes
       bind-key A run-shell -b "tmux-agent-switcher"
+      # Send output to the agent in this session (agent-send), as a code
+      # block in its input box: `a` in copy mode sends the selection,
+      # prefix S this pane's visible screen
+      bind -T copy-mode-vi a send-keys -X copy-pipe-and-cancel "agent-send #{pane_id}"
+      bind-key S run-shell -b "tmux capture-pane -p -J -t '#{pane_id}' | agent-send '#{pane_id}'"
       # Review the last agent turn in this pane's worktree (agent-checkpoint +
       # diffview); q closes the review and the popup
       bind-key D display-popup -E -w 95% -h 95% -d "#{pane_current_path}" "nvim -c 'let g:agent_review_popup = 1' -c AgentReview"
