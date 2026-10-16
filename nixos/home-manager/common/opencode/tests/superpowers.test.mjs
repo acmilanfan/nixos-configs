@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { existsSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 import { homedir } from "node:os";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -80,7 +80,10 @@ test("V1 named and server entrypoints retain upstream skill registration and boo
     });
     const config = {};
     await hooks.config(config);
-    assert.ok(config.skills.paths.includes(resolve(homedir(), ".cache/opencode-superpowers/skills")));
+    // The cache path is a symlink to the pinned checkout; upstream registers
+    // the skills dir from its real location, so compare real paths.
+    const skills = realpathSync(resolve(homedir(), ".cache/opencode-superpowers/skills"));
+    assert.ok(config.skills.paths.some((p) => existsSync(p) && realpathSync(p) === skills));
     const output = { messages: [{ info: { role: "user", sessionID: "ses_v1_regression" },
       parts: [{ type: "text", text: "test" }] }] };
     await hooks["experimental.chat.messages.transform"]({}, output);
