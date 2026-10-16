@@ -293,7 +293,8 @@ let
 
     # Work: point at the existing hand-written ~/Work/CLAUDE.md (kept outside
     # the repo, never committed). Home: a small generic AGENTS.md we manage.
-    instructions = if isWork then [ "/Users/andreishumailov/Work/CLAUDE.md" ] else [ "AGENTS.md" ];
+    instructions = (if isWork then [ "/Users/andreishumailov/Work/CLAUDE.md" ] else [ "AGENTS.md" ])
+      ++ [ "~/ai/instructions/planning.md" ];
 
     mcp = {
       nixos = {
@@ -1481,6 +1482,28 @@ EOF
 
   home.file.".local/share/ai-workspace-readme".source = ./opencode/ai-workspace.md;
   home.file."ai/instructions/README.md".source = ./opencode/ai-workspace.md;
+
+  # Shared by home and work: user storage preferences override skill defaults.
+  # Keep this separate from the pinned upstream skills so updates cannot erase it.
+  home.file."ai/instructions/planning.md".text = ''
+    # Planning document storage — user preference
+
+    These user preferences override skill defaults for document paths and commits.
+
+    - Save all Superpowers plans and specs outside project checkouts under
+      `~/ai/docs/<project-name>/superpowers/plans/` and
+      `~/ai/docs/<project-name>/superpowers/specs/` respectively.
+    - Do not create repository-local `docs/superpowers/`, copies, or symlinks back
+      to the archive. This applies even when a skill names that path explicitly.
+    - Do not stage or commit these planning documents, or require a planning-only
+      commit before implementation, unless the user explicitly requests otherwise.
+      Ask for design/plan approval using the external archive path instead.
+    - Preserve existing archive files; use a distinct task path rather than
+      overwriting another plan. Move existing repository documents only with approval.
+    - Normal maintained project documentation (setup, architecture, integration,
+      security and rollout guides) may stay in the repository. Do not move it merely
+      because this rule relocates Superpowers plans/specs.
+  '';
 
   # Note: agentConverter is a bare writers.writePython3 script (a file, not a
   # package with bin/), so it's invoked directly by path from the activation

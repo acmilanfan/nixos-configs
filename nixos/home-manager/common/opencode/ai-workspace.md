@@ -8,6 +8,11 @@ need to be a Git repository.
 - `docs/<project>/`: research, design notes, and detailed handoffs that should
   survive removing a worktree. Include verified state, remaining work, and links
   to evidence; do not copy the entire transcript.
+  Superpowers plans/specs belong in `docs/<project>/superpowers/plans/` and
+  `docs/<project>/superpowers/specs/`, never a checkout's `docs/superpowers/`.
+  This user preference overrides skill path/commit defaults; planning documents
+  are not staged or committed unless explicitly requested. OpenCode loads the
+  Nix-managed `~/ai/instructions/planning.md` on both home and work machines.
 - `instructions/`: shared guidance fragments, read only when explicitly referenced
   or linked from a project's instructions. This README describes the layout.
 - `models/`: local model downloads and caches; not agent memory.
