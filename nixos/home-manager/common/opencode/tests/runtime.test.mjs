@@ -195,7 +195,10 @@ test("hybrid command selects Sol and delegates to Flash workers without inheriti
     await new Promise((r) => setTimeout(r, 100));
   }
   assert.ok(agents.some((agent) => agent.id === "hybrid"), `Nix registers the hybrid primary agent: ${agents.map((agent) => agent.id)}`);
-  for (const agent of ["hybrid-explore", "hybrid-worker"]) {
+  for (const [agent, variant] of [["hybrid-review", "high"], ["hybrid-explore", "low"], ["hybrid-worker", "high"]]) {
+    const profile = agents.find((entry) => entry.id === agent);
+    assert.ok(profile, `Nix registers ${agent}`);
+    assert.equal(profile.steps, undefined, `${agent} has no step cap`);
     const session = (await request("/api/session", { method: "POST", body: {
       agent: "build", model: { providerID: "fixture", id: "mock" },
       title: `Routing ${agent}`, location: { directory: project },
@@ -221,11 +224,17 @@ test("hybrid command selects Sol and delegates to Flash workers without inheriti
       && typeof m.content === "string" && m.content.endsWith(`Hybrid child ${agent}: report the fixture text.`)));
     assert.ok(child, `captured ${agent} request through real subagent execution`);
     assert.equal(child.model, "deepseek-v4.1-flash");
+    const children = (await request("/api/session", { query: { parentID: session.id } })).data;
+    assert.equal(children.length, 1, "one actual child was created");
+    assert.equal(children[0].agent, agent);
+    assert.equal(children[0].model.providerID, "opencode-go");
+    assert.equal(children[0].model.id, "deepseek-v4.1-flash");
+    assert.equal(children[0].model.variant, variant, `${agent} retains its own effort, not the lead's high`);
     const tools = child.tools.map((tool) => tool.function.name);
     assert.equal(tools.includes("subagent"), false, "workers cannot recursively delegate");
     assert.equal(tools.includes("question"), false, "workers report blockers to their lead");
-    if (agent === "hybrid-explore") {
-      for (const name of ["patch", "edit", "write", "shell", "execute"]) assert.equal(tools.includes(name), false, `explorer cannot use ${name}`);
+    if (agent !== "hybrid-worker") {
+      for (const name of ["patch", "edit", "write", "shell", "execute", "skill"]) assert.equal(tools.includes(name), false, `${agent} cannot use ${name}`);
       assert.ok(tools.includes("read"));
       assert.ok(tools.includes("grep"));
     } else {
