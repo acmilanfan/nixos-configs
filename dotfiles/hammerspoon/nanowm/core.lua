@@ -50,6 +50,14 @@ function M.invalidateFloatingCache(id)
     isFloatingResultCache[id] = nil
 end
 
+-- Called by state's prune sweep: windows that died without a windowDestroyed event (an app
+-- quitting takes its windows along) never reached invalidateFloatingCache.
+function M.pruneFloatingCache(liveIds)
+    for id in pairs(isFloatingResultCache) do
+        if not liveIds[id] then isFloatingResultCache[id] = nil end
+    end
+end
+
 -- =============================================================================
 -- Floating Detection
 -- =============================================================================
@@ -215,7 +223,14 @@ end
 -- Window Registration
 -- =============================================================================
 
-function M.registerWindow(win)
+-- A window whose app name or title is not readable yet is retried a few times, 0.1 s apart.
+-- Bounded and one chain per id: win:id() stays truthy for a dead window, so the old unbounded
+-- retry spun at 10 Hz (with a tile per pass) until reload, and every tile() that met the still
+-- untagged window started yet another chain.
+local REGISTER_MAX_RETRIES = 10
+local registerRetrying = {}
+
+function M.registerWindow(win, attempt)
     if not win then return end
     local id = win:id()
     if not id then return end
@@ -225,9 +240,16 @@ function M.registerWindow(win)
     local title = win:title()
 
     if not appName or title == nil then
+        attempt = attempt or 0
+        -- No app means the owning process is gone; retrying cannot help.
+        if not app or registerRetrying[id] or attempt >= REGISTER_MAX_RETRIES then return end
+        registerRetrying[id] = true
         hs.timer.doAfter(0.1, function()
-            if win and win:id() then
-                M.registerWindow(win)
+            registerRetrying[id] = nil
+            -- Destroyed (or never tracked) in the meantime: drop it.
+            if not require("nanowm.watchers").getTrackedWindow(id) then return end
+            M.registerWindow(win, attempt + 1)
+            if state.tags[id] then
                 require("nanowm.layout").tile()
             end
         end)
@@ -510,7 +532,7 @@ local function refreshDockPos()
 end
 
 refreshDockPos()
-dockPosTimer = hs.timer.new(DOCK_REFRESH, refreshDockPos)
+dockPosTimer = hs.timer.new(DOCK_REFRESH, refreshDockPos, true)
 dockPosTimer:start()
 
 function M.isMouseInDockArea()

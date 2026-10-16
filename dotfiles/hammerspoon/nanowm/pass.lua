@@ -313,6 +313,8 @@ function M.showChooser()
     entryChooser:choices(actionRows)
     entryChooser:placeholderText("pass: select entry or action...")
     entryChooser:searchSubText(true)
+    -- Anchored on M: held only in locals, a GC cycle while they were up could collect them.
+    M._shownChoosers = { entryChooser, actionChooser }
     entryChooser:show()
 
     -- Fill in the store entries once find returns.

@@ -166,6 +166,20 @@ M.pruneTimer = hs.timer.new(PRUNE_INTERVAL, function()
         if not liveIds[tonumber(idStr) or -1] then M.sizeCache[idStr] = nil end
     end
 
+    -- Per-window maps whose ids never had (or already lost) a tag were never reached by the
+    -- loop above, so entries for dead windows accumulated forever. Tagged ids keep going
+    -- through the strike rule there; only untagged, not-live ids are dropped here.
+    local function stale(id) return not liveIds[id] and not M.tags[id] end
+    for _, map in ipairs({ M.sticky, M.floatingOverrides, M.windowState, M.windowWidths }) do
+        for id in pairs(map) do
+            if stale(id) then map[id] = nil end
+        end
+    end
+    for idStr in pairs(M.fullscreenCache) do
+        if stale(tonumber(idStr) or -1) then M.fullscreenCache[idStr] = nil end
+    end
+    require("nanowm.core").pruneFloatingCache(liveIds)
+
     -- Tag memory size check.
     --
     -- This used to do `if #keys > 1000 then M.appTagMemory = {} end` — silently discarding
@@ -187,7 +201,7 @@ M.pruneTimer = hs.timer.new(PRUNE_INTERVAL, function()
         print(string.format("[NanoWM] prune: dropped state for %d stale window ids", removed))
     end
     M.triggerSave()
-end)
+end, true)
 M.pruneTimer:start()
 
 -- Special tag state
@@ -400,6 +414,15 @@ local function loadFromData(d)
     M.triggerSave()
 end
 
+-- Pre-JSON storage: one hs.settings key per field, "nanoWM_" .. field.
+local LEGACY_FIELDS = {
+    "tags", "stacks", "sticky", "floatingOverrides", "floatingCache", "sizeCache",
+    "fullscreenCache", "masterWidths", "windowWidths", "tagLayouts", "tagCreationOrder",
+    "tagFullscreenState", "tagLastFocused", "appTagMemory", "freeTags", "freeTagPositions",
+    "activeTags", "currentTag", "prevTag", "globalLayout", "weekenduoWinId",
+    "sketchybarEnabled", "bordersEnabled", "kanataMode", "caffeinateActive",
+}
+
 function M.load()
     -- Fast path: single JSON file read
     local f = io.open(SAVE_FILE, "r")
@@ -411,35 +434,29 @@ function M.load()
             loadFromData(data)
             return
         end
+        -- The file exists but is unreadable. This used to fall through to the hs.settings
+        -- migration below, resurrecting months-old legacy state with stale window ids. Keep the
+        -- damaged file for inspection and start from defaults instead.
+        local bak = io.open(SAVE_FILE .. ".corrupt", "w")
+        if bak then
+            bak:write(raw or "")
+            bak:close()
+        end
+        print("[NanoWM] state file unreadable; saved it as " .. SAVE_FILE .. ".corrupt, starting fresh")
+        loadFromData({})
+        return
     end
-    -- Fallback: migrate from hs.settings (first boot after upgrade)
-    loadFromData({
-        tags              = hs.settings.get("nanoWM_tags"),
-        stacks            = hs.settings.get("nanoWM_stacks"),
-        sticky            = hs.settings.get("nanoWM_sticky"),
-        floatingOverrides = hs.settings.get("nanoWM_floatingOverrides"),
-        floatingCache     = hs.settings.get("nanoWM_floatingCache"),
-        sizeCache         = hs.settings.get("nanoWM_sizeCache"),
-        fullscreenCache   = hs.settings.get("nanoWM_fullscreenCache"),
-        masterWidths      = hs.settings.get("nanoWM_masterWidths"),
-        windowWidths      = hs.settings.get("nanoWM_windowWidths"),
-        tagLayouts        = hs.settings.get("nanoWM_tagLayouts"),
-        tagCreationOrder  = hs.settings.get("nanoWM_tagCreationOrder"),
-        tagFullscreenState = hs.settings.get("nanoWM_tagFullscreenState"),
-        tagLastFocused    = hs.settings.get("nanoWM_tagLastFocused"),
-        appTagMemory      = hs.settings.get("nanoWM_appTagMemory"),
-        freeTags          = hs.settings.get("nanoWM_freeTags"),
-        freeTagPositions  = hs.settings.get("nanoWM_freeTagPositions"),
-        activeTags        = hs.settings.get("nanoWM_activeTags"),
-        currentTag        = hs.settings.get("nanoWM_currentTag"),
-        prevTag           = hs.settings.get("nanoWM_prevTag"),
-        globalLayout      = hs.settings.get("nanoWM_globalLayout"),
-        weekenduoWinId    = hs.settings.get("nanoWM_weekenduoWinId"),
-        sketchybarEnabled = hs.settings.get("nanoWM_sketchybarEnabled"),
-        bordersEnabled    = hs.settings.get("nanoWM_bordersEnabled"),
-        kanataMode        = hs.settings.get("nanoWM_kanataMode"),
-        caffeinateActive  = hs.settings.get("nanoWM_caffeinateActive"),
-    })
+    -- No JSON file yet: migrate from hs.settings (first boot after upgrade)
+    local legacy = {}
+    for _, field in ipairs(LEGACY_FIELDS) do
+        legacy[field] = hs.settings.get("nanoWM_" .. field)
+    end
+    loadFromData(legacy)
+    -- Write the JSON file now rather than on the debounce, and only then drop the legacy keys,
+    -- so a failed write leaves the migration source in place for the next load.
+    if M.save() then
+        for _, field in ipairs(LEGACY_FIELDS) do hs.settings.clear("nanoWM_" .. field) end
+    end
 end
 
 function M.save()
@@ -479,17 +496,28 @@ function M.save()
     local encodeDt = (profiler.enabled and hs.timer.secondsSinceEpoch() or 0) - encodeT0
     if ok and json then
         local writeT0 = profiler.enabled and hs.timer.secondsSinceEpoch() or 0
-        local f = io.open(SAVE_FILE, "w")
+        -- Write a temp file and rename it over the real one (atomic on the same volume):
+        -- opening SAVE_FILE with "w" truncated it first, so a crash or reload mid-write left
+        -- an empty or partial file behind.
+        local tmp = SAVE_FILE .. ".tmp"
+        local written = false
+        local f = io.open(tmp, "w")
         if f then
-            f:write(json)
-            f:close()
+            written = f:write(json) ~= nil
+            written = f:close() and written
+            if written then
+                written = os.rename(tmp, SAVE_FILE) ~= nil
+            end
+            if not written then os.remove(tmp) end
         end
         local writeDt = (profiler.enabled and hs.timer.secondsSinceEpoch() or 0) - writeT0
         if profiler.enabled and (encodeDt + writeDt) >= profiler.threshold then
             profiler.log("state.save", encodeDt + writeDt,
                 string.format("encode:%.1fms write:%.1fms", encodeDt*1000, writeDt*1000))
         end
+        return written
     end
+    return false
 end
 
 function M.triggerSave()

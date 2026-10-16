@@ -12,6 +12,11 @@ local integrations = require("nanowm.integrations")
 
 local M = {}
 
+-- Choosers built per call were held only in locals, so a GC cycle while one was on screen
+-- could collect it (hs.chooser's __gc deletes it) and drop the selection. Only one is visible
+-- at a time; anchored on M, the next open replaces the reference.
+M._shownChooser = nil
+
 -- =============================================================================
 -- Main Menu Chooser
 -- =============================================================================
@@ -223,6 +228,7 @@ function M.openKanataMenu()
     kanataChooser:bgDark(true)
     kanataChooser:choices(choices)
     kanataChooser:placeholderText("Select Kanata Mode")
+    M._shownChooser = kanataChooser
     kanataChooser:show()
 end
 
@@ -470,6 +476,7 @@ function M.showKeybindMenu()
     chooser:choices(choices)
     chooser:placeholderText("Search keybinds (press Enter to execute)...")
     chooser:searchSubText(true)
+    M._shownChooser = chooser
     chooser:show()
 end
 
@@ -520,6 +527,7 @@ function M.openControlMenu()
     controlChooser:bgDark(true)
     controlChooser:choices(choices)
     controlChooser:placeholderText("Control Center")
+    M._shownChooser = controlChooser
     controlChooser:show()
 end
 
@@ -622,6 +630,7 @@ function M.openAudioMenu()
     audioChooser:bgDark(true)
     audioChooser:choices(choices)
     audioChooser:placeholderText("Audio Center")
+    M._shownChooser = audioChooser
     audioChooser:show()
 end
 

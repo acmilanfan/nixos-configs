@@ -398,7 +398,6 @@ function M.setup()
         local sizeFactor = 0.8
         local appName = "Firefox"
         local titlePattern = "^[Ww]eekenduo$"
-        local launchCmd = '/Applications/Firefox.app/Contents/MacOS/firefox --new-window "https://weekenduo.app"'
 
         weekenduoCleanup()
         weekenduoFilter = hs.window.filter.new(false):setAppFilter(appName, {allowTitles = titlePattern})
@@ -436,7 +435,12 @@ function M.setup()
             end
         end)
 
-        core.launchTask("/bin/zsh", { "-c", launchCmd })
+        -- Through LaunchServices, not the firefox binary as an hs.task child: when Firefox was
+        -- not running, that child *became* Firefox, parented to Hammerspoon, so a reload could
+        -- take the whole browser down. -n so the args reach an already-running Firefox too
+        -- (it hands the new window off to that instance, as Alt+B does).
+        core.launchTask("/usr/bin/open",
+            { "-n", "-a", appName, "--args", "--new-window", "https://weekenduo.app" })
     end)
 
     -- =========================================================================

@@ -176,12 +176,15 @@ M.startTimer = integrations.startTimer
 M.showTimerRemaining = integrations.showTimerRemaining
 M.cancelTimer = integrations.cancelTimer
 
--- State accessors (for backwards compatibility)
-M.tags = state.tags
-M.stacks = state.stacks
-M.sticky = state.sticky
-M.currentTag = state.currentTag
-M.special = state.special
+-- State accessors (for backwards compatibility). Resolved on access: copied here they were
+-- snapshots taken before state.load() replaced the tables, and currentTag is a plain value,
+-- so NanoWM.tags / NanoWM.currentTag went stale at once.
+local STATE_FIELDS = { tags = true, stacks = true, sticky = true, currentTag = true, special = true }
+setmetatable(M, {
+    __index = function(_, k)
+        if STATE_FIELDS[k] then return state[k] end
+    end,
+})
 M.triggerSave = state.triggerSave
 M.getMasterWidth = state.getMasterWidth
 M.setMasterWidth = state.setMasterWidth

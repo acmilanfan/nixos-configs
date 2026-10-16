@@ -211,7 +211,7 @@ local sketchybarTimer = hs.timer.new(1, function()
     if state.timerEndTime and state.sketchybarEnabled then
         M.updateSketchybar()
     end
-end)
+end, true)
 
 function M.startTimer(minutes)
     if state.activeTimer then
@@ -443,7 +443,7 @@ function M.setupEdgeTrigger()
         elseif not inCorner and (pos.x > frame.x + 20 or pos.y > frame.y + 20) then
             edgeArmed = true
         end
-    end)
+    end, true)
     edgeTriggerTimer:start()
 end
 

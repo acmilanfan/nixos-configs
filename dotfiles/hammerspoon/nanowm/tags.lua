@@ -168,6 +168,29 @@ end
 -- Snapshot Capture
 -- =============================================================================
 
+-- A full-resolution screen:snapshot() is ~20-30 MB on a Retina display and one is kept per
+-- tag (up to 21), yet the overview only draws it into a card of roughly a quarter of the
+-- screen width and a third of its height (overview.lua's 4x3 grid). Re-render it at that size
+-- through an offscreen canvas: imageFromCanvas() produces a new, small bitmap, whereas
+-- hs.image:size() can merely relabel the logical size and keep the full bitmap alive.
+-- Returns nil on failure so the caller falls back to the full image.
+local function downscaleSnapshot(img, frame)
+    local src = img:size()
+    if not src or src.w <= 0 or src.h <= 0 then return nil end
+    local scale = math.min((frame.w / 4) / src.w, (frame.h / 3) / src.h, 1)
+    local w, h = math.max(1, math.floor(src.w * scale)), math.max(1, math.floor(src.h * scale))
+    local ok, small = pcall(function()
+        local c = hs.canvas.new({ x = 0, y = 0, w = w, h = h })
+        if not c then return nil end
+        c:appendElements({ type = "image", image = img, imageScaling = "scaleToFit",
+                           frame = { x = 0, y = 0, w = w, h = h } })
+        local out = c:imageFromCanvas()
+        c:delete()
+        return out
+    end)
+    return ok and small or nil
+end
+
 function M.captureSnapshot(tag)
     tag = tag or (state.special.active and state.special.tag or state.currentTag)
 
@@ -177,13 +200,14 @@ function M.captureSnapshot(tag)
         return
     end
 
-    -- Defer the blocking screen capture off the main thread critical path
+    -- Deferred one run-loop pass so the tag switch itself (layout, focus) completes first. This
+    -- still runs on the main thread; it only moves the capture out of the switch's call stack.
     hs.timer.doAfter(0, function()
         local screen = hs.screen.mainScreen()
         if not screen then return end
         local snapshot = screen:snapshot()
         if snapshot then
-            state.tagSnapshots[tag] = snapshot
+            state.tagSnapshots[tag] = downscaleSnapshot(snapshot, screen:frame()) or snapshot
         end
     end)
 end

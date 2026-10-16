@@ -258,7 +258,7 @@ local function _suppressUntilHealthy(reason, ceiling)
     _wakeProbeTimer = hs.timer.new(WAKE_PROBE_INTERVAL, function()
         if not _wakeSuppress then return end
         if _axProbeHealthy() then _liftSuppress("probe ok") end
-    end)
+    end, true)
     _wakeProbeTimer:start()
 end
 
@@ -1075,7 +1075,9 @@ function M.setup()
     -- Populate _trackedWins at startup, then resync every 60s to catch any drift.
     _resync()
     -- Anchored: an unreferenced hs.timer is garbage-collected and silently stops firing.
-    M._resyncTimer = hs.timer.new(60, _resync):start()
+    -- continueOnError (true): by default one Lua error in the callback stops a timer for good;
+    -- every repeating NanoWM timer passes it.
+    M._resyncTimer = hs.timer.new(60, _resync, true):start()
 
     -- Allow newly launched apps into the filter; trigger a deferred resync for new apps.
     -- There is deliberately no window enumeration on activation: app:allWindows() on every
@@ -1103,12 +1105,20 @@ function M.setup()
                 -- A quitting app takes its windows along, often without windowDestroyed events
                 -- (the AX observer dies with the process), which left their ids in tags/stacks
                 -- until the prune sweep. Forget tracked windows whose process is gone.
-                hs.timer.doAfter(0.5, function()
-                    if _axBlocked() then return end
+                -- While AX is blocked (wake suppression / open breaker, up to AX_BACKOFF) keep
+                -- retrying every 10 s instead of giving up, which left the ids for the prune sweep.
+                local tries = 0
+                local function sweep()
+                    if _axBlocked() then
+                        tries = tries + 1
+                        if tries <= 12 then hs.timer.doAfter(10, sweep) end
+                        return
+                    end
                     for id, w in pairs(_trackedWins) do
                         if not w:application() then _windowGone(id, appName) end
                     end
-                end)
+                end
+                hs.timer.doAfter(0.5, sweep)
             end
             -- macOS activates the next app; if it is parked on another tag that is not a
             -- jump the user asked for. afterClose re-picks focus if this app held it.
@@ -1245,7 +1255,7 @@ function M.setup()
         if foundNew then
             layout.tile()
         end
-    end):start()
+    end, true):start()
 end
 
 return M

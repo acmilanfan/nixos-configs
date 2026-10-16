@@ -217,58 +217,14 @@ end
 -- Lifecycle
 -- =============================================================================
 
-function M.show()
-    if state.overviewActive then return end
-    
-    -- Show the bank containing the current tag. Computed in special mode too: it used to keep
-    -- the previous bank there, so digit keys could jump to the wrong 1-10 / 11-20 range.
-    local cur = tonumber(state.currentTag) or 1
-    bankBase = math.floor((cur - 1) / 10) * 10
-    if state.special.active then
-        selectedIndex = CELLS
-    else
-        selectedIndex = cur - bankBase
-        if selectedIndex < 1 or selectedIndex > 10 then selectedIndex = 1 end
-    end
-
-    local screen = hs.screen.mainScreen()
-    local frame = screen:frame()
-    
-    -- Initialize Canvas
-    overviewCanvas = hs.canvas.new(frame)
-    overviewCanvas:level(hs.canvas.windowLevels.overlay)
-    
-    -- Mouse interaction
-    overviewCanvas:mouseCallback(function(canvas, event, id, x, y)
-        if event == "mouseMove" then
-            local index = getGridIndexAt(x, y)
-            if index and index ~= selectedIndex then
-                selectedIndex = index
-                render()
-            end
-        elseif event == "mouseDown" then
-            local index = getGridIndexAt(x, y)
-            if index then
-                -- Hide FIRST to prevent taking a snapshot of the overview
-                M.hide()
-                if index == CELLS then
-                    if not state.special.active then tags.toggleSpecial() end
-                else
-                    tags.gotoTag(cellTag(index))
-                end
-            end
-        end
-    end)
-    
-    -- Track mouse moves on the canvas
-    overviewCanvas:canvasMouseEvents(true, true, true, false)
-    
-    render()
-    overviewCanvas:show()
-    
-    -- Initialize Modal
+-- The modal and its bindings are built once and reused. modal:bind() registers each key in
+-- hs.hotkey's global registry and only modal:delete() removes it again, so creating a fresh
+-- modal per show() and merely exit()ing it on hide leaked ~21 hotkeys per overview open.
+-- Every binding reads selectedIndex/bankBase as upvalues, so reuse sees the current values.
+local function getModal()
+    if overviewModal then return overviewModal end
     overviewModal = hs.hotkey.modal.new()
-    
+
     -- 1. Grid Navigation (hjkl + Arrows)
     local function move(dir)
         selectedIndex = M.gridStep(selectedIndex, dir)
@@ -318,7 +274,59 @@ function M.show()
     overviewModal:bind({}, "escape", function() M.hide() end)
     overviewModal:bind({}, "tab", function() M.hide() end)
     
-    overviewModal:enter()
+    return overviewModal
+end
+
+function M.show()
+    if state.overviewActive then return end
+    
+    -- Show the bank containing the current tag. Computed in special mode too: it used to keep
+    -- the previous bank there, so digit keys could jump to the wrong 1-10 / 11-20 range.
+    local cur = tonumber(state.currentTag) or 1
+    bankBase = math.floor((cur - 1) / 10) * 10
+    if state.special.active then
+        selectedIndex = CELLS
+    else
+        selectedIndex = cur - bankBase
+        if selectedIndex < 1 or selectedIndex > 10 then selectedIndex = 1 end
+    end
+
+    local screen = hs.screen.mainScreen()
+    local frame = screen:frame()
+    
+    -- Initialize Canvas
+    overviewCanvas = hs.canvas.new(frame)
+    overviewCanvas:level(hs.canvas.windowLevels.overlay)
+    
+    -- Mouse interaction
+    overviewCanvas:mouseCallback(function(canvas, event, id, x, y)
+        if event == "mouseMove" then
+            local index = getGridIndexAt(x, y)
+            if index and index ~= selectedIndex then
+                selectedIndex = index
+                render()
+            end
+        elseif event == "mouseDown" then
+            local index = getGridIndexAt(x, y)
+            if index then
+                -- Hide FIRST to prevent taking a snapshot of the overview
+                M.hide()
+                if index == CELLS then
+                    if not state.special.active then tags.toggleSpecial() end
+                else
+                    tags.gotoTag(cellTag(index))
+                end
+            end
+        end
+    end)
+    
+    -- Track mouse moves on the canvas
+    overviewCanvas:canvasMouseEvents(true, true, true, false)
+    
+    render()
+    overviewCanvas:show()
+    
+    getModal():enter()
     state.overviewActive = true
 end
 
@@ -327,10 +335,7 @@ function M.hide()
         overviewCanvas:delete()
         overviewCanvas = nil
     end
-    if overviewModal then
-        overviewModal:exit()
-        overviewModal = nil
-    end
+    if overviewModal then overviewModal:exit() end
     state.overviewActive = false
 end
 

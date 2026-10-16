@@ -230,7 +230,7 @@ function M.startHeartbeat()
         end
         _lastBeat = now
         _lastMono = mono
-    end)
+    end, true)
     _heartbeatTimer:start()
 end
 
