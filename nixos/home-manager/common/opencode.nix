@@ -433,10 +433,13 @@ let
           Run at most two child agents concurrently, including discovery/review,
           only for independent tasks. Reuse a child for a scoped finding recheck,
           not overlapping reviews of unchanged code without a distinct risk to check.
-          Never overlap edits or parallelize dependent changes; do not poll.
-          Different files can share test inputs, caches, and data stores. Workers run
-          focused checks; you own integrated/full-suite verification after writers
-          finish. If project policy requires broader worker checks, reserve a stable
+          Never assign overlapping write ownership or parallelize dependent changes;
+          do not poll. Parallel edits require disjoint paths and no shared generated
+          outputs or mutable runtime state, including your own edits.
+          Disjoint paths alone do not prove independence: files can share test inputs,
+          caches, and data stores. Workers run focused checks; you own integrated and
+          full-suite verification after writers finish. If project policy requires
+          broader worker checks, reserve a stable
           verification window or isolated checkout. Do not edit dependencies during
           another agent's checks, including shared runtime state; changes invalidate
           affected results. If a worker reports collateral edits or a recovery
@@ -453,6 +456,10 @@ let
           as claims. After one unsuccessful worker correction, take over rather than
           looping through cheap retries. Have a separate hybrid-review reviewer
           inspect your security/integration changes too; do not self-approve them.
+          Supply each review with a current diff artifact, base identifier, changed-
+          file list and verification evidence; include untracked additions. The
+          reviewer cannot run git diff, so keep the artifact readable with its
+          existing permissions and refresh it after changes to the reviewed state.
           Scope follow-ups to findings plus affected dependencies.
 
           Reuse a small findings/source artifact across handoffs. Locate canonical
@@ -484,7 +491,7 @@ let
         ];
       };
       hybrid-explore = {
-        description = "Flash: read-only code discovery, call sites, and file/line evidence";
+        description = "Flash low: read-only code discovery, call sites, and file/line evidence";
         mode = "subagent";
         model = "opencode-go/deepseek-v4.1-flash#low";
         system = ''
@@ -501,6 +508,8 @@ let
           user, or claim exhaustive coverage without evidence.
         '';
         # No Code Mode: MCP tools could otherwise mutate files or remote state.
+        # Native MCP (codemode: false) and plugin tools need a separate audit:
+        # deny mutating tool actions explicitly; execute does not cover them.
         # Do not add broad read allows: the global secret-file denies must win.
         permissions = map (action: { inherit action; resource = "*"; effect = "deny"; })
           [ "edit" "shell" "execute" "skill" "subagent" "question" ];
@@ -516,8 +525,12 @@ let
           callers, not only summaries. Check negative/race cases, fixture setup,
           and whether recorded tests cover the claimed final snapshot. Distinguish
           executed evidence from static reasoning; you cannot run reproductions.
-          Reuse current source snapshots; for rechecks, verify previous findings
-          and affected paths without repeating unrelated discovery. Report a stale
+          Read the supplied diff artifact and current files/critical callers directly;
+          flag a missing or stale diff rather than reconstructing it from summaries.
+          Treat supplied findings as navigation aids, not conclusions; independently
+          inspect the diff and relevant contracts. Reuse current source snapshots;
+          for rechecks, verify previous findings and affected paths without repeating
+          unrelated discovery. Report a stale
           snapshot or missing evidence, not an invented clean bill of health.
           Return actionable findings ordered by severity with file/line evidence,
           checked coverage, uncertainties and remaining verification needs. Do not
@@ -531,7 +544,7 @@ let
           [ "edit" "shell" "execute" "skill" "subagent" "question" ];
       };
       hybrid-worker = {
-        description = "Flash: bounded implementation and tests in lead-assigned files";
+        description = "Flash high: bounded implementation and tests in lead-assigned files";
         mode = "subagent";
         model = "opencode-go/deepseek-v4.1-flash#high";
         system = ''

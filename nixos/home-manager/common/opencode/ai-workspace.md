@@ -69,6 +69,23 @@ read-only agent such as `hybrid-explore`, which denies `execute`, still run grap
 queries. Per-tool `permissions` (for example denying `codebase-memory_*`) hide a
 tool from the model entirely.
 
+`execute` denial is not a blanket read-only sandbox: MCP servers registered with
+`codemode: false` expose native tools independently of Code Mode, and plugin tools
+have their own permission actions. When adding native/plugin tools, audit their
+mutation capabilities and permission checks; add explicit denies for mutating
+actions before exposing them to `hybrid-explore` or `hybrid-review`. This is an
+audit requirement, not a blanket native-tool deny already enforced by these
+profiles. The global MCP registrations currently use Code Mode; both trial
+registrations above select the read-only `scout` profile. Preserve global secret-
+file denies: do not add broad agent-level `read` allows to enable discovery.
+
+For hybrid review, the lead supplies a current diff artifact (including untracked
+additions), base identifier, changed-file list and verification evidence. Store it
+under `~/ai/artifacts/<project>/` with any needed external-directory approval;
+refresh it after changes to the reviewed state. The shell-disabled reviewer reads
+the artifact and current source directly. Shared discovery findings are navigation
+aids, not review conclusions.
+
 An index goes stale on every commit or uncommitted edit, and the `scout` profile
 never registers CBM's background watcher, so refresh before trusting structural
 results:
