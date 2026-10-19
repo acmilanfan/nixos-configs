@@ -8,11 +8,13 @@
 # roots (~/Projects, ~/IdeaProjects, ~/Work/IdeaProjects, ~/configs).
 # A linked worktree is removed only if it is clean (`git status` empty), no
 # tmux pane is inside it, it is not locked, and its branch either
-#   - was squash-merged into the default branch (patch-equivalent), or
+#   - was squash-merged into its base (patch-equivalent), or
 #   - has no commits of its own (merged, or never used) and the worktree has
 #     been idle for --idle-days (default 3).
+# Its base is the default branch, or origin/develop when the branch is
+# closer to that (repos where features branch off develop or a QA line).
 # Branches with unmerged commits are never touched, only reported, and
-# neither is a worktree on the default branch (or local main/master).
+# neither is a worktree on a base branch (or local main/master/develop).
 # Note: "clean" ignores git-ignored files, and `git worktree remove` deletes
 # them with the folder (local notes, .env files, build output).
 # --apply also drops agent-checkpoint sessions idle for --checkpoint-days
@@ -65,6 +67,9 @@ default_ref() {
   done
 }
 
+# long-lived branches a feature may branch off besides the default one
+extra_bases=(origin/develop)
+
 in_use() {
   local wt="$1" p
   while IFS= read -r p; do
@@ -111,6 +116,12 @@ remove_worktree() {
   fi
 }
 
+is_base() {
+  local b
+  for b in "${bases[@]}"; do [ "$1" = "${b#origin/}" ] && return 0; done
+  return 1
+}
+
 prune_checkpoints() {
   [ -n "$apply" ] || return 0
   command -v agent-checkpoint >/dev/null || return 0
@@ -133,9 +144,13 @@ for repo in "${repos[@]}"; do
       [ -n "$l" ] && say "  $l"
     done <<<"$(git -C "$repo" worktree prune -v 2>&1)"
   fi
-  base="$(default_ref "$repo")"
+  default="$(default_ref "$repo")"
   prune_checkpoints "$repo"
-  [ -n "$base" ] || { say "  no default branch, skipping worktrees"; flush "$repo"; continue; }
+  [ -n "$default" ] || { say "  no default branch, skipping worktrees"; flush "$repo"; continue; }
+  bases=("$default")
+  for b in "${extra_bases[@]}"; do
+    if [ "$b" != "$default" ] && git -C "$repo" rev-parse -q --verify "$b^{commit}" >/dev/null; then bases+=("$b"); fi
+  done
 
   # porcelain records: worktree/HEAD/branch/locked lines, blank-separated
   first=1 wt="" branch="" locked=""
@@ -151,13 +166,18 @@ for repo in "${repos[@]}"; do
             # --apply already ran `worktree prune`, which skipped this one
             if [ -n "$apply" ]; then say "  kept $wt (folder is gone)"; else say "  would prune $wt (folder is gone)"; fi
           elif [ -z "$branch" ]; then say "  kept $wt (detached HEAD)"
-          elif [[ "$branch" =~ ^(main|master)$ || "$branch" == "${base#origin/}" ]]; then say "  kept $wt [$branch] (default branch)"
+          elif [[ "$branch" =~ ^(main|master|develop)$ ]] || is_base "$branch"; then say "  kept $wt [$branch] (base branch)"
           elif in_use "$wt"; then say "  kept $wt [$branch] (tmux pane inside)"
           elif [ -n "$(git -C "$wt" status --porcelain 2>/dev/null)" ]; then say "  kept $wt [$branch] (uncommitted changes)"
           else
             prune_checkpoints "$wt"
             tip="$(git -C "$repo" rev-parse "refs/heads/$branch")"
-            ahead="$(git -C "$repo" rev-list --count "$base..$tip")"
+            # the base it is closest to
+            base="" ahead=""
+            for b in "${bases[@]}"; do
+              n="$(git -C "$repo" rev-list --count "$b..$tip")"
+              if [ -z "$ahead" ] || [ "$n" -lt "$ahead" ]; then base="$b" ahead="$n"; fi
+            done
             if [ "$ahead" -eq 0 ]; then
               idle=$(( (now - $(last_activity "$wt" "$tip")) / 86400 ))
               if [ "$idle" -ge "$idle_days" ]; then
@@ -168,7 +188,7 @@ for repo in "${repos[@]}"; do
             elif squash_merged "$repo" "$base" "$tip"; then
               remove_worktree "$repo" "$wt" "$branch" "squash-merged into $base"
             else
-              say "  kept $wt [$branch] ($ahead unmerged commits)"
+              say "  kept $wt [$branch] ($ahead commit$([ "$ahead" -eq 1 ] || echo s) not in $base)"
             fi
           fi
         fi
