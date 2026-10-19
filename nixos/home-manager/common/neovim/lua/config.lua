@@ -28,11 +28,11 @@ vim.wo.cursorline = true
 vim.g.lf_map_keys = 0
 
 -- [[ Highlight on yank ]]
--- See `:help vim.highlight.on_yank()`
+-- See `:help vim.hl.on_yank()`
 local highlight_group = vim.api.nvim_create_augroup("YankHighlight", { clear = true })
 vim.api.nvim_create_autocmd("TextYankPost", {
   callback = function()
-    vim.highlight.on_yank()
+    vim.hl.on_yank()
   end,
   group = highlight_group,
   pattern = "*",
@@ -133,8 +133,19 @@ vim.keymap.set("n", "<leader>lf", vim.cmd.LazyGitFilterCurrentFile)
 vim.keymap.set("n", "<leader>sn", vim.cmd.Navbuddy)
 
 -- Diagnostic keymaps
-vim.keymap.set("n", "[d", vim.diagnostic.goto_prev, { desc = "Go to previous diagnostic message" })
-vim.keymap.set("n", "]d", vim.diagnostic.goto_next, { desc = "Go to next diagnostic message" })
+-- Jump and show the diagnostic in a float, as goto_prev/goto_next (removed in 0.13) did.
+local function diagnostic_jump(count)
+  return function()
+    vim.diagnostic.jump({
+      count = count,
+      on_jump = function(_, bufnr)
+        vim.diagnostic.open_float({ bufnr = bufnr, scope = "cursor", focus = false })
+      end,
+    })
+  end
+end
+vim.keymap.set("n", "[d", diagnostic_jump(-1), { desc = "Go to previous diagnostic message" })
+vim.keymap.set("n", "]d", diagnostic_jump(1), { desc = "Go to next diagnostic message" })
 vim.keymap.set("n", "<leader>e", vim.diagnostic.open_float, { desc = "Open floating diagnostic message" })
 vim.keymap.set("n", "<leader>q", vim.diagnostic.setloclist, { desc = "Open diagnostics list" })
 
@@ -423,17 +434,24 @@ vim.lsp.config("lua_ls", {
 vim.lsp.config("nil_ls", {
   capabilities = capabilities,
 })
+-- Hybrid mode: vue_ls only handles .vue buffers and forwards their TypeScript
+-- requests to ts_ls, which attaches to .vue too and runs @vue/typescript-plugin.
 vim.lsp.config("vue_ls", {
-  init_options = {
-    typescript = {
-      tsdk = "",
-    },
-  },
   capabilities = capabilities,
-  filetypes = { "typescript", "javascript", "javascriptreact", "typescriptreact", "vue", "json" },
+  filetypes = { "vue" },
 })
 vim.lsp.config("ts_ls", {
   capabilities = capabilities,
+  init_options = {
+    plugins = vim.g.vue_language_server_path and {
+      {
+        name = "@vue/typescript-plugin",
+        location = vim.g.vue_language_server_path,
+        languages = { "vue" },
+      },
+    } or {},
+  },
+  filetypes = { "javascript", "javascriptreact", "typescript", "typescriptreact", "vue" },
 })
 vim.lsp.config("sqls", {
   capabilities = capabilities,

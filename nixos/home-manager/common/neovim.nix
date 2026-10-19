@@ -27,10 +27,7 @@ in
     lua-language-server
     nil
     sqls
-    lazygit
-    fzf
     fd
-    tmux-sessionizer
     go
     lombok
     maven
@@ -55,6 +52,9 @@ in
     typescript
     typescript-language-server
     vscode-json-languageserver
+    # vscode-eslint-language-server for the eslint LSP; low priority so
+    # vscode-json-languageserver keeps its vscode-json-language-server binary.
+    (lib.lowPrio vscode-langservers-extracted)
     prettier
     eslint
     graphql-language-service-cli
@@ -128,7 +128,8 @@ in
       nvim-navic
       rainbow-delimiters-nvim
       cmp-fuzzy-path
-      cmp-fuzzy-buffer
+      cmp-buffer
+      cmp_luasnip
       cmp-nvim-lua
       cmp-tmux
       bigfile-nvim
@@ -183,6 +184,8 @@ in
     ];
     # Load the main init.lua which requires all other modules
     initLua = ''
+      -- ts_ls loads @vue/typescript-plugin from here (vue_ls hybrid mode).
+      vim.g.vue_language_server_path = "${pkgs.vue-language-server}/lib/language-tools/packages/language-server"
       require("init")
     '';
   };
