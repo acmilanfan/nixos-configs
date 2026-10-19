@@ -149,17 +149,16 @@ in
       [ "setupLaunchAgents" "reloadSystemd" ]
       [ "opencodeSettings" "opencodeTelegramDirs" "opencodeSuperpowers" ] ''
       ${lib.optionalString cfg.useLocalServicePassword ''
-        $DRY_RUN_CMD ${opencode}/bin/opencode service get password >/dev/null
+        run ${opencode}/bin/opencode service get password >/dev/null
       ''}
       if [ "$(${opencode}/bin/opencode service get port)" != "${toString cfg.serverPort}" ]; then
-        $DRY_RUN_CMD ${opencode}/bin/opencode service set port ${toString cfg.serverPort}
+        run ${opencode}/bin/opencode service set port ${toString cfg.serverPort}
       fi
     '';
 
     # Ensure app data & log directories exist
     home.activation.opencodeTelegramDirs = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-      mkdir -p "${appDataDir}"
-      mkdir -p "${logDir}"
+      run mkdir -p "${appDataDir}" "${logDir}"
     '';
 
     # Optional automatic .env rendering via sops-nix template

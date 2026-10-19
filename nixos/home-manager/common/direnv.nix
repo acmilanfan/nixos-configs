@@ -22,11 +22,11 @@
       for root in "$HOME/Projects" "$HOME/IdeaProjects" "$HOME/Work/IdeaProjects"; do
         [ -d "$root" ] || continue
         find "$root" -maxdepth 3 -name .envrc 2>/dev/null | while IFS= read -r rc; do
-          $DRY_RUN_CMD ${pkgs.direnv}/bin/direnv allow "$(dirname "$rc")" || true
+          run ${pkgs.direnv}/bin/direnv allow "$(dirname "$rc")" || true
         done
       done
-      $DRY_RUN_CMD mkdir -p "$(dirname "$marker")"
-      $DRY_RUN_CMD touch "$marker"
+      run mkdir -p "$(dirname "$marker")"
+      run touch "$marker"
     fi
   '';
 

@@ -399,10 +399,9 @@ in
       "chatgpt"
     ];
 
+    # mas, scrcpy and kanata come from Nix (home-darwin.nix, packages.nix,
+    # systemPackages); a brew copy would shadow them on PATH.
     brews = [
-      "mas"
-      "scrcpy"
-      "kanata"
       "mole" # CLI used by the Vicinae "Mole" extension (mac cleaner)
       "firefoxpwa"
       "docker"

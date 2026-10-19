@@ -51,12 +51,10 @@
         (lib.readFile ./scripts/bench-llm.py))
       (writers.writePython3Bin "llm-tap" { flakeIgnore = [ "E501" ]; }
         (lib.readFile ./scripts/llm-tap.py))
-      git
       httpie
-      kitty
       nixfmt
       htop
-      yt-dlp
+      yt-dlp # also the Vicinae video-downloader extension on macOS
       clinfo
       jq
       scrcpy
@@ -68,6 +66,7 @@
       age
       ssh-to-age
     ] ++ lib.optionals pkgs.stdenv.isLinux [
+      kitty # macOS uses the Homebrew cask (darwin/common.nix)
       (writeShellScriptBin "ssh-askpass" ''
         ${pkgs.zenity}/bin/zenity --password --title="SSH Password"
       '')

@@ -18,8 +18,10 @@ async function fixture() {
   const directory = join(home, ".config/opencode");
   await mkdir(directory, { recursive: true });
   const config = join(directory, "cli.json");
-  const run = (dryRun = "") => execute("bash", ["-eu", activation], {
-    env: { ...process.env, HOME: home, DRY_RUN_CMD: dryRun },
+  // Home Manager's activation provides `run` (prints instead of running when
+  // DRY_RUN is set); the extracted snippet needs the same helper.
+  const run = (dryRun = false) => execute("bash", ["-euc", 'run() { if [[ -v DRY_RUN ]]; then echo "$@"; else "$@"; fi; }; source "$0"', activation], {
+    env: { ...process.env, HOME: home, ...(dryRun ? { DRY_RUN: "1" } : {}) },
   });
   const backups = async () => (await readdir(directory)).filter((name) => /^cli\.json\.drift\..*\.json$/.test(name));
   return { config, directory, run, backups };
@@ -128,17 +130,21 @@ test("CLI drift dry runs do not write, back up, or prune", options, async () => 
   const original = JSON.stringify(live);
   await writeFile(config, original);
   const before = await backups();
-  await run("echo");
+  await run(true);
   assert.equal(await readFile(config, "utf8"), original);
   assert.deepEqual(await backups(), before);
 });
 
-test("invalid CLI JSON is left untouched without a backup", options, async () => {
-  const { config, run, backups } = await fixture();
+test("invalid CLI JSON is kept aside and replaced without aborting", options, async () => {
+  const { config, directory, run, backups } = await fixture();
   for (const invalid of ["invalid JSON", "", "   \n", "{}\n{}", "[]", "null"]) {
     await writeFile(config, invalid);
-    await assert.rejects(run());
-    assert.equal(await readFile(config, "utf8"), invalid);
+    const result = await run();
+    assert.match(result.stdout, /not a single JSON object/);
+    assert.equal(JSON.parse(await readFile(config, "utf8")).tabs.mode, "off");
+    const kept = (await readdir(directory)).filter((name) => /^cli\.json\.invalid\./.test(name));
+    const keptContents = await Promise.all(kept.map((name) => readFile(join(directory, name), "utf8")));
+    assert(keptContents.includes(invalid));
     assert.deepEqual(await backups(), []);
   }
   assert((await stat(config)).isFile());

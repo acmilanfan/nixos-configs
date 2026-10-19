@@ -13,6 +13,7 @@ for (const username of ["gentooway", "andreishumailov"]) {
     const activation = JSON.parse(execFileSync("nix-instantiate", ["--eval", "--strict", "--json", "--expr", `
       let m = import ${modulePath} {
         config.home.username = "${username}";
+        config.home.homeDirectory = "/Users/${username}";
         secrets = {}; unstable = {}; inputs = {};
         pkgs = {
           mcp-nixos = "/fixture/mcp-nixos"; jq = "/fixture/jq";

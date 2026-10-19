@@ -307,7 +307,7 @@ in
   home.activation.claudeSettings = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     CLAUDE_DIR="$HOME/.claude"
     CLAUDE_SETTINGS="$CLAUDE_DIR/settings.json"
-    mkdir -p "$CLAUDE_DIR"
+    run mkdir -p "$CLAUDE_DIR"
 
     NEW_SETTINGS=$(cat <<'EOF'
 ${claudeSettingsJson}
@@ -316,7 +316,7 @@ EOF
 
     if [ -L "$CLAUDE_SETTINGS" ]; then
       # Leftover symlink from the old home.file-managed version.
-      rm "$CLAUDE_SETTINGS"
+      run rm "$CLAUDE_SETTINGS"
     elif [ -f "$CLAUDE_SETTINGS" ]; then
       OLD_SETTINGS=$(cat "$CLAUDE_SETTINGS")
       OLD_NORM=$(printf '%s' "$OLD_SETTINGS" | ${pkgs.jq}/bin/jq -S .)
@@ -327,18 +327,18 @@ EOF
         echo "    Diff (live vs. nix-managed), about to be overwritten by the nix-managed version:"
         diff <(printf '%s\n' "$OLD_NORM") <(printf '%s\n' "$NEW_NORM") || true
         BACKUP="$CLAUDE_DIR/settings.json.drift.$(date +%s).json"
-        printf '%s' "$OLD_SETTINGS" > "$BACKUP"
+        [[ -v DRY_RUN ]] || printf '%s' "$OLD_SETTINGS" > "$BACKUP"
         echo "    Live version backed up to: $BACKUP"
         echo "    If any of these (e.g. an effort-level or model change) should persist,"
         echo "    add them to claudeSettings in nixos/home-manager/common/ai-agents.nix."
         echo ""
       fi
       # Keep only the 5 newest drift backups.
-      ls -1t "$CLAUDE_DIR"/settings.json.drift.*.json 2>/dev/null | tail -n +6 | while read -r f; do rm -f "$f"; done || true
+      ls -1t "$CLAUDE_DIR"/settings.json.drift.*.json 2>/dev/null | tail -n +6 | while read -r f; do run rm -f "$f"; done || true
     fi
 
-    printf '%s' "$NEW_SETTINGS" > "$CLAUDE_SETTINGS"
-    chmod 644 "$CLAUDE_SETTINGS"
+    [[ -v DRY_RUN ]] || printf '%s' "$NEW_SETTINGS" > "$CLAUDE_SETTINGS"
+    run chmod 644 "$CLAUDE_SETTINGS"
   '';
 
   home.packages = [
@@ -364,7 +364,7 @@ EOF
     # surfaced instead of silently discarded.
     AGY_DIR="$HOME/.gemini/antigravity-cli"
     AGY_SETTINGS="$AGY_DIR/settings.json"
-    mkdir -p "$AGY_DIR"
+    run mkdir -p "$AGY_DIR"
 
     NEW_AGY_SETTINGS=$(cat <<'EOF'
 ${builtins.toJSON antigravitySettings}
@@ -385,7 +385,7 @@ EOF
     fi
 
     if [ -L "$AGY_SETTINGS" ]; then
-      rm "$AGY_SETTINGS"
+      run rm "$AGY_SETTINGS"
     elif [ -f "$AGY_SETTINGS" ]; then
       OLD_AGY_SETTINGS=$(cat "$AGY_SETTINGS")
       # The auth header is left out of the comparison so the drift diff never
@@ -398,22 +398,22 @@ EOF
         echo "    Diff (live vs. nix-managed), about to be overwritten by the nix-managed version:"
         diff <(printf '%s\n' "$OLD_AGY_NORM") <(printf '%s\n' "$NEW_AGY_NORM") || true
         AGY_BACKUP="$AGY_DIR/settings.json.drift.$(date +%s).json"
-        (umask 077; printf '%s' "$OLD_AGY_SETTINGS" > "$AGY_BACKUP")
+        [[ -v DRY_RUN ]] || (umask 077; printf '%s' "$OLD_AGY_SETTINGS" > "$AGY_BACKUP")
         echo "    Live version backed up to: $AGY_BACKUP"
         echo "    If any of these should persist, add them to antigravitySettings in"
         echo "    nixos/home-manager/common/ai-agents.nix."
         echo ""
       fi
-      ls -1t "$AGY_DIR"/settings.json.drift.*.json 2>/dev/null | tail -n +6 | while read -r f; do rm -f "$f"; done || true
+      ls -1t "$AGY_DIR"/settings.json.drift.*.json 2>/dev/null | tail -n +6 | while read -r f; do run rm -f "$f"; done || true
     fi
 
-    printf '%s' "$NEW_AGY_SETTINGS" > "$AGY_SETTINGS"
-    chmod 600 "$AGY_SETTINGS"
+    [[ -v DRY_RUN ]] || (umask 077; printf '%s' "$NEW_AGY_SETTINGS" > "$AGY_SETTINGS")
+    run chmod 600 "$AGY_SETTINGS"
 
     # 2. Antigravity Global Hooks Setup (~/.gemini/config/hooks.json)
     AGY_CONFIG_DIR="$HOME/.gemini/config"
     AGY_HOOKS="$AGY_CONFIG_DIR/hooks.json"
-    mkdir -p "$AGY_CONFIG_DIR"
+    run mkdir -p "$AGY_CONFIG_DIR"
 
     NEW_AGY_HOOKS=$(cat <<'EOF'
 ${builtins.toJSON antigravityHooks}
@@ -421,7 +421,7 @@ EOF
     )
 
     if [ -L "$AGY_HOOKS" ]; then
-      rm "$AGY_HOOKS"
+      run rm "$AGY_HOOKS"
     elif [ -f "$AGY_HOOKS" ]; then
       OLD_AGY_HOOKS=$(cat "$AGY_HOOKS")
       OLD_HOOKS_NORM=$(printf '%s' "$OLD_AGY_HOOKS" | ${pkgs.jq}/bin/jq -S .)
@@ -432,39 +432,39 @@ EOF
         echo "    Diff (live vs. nix-managed), about to be overwritten by the nix-managed version:"
         diff <(printf '%s\n' "$OLD_HOOKS_NORM") <(printf '%s\n' "$NEW_HOOKS_NORM") || true
         HOOKS_BACKUP="$AGY_CONFIG_DIR/hooks.json.drift.$(date +%s).json"
-        printf '%s' "$OLD_AGY_HOOKS" > "$HOOKS_BACKUP"
+        [[ -v DRY_RUN ]] || printf '%s' "$OLD_AGY_HOOKS" > "$HOOKS_BACKUP"
         echo "    Live version backed up to: $HOOKS_BACKUP"
         echo "    If any of these should persist, add them to antigravityHooks in"
         echo "    nixos/home-manager/common/ai-agents.nix."
         echo ""
       fi
-      ls -1t "$AGY_CONFIG_DIR"/hooks.json.drift.*.json 2>/dev/null | tail -n +6 | while read -r f; do rm -f "$f"; done || true
+      ls -1t "$AGY_CONFIG_DIR"/hooks.json.drift.*.json 2>/dev/null | tail -n +6 | while read -r f; do run rm -f "$f"; done || true
     fi
 
-    printf '%s' "$NEW_AGY_HOOKS" > "$AGY_HOOKS"
-    chmod 644 "$AGY_HOOKS"
+    [[ -v DRY_RUN ]] || printf '%s' "$NEW_AGY_HOOKS" > "$AGY_HOOKS"
+    run chmod 644 "$AGY_HOOKS"
 
     # 3. Antigravity Plugin Installation
     AGY_PLUGINS_DIR="$HOME/.gemini/config/plugins"
     # Import plugins from gemini if none exist yet
     if [ ! -d "$AGY_PLUGINS_DIR" ] || [ -z "$(ls -A "$AGY_PLUGINS_DIR" 2>/dev/null)" ]; then
       echo "Importing plugins from gemini to antigravity..."
-      $DRY_RUN_CMD ${antigravity} plugin import gemini --consent || true
+      run ${antigravity} plugin import gemini --consent || true
     fi
 
     # Ensure all required extensions are installed in antigravity, from the
     # pinned source. A marker records which source each was installed from,
     # so bumping a pin reinstalls it (and replaces an older unpinned install).
     AGY_PLUGIN_SOURCES="$HOME/.gemini/config/.nix-plugin-sources"
-    $DRY_RUN_CMD mkdir -p "$AGY_PLUGIN_SOURCES"
+    run mkdir -p "$AGY_PLUGIN_SOURCES"
     ${builtins.concatStringsSep "\n" (map (ext: ''
       if [ -d "$AGY_PLUGINS_DIR/${ext.dir}" ] && [ "$(cat "$AGY_PLUGIN_SOURCES/${ext.dir}" 2>/dev/null)" = "${ext.src}" ]; then
         echo "Antigravity plugin already installed: ${ext.dir}"
       else
         echo "Installing Antigravity plugin: ${ext.dir} (${ext.src.shortRev or "pinned"})"
-        $DRY_RUN_CMD rm -rf "$AGY_PLUGINS_DIR/${ext.dir}"
-        if $DRY_RUN_CMD ${antigravity} plugin install "${ext.src}" --consent --skip-settings; then
-          $DRY_RUN_CMD ${pkgs.bash}/bin/bash -c 'printf "%s" "$1" > "$2"' -- "${ext.src}" "$AGY_PLUGIN_SOURCES/${ext.dir}"
+        run rm -rf "$AGY_PLUGINS_DIR/${ext.dir}"
+        if run ${antigravity} plugin install "${ext.src}" --consent --skip-settings; then
+          run ${pkgs.bash}/bin/bash -c 'printf "%s" "$1" > "$2"' -- "${ext.src}" "$AGY_PLUGIN_SOURCES/${ext.dir}"
         fi
       fi
     '') geminiExtensions)}
@@ -474,6 +474,6 @@ EOF
     # 4. Antigravity Remote Control Daemon Setup (opt-in per host)
     # Ensure the remote-control daemon is registered with this host's machine name
     HOST_NAME=$(/bin/hostname -s 2>/dev/null || hostname -s 2>/dev/null || echo "antigravity")
-    $DRY_RUN_CMD ${rawAgy}/bin/agy remote-control start --name "$HOST_NAME" || true
+    run ${rawAgy}/bin/agy remote-control start --name "$HOST_NAME" || true
   '');
 }

@@ -293,7 +293,7 @@ let
 
     # Work: point at the existing hand-written ~/Work/CLAUDE.md (kept outside
     # the repo, never committed). Home: a small generic AGENTS.md we manage.
-    instructions = (if isWork then [ "/Users/andreishumailov/Work/CLAUDE.md" ] else [ "AGENTS.md" ])
+    instructions = (if isWork then [ "${config.home.homeDirectory}/Work/CLAUDE.md" ] else [ "AGENTS.md" ])
       ++ [ "~/ai/instructions/planning.md" ];
 
     mcp = {
@@ -1338,7 +1338,7 @@ in
   home.activation.opencodeSettings = lib.hm.dag.entryAfter [ "writeBoundary" "opencodeMemory" ] ''
     OPENCODE_DIR="$HOME/.config/opencode"
     OPENCODE_SETTINGS="$OPENCODE_DIR/opencode.json"
-    mkdir -p "$OPENCODE_DIR"
+    run mkdir -p "$OPENCODE_DIR"
 
     NEW_OC_SETTINGS=$(cat <<'EOF'
 ${opencodeSettingsJson}
@@ -1346,7 +1346,7 @@ EOF
     )
 
     if [ -L "$OPENCODE_SETTINGS" ]; then
-      rm "$OPENCODE_SETTINGS"
+      run rm "$OPENCODE_SETTINGS"
     elif [ -f "$OPENCODE_SETTINGS" ]; then
       OLD_OC_SETTINGS=$(cat "$OPENCODE_SETTINGS")
       OLD_OC_NORM=$(printf '%s' "$OLD_OC_SETTINGS" | ${pkgs.jq}/bin/jq -S .)
@@ -1357,17 +1357,17 @@ EOF
         echo "    Diff (live vs. nix-managed), about to be overwritten by the nix-managed version:"
         diff <(printf '%s\n' "$OLD_OC_NORM") <(printf '%s\n' "$NEW_OC_NORM") || true
         OC_BACKUP="$OPENCODE_DIR/opencode.json.drift.$(date +%s).json"
-        printf '%s' "$OLD_OC_SETTINGS" > "$OC_BACKUP"
+        [[ -v DRY_RUN ]] || printf '%s' "$OLD_OC_SETTINGS" > "$OC_BACKUP"
         echo "    Live version backed up to: $OC_BACKUP"
         echo "    If any of these (e.g. an installed plugin or model change) should"
         echo "    persist, add them to opencodeSettings in nixos/home-manager/common/opencode.nix."
         echo ""
       fi
-      ls -1t "$OPENCODE_DIR"/opencode.json.drift.*.json 2>/dev/null | tail -n +6 | while read -r f; do rm -f "$f"; done || true
+      ls -1t "$OPENCODE_DIR"/opencode.json.drift.*.json 2>/dev/null | tail -n +6 | while read -r f; do run rm -f "$f"; done || true
     fi
 
-    printf '%s' "$NEW_OC_SETTINGS" > "$OPENCODE_SETTINGS"
-    chmod 644 "$OPENCODE_SETTINGS"
+    [[ -v DRY_RUN ]] || printf '%s' "$NEW_OC_SETTINGS" > "$OPENCODE_SETTINGS"
+    run chmod 644 "$OPENCODE_SETTINGS"
   '';
 
   # Keep this writable: the TUI settings dialog updates it in place. Merge only
@@ -1397,7 +1397,7 @@ EOF
       OC_CLI_BACKUP="$OC_CLI_SETTINGS.invalid.$(date +%s).$$.json"
       echo "==> ~/.config/opencode/cli.json is not a single JSON object; backed up to $OC_CLI_BACKUP"
       echo "    and replaced with the Nix-managed CLI settings."
-      $DRY_RUN_CMD cp "$OC_CLI_SETTINGS" "$OC_CLI_BACKUP"
+      run cp "$OC_CLI_SETTINGS" "$OC_CLI_BACKUP"
       OLD_OC_CLI_SETTINGS='{}'
       NEW_OC_CLI_SETTINGS=$(oc_cli_merge "$OLD_OC_CLI_SETTINGS")
     fi
@@ -1410,19 +1410,19 @@ EOF
         echo "    Diff (live vs. merged nix-managed settings), about to restore the managed fields:"
         diff <(printf '%s\n' "$OLD_OC_CLI_NORM") <(printf '%s\n' "$NEW_OC_CLI_NORM") || true
         OC_CLI_BACKUP="$OC_CLI_SETTINGS.drift.$(date +%s).$$.json"
-        $DRY_RUN_CMD cp "$OC_CLI_SETTINGS" "$OC_CLI_BACKUP"
+        run cp "$OC_CLI_SETTINGS" "$OC_CLI_BACKUP"
         echo "    Live version backed up to: $OC_CLI_BACKUP"
         echo "    To keep a managed preference change, add it to opencodeCliSettings in"
         echo "    nixos/home-manager/common/opencode.nix. Unmanaged preferences are preserved."
         echo ""
         ls -1t "$OC_CLI_SETTINGS".drift.*.json 2>/dev/null | tail -n +6 | while read -r f; do
-          $DRY_RUN_CMD rm -f "$f"
+          run rm -f "$f"
         done || true
       fi
     fi
     if [ "$OLD_OC_CLI_SETTINGS" != "$NEW_OC_CLI_SETTINGS" ]; then
-      $DRY_RUN_CMD mkdir -p "$HOME/.config/opencode"
-      $DRY_RUN_CMD ${pkgs.bash}/bin/bash -c 'printf "%s\n" "$1" > "$2"' \
+      run mkdir -p "$HOME/.config/opencode"
+      run ${pkgs.bash}/bin/bash -c 'printf "%s\n" "$1" > "$2"' \
         -- "$NEW_OC_CLI_SETTINGS" "$OC_CLI_SETTINGS"
     fi
   '';
@@ -1465,7 +1465,7 @@ EOF
   };
 
   home.activation.opencodeMemory = lib.hm.dag.entryAfter [ "writeBoundary" "opencodeWorkspace" ] ''
-    $DRY_RUN_CMD ${pkgs.bash}/bin/bash ${./opencode/memory-init.sh} \
+    run ${pkgs.bash}/bin/bash ${./opencode/memory-init.sh} \
       ${./opencode/memory} "$HOME/.config/opencode/memory"
   '';
 
@@ -1553,9 +1553,9 @@ EOF
 
   # Workspace + opencode asset directories always exist, reproducibly.
   home.activation.opencodeWorkspace = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    mkdir -p ${lib.concatStringsSep " " (map (d: "$HOME/ai/${d}") aiWorkspaceDirs)}
-    mkdir -p "$HOME/.config/opencode/skills" "$HOME/.config/opencode/plugins"
-    mkdir -p "$HOME/.config/opencode/agent" "$HOME/.config/opencode/command"
+    run mkdir -p ${lib.concatStringsSep " " (map (d: "$HOME/ai/${d}") aiWorkspaceDirs)}
+    run mkdir -p "$HOME/.config/opencode/skills" "$HOME/.config/opencode/plugins"
+    run mkdir -p "$HOME/.config/opencode/agent" "$HOME/.config/opencode/command"
   '';
 
   # Generic (both machines): superpowers' skills + its native opencode plugin,
@@ -1566,10 +1566,10 @@ EOF
   home.activation.opencodeSuperpowers = lib.hm.dag.entryAfter [ "writeBoundary" "opencodeWorkspace" ] ''
     # Replace the old self-updating clone (a plain directory) once.
     if [ -d "${superpowersDir}" ] && [ ! -L "${superpowersDir}" ]; then
-      $DRY_RUN_CMD rm -rf "${superpowersDir}"
+      run rm -rf "${superpowersDir}"
     fi
-    $DRY_RUN_CMD mkdir -p "$(dirname "${superpowersDir}")"
-    $DRY_RUN_CMD ln -sfn "${inputs.superpowers}" "${superpowersDir}"
+    run mkdir -p "$(dirname "${superpowersDir}")"
+    run ln -sfn "${inputs.superpowers}" "${superpowersDir}"
 
     # Skills are intentionally NOT symlinked into ~/.config/opencode/skills/ —
     # the superpowers.js plugin below registers "${superpowersDir}/skills"
@@ -1577,12 +1577,12 @@ EOF
     # too would make opencode discover every superpowers skill twice (once
     # via directory scan, once via the plugin's own registration).
     if [ -d "${superpowersDir}/commands" ]; then
-      ln -sfn "${superpowersDir}/commands" "$HOME/.config/opencode/command/superpowers"
+      run ln -sfn "${superpowersDir}/commands" "$HOME/.config/opencode/command/superpowers"
     fi
     if [ -f "${superpowersDir}/.opencode/plugins/superpowers.js" ]; then
       # Keep upstream skills and normal-agent behavior, but skip the controller
       # bootstrap for the context-minimal V2 local agent.
-      ln -sfn "${./opencode/superpowers.mjs}" "$HOME/.config/opencode/plugins/superpowers.js"
+      run ln -sfn "${./opencode/superpowers.mjs}" "$HOME/.config/opencode/plugins/superpowers.js"
     fi
   '';
 
@@ -1596,31 +1596,31 @@ EOF
 
       ${lib.optionalString (workMarketplaceRepo != "") ''
         if [ -d "${workAssetsDir}/.git" ]; then
-          $DRY_RUN_CMD git -C "${workAssetsDir}" pull -q --ff-only || true
+          run git -C "${workAssetsDir}" pull -q --ff-only || true
         else
-          $DRY_RUN_CMD git clone "git@github-work:${workMarketplaceRepo}.git" "${workAssetsDir}" || true
+          run git clone "git@github-work:${workMarketplaceRepo}.git" "${workAssetsDir}" || true
         fi
 
         for plugin_dir in "${workAssetsDir}"/plugins/*/skills; do
           [ -d "$plugin_dir" ] || continue
           plugin_name=$(basename "$(dirname "$plugin_dir")")
-          ln -sfn "$plugin_dir" "$HOME/.config/opencode/skills/$plugin_name"
+          run ln -sfn "$plugin_dir" "$HOME/.config/opencode/skills/$plugin_name"
         done
 
         for cmd_dir in "${workAssetsDir}"/plugins/*/commands; do
           [ -d "$cmd_dir" ] || continue
           plugin_name=$(basename "$(dirname "$cmd_dir")")
-          ln -sfn "$cmd_dir" "$HOME/.config/opencode/command/$plugin_name"
+          run ln -sfn "$cmd_dir" "$HOME/.config/opencode/command/$plugin_name"
         done
 
         # Regenerate from scratch each run: the converter decides, across the
         # full set of source agents, which basenames collide across plugins
         # and need a plugin-name prefix, so stale flat-named output from a
         # previous (colliding) run doesn't linger alongside the fix.
-        rm -f "$HOME/.config/opencode/agent"/*.md
+        run rm -f "$HOME/.config/opencode/agent"/*.md
         agent_files=("${workAssetsDir}"/plugins/*/agents/*.md)
         if [ -e "''${agent_files[0]}" ]; then
-          $DRY_RUN_CMD ${agentConverter} "$HOME/.config/opencode/agent" "''${agent_files[@]}" || true
+          run ${agentConverter} "$HOME/.config/opencode/agent" "''${agent_files[@]}" || true
         fi
       ''}
     ''

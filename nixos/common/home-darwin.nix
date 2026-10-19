@@ -4,7 +4,7 @@ let
   sketchybarReload = ''
     sb="/etc/profiles/per-user/$(id -un)/bin/sketchybar"
     if [ -x "$sb" ] && /usr/bin/pgrep -x sketchybar >/dev/null; then
-      $DRY_RUN_CMD "$sb" --reload || true
+      run "$sb" --reload || true
     fi
   '';
   # Pinned to commits, not master: a fixed hash on a moving URL breaks the build on any
@@ -43,10 +43,6 @@ in
       duti # Default application handler
 
       gh
-
-      # Used by the Vicinae video-downloader extension (via the GUI PATH
-      # published in darwin-startup).
-      yt-dlp
 
       # Required by the Vicinae fuzzy-files extension, which spawns `gf`
       # (https://github.com/sameoldlab/goldfish). The published v0.1.0 macOS
@@ -490,10 +486,10 @@ in
     old=$(/bin/cat "$stamp" 2>/dev/null || true)
     if [ "$new" != "$old" ]; then
       if /usr/bin/pgrep -x Hammerspoon >/dev/null; then
-        $DRY_RUN_CMD /usr/bin/open -g "hammerspoon://reload" || true
+        run /usr/bin/open -g "hammerspoon://reload" || true
       fi
-      $DRY_RUN_CMD /bin/mkdir -p "$HOME/.cache"
-      if [ -z "''${DRY_RUN:-}" ]; then echo "$new" > "$stamp"; fi
+      run /bin/mkdir -p "$HOME/.cache"
+      [[ -v DRY_RUN ]] || echo "$new" > "$stamp"
     fi
   '';
 
