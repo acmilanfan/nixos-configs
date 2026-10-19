@@ -48,7 +48,7 @@
       fhs-shell = "nix develop ~/configs/nixos-configs/shell/fhs";
     } // pkgs.lib.optionalAttrs pkgs.stdenv.isLinux {
       # Linux-specific aliases
-      sup = "sudo nixos-rebuild switch --flake $HOME/configs/nixos-configs/#$NIX_SYSTEM && hypr-reload-desktop";
+      sup = "sudo --preserve-env=SSH_AUTH_SOCK nixos-rebuild switch --flake $HOME/configs/nixos-configs/#$NIX_SYSTEM && hypr-reload-desktop";
     };
     initContent = ''
       if [ -n "$TMUX" ]; then
