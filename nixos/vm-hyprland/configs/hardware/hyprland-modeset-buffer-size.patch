@@ -1,0 +1,16 @@
+--- a/src/helpers/Monitor.cpp
++++ b/src/helpers/Monitor.cpp
+@@ -2596,7 +2596,12 @@
+     }
+
+     if (STATE.buffer) {
+-        if (const auto params = STATE.buffer->dmabuf(); params.success && params.format == m_owner->m_drmFormat)
++        // The previous frame's buffer stays in the state after a commit. On a
++        // mode change its size no longer matches the new mode, and drivers that
++        // require the primary plane to cover the whole CRTC (virtio-gpu) reject
++        // the modeset, so only keep it if its size matches too.
++        const auto& MODE = STATE.mode ? STATE.mode : STATE.customMode;
++        if (const auto params = STATE.buffer->dmabuf(); params.success && params.format == m_owner->m_drmFormat && (!MODE || params.size == MODE->pixelSize))
+             return;
+     }
+

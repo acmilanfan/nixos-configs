@@ -8,11 +8,24 @@
   hardware.graphics.enable = true;
 
   # UTM's "Auto Resolution" (dynamic display resize to follow the VM window)
-  # works via the SPICE guest agent: without spice-vdagent running inside the
-  # guest, the display stays stuck at the initial EDID mode (1280x800) and
-  # higher DRM modes are rejected. This is what enables the display to follow
-  # the UTM window size. (See UTM docs: guest-support/dynamic-resolution.)
+  # sends the window size to the SPICE guest agent, not to virtio-gpu, whose
+  # mode stays at QEMU's 1280x800. The agent can't apply it on Wayland itself;
+  # the session agent wrapper in home-manager/custom.nix does. (See UTM docs:
+  # guest-support/dynamic-resolution.)
   services.spice-vdagentd.enable = true;
+
+  # Hyprland (0.55.4, still in upstream main as of 2026-10) keeps the previous
+  # frame's buffer when testing/committing a new mode if only its format
+  # matches. virtio-gpu requires the primary plane to cover the whole CRTC, so
+  # every mode change was rejected (atomic: EINVAL; legacy: ENOSPC) and the
+  # display never left 1280x800. The patch also requires the size to match.
+  nixpkgs.overlays = [
+    (_: prev: {
+      hyprland = prev.hyprland.overrideAttrs (old: {
+        patches = (old.patches or [ ]) ++ [ ./hyprland-modeset-buffer-size.patch ];
+      });
+    })
+  ];
 
   # Matches what nixpkgs' virtualisation/disk-image.nix module (used only
   # when building the initial .qcow2 via system.build.images.qemu-efi) sets
@@ -26,7 +39,20 @@
   fileSystems."/" = {
     device = "/dev/disk/by-label/nixos";
     fsType = "ext4";
+    # The image's diskSize = "auto" leaves only ~512MB free, so the disk is
+    # meant to be enlarged in UTM (VM settings -> drive -> Resize). The image
+    # module enables growing into that space, but only for the image build;
+    # keep it for deployed generations too.
+    autoResize = true;
   };
+  boot.growPartition = true;
+
+  # The image's ESP is make-disk-image's fixed 256M, and an aarch64 kernel
+  # (uncompressed Image) plus initrd is ~90MB, so it holds two kernels. The
+  # systemd-boot installer copies the new generation's files before removing
+  # old ones: with a limit of 2, two kernel changes in a row need room for
+  # three and fail with ENOSPC. Older generations stay in the system profile.
+  boot.loader.systemd-boot.configurationLimit = 1;
   fileSystems."/boot" = {
     device = "/dev/disk/by-label/ESP";
     fsType = "vfat";

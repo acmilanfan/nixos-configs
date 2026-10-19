@@ -10,11 +10,13 @@
   #
   # nofail: don't hang/fail boot if the share isn't attached (e.g. sharing
   # not yet configured in UTM, or booting for image-build purposes where no
-  # VirtFS device exists at all).
+  # VirtFS device exists at all). noauto + x-systemd.automount: mount on
+  # first access instead, so switch-to-configuration (which starts changed
+  # mount units regardless of nofail) doesn't fail every deploy then.
   fileSystems."/home/gentooway/configs/nixos-configs" = {
     device = "share";
     fsType = "9p";
-    options = [ "trans=virtio" "version=9p2000.L" "msize=104857600" "rw" "nofail" ];
+    options = [ "trans=virtio" "version=9p2000.L" "msize=104857600" "rw" "nofail" "noauto" "x-systemd.automount" ];
   };
 
 }
