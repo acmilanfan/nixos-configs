@@ -85,6 +85,7 @@ before(async () => {
     let m = import ${configModule} {
       config.home.username = "gentooway"; secrets = {}; unstable = {}; inputs = {};
       pkgs = { mcp-nixos = "/fixture/mcp-nixos"; jq = "/fixture/jq";
+        opencode-agent-memory = "/fixture/memory"; stdenv.isDarwin = true;
         runCommand = name: env: script: "/fixture/" + name; };
       lib.hm.dag.entryAfter = _: value: value;
     }; in m.home.activation.opencodeSettings
@@ -113,20 +114,30 @@ before(async () => {
     commands: settings.commands,
     plugins: contextPlugins,
     model: "fixture/mock", small_model: "fixture/mock",
-    provider: { fixture: {
-      npm: "@ai-sdk/openai-compatible",
-      options: { baseURL: `http://127.0.0.1:${provider.address().port}/v1`, apiKey: "fixture" },
+    providers: { fixture: {
+      package: "@opencode/ai/providers/openai-compatible",
+      settings: { baseURL: `http://127.0.0.1:${provider.address().port}/v1`, apiKey: "fixture" },
       models: { mock: { name: "Mock", limit: { context: 16000, output: 1000 } } },
     }, openai: {
-      npm: "@ai-sdk/openai-compatible",
-      options: { baseURL: `http://127.0.0.1:${provider.address().port}/v1`, apiKey: "fixture" },
+      package: "@opencode/ai/providers/openai-compatible",
+      settings: { baseURL: `http://127.0.0.1:${provider.address().port}/v1`, apiKey: "fixture" },
       models: { "gpt-6.1-sol": { name: "Lead fixture", limit: { context: 16000, output: 1000 } } },
     }, "opencode-go": {
       // Redirect the real configured worker model to the local fixture. This
       // verifies selection without credentials, paid calls, or live providers.
-      npm: "@ai-sdk/openai-compatible",
-      options: { baseURL: `http://127.0.0.1:${provider.address().port}/v1`, apiKey: "fixture" },
-      models: { "deepseek-v4.1-flash": { name: "Flash fixture", limit: { context: 16000, output: 1000 } } },
+      package: "@opencode/ai/providers/openai-compatible",
+      settings: { baseURL: `http://127.0.0.1:${provider.address().port}/v1`, apiKey: "fixture" },
+      models: { "deepseek-v4.1-flash": {
+        name: "Flash fixture", limit: { context: 16000, output: 1000 },
+        // The built-in catalog model has its own endpoint, which overrides
+        // provider-level settings. Pin the model route too: never call Go.
+        package: "@opencode/ai/providers/openai-compatible",
+        settings: { baseURL: `http://127.0.0.1:${provider.address().port}/v1`, apiKey: "fixture" },
+        variants: [
+          { id: "low", settings: { reasoningEffort: "low" } },
+          { id: "max", settings: { reasoningEffort: "max" } },
+        ],
+      } },
     } },
   }));
   // Mirror the ordered Nix activation: initialize once before either process
@@ -154,6 +165,11 @@ before(async () => {
   Object.assign(process.env, env);
   request = createRequest(bin);
   storage = createStorage(request, async () => []);
+  const catalog = (await request("/api/model", { query: { "location[directory]": project } })).data;
+  const flash = catalog.find((model) => model.providerID === "opencode-go" && model.id === "deepseek-v4.1-flash");
+  assert.ok(flash, "configured Flash fixture is available");
+  assert.equal(flash.settings?.baseURL, `http://127.0.0.1:${provider.address().port}/v1`,
+    "Flash's model-specific route must remain local before any subagent runs");
 }, { timeout: 60000 });
 
 after(async () => {
@@ -186,6 +202,54 @@ test("initialized credentials are shared by concurrently starting clients and th
   assert.ok(clients.every((client) => client.stdout.trim() === service.password));
 });
 
+test("Build excludes hybrid children but retains standard subagent delegation", { skip }, async () => {
+  for (const agent of ["hybrid-explore", "hybrid-review", "hybrid-worker", "general", "explore"]) {
+    const denied = agent.startsWith("hybrid-");
+    const session = (await request("/api/session", { method: "POST", body: {
+      agent: "build", model: { providerID: "fixture", id: "mock" },
+      title: `Build routing ${agent}`, location: { directory: project },
+    } })).data;
+    const start = modelRequests.length;
+    // Deliberately force a call even when the child is absent from the catalog:
+    // removing discoverability alone must not be mistaken for enforcement.
+    await request(`/api/session/${session.id}/prompt`, { method: "POST", body: { text: `Hybrid routing ${agent}` } });
+    let transcript = [];
+    for (let i = 0; i < 150; i++) {
+      transcript = await storage.loadTranscript(session.id);
+      if (transcript.some((e) => e.parts.some((p) => p.type === "tool" && p.tool === "subagent"
+        && ["completed", "error"].includes(p.state.status)))) break;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    const outgoing = modelRequests.slice(start).find((body) => body.messages.some((m) => m.role === "user"
+      && m.content === `Hybrid routing ${agent}`));
+    assert.ok(outgoing, "captured Build's model request");
+    assert.equal(outgoing.model, "mock", "Build keeps the session's selected model");
+    const subagent = outgoing.tools.find((tool) => tool.function.name === "subagent");
+    assert.ok(subagent, "Build retains its standard subagent tool");
+    for (const id of ["hybrid-explore", "hybrid-review", "hybrid-worker"]) {
+      assert.equal(JSON.stringify(subagent).includes(id), false, `${id} is absent from Build's child catalog`);
+    }
+    const call = transcript.flatMap((e) => e.parts).find((p) => p.tool === "subagent");
+    assert.equal(call?.state.status, denied ? "error" : "completed", JSON.stringify(call));
+    const children = (await request("/api/session", { query: { parentID: session.id } })).data;
+    assert.equal(children.length, denied ? 0 : 1, `${agent}: denied calls create no child; standard calls still run`);
+    if (!denied) {
+      assert.equal(children[0].agent, agent);
+      assert.equal(children[0].model.providerID, "fixture", "standard children still inherit Build's selected model");
+      assert.equal(children[0].model.id, "mock");
+    }
+    let finished = false;
+    for (let i = 0; i < 100; i++) {
+      const { stdout } = await execute("git", ["log", "--format=%(trailers:key=Agent-Event,valueonly)",
+        `refs/worktree/agent/${session.id}`], { cwd: project, env }).catch(() => ({ stdout: "" }));
+      if (stdout.includes("post")) { finished = true; break; }
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    assert.ok(finished, `${agent} Build turn finished`);
+    await storage.deleteSession({ id: session.id });
+  }
+});
+
 test("hybrid command selects Sol and delegates to Flash workers without inheriting its lead model", { skip }, async () => {
   let agents = [];
   for (let i = 0; i < 40; i++) {
@@ -195,7 +259,7 @@ test("hybrid command selects Sol and delegates to Flash workers without inheriti
     await new Promise((r) => setTimeout(r, 100));
   }
   assert.ok(agents.some((agent) => agent.id === "hybrid"), `Nix registers the hybrid primary agent: ${agents.map((agent) => agent.id)}`);
-  for (const [agent, variant] of [["hybrid-review", "high"], ["hybrid-explore", "low"], ["hybrid-worker", "high"]]) {
+  for (const [agent, variant] of [["hybrid-review", "max"], ["hybrid-explore", "low"], ["hybrid-worker", "max"]]) {
     const profile = agents.find((entry) => entry.id === agent);
     assert.ok(profile, `Nix registers ${agent}`);
     assert.equal(profile.steps, undefined, `${agent} has no step cap`);

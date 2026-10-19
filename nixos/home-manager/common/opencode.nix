@@ -286,8 +286,8 @@ let
     ];
 
     provider = localProviders // (if isWork then remoteProviders else { }) // {
-      # Built-in provider; this only overrides per-model options. DeepSeek
-      # defaults agent traffic to max effort, high is enough and faster.
+      # Built-in provider; preserve max as the model default. Explicit agent
+      # variants (for example hybrid-explore's low) override this setting.
       "opencode-go".models."deepseek-v4.1-flash".options.reasoningEffort = "max";
     };
 
@@ -395,6 +395,12 @@ let
     # The Superpowers adapter skips its bootstrap for local/research. Select
     # the local model separately: switching primary agents keeps session.model.
     agents = {
+      # Keep the builtin Build prompt/model and standard General/Explore
+      # delegation. Flash children belong to the explicitly selected hybrid
+      # workflow, not the globally visible Build subagent catalog.
+      build.permissions = [
+        { action = "subagent"; resource = "hybrid-*"; effect = "deny"; }
+      ];
       hybrid = {
         description = "Sol lead with Flash workers: bounded delegation and lead review";
         mode = "primary";
@@ -406,11 +412,11 @@ let
           actions without authorization.
 
           Use hybrid-explore (Flash low) for focused read-only discovery and
-          call-site tracing, hybrid-review (Flash high) for independent review,
-          and hybrid-worker (Flash high) for bounded changes and tests. Keep their
+          call-site tracing, hybrid-review (Flash max) for independent review,
+          and hybrid-worker (Flash max) for bounded changes and tests. Keep their
           configured model/effort unless the user requests an override; do not
-          substitute built-in general/explore agents. Max review effort is an
-          optional requested trial, not the default or proof of better coverage.
+          substitute built-in general/explore agents. Max is the configured
+          review/worker default, not proof of better coverage or passing tests.
           Work directly on trivial or tightly coupled edits; delegate independent
           slices with a concrete deliverable, not every small edit or repeated scan.
           Keep architecture, security decisions, difficult debugging, and integration
@@ -515,7 +521,7 @@ let
           [ "edit" "shell" "execute" "skill" "subagent" "question" ];
       };
       hybrid-review = {
-        description = "Flash high: read-only correctness, security and integration review";
+        description = "Flash max: read-only correctness, security and integration review";
         mode = "subagent";
         model = "opencode-go/deepseek-v4.1-flash#max";
         system = ''
@@ -544,7 +550,7 @@ let
           [ "edit" "shell" "execute" "skill" "subagent" "question" ];
       };
       hybrid-worker = {
-        description = "Flash high: bounded implementation and tests in lead-assigned files";
+        description = "Flash max: bounded implementation and tests in lead-assigned files";
         mode = "subagent";
         model = "opencode-go/deepseek-v4.1-flash#max";
         system = ''

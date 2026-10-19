@@ -1,5 +1,5 @@
 // Requires nix-instantiate (run with the flake's locked nixpkgs environment).
-// Validate generated routing descriptions against the documented low/high/high
+// Validate generated routing descriptions against the documented low/max/max
 // defaults. Inline lead prompt cues and live model behavior are not covered here.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
@@ -25,7 +25,7 @@ for (const username of ["gentooway", "andreishumailov"]) {
     `], { encoding: "utf8", timeout: 30000 }));
     const { agents } = JSON.parse(activation.split("cat <<'EOF'\n")[1].split("\nEOF")[0]);
     for (const [id, expectedEffort] of [
-      ["hybrid-explore", "low"], ["hybrid-review", "high"], ["hybrid-worker", "high"],
+      ["hybrid-explore", "low"], ["hybrid-review", "max"], ["hybrid-worker", "max"],
     ]) {
       const profile = agents[id];
       assert.ok(profile, `${id} is registered`);
