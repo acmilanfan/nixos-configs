@@ -44,6 +44,8 @@ Build the `vm-hyprland` QEMU image from macOS (uses the nix-darwin Linux builder
 nix build .#vm-hyprland-image
 ```
 
+`create-utm-vm-hyprland` builds it and creates the UTM VM; `VM_HYPRLAND_HOST=<ip> sup-vm-hyprland` deploys to a running one. Setup on another Mac, the remaining manual steps (disk resize, boot partition, linux-builder recovery) and why the VM's display/cursor config looks the way it does: `docs/vm-hyprland.md`.
+
 *Note: evaluation is pure, so no `--impure`. `flake.nix` sets `inputs.self.submodules = true`, so the `secrets/` submodule is part of the flake source. It must be checked out (`git submodule update --init`), and its whole contents are copied into the world-readable `/nix/store`. Keep only encrypted or non-sensitive data there.*
 
 ### Closed-lid operation on macOS

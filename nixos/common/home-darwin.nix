@@ -115,8 +115,48 @@ in
         nvim -c 'startinsert' "$SCRATCH_FILE" && /usr/bin/pbcopy < "$SCRATCH_FILE"
       '')
 
-      (pkgs.writeShellScriptBin "create-utm-vm-hyprland"
-        (lib.readFile ../vm-hyprland/scripts/create-utm-vm.sh))
+      (pkgs.writeShellApplication {
+        name = "create-utm-vm-hyprland";
+        runtimeInputs = [ pkgs.qemu-utils ];
+        text = lib.readFile ../vm-hyprland/scripts/create-utm-vm.sh;
+      })
+
+      # Point an existing UTM VM's VirtFS share at a folder (UTM keeps it in
+      # its registry, not config.plist, so it can't be set declaratively).
+      # Takes effect on the VM's next start.
+      (pkgs.writeShellApplication {
+        name = "utm-vm-hyprland-share";
+        text = ''
+          vm=''${1:-vm-hyprland}
+          dir=''${2:-$HOME/configs/nixos-configs}
+          osascript - "$vm" "$dir" <<'APPLESCRIPT'
+          on run argv
+            tell application "UTM"
+              set vm to virtual machine named (item 1 of argv)
+              update registry of vm with {POSIX file (item 2 of argv)}
+              return registry of vm
+            end tell
+          end run
+          APPLESCRIPT
+        '';
+      })
+
+      # Remote-deploy config changes to the vm-hyprland UTM VM: build here
+      # (the local daemon hands aarch64-linux to nix.linux-builder) and
+      # push+activate over SSH, without touching the VM's own clone. Target
+      # user must be gentooway (the only user vm-hyprland's own config
+      # defines) - without it ssh silently falls back to the local macOS
+      # username, which can never authenticate. A script, not an alias: an
+      # alias expands ${VM_HYPRLAND_HOST} before a `VM_HYPRLAND_HOST=<ip>
+      # sup-vm-hyprland` prefix applies, so the override never took effect.
+      # No --build-host localhost: it made nixos-rebuild copy from
+      # ssh://localhost, needing Remote Login and the Mac password.
+      (pkgs.writeShellScriptBin "sup-vm-hyprland" ''
+        exec nixos-rebuild switch \
+          --flake "$HOME/configs/nixos-configs#vm-hyprland" \
+          --target-host "gentooway@''${VM_HYPRLAND_HOST:-vm-hyprland}" \
+          --sudo --ask-sudo-password "$@"
+      '')
 
       # Feed Raycast OAuth callbacks (https://www.raycast.com/redirect?...)
       # to Vicinae. Raycast's scheme is owned by the Raycast app, so the
@@ -138,17 +178,6 @@ in
     {
       # macOS-specific aliases
       sup = "sudo darwin-rebuild switch --flake $HOME/configs/nixos-configs";
-
-      # Remote-deploy config changes to the vm-hyprland UTM VM: build here
-      # (via nix.linux-builder, since this Mac can't build aarch64-linux
-      # natively) and push+activate over SSH, without touching the VM's own
-      # clone. Target user must be gentooway (the only user vm-hyprland's
-      # own config defines) - without it ssh silently falls back to the
-      # local macOS username, which doesn't exist on the VM and can never
-      # authenticate. Override the host with VM_HYPRLAND_HOST=<ip>
-      # sup-vm-hyprland if "vm-hyprland" isn't resolvable (no mDNS/SSH
-      # config alias set up).
-      sup-vm-hyprland = "nixos-rebuild switch --flake $HOME/configs/nixos-configs#vm-hyprland --target-host \"gentooway@\${VM_HYPRLAND_HOST:-vm-hyprland}\" --build-host localhost --sudo --ask-sudo-password";
 
       # macOS system management
       flush-dns = "sudo dscacheutil -flushcache && sudo killall -HUP mDNSResponder";
