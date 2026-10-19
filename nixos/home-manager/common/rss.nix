@@ -2,9 +2,11 @@
 
   # Wrapper that syncs the cache from/to the Nextcloud folder only while
   # newsboat is not running, so the SQLite file is never copied mid-write.
+  # flock: cross-platform (macOS has none), used to serialise wrapper runs.
   home.packages = [
     (pkgs.writeShellScriptBin "newsboat-sync"
-      (builtins.readFile ./newsboat-sync.sh))
+      (builtins.replaceStrings [ "@flock@" ] [ "${pkgs.flock}/bin/flock" ]
+        (builtins.readFile ./newsboat-sync.sh)))
   ];
 
 programs.newsboat = {

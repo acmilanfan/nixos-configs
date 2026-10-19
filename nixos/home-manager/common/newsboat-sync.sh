@@ -37,6 +37,21 @@ pull_and_check() {
 
 mkdir -p "$STAGING_DIR" "$(dirname "$LOCAL_DB")"
 
+# One wrapper at a time: a second one would pull over the cache under the
+# first one's newsboat. The flock path is substituted in rss.nix.
+exec 9>"$STAGING_DIR/lock"
+if ! @flock@ -n 9; then
+    echo "newsboat-sync: another newsboat-sync is running, not starting." >&2
+    exit 1
+fi
+
+# A bare newsboat on the same cache holds "$LOCAL_DB.lock" with its PID.
+if pid=$(cat "$LOCAL_DB.lock" 2>/dev/null) && [ -n "$pid" ] \
+    && kill -0 "$pid" 2>/dev/null; then
+    echo "newsboat-sync: newsboat (PID $pid) already has $LOCAL_DB open, not syncing." >&2
+    exit 1
+fi
+
 # Pull: prefer the synced copy only if it is present and strictly newer.
 if [ ! -f "$LOCAL_DB" ] || [ "$SYNC_DB" -nt "$LOCAL_DB" ]; then
     if pull_and_check; then
@@ -45,7 +60,8 @@ if [ ! -f "$LOCAL_DB" ] || [ "$SYNC_DB" -nt "$LOCAL_DB" ]; then
 fi
 
 # Run the real newsboat (blocking). Args pass through, so "-x" still works.
-newsboat --url-file="$URLS_FILE" --cache-file="$LOCAL_DB" "$@"
+# fd 9 is closed for it so browsers it spawns don't inherit the lock.
+newsboat --url-file="$URLS_FILE" --cache-file="$LOCAL_DB" "$@" 9>&-
 rc=$?
 
 # Push: only push a healthy local cache.

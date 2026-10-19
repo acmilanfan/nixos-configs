@@ -1,44 +1,53 @@
 { config, pkgs, lib, ... }:
 
 {
-  services.howdy = {
-    enable = true;
-    package = pkgs.howdy;
-    settings = {
-      core = {
-        no_face_timeout = 10;
-        detection_notice = false;
-      };
-      video = {
-        device_path = "/dev/video2"; # Common path for IR cameras, adjust if needed (e.g., /dev/video0)
-        dark_threshold = 50;
-        # resolution = "640x480"; # Some IR cameras need specific resolution
-      };
-    };
-  };
+  config = lib.mkMerge [
+    {
+      # Hosts without a camera (vm-hyprland) set this to false; everything
+      # else in this module is gated on it.
+      services.howdy.enable = lib.mkDefault true;
+    }
 
-  # Help enable the IR emitter if the camera has one and it's not active by default
-  services.linux-enable-ir-emitter.enable = true;
+    (lib.mkIf config.services.howdy.enable {
+      services.howdy = {
+        package = pkgs.howdy;
+        settings = {
+          core = {
+            no_face_timeout = 10;
+            detection_notice = false;
+          };
+          video = {
+            device_path = "/dev/video2"; # Common path for IR cameras, adjust if needed (e.g., /dev/video0)
+            dark_threshold = 50;
+            # resolution = "640x480"; # Some IR cameras need specific resolution
+          };
+        };
+      };
 
-  # Manually configure PAM rules since we aren't using fufexan's PAM module
-  security.pam.services = let
-    howdyRule = {
-      order = 10; # Low order to run before pam_unix
-      control = "sufficient";
-      modulePath = "${pkgs.howdy}/lib/security/pam_howdy.so";
-    };
-  in {
-    hyprlock.rules.auth = {
-      howdy = lib.mkForce howdyRule;
-    };
-    i3lock.rules.auth = {
-      howdy = lib.mkForce howdyRule;
-    };
-    sudo.rules.auth = {
-      howdy = lib.mkForce howdyRule;
-    };
-    login.rules.auth = {
-      howdy = lib.mkForce howdyRule;
-    };
-  };
+      # Help enable the IR emitter if the camera has one and it's not active by default
+      services.linux-enable-ir-emitter.enable = true;
+
+      # Manually configure PAM rules since we aren't using fufexan's PAM module
+      security.pam.services = let
+        howdyRule = {
+          order = 10; # Low order to run before pam_unix
+          control = "sufficient";
+          modulePath = "${pkgs.howdy}/lib/security/pam_howdy.so";
+        };
+      in {
+        hyprlock.rules.auth = {
+          howdy = lib.mkForce howdyRule;
+        };
+        i3lock.rules.auth = {
+          howdy = lib.mkForce howdyRule;
+        };
+        sudo.rules.auth = {
+          howdy = lib.mkForce howdyRule;
+        };
+        login.rules.auth = {
+          howdy = lib.mkForce howdyRule;
+        };
+      };
+    })
+  ];
 }

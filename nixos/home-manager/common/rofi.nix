@@ -11,7 +11,7 @@
     enable = true;
     theme = "purple";
     font = "Roboto Medium 13";
-    terminal = "\${pkgs.alacritty}/bin/alacritty";
+    terminal = "${pkgs.alacritty}/bin/alacritty";
     plugins = with pkgs; [
       rofi-calc
       rofi-emoji

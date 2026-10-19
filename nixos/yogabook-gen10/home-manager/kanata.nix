@@ -31,14 +31,21 @@
     };
   };
 
-  xdg.configFile."kanata/active_config.kbd".source =
-    config.lib.file.mkOutOfStoreSymlink
-      "${config.home.homeDirectory}/.config/kanata/kanata-yogabook.kbd";
+  # active_config.kbd is owned by switch-kanata.sh (ln -sf), not by HM, so the
+  # chosen profile survives rebuilds. Only seed the default when it's missing
+  # (after linkGeneration, which removes the link older generations managed).
+  home.activation.seedKanataActiveConfig = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
+    active="${config.xdg.configHome}/kanata/active_config.kbd"
+    if [ ! -e "$active" ] && [ ! -L "$active" ]; then
+      run mkdir -p $VERBOSE_ARG "$(dirname "$active")"
+      run ln -s $VERBOSE_ARG "${config.xdg.configHome}/kanata/kanata-yogabook.kbd" "$active"
+    fi
+  '';
 
   # Auto-reload kanata on home-manager switch
-  home.activation.reloadKanata = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+  home.activation.reloadKanata = lib.hm.dag.entryAfter [ "writeBoundary" "seedKanataActiveConfig" ] ''
     if systemctl --user is-active kanata &>/dev/null; then
-      systemctl --user restart kanata
+      run systemctl --user restart kanata
     fi
   '';
 

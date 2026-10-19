@@ -185,7 +185,10 @@
   # boot.blacklistedKernelModules = [ "simpledrm" ];
   # boot.blacklistedKernelModules = [ "hid-multitouch simpledrm" ];
   # boot.blacklistedKernelModules = [ "hid-multitouch simpledrm efifb" ];
-  boot.initrd.kernelModules = [ "xe ideapad_laptop i2c-dev" ];
+  # nixos-hardware's common-gpu-intel loads its driver in initrd by name (which
+  # ignores the i915 blacklist above); point it at xe instead.
+  hardware.intelgpu.driver = "xe";
+  boot.initrd.kernelModules = [ "ideapad_laptop" "i2c-dev" ];
   boot.extraModprobeConfig = ''
     options ideapad_laptop allow_v4_dytc=1
   '';
@@ -254,20 +257,6 @@
 
   services.power-profiles-daemon.enable = false;
   powerManagement.enable = true;
-
-  nixpkgs.config.packageOverrides = pkgs: {
-    vaapiIntel = pkgs.vaapiIntel.override { enableHybridCodec = true; };
-
-    # Trims down the kernel by disabling drivers for hardware we don't have.
-    # This should result in faster kernel builds.
-    linux_latest = pkgs.linux_latest.overrideAttrs (old: {
-      extraConfig = (old.extraConfig or "") + ''
-        CONFIG_DRM_AMDGPU=n
-        CONFIG_DRM_RADEON=n
-        CONFIG_DRM_NOUVEAU=n
-      '';
-    });
-  };
 
   hardware.graphics = {
     enable = true;
