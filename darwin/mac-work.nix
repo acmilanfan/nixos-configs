@@ -33,6 +33,11 @@
     darwin-builder = {
       memorySize = 12288; # MB
       diskSize = 102400; # MB (100GB; qcow2 is sparse, won't eagerly consume this)
+      # Upstream auto-GC only starts below 1GiB free and stops at 3GiB, so the
+      # disk fills with old builds until a big output (the ~12GB
+      # vm-hyprland-image) fails with ENOSPC. Keep real headroom instead.
+      min-free = 20 * 1024 * 1024 * 1024; # bytes
+      max-free = 40 * 1024 * 1024 * 1024; # bytes
     };
   };
 }
