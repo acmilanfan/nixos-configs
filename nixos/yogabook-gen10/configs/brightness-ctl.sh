@@ -19,7 +19,11 @@ apply() {
   H=$(date +%k | tr -d ' ')
   local temp=6000; [ "$H" -ge 21 ] || [ "$H" -lt 6 ] && temp=3500
   pkill -9 hyprsunset 2>/dev/null
-  while pgrep hyprsunset >/dev/null 2>&1; do :; done
+  # Wait for the old instance to exit (max ~2s) instead of spinning
+  local i=0
+  while pgrep hyprsunset >/dev/null 2>&1 && [ "$i" -lt 40 ]; do
+    sleep 0.05; i=$((i + 1))
+  done
   exec 9>&-  # release flock so child doesn't inherit it
   hyprsunset -g "$gamma" -t "$temp" &>/dev/null &
 }

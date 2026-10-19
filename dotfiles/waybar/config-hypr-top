@@ -32,8 +32,8 @@
       "interval": 5,
       "return-type": "json",
       "exec": "hypr-kanata-status",
-      "on-click": "switch-kanata.sh homerow",
-      "on-click-right": "switch-kanata.sh disabled",
+      "on-click": "$HOME/.config/kanata/switch-kanata.sh homerow",
+      "on-click-right": "$HOME/.config/kanata/switch-kanata.sh disabled",
       "tooltip": true
   },
   "custom/layout": {

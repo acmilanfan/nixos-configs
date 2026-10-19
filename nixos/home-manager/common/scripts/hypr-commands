@@ -1,36 +1,46 @@
 #!/bin/bash
 
 # Commands Menu (Searchable Actions)
-# Format: "Display Name | Command"
+# Labels map to fixed commands in the case below (no eval of the choice).
+# Kanata scripts live in ~/.config/kanata (yogabook only), not on PATH.
 
-COMMANDS=(
-  "Reload Hyprland Config | hyprctl reload"
-  "Reset Workspace Layout | hypr-reset-layout"
-  "Toggle Monocle/Tile | hypr-cycle-layout"
-  "Timer: Start 25m | hypr-timer start 25"
-  "Timer: Start 5m | hypr-timer start 5"
-  "Timer: Stop | hypr-timer stop"
-  "Timer: Reset | hypr-timer reset"
-  "Kanata: Home Row | switch-kanata.sh homerow"
-  "Kanata: Disabled | switch-kanata.sh disabled"
-  "Reload Kanata | reload-kanata.sh restart"
-  "AI Agents Menu | hypr-ai-agents --menu"
-  "Switch Window | hypr-focus-window"
-  "Lock Screen | hyprlock"
-  "Caffeinate: Toggle | hypr-caffeinate-toggle"
-  "Borders: Toggle | hypr-borders-toggle"
-  "Battery Saver: Toggle | hypr-powersave-mode"
-  "Animations: Toggle | hypr-animations-toggle"
+KANATA_DIR="$HOME/.config/kanata"
+
+LABELS=(
+  "Reload Hyprland Config"
+  "Toggle Monocle/Tile"
+  "Timer: Start 25m"
+  "Timer: Start 5m"
+  "Timer: Stop"
+  "Timer: Reset"
+  "Kanata: Home Row"
+  "Kanata: Disabled"
+  "Reload Kanata"
+  "AI Agents Menu"
+  "Switch Window"
+  "Lock Screen"
+  "Caffeinate: Toggle"
+  "Battery Saver: Toggle"
+  "Animations: Toggle"
 )
 
-# Convert to newline separated string for vicinae dmenu
-MENU_INPUT=$(printf "%s\n" "${COMMANDS[@]}")
+# Show menu (newline separated for vicinae dmenu) and get choice
+CHOICE=$(printf "%s\n" "${LABELS[@]}" | vicinae dmenu -W 600 -p "Search Commands...")
 
-# Show menu and get choice
-CHOICE=$(echo "$MENU_INPUT" | vicinae dmenu -W 600 -p "Search Commands...")
-
-if [ -n "$CHOICE" ]; then
-  # Extract the command part after the pipe
-  CMD=$(echo "$CHOICE" | cut -d '|' -f 2 | xargs)
-  eval "$CMD"
-fi
+case "$CHOICE" in
+  "Reload Hyprland Config") hyprctl reload ;;
+  "Toggle Monocle/Tile") hypr-cycle-layout ;;
+  "Timer: Start 25m") hypr-timer start 25 ;;
+  "Timer: Start 5m") hypr-timer start 5 ;;
+  "Timer: Stop") hypr-timer stop ;;
+  "Timer: Reset") hypr-timer reset ;;
+  "Kanata: Home Row") "$KANATA_DIR/switch-kanata.sh" homerow ;;
+  "Kanata: Disabled") "$KANATA_DIR/switch-kanata.sh" disabled ;;
+  "Reload Kanata") "$KANATA_DIR/reload-kanata.sh" restart ;;
+  "AI Agents Menu") hypr-ai-agents --menu ;;
+  "Switch Window") hypr-focus-window ;;
+  "Lock Screen") hyprlock ;;
+  "Caffeinate: Toggle") hypr-idle-inhibit toggle ;;
+  "Battery Saver: Toggle") hypr-powersave-mode toggle ;;
+  "Animations: Toggle") hypr-animations-toggle ;;
+esac

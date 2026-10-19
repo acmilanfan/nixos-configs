@@ -1,22 +1,15 @@
 #!/usr/bin/env bash
 
-POWERSAVEMODE=$(hyprctl getoption animations:enabled | awk 'NR==1{print $2}')
-if [ "$POWERSAVEMODE" = 1 ] ; then
-    hyprctl --batch "\
-        keyword animations:enabled 0;\
-        keyword animation borderangle,0"
- #        keyword decoration:shadow:enabled 0;\
- #        keyword decoration:blur:enabled 0;\
-	# keyword decoration:fullscreen_opacity 1;\
- #        keyword general:gaps_in 0;\
- #        keyword general:gaps_out 0;\
- #        keyword general:border_size 1;\
-        # keyword decoration:rounding 0"
-    hyprctl notify 1 5000 "rgb(40a02b)" "Animations OFF]"
-    exit
+# The Lua config parser rejects `hyprctl keyword`; use `hyprctl eval`
+# (same as _toggle_animations in hyprland.lua). getoption prints
+# "bool: true|false" there; accept 1 too.
+ANIMATIONS=$(hyprctl getoption animations:enabled | awk 'NR==1{print $2}')
+if [ "$ANIMATIONS" = 1 ] || [ "$ANIMATIONS" = true ]; then
+    hyprctl eval "hl.config({ animations = { enabled = false } })"
+    hyprctl notify 1 5000 "rgb(40a02b)" "Animations OFF"
+    exit 0
 else
     hyprctl notify 1 5000 "rgb(d20f39)" "Animations ON"
     hyprctl reload
     exit 0
 fi
-exit 1

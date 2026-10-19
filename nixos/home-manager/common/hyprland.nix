@@ -10,7 +10,7 @@ in
   home.sessionVariables = {
     XDG_CURRENT_DESKTOP = "Hyprland";
     XDG_SESSION_TYPE = "wayland";
-    QT_QPA_PLATFORM = "wayland";
+    QT_QPA_PLATFORM = "wayland;xcb";
     # macOS-style stem darkening (also set system-wide in nixos/common/fonts.nix)
     FREETYPE_PROPERTIES = "cff:no-stem-darkening=0 autofitter:no-stem-darkening=0 type1:no-stem-darkening=0 t1cid:no-stem-darkening=0";
   };
@@ -307,6 +307,7 @@ in
     (writeShellScriptBin "hypr-reload-desktop" (lib.readFile ./scripts/hypr-reload-desktop))
     (writeShellScriptBin "hypr-previous-workspace" (lib.readFile ./scripts/hypr-previous-workspace))
     (writeShellScriptBin "hypr-profile" (lib.readFile ./scripts/hypr-profile))
+    (writeShellScriptBin "hypr-profile-tablet" (lib.readFile ./scripts/hypr-profile-tablet))
     (writeShellScriptBin "hypr-toggle-kb" (lib.readFile ./scripts/hypr-toggle-kb))
     (writeShellScriptBin "hypr-send-to-other-monitor" (
       lib.readFile ./scripts/hypr-send-to-other-monitor
@@ -322,7 +323,6 @@ in
     (writeShellScriptBin "hypr-commands" (lib.readFile ./scripts/hypr-commands))
     (writeShellScriptBin "hypr-ai-agents" (lib.readFile ./scripts/hypr-ai-agents))
     (writeShellScriptBin "hypr-expand-float" (lib.readFile ./scripts/hypr-expand-float))
-    (writeShellScriptBin "hypr-iio-rotate" (lib.readFile ./scripts/hypr-iio-rotate))
     (writeShellScriptBin "hypr-focus-or-spawn" (lib.readFile ./scripts/hypr-focus-or-spawn))
     (writeShellScriptBin "hypr-reset-touch" (lib.readFile ./scripts/hypr-reset-touch))
     (writeShellScriptBin "hypr-iio-toggle" (lib.readFile ./scripts/hypr-iio-toggle))

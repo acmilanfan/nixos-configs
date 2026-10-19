@@ -86,11 +86,11 @@
     },
     "custom/screen_toggle": {
         "format": "🖥",
-        "on-click": "screen-toggle-hypr"
+        "on-click": "hypr-profile"
     },
     "custom/touch_toggle": {
         "format": "✋",
-        "on-click": "touch-toggle-hypr"
+        "on-click": "hypr-touch-menu"
     },
     "custom/window_toggle": {
         "format": "🪟",

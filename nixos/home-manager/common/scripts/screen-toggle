@@ -168,7 +168,7 @@ launch_rofi_menu() {
         "  Default Mode") default_mode ;;
         "  Single Top") single_top ;;
         "  Single Bottom") single_bottom ;;
-        "  Rotate Top Screen") rotate_top;;
+        "  Rotate Current") rotate_top ;;
         "  Book Mode Both") book_mode_both ;;
         "  Book Mode Single") book_mode_single ;;
         "  Combine Vertical") combine_vertical ;;

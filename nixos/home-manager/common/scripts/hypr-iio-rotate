@@ -44,31 +44,29 @@ apply_rotation() {
     E1_ACTIVE=$(echo "$MONITORS" | jq -e '.[] | select(.name == "eDP-1")' > /dev/null && echo true || echo false)
     E2_ACTIVE=$(echo "$MONITORS" | jq -e '.[] | select(.name == "eDP-2")' > /dev/null && echo true || echo false)
 
-    # Build atomic batch command
-    # We temporarily disable animations to prevent "sliding" during coordinate jumps
-    local BATCH_CMD="keyword animations:enabled 0 ; "
+    # One `hyprctl eval` chunk, applied atomically (the Lua config parser
+    # rejects `hyprctl keyword`). Animations are off during the jump to
+    # prevent "sliding" through the coordinate change.
+    local lua="hl.config({ animations = { enabled = false } })"
 
     if [ "$E1_ACTIVE" = "true" ]; then
-        BATCH_CMD+="keyword monitor eDP-1,2880x1800@120,0x0,1.6,transform,$trans ; "
-        BATCH_CMD+="keyword device[$TOUCH_TOP]:output eDP-1 ; "
-        BATCH_CMD+="keyword device[$STYLUS_TOP]:output eDP-1 ; "
-        BATCH_CMD+="keyword device[$TOUCH_TOP]:transform $trans ; "
-        BATCH_CMD+="keyword device[$STYLUS_TOP]:transform $trans ; "
+        lua+="
+hl.monitor({ output = 'eDP-1', mode = '2880x1800@120', position = '0x0', scale = 1.6, transform = $trans })
+hl.device({ name = '$TOUCH_TOP', output = 'eDP-1', transform = $trans })
+hl.device({ name = '$STYLUS_TOP', output = 'eDP-1', transform = $trans })"
     fi
 
     if [ "$E2_ACTIVE" = "true" ]; then
-        BATCH_CMD+="keyword monitor eDP-2,2880x1800@120,${x2}x${y2},1.6,transform,$trans ; "
-        BATCH_CMD+="keyword device[$TOUCH_BOTTOM]:output eDP-2 ; "
-        BATCH_CMD+="keyword device[$STYLUS_BOTTOM]:output eDP-2 ; "
-        BATCH_CMD+="keyword device[$TOUCH_BOTTOM]:transform $trans ; "
-        BATCH_CMD+="keyword device[$STYLUS_BOTTOM]:transform $trans ; "
+        lua+="
+hl.monitor({ output = 'eDP-2', mode = '2880x1800@120', position = '${x2}x${y2}', scale = 1.6, transform = $trans })
+hl.device({ name = '$TOUCH_BOTTOM', output = 'eDP-2', transform = $trans })
+hl.device({ name = '$STYLUS_BOTTOM', output = 'eDP-2', transform = $trans })"
     fi
 
-    # Re-enable animations at the end of the batch
-    BATCH_CMD+="keyword animations:enabled 1"
+    lua+="
+hl.config({ animations = { enabled = true } })"
 
-    # Execute all at once
-    hyprctl --batch "$BATCH_CMD"
+    hyprctl eval "$lua"
 }
 
 # Listen for sensor changes
