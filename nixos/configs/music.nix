@@ -1,4 +1,4 @@
-{ pkgs, musnix, ... }: {
+{ pkgs, musnix, username, ... }: {
 
   environment.systemPackages = with pkgs; [
     pavucontrol
@@ -44,5 +44,5 @@
     jack.enable = true;
   };
 
-  users.users.gentooway.extraGroups = [ "jackaudio" "audio" ];
+  users.users.${username}.extraGroups = [ "jackaudio" "audio" ];
 }

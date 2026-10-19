@@ -1,4 +1,4 @@
-{ pkgs, ... }: {
+{ pkgs, username, ... }: {
 
   imports = [
     ./../common
@@ -15,7 +15,7 @@
     # locally-built (unsigned) store paths over SSH; the target daemon only
     # accepts those from a trusted user, otherwise it fails with "lacks a
     # signature by a trusted key".
-    settings.trusted-users = [ "gentooway" ];
+    settings.trusted-users = [ username ];
   };
 
   system.stateVersion = "26.05";

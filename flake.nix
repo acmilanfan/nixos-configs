@@ -152,6 +152,8 @@
       linuxSystem = "x86_64-linux";
       macSystem = "aarch64-darwin";
       vmSystem = "aarch64-linux";
+      # The one user on every NixOS host; modules take it as `username`.
+      linuxUser = "gentooway";
 
       # Eval-time values only (emails, marketplace names). Credentials live in
       # secrets/secrets.yaml and are decrypted at activation by sops-nix.
@@ -234,12 +236,12 @@
       nixosConfigurations = {
         t480-home = inputs.nixpkgs.lib.nixosSystem {
           system = linuxSystem;
-          specialArgs = { inherit inputs; };
+          specialArgs = { inherit inputs; username = linuxUser; };
           modules = [
             ./nixos/t480-home/configuration.nix
             home-manager.nixosModules.home-manager
             {
-              home-manager.users.gentooway = import ./nixos/t480-home/home.nix;
+              home-manager.users.${linuxUser} = import ./nixos/t480-home/home.nix;
               home-manager.extraSpecialArgs = {
                 unstable = unstableFor linuxSystem;
                 inherit inputs linuxSystem secrets;
@@ -252,12 +254,12 @@
 
         yogabook-gen10 = inputs.nixpkgs.lib.nixosSystem {
           system = linuxSystem;
-          specialArgs = { inherit inputs; };
+          specialArgs = { inherit inputs; username = linuxUser; };
           modules = [
             ./nixos/yogabook-gen10/configuration.nix
             home-manager.nixosModules.home-manager
             {
-              home-manager.users.gentooway = import ./nixos/yogabook-gen10/home.nix;
+              home-manager.users.${linuxUser} = import ./nixos/yogabook-gen10/home.nix;
               home-manager.extraSpecialArgs = {
                 unstable = unstableFor linuxSystem;
                 inherit inputs linuxSystem secrets;
@@ -277,12 +279,12 @@
 
         vm-hyprland = inputs.nixpkgs.lib.nixosSystem {
           system = vmSystem;
-          specialArgs = { inherit inputs; };
+          specialArgs = { inherit inputs; username = linuxUser; };
           modules = [
             ./nixos/vm-hyprland/configuration.nix
             home-manager.nixosModules.home-manager
             {
-              home-manager.users.gentooway = import ./nixos/vm-hyprland/home.nix;
+              home-manager.users.${linuxUser} = import ./nixos/vm-hyprland/home.nix;
               home-manager.extraSpecialArgs = {
                 unstable = unstableFor vmSystem;
                 inherit inputs secrets;

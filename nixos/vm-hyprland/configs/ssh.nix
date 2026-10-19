@@ -1,4 +1,4 @@
-{ ... }: {
+{ username, ... }: {
 
   # None of the real hosts run an SSH server (they're personal laptops), but
   # this VM is meant to be reachable from the Mac for remote-deploying config
@@ -16,6 +16,6 @@
     };
   };
 
-  users.users.gentooway.openssh.authorizedKeys.keyFiles = [ ./authorized_keys ];
+  users.users.${username}.openssh.authorizedKeys.keyFiles = [ ./authorized_keys ];
 
 }

@@ -1,6 +1,6 @@
-{ ... }: {
+{ username, ... }: {
 
-  users.users.gentooway = {
+  users.users.${username} = {
     isNormalUser = true;
     extraGroups = [ "wheel" "networkmanager" "video" "audio" "input" ];
     # Only the real hosts (yogabook-gen10/t480-home) set no password

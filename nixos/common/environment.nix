@@ -1,4 +1,4 @@
-{ config, pkgs, lib, ... }: {
+{ config, pkgs, lib, username, ... }: {
 
   environment.variables = {
     BROWSER="firefox";
@@ -6,10 +6,10 @@
     MOZ_USE_XINPUT2="1";
     WINIT_X11_SCALE_FACTOR = "1.3";
     SSH_ASKPASS = lib.mkForce "ssh-askpass";
-    SSH_AUTH_SOCK = "/home/gentooway/.ssh/ssh_auth_sock";
+    SSH_AUTH_SOCK = "${config.users.users.${username}.home}/.ssh/ssh_auth_sock";
   } // (if config.programs.hyprland.enable then {
     MOZ_ENABLE_WAYLAND = "1";
-    QT_QPA_PLATFORM = "wayland";
+    QT_QPA_PLATFORM = "wayland;xcb";
     QT_WAYLAND_DISABLE_WINDOWDECORATION = "1";
     WLR_DRM_NO_MODIFIERS = "1";
   } else {});

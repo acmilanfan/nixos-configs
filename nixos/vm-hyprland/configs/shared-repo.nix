@@ -1,4 +1,4 @@
-{ ... }: {
+{ username, ... }: {
 
   # Mounts the host Mac's ~/configs/nixos-configs directly, via UTM's VirtFS
   # (9p) directory sharing, so the VM uses the exact same git working tree
@@ -13,7 +13,7 @@
   # VirtFS device exists at all). noauto + x-systemd.automount: mount on
   # first access instead, so switch-to-configuration (which starts changed
   # mount units regardless of nofail) doesn't fail every deploy then.
-  fileSystems."/home/gentooway/configs/nixos-configs" = {
+  fileSystems."/home/${username}/configs/nixos-configs" = {
     device = "share";
     fsType = "9p";
     options = [ "trans=virtio" "version=9p2000.L" "msize=104857600" "rw" "nofail" "noauto" "x-systemd.automount" ];
