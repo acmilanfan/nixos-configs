@@ -288,7 +288,7 @@ let
     provider = localProviders // (if isWork then remoteProviders else { }) // {
       # Built-in provider; this only overrides per-model options. DeepSeek
       # defaults agent traffic to max effort, high is enough and faster.
-      "opencode-go".models."deepseek-v4.1-flash".options.reasoningEffort = "high";
+      "opencode-go".models."deepseek-v4.1-flash".options.reasoningEffort = "max";
     };
 
     # Work: point at the existing hand-written ~/Work/CLAUDE.md (kept outside
@@ -517,7 +517,7 @@ let
       hybrid-review = {
         description = "Flash high: read-only correctness, security and integration review";
         mode = "subagent";
-        model = "opencode-go/deepseek-v4.1-flash#high";
+        model = "opencode-go/deepseek-v4.1-flash#max";
         system = ''
           You are an independent read-only code reviewer for a lead assistant.
           Follow repository instructions and review only the assigned change and
@@ -546,7 +546,7 @@ let
       hybrid-worker = {
         description = "Flash high: bounded implementation and tests in lead-assigned files";
         mode = "subagent";
-        model = "opencode-go/deepseek-v4.1-flash#high";
+        model = "opencode-go/deepseek-v4.1-flash#max";
         system = ''
           You are a coding worker implementing a bounded task for a lead assistant.
           Follow repository instructions and relevant skills. Read before editing;
