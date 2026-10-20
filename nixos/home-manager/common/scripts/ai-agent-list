@@ -11,13 +11,20 @@
 #         "✳ <title>" / "<spinner> <title>", OpenCode: "OC | <title>"); empty
 #         when the agent hasn't set one. Always the last field; never has '|'.
 #
+# Ordering: needs-input first (the pane is blocked on you), then most recent
+# agent event first. Recency is the @agent_state_updated pane option set by
+# the agent-state wrapper in tmux.nix. Panes without one (hooks not installed,
+# or an agent started before the state hook fired) keep their tmux list-panes
+# order and come last.
+#
 # Consumed by: ai_agents.sh (sketchybar), nanowm/agents.lua (Hammerspoon
 # chooser), hypr-ai-agents (waybar/vicinae dmenu), tmux-agent-switcher (fzf popup).
 #
-# Performance: the only subprocesses are one `ps` snapshot, two tmux queries
-# and one `capture-pane` per agent pane; all matching is done with bash
-# builtins. The previous version forked grep/cut/tr/ps per pane (~6ms each on
-# macOS), which added up to several seconds with a couple dozen panes.
+# Performance: the only subprocesses are one `ps` snapshot, two tmux queries,
+# one `sort` for the ordering and one `capture-pane` per agent pane; all
+# matching is done with bash builtins. The previous version forked grep/cut/tr/ps
+# per pane (~6ms each on macOS), which added up to several seconds with a
+# couple dozen panes.
 # ═══════════════════════════════════════════════════════════════
 
 shopt -s extglob
@@ -131,14 +138,34 @@ while IFS= read -r line; do
 done < <(tmux show-environment -g 2>/dev/null)
 
 # pane_title goes last: it can contain '|' (OpenCode's "OC | ..."), and read
-# assigns everything after the 4th separator to the title.
+# assigns everything after the 5th separator to the title.
 declare -A PANE_LINE
 PANE_ORDER=()
 while IFS= read -r line; do
   [ -z "$line" ] && continue
   PANE_LINE[${line%%|*}]=$line
   PANE_ORDER+=("${line%%|*}")
-done < <(tmux list-panes -a -F '#{pane_id}|#{pane_pid}|#{pane_tty}|#{pane_current_path}|#{pane_title}' 2>/dev/null)
+done < <(tmux list-panes -a -F '#{pane_id}|#{pane_pid}|#{pane_tty}|#{pane_current_path}|#{@agent_state_updated}|#{pane_title}' 2>/dev/null)
+
+# Rows are collected with sort keys, then ordered once at the end: priority
+# (needs-input first) and last-event epoch, both descending in importance.
+declare -a ROWS
+emit_row() {
+  local pane_id=$1 status=$2 type=$3 project=$4 cwd=$5 title=$6 updated=${7:-0}
+  local prio=1
+  [[ $updated =~ ^[0-9]+$ ]] || updated=0
+  [ "$status" = needs-input ] && prio=0
+  ROWS+=("$prio|$updated|$pane_id|$status|$type|$project|$cwd|$title")
+}
+
+emit_collected() {
+  (( ${#ROWS[@]} == 0 )) && return 0
+  # -s keeps equal keys in insertion order, so fallback panes stay in
+  # tmux list-panes order instead of being reshuffled by the sort.
+  while IFS= read -r row; do
+    printf '%s\n' "${row#*|*|}"
+  done < <(printf '%s\n' "${ROWS[@]}" | sort -s -t'|' -k1,1n -k2,2nr)
+}
 
 if (( ${#ENV_STATE[@]} + ${#ENV_AGENT[@]} == 0 && ${#PANE_ORDER[@]} == 0 )); then
   exit 0
@@ -172,7 +199,7 @@ if (( ${#ENV_STATE[@]} + ${#ENV_AGENT[@]} > 0 )); then
       tmux set-environment -ug "TMUX_AGENT_PANE_${pane_id}_AGENT" 2>/dev/null
       continue
     fi
-    IFS='|' read -r _ _ tty cwd raw_title <<< "$pane_line"
+    IFS='|' read -r _ _ tty cwd updated raw_title <<< "$pane_line"
     tty_short=${tty#/dev/}
 
     # ps found nothing at all for this tty (not even a shell) -- that's a
@@ -193,7 +220,7 @@ if (( ${#ENV_STATE[@]} + ${#ENV_AGENT[@]} > 0 )); then
     capitalize_type "$agent_name"
     project_of "$cwd"
     clean_title "$raw_title"
-    printf '%s|%s|%s|%s|%s|%s\n' "$pane_id" "$status" "$TYPE" "$PROJECT" "$cwd" "$TITLE"
+    emit_row "$pane_id" "$status" "$TYPE" "$PROJECT" "$cwd" "$TITLE" "$updated"
   done
 fi
 
@@ -201,7 +228,7 @@ fi
 for pane_id in "${PANE_ORDER[@]}"; do
   [ -n "${PROCESSED[$pane_id]}" ] && continue
 
-  IFS='|' read -r _ _ tty cwd raw_title <<< "${PANE_LINE[$pane_id]}"
+  IFS='|' read -r _ _ tty cwd updated raw_title <<< "${PANE_LINE[$pane_id]}"
   tty_short=${tty#/dev/}
   [ -z "${TTY_CMDS[$tty_short]}" ] && continue
   find_agent "${TTY_CMDS[$tty_short]}" || continue
@@ -214,5 +241,7 @@ for pane_id in "${PANE_ORDER[@]}"; do
   capitalize_type "$FOUND_AGENT"
   project_of "$cwd"
   clean_title "$raw_title"
-  printf '%s|%s|%s|%s|%s|%s\n' "$pane_id" "$status" "$TYPE" "$PROJECT" "$cwd" "$TITLE"
+  emit_row "$pane_id" "$status" "$TYPE" "$PROJECT" "$cwd" "$TITLE" "$updated"
 done
+
+emit_collected

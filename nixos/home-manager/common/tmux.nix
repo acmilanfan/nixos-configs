@@ -241,6 +241,15 @@ let
       else
         tmux set -p -t "$pane" @agent_state "$STATE"
       fi
+      # Recency for the agent switchers (ai-agent-list). Refreshed on every
+      # hook event, even when the state itself did not change, so a long
+      # running turn keeps its pane near the top.
+      if [ "$STATE" = off ]; then
+        tmux set -pu -t "$pane" @agent_state_updated
+      else
+        printf -v now '%(%s)T' -1
+        tmux set -p -t "$pane" @agent_state_updated "$now"
+      fi
       [ "$prev" != "$STATE" ] && tmux refresh-client -S 2>/dev/null
     fi
     # PreToolUse fires on every tool call: only transitions notify
