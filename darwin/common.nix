@@ -271,6 +271,9 @@ in
       KeepAlive = true;
       RunAtLoad = true;
       ProcessType = "Interactive";
+      # TODO: move to /var/log/kanata{,.error}.log (root daemon writing a
+      # predictable /tmp path follows a planted symlink) together with its
+      # reader, the permission check in dotfiles/kanata/reload-kanata.sh.
       StandardOutPath = "/tmp/kanata.log";
       StandardErrorPath = "/tmp/kanata.error.log";
     };
@@ -295,8 +298,8 @@ in
       # The script backgrounds sketchybar and a delayed Hammerspoon reload;
       # without this launchd kills them when the script exits.
       AbandonProcessGroup = true;
-      StandardOutPath = "/tmp/darwin-startup.log";
-      StandardErrorPath = "/tmp/darwin-startup.err.log";
+      StandardOutPath = "/Users/${user}/Library/Logs/darwin-startup.log";
+      StandardErrorPath = "/Users/${user}/Library/Logs/darwin-startup.err.log";
     };
   };
 
@@ -333,8 +336,8 @@ in
       Label = "local.vicinae-em-keepalive";
       RunAtLoad = true;
       StartInterval = 21600; # 6 hours
-      StandardOutPath = "/tmp/vicinae-em-keepalive.log";
-      StandardErrorPath = "/tmp/vicinae-em-keepalive.err.log";
+      StandardOutPath = "/Users/${user}/Library/Logs/vicinae-em-keepalive.log";
+      StandardErrorPath = "/Users/${user}/Library/Logs/vicinae-em-keepalive.err.log";
     };
   };
 
@@ -617,7 +620,7 @@ PY
     USER_ID=$(id -u ${user})
     launchctl bootout "gui/$USER_ID/local.darwin-startup" 2>/dev/null || true
     launchctl bootstrap "gui/$USER_ID" /Library/LaunchAgents/local.darwin-startup.plist \
-      || launchctl asuser "$USER_ID" sudo -u ${user} --set-home /bin/sh -c '/usr/local/bin/darwin-startup >> /tmp/darwin-startup.log 2>&1'
+      || launchctl asuser "$USER_ID" sudo -u ${user} --set-home /bin/sh -c '/usr/local/bin/darwin-startup >> "$HOME/Library/Logs/darwin-startup.log" 2>&1'
 
     # Bootstrap a persistent local code-signing identity for kanata-nix so
     # Input Monitoring / Accessibility TCC grants survive future binary

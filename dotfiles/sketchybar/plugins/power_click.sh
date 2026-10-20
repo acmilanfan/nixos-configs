@@ -3,9 +3,11 @@
 # Toggle between power consumption and battery time remaining
 
 # Check current state (stored in a temp file)
-STATE_FILE="/tmp/sketchybar_power_state"
+STATE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/sketchybar"
+mkdir -p "$STATE_DIR"
+STATE_FILE="$STATE_DIR/power_state"
 
-if [ -f "$STATE_FILE" ] && [ "$(cat $STATE_FILE)" = "time" ]; then
+if [ -f "$STATE_FILE" ] && [ "$(cat "$STATE_FILE")" = "time" ]; then
   # Currently showing time, switch to power
   echo "power" > "$STATE_FILE"
 

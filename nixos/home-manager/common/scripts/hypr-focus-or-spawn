@@ -6,9 +6,10 @@ TITLE=$2
 shift 2
 CMD="$*"
 
-LOG_FILE="/tmp/hypr-focus-debug.log"
-echo "--- $(date) ---" >> $LOG_FILE
-echo "Args: CLASS='$CLASS' TITLE='$TITLE' CMD='$CMD'" >> $LOG_FILE
+LOG_FILE="${XDG_RUNTIME_DIR:-$HOME/.cache}/hypr-focus-debug.log"
+mkdir -p "$(dirname "$LOG_FILE")"
+echo "--- $(date) ---" >> "$LOG_FILE"
+echo "Args: CLASS='$CLASS' TITLE='$TITLE' CMD='$CMD'" >> "$LOG_FILE"
 
 # Escape title for jq
 ESCAPED_TITLE=$(echo "$TITLE" | sed 's/"/\\"/g')
@@ -17,7 +18,7 @@ ESCAPED_TITLE=$(echo "$TITLE" | sed 's/"/\\"/g')
 WINDOW=$(hyprctl clients -j | jq -r ".[] | select(.class == \"$CLASS\" and .mapped == true and (.title != null) and (.title | ascii_downcase | test(\"$ESCAPED_TITLE\" | ascii_downcase))) | .address" | head -n 1)
 
 if [ -n "$WINDOW" ] && [ "$WINDOW" != "null" ]; then
-    echo "Action: Bringing window $WINDOW to current workspace" >> $LOG_FILE
+    echo "Action: Bringing window $WINDOW to current workspace" >> "$LOG_FILE"
 
     CUR_WS=$(hyprctl activeworkspace -j | jq -r ".id")
 
@@ -26,6 +27,6 @@ if [ -n "$WINDOW" ] && [ "$WINDOW" != "null" ]; then
     hyprctl dispatch "hl.dsp.window.float()"
     hyprctl dispatch "hl.dsp.window.center()"
 else
-    echo "Action: Spawning new instance" >> $LOG_FILE
+    echo "Action: Spawning new instance" >> "$LOG_FILE"
     setsid /bin/sh -c "$CMD" &>/dev/null & disown
 fi

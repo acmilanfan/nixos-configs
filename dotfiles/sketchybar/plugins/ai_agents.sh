@@ -9,6 +9,10 @@
 
 MAX_SLOTS=8
 TITLE_MAX=40
+# Per-slot pane ids, read back by ai_agents_focus.sh. Per-user dir, not a
+# predictable /tmp path another local user could pre-create.
+STATE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/sketchybar"
+mkdir -p "$STATE_DIR"
 
 # Character-aware ${var:0:n} below needs a UTF-8 locale; sketchybar's env may lack one.
 LC_CTYPE=en_US.UTF-8
@@ -80,7 +84,7 @@ while IFS='|' read -r pane_id status type project cwd title; do
     LABEL_TEXT="$LABEL_TEXT · $title"
   fi
 
-  echo "$pane_id" > "/tmp/sketchybar_ai_agent_${SLOT}.pane"
+  echo "$pane_id" > "$STATE_DIR/ai_agent_${SLOT}.pane"
   sketchybar --set "ai_agents.popup.${SLOT}" drawing=on icon="$DOT" icon.color="$COLOR" label="$LABEL_TEXT"
 done <<< "$AGENT_ROWS"
 
@@ -88,7 +92,7 @@ done <<< "$AGENT_ROWS"
 i=$((SLOT + 1))
 while [ "$i" -le "$MAX_SLOTS" ]; do
   sketchybar --set "ai_agents.popup.${i}" drawing=off
-  rm -f "/tmp/sketchybar_ai_agent_${i}.pane"
+  rm -f "$STATE_DIR/ai_agent_${i}.pane"
   i=$((i + 1))
 done
 

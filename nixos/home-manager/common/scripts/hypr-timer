@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
-STATE_FILE="/tmp/hypr-timer.json"
+STATE_FILE="${XDG_RUNTIME_DIR:-$HOME/.cache}/hypr-timer.json"
+mkdir -p "$(dirname "$STATE_FILE")"
 
 get_end_time() {
     [ ! -f "$STATE_FILE" ] && echo 0 && return

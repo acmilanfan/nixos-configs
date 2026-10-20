@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
 # Robust ssh-add script for graphical login
-LOG_FILE="/tmp/ssh-add-login.log"
+LOG_FILE="${XDG_STATE_HOME:-$HOME/.local/state}/ssh-add-login.log"
+mkdir -p "$(dirname "$LOG_FILE")"
 echo "Starting ssh-add-login at $(date)" > "$LOG_FILE"
 
 # Wait for session to be ready

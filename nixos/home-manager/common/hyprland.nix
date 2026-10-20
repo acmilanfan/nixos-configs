@@ -5,6 +5,11 @@
 }:
 let
   hypr-iio-rotate-script = (pkgs.writeShellScriptBin "hypr-iio-rotate" (lib.readFile ./scripts/hypr-iio-rotate));
+  # hyprlock's "Scan Face" button; read by the hyprlock-proximity service.
+  # Per-user runtime dir rather than a predictable /tmp path.
+  hyprlock-face-trigger = pkgs.writeShellScript "hyprlock-face-trigger" ''
+    touch "$XDG_RUNTIME_DIR/hyprlock_face_trigger"
+  '';
 in
 {
   home.sessionVariables = {
@@ -156,7 +161,7 @@ in
           halign = center
           valign = center
 
-          onclick = touch /tmp/hyprlock_face_trigger
+          onclick = ${hyprlock-face-trigger}
       }
 
       label {
@@ -361,7 +366,7 @@ in
       ExecStart = pkgs.writeShellScript "prox-trigger" ''
         SENSOR1="/sys/bus/iio/devices/iio:device1/in_proximity0_raw"
         SENSOR2="/sys/bus/iio/devices/iio:device2/in_proximity0_raw"
-        TRIGGER_FILE="/tmp/hyprlock_face_trigger"
+        TRIGGER_FILE="$XDG_RUNTIME_DIR/hyprlock_face_trigger"
         LAST_STATE=0
         WAS_LOCKED=0
         LAST_TRIGGER_TIME=0

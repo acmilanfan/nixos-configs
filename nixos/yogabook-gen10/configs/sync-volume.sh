@@ -4,7 +4,7 @@
 # with a -6% offset for the Bass Speaker.
 # It retries to ensure pipewire/alsa are ready.
 
-LOG_FILE="/tmp/sync-volume.log"
+LOG_FILE="${XDG_RUNTIME_DIR:-$HOME/.cache}/sync-volume.log"
 echo "Starting sync-volume at $(date)" > "$LOG_FILE"
 
 # Wait a bit for the system to settle

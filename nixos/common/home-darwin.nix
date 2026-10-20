@@ -103,7 +103,8 @@ in
       # "$cwd/**/*.org" recursively, and GUI-launched (via `open`) processes
       # start with cwd "/" -- without this cd it walks the whole filesystem.
       (pkgs.writeShellScriptBin "nvim-scratchpad" ''
-        SCRATCH_DIR="/tmp/nvim-scratchpad"
+        # Per-user $TMPDIR (/var/folders/...), not a shared /tmp path.
+        SCRATCH_DIR="''${TMPDIR:-$HOME/.cache}/nvim-scratchpad"
         SCRATCH_FILE="$SCRATCH_DIR/nvim_scratch.org"
         mkdir -p "$SCRATCH_DIR"
         : > "$SCRATCH_FILE"

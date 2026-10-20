@@ -2,7 +2,9 @@
 
 # Toggle between battery percentage and time remaining
 
-STATE_FILE="/tmp/sketchybar_battery_state"
+STATE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/sketchybar"
+mkdir -p "$STATE_DIR"
+STATE_FILE="$STATE_DIR/battery_state"
 
 # Get battery info
 BATT_INFO=$(pmset -g batt)
@@ -31,7 +33,7 @@ else
   COLOR="0xfff7768e"
 fi
 
-if [ -f "$STATE_FILE" ] && [ "$(cat $STATE_FILE)" = "time" ]; then
+if [ -f "$STATE_FILE" ] && [ "$(cat "$STATE_FILE")" = "time" ]; then
   # Currently showing time, switch back to percentage
   echo "percent" > "$STATE_FILE"
   sketchybar --set battery icon="$ICON" icon.color="$COLOR" label="$PERCENTAGE%"

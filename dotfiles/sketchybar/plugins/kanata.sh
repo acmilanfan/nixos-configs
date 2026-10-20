@@ -8,6 +8,11 @@ SWITCH_SCRIPT="$HOME/.config/kanata/switch-kanata.sh"
 # Root operations: kanata-ctl is the one command sudoers allows NOPASSWD
 # (darwin/common.nix). -n: fail instead of hanging on a prompt.
 KANATA_CTL="sudo -n /run/current-system/sw/bin/kanata-ctl"
+# Per-user log dir (was predictable /tmp/sketchybar_kanata_*.log paths).
+LOG_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/sketchybar"
+mkdir -p "$LOG_DIR"
+SWITCH_LOG="$LOG_DIR/kanata_switch.log"
+RESCUE_LOG="$LOG_DIR/kanata_rescue.log"
 
 update() {
     local target
@@ -69,7 +74,7 @@ switch_mode() {
         sketchybar --set kanata icon="󱑊" icon.color=0xffe0af68 popup.drawing=off
 
         # Run switch (this script will trigger 'kanata_changed' event)
-        bash "$SWITCH_SCRIPT" "$mode" > /tmp/sketchybar_kanata_switch.log 2>&1
+        bash "$SWITCH_SCRIPT" "$mode" > "$SWITCH_LOG" 2>&1
 
         # No need to call update or sleep here;
         # the 'kanata_changed' event triggered by switch-kanata.sh will handle it.
@@ -109,8 +114,8 @@ case "$SENDER" in
         # (grabber, kanata, VirtualHID daemon+dext), then bring the VirtualHID
         # daemon and kanata back. kanata-ctl matches kanata-nix exactly; the old
         # `pkill -f kanata` also killed this script before it restarted anything.
-        echo "$(date): Emergency kill triggered" >> /tmp/sketchybar_kanata_rescue.log
-        $KANATA_CTL rescue >> /tmp/sketchybar_kanata_rescue.log 2>&1 || true
+        echo "$(date): Emergency kill triggered" >> "$RESCUE_LOG"
+        $KANATA_CTL rescue >> "$RESCUE_LOG" 2>&1 || true
         ;;
     "kanata_rescue_reload")
         sketchybar --set kanata popup.drawing=off
@@ -118,7 +123,7 @@ case "$SENDER" in
         # and always restart. The reload script now detects TCC denial and handles
         # dext lock by force-restarting the VirtualHID daemon before restarting kanata.
         if [ -f "$HOME/.config/kanata/reload-kanata.sh" ]; then
-            bash "$HOME/.config/kanata/reload-kanata.sh" --force >> /tmp/sketchybar_kanata_rescue.log 2>&1 &
+            bash "$HOME/.config/kanata/reload-kanata.sh" --force >> "$RESCUE_LOG" 2>&1 &
         fi
         ;;
     "kanata_rescue_restore_hid")
@@ -127,7 +132,7 @@ case "$SENDER" in
         # The grabber's dext holds exclusive IOHIDDeviceOpen; killing just the daemon
         # with kickstart -k may not be enough if the grabber re-opens devices faster
         # than they're released. Kill all karabiner processes first, then restart.
-        echo "$(date): Restore Virtual HID triggered" >> /tmp/sketchybar_kanata_rescue.log
+        echo "$(date): Restore Virtual HID triggered" >> "$RESCUE_LOG"
         $KANATA_CTL neutralize || true
         $KANATA_CTL reset-hid || true
         sleep 1

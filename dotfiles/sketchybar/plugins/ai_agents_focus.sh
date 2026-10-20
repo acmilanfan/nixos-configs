@@ -4,7 +4,8 @@
 # Reads the pane ID, then delegates to Hammerspoon for tag-aware focusing.
 
 SLOT=$(echo "$NAME" | grep -o '[0-9]*$')
-PANE_FILE="/tmp/sketchybar_ai_agent_${SLOT}.pane"
+# Written by ai_agents.sh.
+PANE_FILE="${XDG_CACHE_HOME:-$HOME/.cache}/sketchybar/ai_agent_${SLOT}.pane"
 [ -f "$PANE_FILE" ] || exit 0
 PANE_ID=$(cat "$PANE_FILE" 2>/dev/null)
 [ -z "$PANE_ID" ] && exit 0

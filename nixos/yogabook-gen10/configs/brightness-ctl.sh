@@ -4,7 +4,7 @@
 # The eDP-2 backlight is named cardN-eDP-2-backlight, where N can change
 # between boots, so match it with a wildcard instead of a fixed card number.
 
-exec 9>/tmp/brightness-ctl.lock
+exec 9>"${XDG_RUNTIME_DIR:-$HOME/.cache}/brightness-ctl.lock"
 flock -w 3 9 || exit 0
 
 set_both() {
