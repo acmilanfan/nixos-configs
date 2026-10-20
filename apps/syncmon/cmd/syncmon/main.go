@@ -25,7 +25,6 @@ type model struct {
 	nixLoading    bool
 	spinner       spinner.Model
 	quitting      bool
-	err           error
 }
 
 func initialModel() model {
@@ -163,7 +162,6 @@ func nixCmd() tea.Cmd {
 	}
 }
 
-
 func (m model) View() string {
 	if m.quitting {
 		return "Bye!\n"
@@ -244,9 +242,7 @@ func (m model) renderStatusLine(item status.Status, indent int) string {
 	name := item.Name
 	if indent > 0 {
 		// Device names can be long, truncate if needed
-		if len(name) > 12 {
-			name = name[:10] + ".."
-		}
+		name = status.Truncate(name, 12, "..")
 	}
 
 	return fmt.Sprintf("%s%-12s %s", prefix, name+":", stateStyle.Render("["+val+"]"))

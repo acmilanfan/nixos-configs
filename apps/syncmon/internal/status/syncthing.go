@@ -2,8 +2,10 @@ package status
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"time"
 )
 
@@ -35,51 +37,81 @@ type CompletionInfo struct {
 	Completion float64 `json:"completion"`
 }
 
+// httpStatusError is a non-2xx answer from the Syncthing REST API (a wrong
+// API key gives 403), as opposed to Syncthing not running at all.
+type httpStatusError struct {
+	Code int
+}
+
+func (e *httpStatusError) Error() string {
+	return fmt.Sprintf("HTTP %d", e.Code)
+}
+
+// getJSON GETs a Syncthing REST path and decodes the JSON answer into out.
+// Transport errors (Syncthing not running) are returned unchanged; a
+// non-2xx status is an *httpStatusError.
+func (c *SyncthingClient) getJSON(client *http.Client, path string, out any) error {
+	req, err := http.NewRequest(http.MethodGet, c.URL+path, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("X-API-Key", c.APIKey)
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		return &httpStatusError{Code: resp.StatusCode}
+	}
+	return json.NewDecoder(resp.Body).Decode(out)
+}
+
+// apiErrorStatus maps a failed API call to the Syncthing row: not reachable
+// is Inactive; an HTTP error or an unparseable answer is an Error, so a bad
+// API key no longer shows as "Connected".
+func apiErrorStatus(err error) Status {
+	var se *httpStatusError
+	switch {
+	case errors.As(err, &se) && (se.Code == http.StatusUnauthorized || se.Code == http.StatusForbidden):
+		return Status{Name: "Syncthing", State: StateError, Details: fmt.Sprintf("Auth failed (%d)", se.Code)}
+	case errors.As(err, &se):
+		return Status{Name: "Syncthing", State: StateError, Details: se.Error()}
+	}
+	var ue *url.Error
+	if errors.As(err, &ue) {
+		return Status{Name: "Syncthing", State: StateInactive}
+	}
+	return Status{Name: "Syncthing", State: StateError, Details: "Bad response"}
+}
+
 func (c *SyncthingClient) GetStatus() (Status, error) {
 	client := &http.Client{Timeout: 3 * time.Second}
 
 	// 1. Get Config (folders and devices)
-	reqConfig, _ := http.NewRequest("GET", c.URL+"/rest/system/config", nil)
-	reqConfig.Header.Set("X-API-Key", c.APIKey)
-	respConfig, err := client.Do(reqConfig)
-	if err != nil {
-		return Status{Name: "Syncthing", State: StateInactive}, nil
-	}
-	defer respConfig.Body.Close()
-
 	var configData struct {
 		Devices []DeviceConfig `json:"devices"`
 		Folders []FolderConfig `json:"folders"`
 	}
-	json.NewDecoder(respConfig.Body).Decode(&configData)
+	if err := c.getJSON(client, "/rest/system/config", &configData); err != nil {
+		return apiErrorStatus(err), nil
+	}
 
 	// 2. Get Connections
-	reqConn, _ := http.NewRequest("GET", c.URL+"/rest/system/connections", nil)
-	reqConn.Header.Set("X-API-Key", c.APIKey)
-	respConn, err := client.Do(reqConn)
-	if err != nil {
-		return Status{Name: "Syncthing", State: StateInactive}, nil
-	}
-	defer respConn.Body.Close()
-
 	var connData struct {
 		Connections map[string]ConnectionInfo `json:"connections"`
 	}
-	json.NewDecoder(respConn.Body).Decode(&connData)
+	if err := c.getJSON(client, "/rest/system/connections", &connData); err != nil {
+		return apiErrorStatus(err), nil
+	}
 
 	// 3. Get System Status (for local ID)
-	reqStatus, _ := http.NewRequest("GET", c.URL+"/rest/system/status", nil)
-	reqStatus.Header.Set("X-API-Key", c.APIKey)
-	respStatus, err := client.Do(reqStatus)
-	if err != nil {
-		return Status{Name: "Syncthing", State: StateInactive}, nil
-	}
-	defer respStatus.Body.Close()
-
 	var systemData struct {
 		MyID string `json:"myID"`
 	}
-	json.NewDecoder(respStatus.Body).Decode(&systemData)
+	if err := c.getJSON(client, "/rest/system/status", &systemData); err != nil {
+		return apiErrorStatus(err), nil
+	}
 
 	// Build device statuses
 	var devices []Status
@@ -111,16 +143,11 @@ func (c *SyncthingClient) GetStatus() (Status, error) {
 			}
 
 			if shared {
-				compURL := fmt.Sprintf("%s/rest/db/completion?folder=%s&device=%s", c.URL, folder.ID, dev.DeviceID)
-				reqComp, _ := http.NewRequest("GET", compURL, nil)
-				reqComp.Header.Set("X-API-Key", c.APIKey)
-				respComp, err := client.Do(reqComp)
-				if err == nil {
-					var compData CompletionInfo
-					json.NewDecoder(respComp.Body).Decode(&compData)
+				q := url.Values{"folder": {folder.ID}, "device": {dev.DeviceID}}
+				var compData CompletionInfo
+				if err := c.getJSON(client, "/rest/db/completion?"+q.Encode(), &compData); err == nil {
 					totalCompletion += compData.Completion
 					folderCount++
-					respComp.Body.Close()
 				}
 			}
 		}

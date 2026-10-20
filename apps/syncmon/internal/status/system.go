@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -87,24 +88,41 @@ func CheckNix(flakeDir string) Status {
 
 	currentSystemPath := "/run/current-system"
 
-	args := []string{
-		"build", flakeTarget,
-		"--no-write-lock-file",
-		"--no-link",
-		"--print-out-paths",
-		"--update-input", "nixpkgs",
-		"--update-input", "unstable-nixpkgs",
-		"--update-input", "home-manager",
+	// Build against the newest nixpkgs/unstable/home-manager without touching
+	// the checkout's flake.lock: write the updated lock to a private temp dir
+	// and build with it as the reference lock. (Replaces the deprecated
+	// `nix build --update-input`.)
+	lockDir, err := os.MkdirTemp("", "syncmon-flake-")
+	if err != nil {
+		return Status{Name: "Nix", State: StateError, Details: "Temp dir failed"}
 	}
-
-	buildCmd := exec.Command("nix", args...)
-	buildCmd.Dir = flakeDir
+	defer os.RemoveAll(lockDir)
+	lockFile := filepath.Join(lockDir, "flake.lock")
 
 	var buildOut bytes.Buffer
 	var buildErr bytes.Buffer
-	buildCmd.Stdout = &buildOut
-	buildCmd.Stderr = &buildErr
-	err = buildCmd.Run()
+
+	updateCmd := exec.Command("nix", "flake", "update",
+		"nixpkgs", "unstable-nixpkgs", "home-manager",
+		"--flake", ".",
+		"--output-lock-file", lockFile,
+	)
+	updateCmd.Dir = flakeDir
+	updateCmd.Stderr = &buildErr
+	err = updateCmd.Run()
+
+	if err == nil {
+		buildCmd := exec.Command("nix", "build", flakeTarget,
+			"--reference-lock-file", lockFile,
+			"--no-write-lock-file",
+			"--no-link",
+			"--print-out-paths",
+		)
+		buildCmd.Dir = flakeDir
+		buildCmd.Stdout = &buildOut
+		buildCmd.Stderr = &buildErr
+		err = buildCmd.Run()
+	}
 	if err != nil {
 		errMsg := "Build failed"
 		errStr := buildErr.String()
@@ -114,20 +132,14 @@ func CheckNix(flakeDir string) Status {
 				if strings.Contains(line, "error:") {
 					extracted := strings.TrimSpace(strings.Replace(line, "error:", "", 1))
 					if extracted != "" {
-						errMsg = extracted
-						if len(errMsg) > 40 {
-							errMsg = errMsg[:37] + "..."
-						}
+						errMsg = Truncate(extracted, 40, "...")
 						break
 					}
 				}
 			}
 		} else if errStr != "" {
 			// If no "error:" but we have output, show first line
-			errMsg = strings.TrimSpace(strings.Split(errStr, "\n")[0])
-			if len(errMsg) > 40 {
-				errMsg = errMsg[:37] + "..."
-			}
+			errMsg = Truncate(strings.TrimSpace(strings.Split(errStr, "\n")[0]), 40, "...")
 		}
 		return Status{Name: "Nix", State: StateError, Details: errMsg}
 	}
@@ -196,14 +208,17 @@ func CheckNextcloudFile(ncRoot string, relPath string) Status {
 	}
 	syncDB := files[0]
 
-	tmpDB := "/tmp/syncmon_nc.db"
-	copyCmd := exec.Command("cp", syncDB, tmpDB)
-	if err := copyCmd.Run(); err != nil {
+	// Query a private copy (the client keeps its DB open). os.CreateTemp
+	// makes a 0600 file with a random name in $TMPDIR, so no other local
+	// user can pre-create or read it, unlike a fixed /tmp path.
+	tmpDB, err := copyToTemp(syncDB, "syncmon_nc-*.db")
+	if err != nil {
 		return Status{Name: name, State: StateError, Details: "DB locked"}
 	}
 	defer os.Remove(tmpDB)
 
-	query := fmt.Sprintf("SELECT modtime FROM metadata WHERE path='%s';", relPath)
+	query := fmt.Sprintf("SELECT modtime FROM metadata WHERE path='%s';",
+		strings.ReplaceAll(relPath, "'", "''"))
 	dbCmd := exec.Command("sqlite3", tmpDB, query)
 	dbOut, err := dbCmd.Output()
 	if err != nil {
@@ -222,4 +237,29 @@ func CheckNextcloudFile(ncRoot string, relPath string) Status {
 	}
 
 	return Status{Name: name, State: StateSyncing, Details: "Pending"}
+}
+
+// copyToTemp copies src into a new private temp file (pattern as for
+// os.CreateTemp) and returns its path. The caller removes it.
+func copyToTemp(src, pattern string) (string, error) {
+	in, err := os.Open(src)
+	if err != nil {
+		return "", err
+	}
+	defer in.Close()
+
+	out, err := os.CreateTemp("", pattern)
+	if err != nil {
+		return "", err
+	}
+	if _, err := io.Copy(out, in); err != nil {
+		out.Close()
+		os.Remove(out.Name())
+		return "", err
+	}
+	if err := out.Close(); err != nil {
+		os.Remove(out.Name())
+		return "", err
+	}
+	return out.Name(), nil
 }

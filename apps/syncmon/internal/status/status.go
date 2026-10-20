@@ -54,6 +54,20 @@ func ExpandPath(path string) string {
 	return path
 }
 
+// Truncate shortens s to at most max runes, ending it with suffix when it was
+// cut. It counts runes, not bytes, so it never splits a UTF-8 sequence.
+func Truncate(s string, max int, suffix string) string {
+	r := []rune(s)
+	if len(r) <= max {
+		return s
+	}
+	keep := max - len([]rune(suffix))
+	if keep < 0 {
+		keep = 0
+	}
+	return string(r[:keep]) + suffix
+}
+
 type Status struct {
 	Name    string
 	State   State
