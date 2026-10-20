@@ -20,7 +20,7 @@ This repository contains Nix-based configurations for various NixOS and macOS ma
   - `darwin/`: nix-darwin system configs (`common.nix` + one file per Mac).
   - `dotfiles/`: Source for configuration files (symlinked/managed via Home Manager).
   - `apps/`: Go tools (`syncmon`, `tg2kobo`), packaged via `nixos/common/pkgs/`.
-  - `shell/`: Custom nix-shell / dev-shell flakes (Java, Go/Node, Python, FHS, audio).
+  - `shell/`: Custom nix-shell / dev-shell flakes (Java, Go/Node, Python, FHS, audio). Each flake locks the root `flake.lock`'s nixpkgs rev; after bumping nixpkgs, run `shell/update-flakes.sh` and commit the locks. `.#fhs` variants exist on Linux only.
   - `secrets/`: Private git submodule (`acmilanfan/nix-secrets`) containing only `secrets.nix`, `secrets.yaml`, its example and `.sops.yaml`. Keys and the `pass` store are in `acmilanfan/secrets`, cloned outside the flake at `~/configs/secrets` (`~/.password-store` links to its `passwords/`).
   - `docs/`: Design notes and reviews (e.g. NanoWM).
 
