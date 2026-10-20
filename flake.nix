@@ -132,6 +132,13 @@
     cc-skills-golang = { url = "github:samber/cc-skills-golang"; flake = false; };
     gemini-cli-security = { url = "github:gemini-cli-extensions/security"; flake = false; };
     gemini-cli-code-review = { url = "github:gemini-cli-extensions/code-review"; flake = false; };
+    # Awesome WM widgets (nixos/home-manager/common/awesome.nix). Pinned to a
+    # rev: upstream master has moved on and the local logout-menu patch no
+    # longer applies there, so bump by editing the rev and rebasing the patch.
+    awesome-wm-widgets = {
+      url = "github:streetturtle/awesome-wm-widgets/ef70d16c43c2f566a4fe2955b8d6c08f6c185af8";
+      flake = false;
+    };
   };
 
   outputs =

@@ -20,6 +20,23 @@
         "type": "github"
       }
     },
+    "awesome-wm-widgets": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1674067093,
+        "narHash": "sha256-td9uE+b3DrE+JJ3NCmIkQAuxJLJCGd79J5LZLqBw9KI=",
+        "owner": "streetturtle",
+        "repo": "awesome-wm-widgets",
+        "rev": "ef70d16c43c2f566a4fe2955b8d6c08f6c185af8",
+        "type": "github"
+      },
+      "original": {
+        "owner": "streetturtle",
+        "repo": "awesome-wm-widgets",
+        "rev": "ef70d16c43c2f566a4fe2955b8d6c08f6c185af8",
+        "type": "github"
+      }
+    },
     "blueutil-tui": {
       "flake": false,
       "locked": {
@@ -790,6 +807,7 @@
     "root": {
       "inputs": {
         "auto-cpufreq": "auto-cpufreq",
+        "awesome-wm-widgets": "awesome-wm-widgets",
         "blueutil-tui": "blueutil-tui",
         "cc-skills-golang": "cc-skills-golang",
         "gemini-cli-code-review": "gemini-cli-code-review",
