@@ -1,0 +1,11 @@
+;; media layer for ISO (homerow and training).
+(platform (macos)
+  (deflayer media
+    _     _     _     _     _     _     _     _     _     _     _     _     _
+    _     _     _     _     _     _     _     _     _     _     _     _     _     _
+    _     _     _     _     _     _     _     brdn  brup  _     _     _     _
+    _     lmet  lalt  lsft  lctl  _     prev  vold  volu  next  mute  _     _     _
+    _     _     _     _     _     _     _     _     _     _     _     _     _
+    _     _     _     _                 pp                _     _     _     _     _     _     _
+  )
+)

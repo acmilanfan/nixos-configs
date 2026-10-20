@@ -237,6 +237,12 @@ in
     ".config/kanata/kanata-angle.kbd".source = ../../dotfiles/kanata/kanata-angle.kbd;
     ".config/kanata/kanata-disabled.kbd".source = ../../dotfiles/kanata/kanata-disabled.kbd;
     ".config/kanata/kanata-training.kbd".source = ../../dotfiles/kanata/kanata-training.kbd;
+    # Blocks the configs above pull in with (include shared/...). kanata
+    # resolves includes against the directory of the --cfg path as given
+    # (~/.config/kanata/active_config.kbd), not the symlink target, so the
+    # directory must sit next to active_config.kbd. Linked as one directory so
+    # all includes change together.
+    ".config/kanata/shared".source = ../../dotfiles/kanata/shared;
     # ".config/kanata/active_config.kbd".source = ../../dotfiles/kanata/kanata-default.kbd;
     ".config/kanata/reload-kanata.sh" = {
       source = ../../dotfiles/kanata/reload-kanata.sh;

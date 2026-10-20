@@ -1,6 +1,8 @@
 ;; Configuration for built-in Mac Keyboard - DISABLED MODE
 ;; This mode blocks all internal keyboard input to prevent accidental presses
 ;; Useful when using an external keyboard on top of the laptop or for cleaning
+;; Self-contained on purpose (no shared/ includes): it keeps working even if
+;; the shared/ directory is missing.
 
 (defcfg
   process-unmapped-keys yes

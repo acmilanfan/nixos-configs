@@ -1,0 +1,26 @@
+;; media and mouse layers for ANSI (homerow, training, angle).
+(platform (macos)
+  (deflayer media
+    _     _     _     _     _     _     _     _     _     _     _     _     _
+    _     _     _     _     _     _     _     _     _     _     _     _     _     _
+    _     _     _     _     _     _     _     brdn  brup  _     _     _     _
+    _     lmet  lalt  lsft  lctl  _     prev  vold  volu  next  mute  _     _     _
+    _     _     _     _     _     _     _     _     _     _     _     _
+    _     _     _     _                 pp                _     _     _     _     _     _
+  )
+)
+
+;; Mouse layer: g (held) → mouse control
+;; Right hand: hjkl = move, nm,. = scroll, ; = right click
+;; Left hand home row: direct mods for shift/ctrl+click
+;; Space = left click
+(platform (macos)
+  (deflayer mouse
+    _     _     _     _     _     _     _     _     _     _     _     _     _
+    _     _     _     _     _     _     _     _     _     _     _     _     _     _
+    _     _     _     _     _     _     @redo @paste @copy @cut  @undo _     _
+    _     lmet  lalt  lsft  lctl  _     @mlf  @mdn  @mup  @mrt  mrgt  _     _     _
+    _     _     _     _     _     _     @whl  @whu  @whd  @whr  mmid  _
+    _     _     _     _                 mlft              _     _     _     _     _     _
+  )
+)

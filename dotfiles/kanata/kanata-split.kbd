@@ -2,6 +2,8 @@
 ;; All layers shifted up by one row
 ;; Home row is physical QWERTY row
 ;; Thumb keys are physical C V N M keys
+;; Shared blocks come from shared/*.kbd. kanata resolves (include ...) against
+;; the directory of the --cfg path (~/.config/kanata), so shared/ lives there.
   (defcfg
     process-unmapped-keys yes
     concurrent-tap-hold yes
@@ -35,16 +37,7 @@
   (e i)    caps     50 all-released ()
 )
 
-(platform (macos)
-  (defsrc
-    esc    f1    f2    f3    f4    f5    f6    f7    f8    f9    f10   f11   f12 ;; 13
-    grv    1     2     3     4     5     6     7     8     9     0     -     =     bspc ;; 14
-    tab    q     w     e     r     t     y     u     i     o     p     [     ] ;; 13
-    caps   a     s     d     f     g     h     j     k     l     ;     '     \     ret ;; 14
-    lsft   z     x     c     v     b     n     m     ,     .     /     rsft ;; 12
-    fn     lctl  lalt  lmet              spc               rmet  ralt  ◀    ▲ ▼    ▶ ;; 11
-  )
-)
+(include shared/ansi-defsrc.kbd)
 
 (platform (macos)
   (deflayer base
@@ -123,10 +116,7 @@
   )
 )
 
-(defvar
-  tap-time 200
-  hold-time 200
-)
+(include shared/vars.kbd)
 
 (platform (macos)
     (defvirtualkeys

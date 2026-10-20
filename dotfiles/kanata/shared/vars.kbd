@@ -1,0 +1,5 @@
+;; Tap-hold timings for the macOS configs (not kanata-disabled.kbd).
+(defvar
+  tap-time 200
+  hold-time 200
+)

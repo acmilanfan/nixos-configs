@@ -1,15 +1,7 @@
 ;; Configuration for built-in Mac Keyboard - ISO Layout (Standard)
-  (defcfg
-    process-unmapped-keys yes
-    concurrent-tap-hold yes
-    macos-dev-names-include (
-      "Apple Internal Keyboard / Trackpad"
-    )
-    macos-dev-names-exclude (
-      "0x6D4541E53C898E10" ;; Aurora Sweep
-      "Charybdis Nano (3x5) Splinky"
-    )
-  )
+;; Shared blocks come from shared/*.kbd. kanata resolves (include ...) against
+;; the directory of the --cfg path (~/.config/kanata), so shared/ lives there.
+(include shared/mac-defcfg.kbd)
 
 (platform (macos)
   (defsrc
@@ -44,13 +36,5 @@
   )
 )
 
-(defvar
-  tap-time 200
-  hold-time 200
-)
-
-(platform (macos)
-  (defalias
-    fn (tap-hold 250 250 fn (layer-toggle fn))
-  )
-)
+(include shared/vars.kbd)
+(include shared/default-aliases.kbd)

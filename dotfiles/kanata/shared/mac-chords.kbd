@@ -1,0 +1,14 @@
+;; Home-row chords shared by the homerow, training and angle configs.
+;; Needs the @lang alias (homerow-aliases.kbd or angle-aliases.kbd).
+(defchordsv2
+  (w e)    esc      50 all-released ()
+  (a ;)    esc      50 all-released ()
+  (m ,)    -        50 all-released ()
+  (d v)    tab      50 all-released ()
+  (d k)    caps     50 all-released ()
+  (o p)    S-;      50 all-released ()
+  (c v)    (multi lmet v)    50 all-released ()
+  (x c)    (multi lmet c)    50 all-released ()
+  (z x)    (multi lmet x)    50 all-released ()
+  (y u)    @lang             50 all-released ()
+)
