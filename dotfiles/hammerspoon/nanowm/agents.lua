@@ -89,6 +89,14 @@ end
 -- =============================================================================
 
 function M.focusAgent(paneId)
+    -- paneId can come from hammerspoon://nanowm?cmd=focusAgent, which any local process (or a
+    -- web page via the browser's open-app prompt) can open. The script below puts it inside a
+    -- tmux format (-f "#{m:...}"), where #(...) would run a shell command, so accept only a
+    -- real tmux pane id (%<n>).
+    if type(paneId) ~= "string" or not paneId:match("^%%%d+$") then
+        print("[NanoWM] focusAgent: ignoring invalid pane id " .. tostring(paneId))
+        return
+    end
     -- All the tmux work happens in ONE shell invocation, which prints the controlling client's
     -- pid. This used to be four blocking calls -- three of them `zsh -lc`, i.e. full login
     -- shells that source the entire profile -- run directly on the Hammerspoon main thread.

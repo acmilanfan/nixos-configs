@@ -62,7 +62,9 @@ require("nanowm.spec").run()      -- returns immediately
 require("nanowm.spec").report     -- read ~12 s later
 ```
 
-Without the `hs` CLI (its IPC port can wedge): `open -g "hammerspoon://nanowm?cmd=spec"`, then
+Without the `hs` CLI (its IPC port can wedge):
+`open -g "hammerspoon://nanowm?cmd=spec&token=$(defaults read org.hammerspoon.Hammerspoon nanowm_url_token)"`
+(the token is regenerated on every Hammerspoon reload; without it the URL is ignored), then
 read `~/.hammerspoon/nanowm_spec_report.txt` once it appears (within ~30 s).
 
 Integration tests against the live WM: they open and close one window and briefly switch tags,

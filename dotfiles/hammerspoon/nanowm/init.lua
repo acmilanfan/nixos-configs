@@ -48,6 +48,15 @@ end
 -- tmux agent hooks): `open -g "hammerspoon://nanowm?cmd=gotoTag&tag=3"`. Used instead of
 -- `hs -c`, whose IPC port can wedge (a killed or overlapping client leaves it refusing
 -- requests); URL events carry no per-client state. Parameters arrive URL-decoded.
+--
+-- Any local process can open these URLs (and a web page can, via the browser's "open
+-- Hammerspoon?" prompt). Commands that only do what a hotkey or bar click does are open; `spec`
+-- also launches Ghostty, closes a window and writes a file, so it needs a random token generated
+-- on every (re)load and stored in Hammerspoon's own preferences (~/Library/Preferences, 0600):
+--   open -g "hammerspoon://nanowm?cmd=spec&token=$(defaults read org.hammerspoon.Hammerspoon nanowm_url_token)"
+local URL_TOKEN = hs.host.uuid()
+hs.settings.set("nanowm_url_token", URL_TOKEN)
+
 local urlCommands = {
     gotoTag = function(p)
         local t = tonumber(p.tag)
@@ -61,9 +70,14 @@ local urlCommands = {
     end,
     agentState = function(p) agents.onAgentStateChange(p.state, p.name, p.pane, p.where, p.focused) end,
     -- Run the regression suite (nanowm/spec.lua) and write its report to a file, for callers
-    -- that can't read the HS console: open -g "hammerspoon://nanowm?cmd=spec", then read
-    -- ~/.hammerspoon/nanowm_spec_report.txt (the suite's watchdog reports within ~30 s).
-    spec = function()
+    -- that can't read the HS console: open -g "hammerspoon://nanowm?cmd=spec&token=..." (see
+    -- URL_TOKEN above), then read ~/.hammerspoon/nanowm_spec_report.txt (the suite's watchdog
+    -- reports within ~30 s).
+    spec = function(p)
+        if not p.token or p.token ~= URL_TOKEN then
+            print("[NanoWM] spec URL command rejected: missing or wrong token")
+            return
+        end
         local spec = require("nanowm.spec")
         local out = config.home() .. "/.hammerspoon/nanowm_spec_report.txt"
         os.remove(out)
