@@ -75,20 +75,30 @@ vim.keymap.set("n", "<leader>/", function()
   }))
 end, { desc = "[/] Fuzzily search in current buffer" })
 
+-- f/F/t/T hop to a char on the current line. They read the char themselves
+-- and record it with setcharsearch(), so the built-in ; and , repeat the last
+-- one like a native f/t. hint_patterns with the escaped char is what
+-- hint_char1 does internally.
 local hop = require("hop")
 local directions = require("hop.hint").HintDirection
-vim.keymap.set("", "f", function()
-  hop.hint_char1({ direction = directions.AFTER_CURSOR, current_line_only = true })
-end, { remap = true })
-vim.keymap.set("", "F", function()
-  hop.hint_char1({ direction = directions.BEFORE_CURSOR, current_line_only = true })
-end, { remap = true })
-vim.keymap.set("", "t", function()
-  hop.hint_char1({ direction = directions.AFTER_CURSOR, current_line_only = true, hint_offset = -1 })
-end, { remap = true })
-vim.keymap.set("", "T", function()
-  hop.hint_char1({ direction = directions.BEFORE_CURSOR, current_line_only = true, hint_offset = 1 })
-end, { remap = true })
+local function hop_char(forward, till)
+  return function()
+    local ok, c = pcall(vim.fn.getcharstr)
+    if not ok or c == "\27" or c == "" then
+      return
+    end
+    vim.fn.setcharsearch({ char = c, forward = forward and 1 or 0, ["until"] = till and 1 or 0 })
+    hop.hint_patterns({
+      direction = forward and directions.AFTER_CURSOR or directions.BEFORE_CURSOR,
+      current_line_only = true,
+      hint_offset = till and (forward and -1 or 1) or nil,
+    }, vim.fn.escape(c, "\\/.$^~[]"))
+  end
+end
+vim.keymap.set("", "f", hop_char(true, false), { remap = true, desc = "Hop to char" })
+vim.keymap.set("", "F", hop_char(false, false), { remap = true, desc = "Hop back to char" })
+vim.keymap.set("", "t", hop_char(true, true), { remap = true, desc = "Hop till char" })
+vim.keymap.set("", "T", hop_char(false, true), { remap = true, desc = "Hop back till char" })
 
 vim.keymap.set("n", "<leader>cn", ":IncRename ")
 vim.keymap.set("n", "<leader>cw", function()
@@ -100,9 +110,10 @@ vim.keymap.set("n", "<Leader>sf", ":LfWorkingDirectory<cr>", { silent = true, no
 vim.keymap.set("n", "<Leader>si", ":Lf<cr>", { silent = true, noremap = true })
 vim.keymap.set("n", "<Leader>of", ":Oil<cr>", { silent = true, noremap = true })
 
-vim.keymap.set("n", "<Leader>kk", function()
+-- Not under <leader>k: that is lprev, which a <leader>k* map would delay.
+vim.keymap.set("n", "<Leader>nd", function()
   require("notify").dismiss()
-end, {})
+end, { desc = "Dismiss notifications" })
 
 vim.keymap.set("n", "<Leader>nw", ":set wrap!<cr>", { silent = true })
 vim.keymap.set("n", "<Leader>se", ":setlocal spell spelllang=en<cr>", { silent = true })
@@ -159,11 +170,12 @@ vim.keymap.set("n", "N", "Nzzzv")
 vim.keymap.set("x", "<leader>p", [["_dP]])
 vim.keymap.set({ "n", "v" }, "<leader>d", '"_d')
 vim.keymap.set({ "n", "v" }, "<leader>y", [["+y]])
+-- Not under <leader>y: that is the "+y operator.
 vim.keymap.set(
   "n",
-  "<leader>ys",
+  "<leader>cy",
   'gv"+y',
-  { noremap = true, silent = true, desc = "Copy last yank to system clipboard" }
+  { noremap = true, silent = true, desc = "Copy last selection to system clipboard" }
 )
 vim.keymap.set("n", "<leader>Y", [["+Y]])
 vim.keymap.set({ "n", "v" }, "<leader>i", [["+p]])
@@ -219,7 +231,8 @@ vim.keymap.set("n", "<leader>zk", ":tab close<CR>", { silent = true })
 
 vim.keymap.set("n", "Q", "@qj")
 vim.keymap.set("x", "Q", ":norm @q<CR>")
-vim.keymap.set("n", "<leader>hr", "oif err != nil {<CR>}<Esc>Oreturn err<Esc>")
+-- Not under <leader>h, the harpoon keys.
+vim.keymap.set("n", "<leader>ce", "oif err != nil {<CR>}<Esc>Oreturn err<Esc>", { desc = "Go: insert if err != nil" })
 
 -- vim.keymap.set("n", "<leader>st", function()
 --   vim.cmd("normal! qq")
@@ -324,18 +337,21 @@ vim.api.nvim_create_autocmd("LspAttach", {
     local opts = { buffer = ev.buf }
     vim.keymap.set("n", "<leader>rn", vim.lsp.buf.rename, opts)
     vim.keymap.set({ "v", "n" }, "<leader>co", vim.lsp.buf.code_action, opts)
-    vim.keymap.set({ "v", "n" }, "<leader>cp", require("actions-preview").code_actions)
+    vim.keymap.set({ "v", "n" }, "<leader>cp", require("actions-preview").code_actions, opts)
 
     vim.keymap.set("n", "gd", require("telescope.builtin").lsp_definitions, opts)
     vim.keymap.set("n", "gr", require("telescope.builtin").lsp_references, opts)
     vim.keymap.set("n", "gI", require("telescope.builtin").lsp_implementations, opts)
     vim.keymap.set("n", "<leader>D", require("telescope.builtin").lsp_type_definitions, opts)
-    vim.keymap.set("n", "<leader>ds", require("telescope.builtin").lsp_document_symbols, opts)
+    -- <leader>fs, not <leader>ds: <leader>d is the black-hole delete operator.
+    vim.keymap.set("n", "<leader>fs", require("telescope.builtin").lsp_document_symbols,
+      { buffer = ev.buf, desc = "Document symbols" })
     vim.keymap.set("n", "<leader>ws", require("telescope.builtin").lsp_dynamic_workspace_symbols, opts)
 
     -- See `:help K` for why this keymap
     vim.keymap.set("n", "K", vim.lsp.buf.hover, opts)
-    vim.keymap.set("n", "<leader>kh", vim.lsp.buf.signature_help, opts)
+    -- <leader>ch, not <leader>kh: <leader>k is lprev.
+    vim.keymap.set("n", "<leader>ch", vim.lsp.buf.signature_help, { buffer = ev.buf, desc = "Signature help" })
 
     -- Lesser used LSP functionality
     vim.keymap.set("n", "gD", vim.lsp.buf.declaration, opts)
