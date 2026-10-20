@@ -193,6 +193,12 @@ in
     enable = true;
   };
 
+  # Night tint only. Brightness is controlled by the DPCD hardware backlight
+  # through brightnessctl; hyprsunset gamma stays at 100.
+  services.hyprsunset = {
+    enable = true;
+  };
+
   services.hypridle = {
     enable = true;
     settings = {
@@ -276,7 +282,6 @@ in
     waybar
     swaynotificationcenter
     brightnessctl
-    hyprsunset
     awww
     wl-clipboard
     grim

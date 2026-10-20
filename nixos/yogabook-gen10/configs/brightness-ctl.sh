@@ -1,54 +1,33 @@
 #!/usr/bin/env bash
-# Brightness control via hyprsunset gamma (Hyprland-native CTM protocol).
-# Usage: brightness-ctl {set PCT | up [STEP%] | down [STEP%] | restore}
+# Hardware (DPCD) backlight control for both Yoga Book panels.
+# Usage: brightness-ctl {set PCT | up [STEP] | down [STEP]}
+# The eDP-2 backlight is named cardN-eDP-2-backlight, where N can change
+# between boots, so match it with a wildcard instead of a fixed card number.
 
 exec 9>/tmp/brightness-ctl.lock
 flock -w 3 9 || exit 0
 
-get_pct() {
-  _c=$(brightnessctl g 2>/dev/null)
-  _m=$(brightnessctl m 2>/dev/null)
-  [ -n "$_c" ] && [ -n "$_m" ] && [ "$_m" -gt 0 ] \
-    && awk -v c="$_c" -v m="$_m" 'BEGIN {printf "%.3f", c/m}'
-}
-
-apply() {
-  local p="$1"
-  [ -z "$p" ] && return
-  local gamma=$(awk -v p="$p" 'BEGIN {printf "%.0f", p*100}')
-  H=$(date +%k | tr -d ' ')
-  local temp=6000; [ "$H" -ge 21 ] || [ "$H" -lt 6 ] && temp=3500
-  pkill -9 hyprsunset 2>/dev/null
-  # Wait for the old instance to exit (max ~2s) instead of spinning
-  local i=0
-  while pgrep hyprsunset >/dev/null 2>&1 && [ "$i" -lt 40 ]; do
-    sleep 0.05; i=$((i + 1))
-  done
-  exec 9>&-  # release flock so child doesn't inherit it
-  hyprsunset -g "$gamma" -t "$temp" &>/dev/null &
+set_both() {
+  brightnessctl -d '*-eDP-2-backlight' s "$1" 2>/dev/null || true
+  brightnessctl -d 'intel_backlight' s "$1" 2>/dev/null || true
 }
 
 case "$1" in
   set)
-    apply "$2"
+    [ -z "$2" ] && exit 1
+    pct="${2%\%}"
+    set_both "${pct}%"
     ;;
   up)
     STEP="${2:-5}"
-    brightnessctl s "+${STEP}%"
-    brightnessctl --device='intel_backlight' s "+${STEP}%"
-    apply "$(get_pct)"
+    set_both "+${STEP}%"
     ;;
   down)
     STEP="${2:-5}"
-    brightnessctl s "${STEP}%-"
-    brightnessctl --device='intel_backlight' s "${STEP}%-"
-    apply "$(get_pct)"
-    ;;
-  restore)
-    apply "$(get_pct)"
+    set_both "${STEP}%-"
     ;;
   *)
-    echo "Usage: brightness-ctl {set PCT | up [STEP%] | down [STEP%] | restore}"
+    echo "Usage: brightness-ctl {set PCT | up [STEP] | down [STEP]}"
     exit 1
     ;;
 esac

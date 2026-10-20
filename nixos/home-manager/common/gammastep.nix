@@ -1,6 +1,6 @@
 { config, ... }:
 {
-  # Disabled: replaced by hyprsunset (see brightness-ctl.sh).
-  # Night mode not yet ported — hyprsunset lacks automatic scheduling.
+  # Disabled: replaced by the hyprsunset service, which only handles the
+  # night tint. Brightness is controlled by the DPCD hardware backlight.
   services.gammastep.enable = false;
 }

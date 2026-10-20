@@ -165,6 +165,11 @@
     "xe.enable_panel_replay=0"
     "xe.enable_dc=0"
     "acpi_backlight=native"
+    # Force the VESA DPCD backlight interface. This is the only mode that
+    # makes the OLED panels physically dim (12-bit, max 4095). Interface 3
+    # (Intel) falls back to the old 496-step PWM devices, which accept writes
+    # but do not change the panels. Fallback: remove the line entirely.
+    "xe.enable_dpcd_backlight=2"
     "video=eDP-1:panel_orientation=upside_down"
     "btusb.enable_autosuspend=n"
   ];
@@ -178,7 +183,9 @@
   # "pci=biosirq"
   # "acpi=noirq"
   # "i915.enable_dpcd_backlight=2"
-  # "xe.enable_dpcd_backlight=2"
+  # "xe.enable_dpcd_backlight=3"  # force Intel DPCD interface (does not work)
+  # "xe.enable_dpcd_backlight=1"  # enable DPCD according to VBT
+  # "xe.invert_brightness=1"      # use if DPCD brightness is inverted
   # "xe.force_probe=7d51"
   # "i915.enable_dpcd_backlight=0"
   # "i915.force_probe=7d51"

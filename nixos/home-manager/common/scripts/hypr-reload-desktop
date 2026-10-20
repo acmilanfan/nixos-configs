@@ -34,12 +34,8 @@ hyprctl reload 2>/dev/null || true
 sleep 1
 hypr-profile restore 2>/dev/null || true
 
-# 5. Re-apply brightness shader (hyprctl reload clears screen_shader)
+# 5. Apply the current hyprsunset temperature profile (tint only).
 sleep 0.5
-_cur=$(brightnessctl g 2>/dev/null)
-_max=$(brightnessctl m 2>/dev/null)
-if [ -n "$_cur" ] && [ -n "$_max" ] && [ "$_max" -gt 0 ]; then
-  awk "BEGIN {printf \"%.3f\", $_cur/$_max}" > /tmp/brightness-gamma-value
-fi
+systemctl --user restart hyprsunset 2>/dev/null || true
 
 notify-send -u low -t 2000 "Desktop" "Components reloaded"
