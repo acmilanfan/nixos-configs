@@ -19,11 +19,11 @@ let
         zlib
         pam
         gdb
-        xorg.libXext
-        xorg.libX11
-        xorg.libXrender
-        xorg.libXtst
-        xorg.libXi
+        libxext
+        libx11
+        libxrender
+        libxtst
+        libxi
         freetype
         gradle
         libaio
@@ -54,10 +54,16 @@ in pkgs.stdenv.mkDerivation {
     export TZ=Europe/Berlin
     export PATH=$PATH:/run/current-system/bin
     export DOCKER_CONFIG=/etc/docker/config.json
-    sudo systemctl start docker
-    sudo systemctl is-active --quiet docker && echo "Docker is running" || echo "Failed to start Docker"
-    sudo chmod 666 /var/run/docker.sock
-    export DOCKER_HOST=unix:///var/run/docker.sock
+    # Docker access goes through the "docker" group (or rootless Docker, whose
+    # NixOS module sets DOCKER_HOST), never a world-writable socket: the old
+    # `chmod 666` made the daemon root-equivalent for every local user.
+    # A host needs `virtualisation.docker.enable = true;` (socket-activated,
+    # so no manual start) and the user in `extraGroups = [ "docker" ]`.
+    export DOCKER_HOST="''${DOCKER_HOST:-unix:///var/run/docker.sock}"
+    if [ ! -w "''${DOCKER_HOST#unix://}" ]; then
+      echo "docker: ''${DOCKER_HOST#unix://} is missing or not writable; enable" \
+        "virtualisation.docker and add yourself to the docker group" >&2
+    fi
 
     export JAVA_HOME=${selectedJDK}
     export PATH=$JAVA_HOME/bin:$PATH

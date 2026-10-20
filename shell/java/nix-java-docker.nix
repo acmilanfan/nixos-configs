@@ -15,35 +15,40 @@ let
 in
 pkgs.mkShell {
   name = "maven-shell";
-  buildInputs = with pkgs; [
-    selectedJDK
-    maven
-    zlib
-    pam
-    gdb
-    xorg.libXext
-    xorg.libX11
-    xorg.libXrender
-    xorg.libXtst
-    xorg.libXi
-    freetype
-    gradle
-    libaio
-    numactl
-    ncurses5
-    libxcrypt
-    libxcrypt-legacy
-    nodejs_22
-    mocha
-    typescript
-    docker
-    openssl
-    glibc
-    mariadb.client
-    glibcLocales
-    gnumake
-    mariadb
-  ];
+  buildInputs =
+    with pkgs;
+    [
+      selectedJDK
+      maven
+      zlib
+      libxext
+      libx11
+      libxrender
+      libxtst
+      libxi
+      freetype
+      gradle
+      ncurses5
+      libxcrypt
+      nodejs_22
+      mocha
+      typescript
+      docker
+      openssl
+      mariadb.client
+      gnumake
+      mariadb
+    ]
+    # Linux-only (macOS uses shell/java/darwin, but keep this evaluable there).
+    ++ lib.optionals stdenv.isLinux [
+      pam
+      gdb
+      libaio
+      numactl
+      libxcrypt-legacy
+      glibc
+      glibcLocales
+    ];
   shellHook = ''
     export LANG=en_US.UTF-8
     export TZ=Europe/Berlin
@@ -53,8 +58,8 @@ pkgs.mkShell {
     export JAVA_HOME=${selectedJDK}
     export PATH="$JAVA_HOME/bin:$PATH"
 
-    # The FHS shell started Docker with sudo on entry. Do not do that from
-    # direnv (it would run on every prompt); use `nix develop .#fhs` or start
-    # it manually with `sudo systemctl start docker`.
+    # No Docker startup here (nix-direnv runs this hook on every load). The
+    # Docker socket needs a host with virtualisation.docker enabled and the
+    # user in the "docker" group; see nix-java-docker-fhs.nix.
   '';
 }
