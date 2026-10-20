@@ -8,12 +8,12 @@
     lutris
     #lutris-free
 
-    xorg.xkbcomp
+    xkbcomp
     razergenie
 
     # battle net deps
     gnutls
-    libgpgerror
+    libgpg-error
     sqlite
     p11-kit
     readline

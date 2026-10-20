@@ -14,11 +14,7 @@
     #          swedish-dictionary
     #          ublock-origin
     #          vimium
-    #        ] ++ builtins.attrValues (import ./firefox-extensions.nix {
-    #            inherit (pkgs) stdenv fetchurl;
-    #            buildFirefoxXpiAddon =
-    #            pkgs.nur.repos.rycee.firefox-addons.buildFirefoxXpiAddon;
-    #          })
+    #        ]
     #      );
     #package = pkgs.firefox-wayland;
     package = if pkgs.stdenv.isDarwin then null else pkgs.firefox;

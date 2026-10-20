@@ -7,7 +7,6 @@
   imports = [
     ./alacritty.nix
     ./ghostty.nix
-    # ./doom.nix
     ./firefox.nix
     ./firefox-managed-storage.nix
     ./direnv.nix
