@@ -254,7 +254,6 @@
     (writeShellScriptBin "sync-brightness" (lib.readFile ./sync-brightness.sh))
     (writeShellScriptBin "set-sync-brightness" (lib.readFile ./set-sync-brightness.sh))
     (writeShellScriptBin "restore-sync-brightness" (lib.readFile ./restore-sync-brightness.sh))
-    (writeShellScriptBin "adjust-sync-brightness" (lib.readFile ./adjust-sync-brightness.sh))
     (writeShellScriptBin "sync-volume" (lib.readFile ./sync-volume.sh))
     (writeShellScriptBin "change-volume" (lib.readFile ./change-volume.sh))
     (writeShellScriptBin "brightness-ctl" (lib.readFile ./brightness-ctl.sh))

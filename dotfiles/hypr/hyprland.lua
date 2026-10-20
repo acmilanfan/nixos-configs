@@ -502,8 +502,8 @@ hl.layer_rule({ match = { namespace = "wvkbd-mobintl" }, above_lock = 2 })
 --         "edge:l:r, workspace, -1",
 --         "edge:l:u, exec, change-volume +4",
 --         "edge:l:d, exec, change-volume -4",
---         "edge:r:u, exec, adjust-sync-brightness +5%",
---         "edge:r:d, exec, adjust-sync-brightness 5%-",
+--         "edge:r:u, exec, brightness-ctl up 5",
+--         "edge:r:d, exec, brightness-ctl down 5",
 --         -- Taps
 --         "tap:3, exec, hypr-touch-action",
 --         "tap:4, exec, hypr-touch-menu",
