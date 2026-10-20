@@ -247,10 +247,6 @@ in
       executable = true;
     };
 
-    # Hammerspoon configuration
-    ".hammerspoon/sweep-remapper.lua".source = ../../dotfiles/hammerspoon/sweep-remapper.lua;
-    ".hammerspoon/zoom-hold.lua".source = ../../dotfiles/hammerspoon/zoom-hold.lua;
-
     # Warpd configuration
     ".config/warpd/config".source = ../../dotfiles/warpd/config;
 
@@ -308,28 +304,19 @@ in
     # ~/.syncmon.yaml is rendered by sops-nix (../home-manager/common/sops.nix)
     # so the Syncthing API key stays out of /nix/store.
 
-    # Hammerspoon
-    ".hammerspoon/init.lua".source = ../../dotfiles/hammerspoon/init.lua;
-    ".hammerspoon/macos-vim-navigation/init.lua".source =
-      ../../dotfiles/hammerspoon/macos-vim-navigation/init.lua;
-
-    # NanoWM modular window manager
-    ".hammerspoon/nanowm/init.lua".source = ../../dotfiles/hammerspoon/nanowm/init.lua;
-    ".hammerspoon/nanowm/config.lua".source = ../../dotfiles/hammerspoon/nanowm/config.lua;
-    ".hammerspoon/nanowm/state.lua".source = ../../dotfiles/hammerspoon/nanowm/state.lua;
-    ".hammerspoon/nanowm/core.lua".source = ../../dotfiles/hammerspoon/nanowm/core.lua;
-    ".hammerspoon/nanowm/layout.lua".source = ../../dotfiles/hammerspoon/nanowm/layout.lua;
-    ".hammerspoon/nanowm/actions.lua".source = ../../dotfiles/hammerspoon/nanowm/actions.lua;
-    ".hammerspoon/nanowm/tags.lua".source = ../../dotfiles/hammerspoon/nanowm/tags.lua;
-    ".hammerspoon/nanowm/menus.lua".source = ../../dotfiles/hammerspoon/nanowm/menus.lua;
-    ".hammerspoon/nanowm/overview.lua".source = ../../dotfiles/hammerspoon/nanowm/overview.lua;
-    ".hammerspoon/nanowm/integrations.lua".source = ../../dotfiles/hammerspoon/nanowm/integrations.lua;
-    ".hammerspoon/nanowm/keybinds.lua".source = ../../dotfiles/hammerspoon/nanowm/keybinds.lua;
-    ".hammerspoon/nanowm/watchers.lua".source = ../../dotfiles/hammerspoon/nanowm/watchers.lua;
-    ".hammerspoon/nanowm/agents.lua".source = ../../dotfiles/hammerspoon/nanowm/agents.lua;
-    ".hammerspoon/nanowm/profiler.lua".source = ../../dotfiles/hammerspoon/nanowm/profiler.lua;
-    ".hammerspoon/nanowm/pass.lua".source = ../../dotfiles/hammerspoon/nanowm/pass.lua;
-    ".hammerspoon/nanowm/spec.lua".source = ../../dotfiles/hammerspoon/nanowm/spec.lua;
+    # Hammerspoon: everything under dotfiles/hammerspoon (init.lua, nanowm/*,
+    # macos-vim-navigation, ...), so a new module can't be forgotten here.
+    # recursive = true links file by file: ~/.hammerspoon stays a real,
+    # writable directory for NanoWM's nanowm_state.json, nanowm_slow.log and
+    # nanowm_spec_report.txt, and for the Spoons linked below.
+    ".hammerspoon" = {
+      source = builtins.path {
+        name = "hammerspoon-config";
+        path = ../../dotfiles/hammerspoon;
+        filter = path: _type: baseNameOf path != ".DS_Store";
+      };
+      recursive = true;
+    };
 
     # Rofi-like menus
     # ".hammerspoon/rofi-menus/init.lua".source = ../../dotfiles/hammerspoon/rofi-menus/init.lua;
