@@ -29,9 +29,10 @@ fi
 echo "Running ssh-add..." >> "$LOG_FILE"
 # Pipe /dev/null to force usage of SSH_ASKPASS
 ssh-add ~/.ssh/id_ed25519 < /dev/null >> "$LOG_FILE" 2>&1
+rc=$?
 
-if [ $? -eq 0 ]; then
+if [ "$rc" -eq 0 ]; then
     echo "ssh-add successful." >> "$LOG_FILE"
 else
-    echo "ssh-add failed with exit code $?." >> "$LOG_FILE"
+    echo "ssh-add failed with exit code $rc." >> "$LOG_FILE"
 fi
