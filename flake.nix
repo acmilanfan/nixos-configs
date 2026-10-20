@@ -248,40 +248,85 @@
         });
       };
 
-    in
-    {
-      nixosConfigurations = {
-        t480-home = inputs.nixpkgs.lib.nixosSystem {
-          system = linuxSystem;
+      # A NixOS host: <hostDir>/configuration.nix for the system and
+      # <hostDir>/home.nix for linuxUser, on the shared package set.
+      # `modules` are the host's extra system modules (hardware, overlays).
+      mkNixos =
+        {
+          system,
+          hostDir,
+          modules ? [ ],
+        }:
+        inputs.nixpkgs.lib.nixosSystem {
+          inherit system;
           specialArgs = { inherit inputs; username = linuxUser; };
           modules = [
-            ./nixos/t480-home/configuration.nix
+            (hostDir + "/configuration.nix")
             home-manager.nixosModules.home-manager
             {
-              home-manager.users.${linuxUser} = import ./nixos/t480-home/home.nix;
+              home-manager.users.${linuxUser} = import (hostDir + "/home.nix");
               home-manager.extraSpecialArgs = {
-                unstable = unstableFor linuxSystem;
-                inherit inputs linuxSystem secrets;
+                unstable = unstableFor system;
+                inherit inputs secrets;
+                linuxSystem = system;
               };
             }
-            nixos-hardware.nixosModules.lenovo-thinkpad-t480
+          ]
+          ++ modules
+          ++ [ sharedPkgsModule ];
+        };
+
+      # A Mac: darwinModule for the system, Homebrew owned by `user`, and
+      # homeModule as that user's Home Manager config.
+      mkDarwin =
+        {
+          system,
+          darwinModule,
+          user,
+          homeModule,
+        }:
+        nix-darwin.lib.darwinSystem {
+          inherit system;
+          specialArgs = {
+            inherit inputs secrets;
+            unstable = unstableFor system;
+          };
+          modules = [
+            darwinModule
+            nix-homebrew.darwinModules.nix-homebrew
+            {
+              nix-homebrew = {
+                enable = true;
+                enableRosetta = true;
+                inherit user;
+                autoMigrate = true;
+              };
+            }
+            home-manager.darwinModules.home-manager
             sharedPkgsModule
+            {
+              home-manager.users.${user} = import homeModule;
+              home-manager.extraSpecialArgs = {
+                unstable = unstableFor system;
+                inherit inputs secrets;
+              };
+            }
           ];
         };
 
-        yogabook-gen10 = inputs.nixpkgs.lib.nixosSystem {
+    in
+    {
+      nixosConfigurations = {
+        t480-home = mkNixos {
           system = linuxSystem;
-          specialArgs = { inherit inputs; username = linuxUser; };
+          hostDir = ./nixos/t480-home;
+          modules = [ nixos-hardware.nixosModules.lenovo-thinkpad-t480 ];
+        };
+
+        yogabook-gen10 = mkNixos {
+          system = linuxSystem;
+          hostDir = ./nixos/yogabook-gen10;
           modules = [
-            ./nixos/yogabook-gen10/configuration.nix
-            home-manager.nixosModules.home-manager
-            {
-              home-manager.users.${linuxUser} = import ./nixos/yogabook-gen10/home.nix;
-              home-manager.extraSpecialArgs = {
-                unstable = unstableFor linuxSystem;
-                inherit inputs linuxSystem secrets;
-              };
-            }
             musnix.nixosModules.musnix
             nixos-hardware.nixosModules.common-pc-laptop
             nixos-hardware.nixosModules.common-pc-laptop-ssd
@@ -289,87 +334,29 @@
             nixos-hardware.nixosModules.common-cpu-intel
             nixos-hardware.nixosModules.common-gpu-intel
             auto-cpufreq.nixosModules.default
-            sharedPkgsModule
             { nixpkgs.overlays = [ overlay-davinci-resolve ]; }
           ];
         };
 
-        vm-hyprland = inputs.nixpkgs.lib.nixosSystem {
+        vm-hyprland = mkNixos {
           system = vmSystem;
-          specialArgs = { inherit inputs; username = linuxUser; };
-          modules = [
-            ./nixos/vm-hyprland/configuration.nix
-            home-manager.nixosModules.home-manager
-            {
-              home-manager.users.${linuxUser} = import ./nixos/vm-hyprland/home.nix;
-              home-manager.extraSpecialArgs = {
-                unstable = unstableFor vmSystem;
-                inherit inputs secrets;
-                linuxSystem = vmSystem;
-              };
-            }
-            sharedPkgsModule
-          ];
+          hostDir = ./nixos/vm-hyprland;
         };
       };
 
       darwinConfigurations = {
-        "mac-work" = nix-darwin.lib.darwinSystem {
+        "mac-work" = mkDarwin {
           system = macSystem;
-          specialArgs = {
-            inherit inputs secrets;
-            unstable = unstableFor macSystem;
-          };
-          modules = [
-            ./darwin/mac-work.nix
-            nix-homebrew.darwinModules.nix-homebrew
-            {
-              nix-homebrew = {
-                enable = true;
-                enableRosetta = true;
-                user = "andreishumailov";
-                autoMigrate = true;
-              };
-            }
-            home-manager.darwinModules.home-manager
-            sharedPkgsModule
-            {
-              home-manager.users.andreishumailov = import ./nixos/mac-work/home.nix;
-              home-manager.extraSpecialArgs = {
-                unstable = unstableFor macSystem;
-                inherit inputs secrets;
-              };
-            }
-          ];
+          darwinModule = ./darwin/mac-work.nix;
+          user = "andreishumailov";
+          homeModule = ./nixos/mac-work/home.nix;
         };
 
-        "mac-home" = nix-darwin.lib.darwinSystem {
+        "mac-home" = mkDarwin {
           system = macSystem;
-          specialArgs = {
-            inherit inputs secrets;
-            unstable = unstableFor macSystem;
-          };
-          modules = [
-            ./darwin/mac-home.nix
-            nix-homebrew.darwinModules.nix-homebrew
-            {
-              nix-homebrew = {
-                enable = true;
-                enableRosetta = true;
-                user = "gentooway";
-                autoMigrate = true;
-              };
-            }
-            home-manager.darwinModules.home-manager
-            sharedPkgsModule
-            {
-              home-manager.users.gentooway = import ./nixos/mac-home/home.nix;
-              home-manager.extraSpecialArgs = {
-                unstable = unstableFor macSystem;
-                inherit inputs secrets;
-              };
-            }
-          ];
+          darwinModule = ./darwin/mac-home.nix;
+          user = "gentooway";
+          homeModule = ./nixos/mac-home/home.nix;
         };
       };
 
