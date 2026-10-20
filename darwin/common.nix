@@ -517,7 +517,7 @@ PY
     # Setup password-store symlink (pass expects ~/.password-store)
     echo "Setting up password-store symlink..."
     if [ ! -e "/Users/${user}/.password-store" ]; then
-      ln -sf "/Users/${user}/configs/nixos-configs/secrets/passwords" "/Users/${user}/.password-store"
+      ln -sfn "/Users/${user}/configs/secrets/passwords" "/Users/${user}/.password-store"
     fi
 
     # Configure gpg-agent to use pinentry-mac for GUI passphrase prompts

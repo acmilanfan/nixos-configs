@@ -17,7 +17,7 @@ local function storeDir()
     if attr and attr.mode == "directory" then
         return HOME .. "/.password-store"
     end
-    return HOME .. "/configs/nixos-configs/secrets/passwords"
+    return HOME .. "/configs/secrets/passwords"
 end
 
 -- Enumerate store entries asynchronously.

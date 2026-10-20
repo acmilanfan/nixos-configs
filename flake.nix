@@ -157,7 +157,24 @@
 
       # Eval-time values only (emails, marketplace names). Credentials live in
       # secrets/secrets.yaml and are decrypted at activation by sops-nix.
-      secrets = import ./secrets/secrets.nix;
+      # self.submodules copies the whole secrets/ submodule (acmilanfan/nix-secrets)
+      # into the world-readable /nix/store, so it may hold only these files. Keys
+      # and the pass store live in acmilanfan/secrets, cloned outside the flake.
+      # This only fails after the copy; delete the leaked *-source paths.
+      secretsAllowed = [
+        ".sops.yaml"
+        "secrets.nix"
+        "secrets.yaml"
+        "secrets.yaml.example"
+      ];
+      secretsExtra = builtins.filter (n: !builtins.elem n secretsAllowed) (
+        builtins.attrNames (builtins.readDir ./secrets)
+      );
+      secrets =
+        if secretsExtra != [ ] then
+          throw "secrets/ is copied into /nix/store; unexpected entries: ${toString secretsExtra}"
+        else
+          import ./secrets/secrets.nix;
 
       overlay-howdy = _: prev: {
         howdy = inputs.nixpkgs-howdy.legacyPackages.${prev.stdenv.hostPlatform.system}.howdy;

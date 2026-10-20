@@ -21,7 +21,7 @@ This repository contains Nix-based configurations for various NixOS and macOS ma
   - `dotfiles/`: Source for configuration files (symlinked/managed via Home Manager).
   - `apps/`: Go tools (`syncmon`, `tg2kobo`), packaged via `nixos/common/pkgs/`.
   - `shell/`: Custom nix-shell / dev-shell flakes (Java, Go/Node, Python, FHS, audio).
-  - `secrets/`: Private git submodule (`acmilanfan/secrets`) containing `secrets.nix`, keys and the `pass` store.
+  - `secrets/`: Private git submodule (`acmilanfan/nix-secrets`) containing only `secrets.nix`, `secrets.yaml`, its example and `.sops.yaml`. Keys and the `pass` store are in `acmilanfan/secrets`, cloned outside the flake at `~/configs/secrets` (`~/.password-store` links to its `passwords/`).
   - `docs/`: Design notes and reviews (e.g. NanoWM).
 
 ## Deployment Commands
@@ -46,7 +46,7 @@ nix build .#vm-hyprland-image
 
 `create-utm-vm-hyprland` builds it and creates the UTM VM; `VM_HYPRLAND_HOST=<ip> sup-vm-hyprland` deploys to a running one. Setup on another Mac, the remaining manual steps (disk resize, boot partition, linux-builder recovery) and why the VM's display/cursor config looks the way it does: `docs/vm-hyprland.md`.
 
-*Note: evaluation is pure, so no `--impure`. `flake.nix` sets `inputs.self.submodules = true`, so the `secrets/` submodule is part of the flake source. It must be checked out (`git submodule update --init`), and its whole contents are copied into the world-readable `/nix/store`. Keep only encrypted or non-sensitive data there.*
+*Note: evaluation is pure, so no `--impure`. `flake.nix` sets `inputs.self.submodules = true`, so the `secrets/` submodule is part of the flake source. It must be checked out (`git submodule update --init`), and its whole contents are copied into the world-readable `/nix/store` on every evaluation (Nix ignores `export-ignore` there). Keep only encrypted or non-sensitive data there: `flake.nix` refuses to evaluate when `secrets/` holds anything outside its allowlist, but by then the copy exists, so delete the leaked `*-source` paths with `nix-store --delete`.*
 
 ### Closed-lid operation on macOS
 
