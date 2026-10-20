@@ -720,8 +720,25 @@ PY
   # Create /etc/zshrc that loads the nix-darwin environment.
   programs.zsh.enable = true;
 
-  # Enable Remote Login (SSH)
-  services.openssh.enable = true;
+  # Enable Remote Login (SSH), key-only. Nothing in this repo SSHes *into*
+  # the Macs (sup-vm-hyprland and the linux-builder go Mac -> VM), and no
+  # authorized key is managed here: add one with
+  #   users.users.${user}.openssh.authorizedKeys.keys = [ "ssh-ed25519 ..." ];
+  # (or ~/.ssh/authorized_keys, which sshd still reads) before relying on
+  # it. sshd keeps the first value it reads; macOS' 100-macos.conf sorts
+  # before 100-nix-darwin.conf but sets none of these.
+  services.openssh = {
+    enable = true;
+    extraConfig = ''
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+      PermitRootLogin no
+      AllowUsers ${user}
+      MaxAuthTries 3
+      LoginGraceTime 30
+      X11Forwarding no
+    '';
+  };
 
   # Set Git commit hash for darwin-version.
   system.configurationRevision = inputs.self.rev or inputs.self.dirtyRev or null;
