@@ -1,29 +1,27 @@
-{ pkgs ? import <nixpkgs> { } }:
+{
+  pkgs ? import <nixpkgs> { },
+}:
 
-let
-  fhs = pkgs.buildFHSEnv {
-    name = "dev-env";
-    targetPkgs = pkgs:
-      (with pkgs; [
-        go
-        nodejs
-        yarn
-        sqlc
-        gofumpt
-        goimports-reviser
-        jq
-        python3
-        supabase-cli
-        go-mockery
-      ]);
-    runScript = "zsh";
-  };
-in pkgs.stdenv.mkDerivation {
+# direnv-friendly default shell. The FHS variant lives in
+# nix-go-node-fhs.nix and is available as `nix develop .#fhs`; a shellHook
+# must never `exec` another shell, because nix-direnv evaluates it while
+# loading the environment.
+pkgs.mkShell {
   name = "go-shell";
-  nativeBuildInputs = [ fhs ];
+  buildInputs = with pkgs; [
+    go
+    nodejs
+    yarn
+    sqlc
+    gofumpt
+    goimports-reviser
+    jq
+    python3
+    supabase-cli
+    go-mockery
+  ];
   shellHook = ''
     export LANG=en_US.UTF-8
     export TZ=Europe/Berlin
-    exec dev-env
   '';
 }
