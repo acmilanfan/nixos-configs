@@ -6,11 +6,14 @@
 # fhs-env) lives in python-fhs.nix and is available as `nix develop .#fhs`.
 pkgs.mkShell {
   name = "python-shell";
-  buildInputs = with pkgs; [
-    python3
-    python3.pkgs.requests
-    xdotool
-  ];
+  buildInputs =
+    with pkgs;
+    [
+      python3
+      python3.pkgs.requests
+    ]
+    # X11 automation; Linux-only (use_tech picks this shell on macOS too).
+    ++ lib.optionals stdenv.isLinux [ xdotool ];
   shellHook = ''
     export PIP_PREFIX=$(pwd)/_build/pip_packages
     export PYTHONPATH="$PIP_PREFIX/${pkgs.python3.sitePackages}:$PYTHONPATH"
