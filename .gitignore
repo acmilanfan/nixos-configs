@@ -4,3 +4,15 @@
 # macOS / nix build junk
 .DS_Store
 /result
+result-*
+
+# Agent / tool state
+.claude/
+.antigravitycli/
+
+# Stray backups and copies (narrower than *-back* so ublock-backup.txt stays visible)
+/~
+*.bak
+*-back
+*-back.*
+* copy.*
