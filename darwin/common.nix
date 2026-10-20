@@ -271,11 +271,10 @@ in
       KeepAlive = true;
       RunAtLoad = true;
       ProcessType = "Interactive";
-      # TODO: move to /var/log/kanata{,.error}.log (root daemon writing a
-      # predictable /tmp path follows a planted symlink) together with its
-      # reader, the permission check in dotfiles/kanata/reload-kanata.sh.
-      StandardOutPath = "/tmp/kanata.log";
-      StandardErrorPath = "/tmp/kanata.error.log";
+      # Not /tmp: a root daemon writing a predictable /tmp path follows a
+      # planted symlink. Read by the permission check in reload-kanata.sh.
+      StandardOutPath = "/var/log/kanata.log";
+      StandardErrorPath = "/var/log/kanata.error.log";
     };
   };
 

@@ -23,7 +23,6 @@
       (stdenv.mkDerivation {
         pname = "ai-bench";
         version = "0.1.0";
-        src = ./.;
         dontUnpack = true;
         installPhase = ''
           mkdir -p $out/bin
@@ -34,7 +33,6 @@
       (stdenv.mkDerivation {
         pname = "omlx-context-probe";
         version = "0.1.0";
-        src = ./.;
         dontUnpack = true;
         installPhase = ''
           mkdir -p $out/bin
@@ -105,7 +103,6 @@
       (stdenv.mkDerivation {
         pname = "kb-taps";
         version = "0.1.0";
-        src = ./.;
         dontUnpack = true;
         installPhase = ''
           mkdir -p $out/bin $out/share

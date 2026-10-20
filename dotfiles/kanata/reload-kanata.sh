@@ -66,8 +66,8 @@ fi
 #    When /usr/local/bin/kanata-nix is replaced, the hash changes and permission is revoked.
 #    Kanata then fails to create event taps and logs errors.
 if [ "$RELOAD_REQUIRED" = false ]; then
-    if [ -f /tmp/kanata.error.log ]; then
-        if tail -100 /tmp/kanata.error.log 2>/dev/null | grep -qi "permission denied\|event.tap\|not permitted\|CGEventTap\|input monitoring\|accessibility\|failed to create\|cannot create" 2>/dev/null; then
+    if [ -f /var/log/kanata.error.log ]; then
+        if tail -100 /var/log/kanata.error.log 2>/dev/null | grep -qi "permission denied\|event.tap\|not permitted\|CGEventTap\|input monitoring\|accessibility\|failed to create\|cannot create" 2>/dev/null; then
             RELOAD_REQUIRED=true
             REASON="Input Monitoring permission may be lost (permission errors in log)"
         fi
