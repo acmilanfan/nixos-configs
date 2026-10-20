@@ -1,6 +1,6 @@
 { pkgs ? import <nixpkgs> { config = { allowUnfree = true; }; } }:
 
-let fhs = pkgs.buildFHSUserEnv {
+let fhs = pkgs.buildFHSEnv {
   name = "music-production-env";
   targetPkgs = pkgs: (with pkgs;
     [ 
@@ -11,7 +11,7 @@ let fhs = pkgs.buildFHSUserEnv {
 in pkgs.stdenv.mkDerivation {
   name = "music-production";
   nativeBuildInputs = [ fhs ];
-  buildInputs = with pkgs; [ libjack2 xorg.libX11 ];
+  buildInputs = with pkgs; [ libjack2 libx11 ];
   #LD_LIBRARY_PATH = "${stdenv.lib.makeLibraryPath buildInputs}:${LD_LIBRARY_PATH}";
   shellHook = ''
     export LANG=en_US.UTF-8 
