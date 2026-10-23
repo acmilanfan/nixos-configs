@@ -187,7 +187,7 @@ function M.setup()
     -- APPLICATIONS
     -- =========================================================================
     hs.hotkey.bind(alt, "return", function()
-        core.launchGhosttyWindow()
+        core.launchGhosttyWindow({ cwd = home })
     end)
     hs.hotkey.bind(alt, "b", function()
         core.launchTask("/usr/bin/open", { "-n", "-a", "Firefox" })
