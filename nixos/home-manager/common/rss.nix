@@ -16,23 +16,28 @@ programs.newsboat = {
       # Cross-platform browser command: uses xdg-open on Linux and falls back to open on macOS.
       browser "(command -v xdg-open >/dev/null 2>&1 && xdg-open '%u' || open '%u') & sleep 0.2"
 
-      # Newsboat Nightfox theme (approximate with 256-color codes)
-      # color background          color81   default
-      color listnormal          color243  default
-      color listnormal_unread   color68   default
-      color listfocus           color234  color68
-      color listfocus_unread    color234  color68 bold
-      color info                color81   color234
-      color article             color252  default
-      color title               color80   default bold
+      # Newsboat Nightfox theme. Only the terminal default and ANSI 0-15 are
+      # used: those are the Nightfox palette in dotfiles/ghostty/config and
+      # alacritty.nix, so newsboat follows the same colors as Neovim instead of
+      # approximating them with fixed xterm indices.
+      color background          default  default
+      color listnormal          default  default
+      color listnormal_unread   color12  default
+      color listfocus           color15  color8
+      color listfocus_unread    color15  color8 bold
+      color info                color7   color0
+      color hint-key            color11  color0 bold
+      color title               color6   color0 bold
+      color article             default  default
+      color end-of-text-marker  color8   default
 
       # highlights (titles, links, references)
-      highlight article "^(Feed|Link):.*$"         color80 default bold
-      highlight article "^(Title|Date|Author):.*$" color80 default bold
-      highlight article "https?://[^ ]+"           color80 default underline
-      highlight article "\\[[0-9]+\\]"             color108 default bold
-      highlight article "\\[image\\ [0-9]+\\]"     color108 default bold
-      highlight feedlist "^─.*$"                   color80 color234 bold
+      highlight article "^(Feed|Link):.*$"         color6 default bold
+      highlight article "^(Title|Date|Author):.*$" color6 default bold
+      highlight article "https?://[^ ]+"           color4 default underline
+      highlight article "\\[[0-9]+\\]"             color2 default bold
+      highlight article "\\[image\\ [0-9]+\\]"     color2 default bold
+      highlight feedlist "^─.*$"                   color6 color0 bold
 
       # keybindings
       unbind-key ENTER
