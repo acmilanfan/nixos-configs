@@ -637,12 +637,14 @@ function M.launchSyncMon()
     floatTerminalWindow("syncmon dashboard", 0.8, function() syncMonLaunching = false end)
 end
 
-function M.launchTask(cmd, args)
+function M.launchTask(cmd, args, onExit)
     state.launching = true
-    hs.task.new(cmd, nil, args):start()
+    local task = hs.task.new(cmd, onExit, args)
+    local started = task and task:start()
     hs.timer.doAfter(2.0, function()
         state.launching = false
     end)
+    return started
 end
 
 -- `open -a <app> [--args ...]`, recorded as a deliberate launch: if the app's window is on
@@ -675,7 +677,7 @@ function M.launchGhosttyWindow(opts)
     if opts.title then table.insert(args, "--title"); table.insert(args, opts.title) end
     if opts.cwd then table.insert(args, "--cwd"); table.insert(args, opts.cwd) end
     if opts.command then table.insert(args, "--"); table.insert(args, opts.command) end
-    M.launchTask(config.ghosttyWindowBin, args)
+    return M.launchTask(config.ghosttyWindowBin, args, opts.onExit)
 end
 
 -- Called by windowCreated before a window is first tiled. The title-based float rule only

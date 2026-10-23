@@ -227,7 +227,7 @@ function M.setup()
     -- APP WINDOWS (Focus or Create)
     -- =========================================================================
     -- `launch` is core.launchGhosttyWindow's { cwd, command }; titlePattern doubles as the title.
-    local function focusOrCreateApp(titlePattern, launch, sizeFactor, appName)
+    local function focusOrCreateApp(titlePattern, launch, sizeFactor, appName, excludeWindow)
         local allWins = require("nanowm.watchers").getManagedWindows()
         local targetWin = nil
         local lowerPattern = titlePattern:lower()
@@ -237,7 +237,8 @@ function M.setup()
             local app = win:application()
             local winAppName = app and app:name() or ""
 
-            if (not appName or winAppName == appName) and string.find(title, lowerPattern, 1, true) then
+            if (not appName or winAppName == appName) and string.find(title, lowerPattern, 1, true)
+                and not (excludeWindow and excludeWindow(win)) then
                 targetWin = win
                 break
             end
@@ -261,7 +262,8 @@ function M.setup()
                             local wid = w:id()
                             if wid and wid > 0 then
                                 local title = w:title() or ""
-                                if title:lower():find(lowerPattern, 1, true) then
+                                if title:lower():find(lowerPattern, 1, true)
+                                    and not (excludeWindow and excludeWindow(w)) then
                                     core.floatCentered(w, sizeFactor)
                                     return
                                 end
@@ -340,10 +342,12 @@ function M.setup()
             "YAZI",
             { command = "yazi" },
             0.8,
-            "Ghostty"
+            "Ghostty",
+            require("nanowm.yazi-picker").isPickerWindow
         )
     end
     hs.hotkey.bind(alt, "y", openYazi)
+    hs.hotkey.bind(ctrlAlt, "y", function() require("nanowm.yazi-picker").start() end)
 
     hs.hotkey.bind(altShift, "z", function()
         -- Identify the window by id, not title: a Firefox window's title follows its active tab,

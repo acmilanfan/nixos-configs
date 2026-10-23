@@ -393,6 +393,7 @@ function M.showKeybindMenu()
                 { key = "Alt+D", desc = "Toggle Vicinae (reset view)", fn = function() hs.task.new("/bin/zsh", nil, { "-c", [[if /opt/homebrew/bin/vicinae state open >/dev/null 2>&1; then /opt/homebrew/bin/vicinae 'vicinae://close'; else /opt/homebrew/bin/vicinae 'vicinae://open?popToRoot=true'; fi]] }):start() end },
                 { key = "Ctrl+Alt+D", desc = "Toggle Vicinae (keep view)", fn = function() hs.task.new("/bin/zsh", nil, { "-c", [[if /opt/homebrew/bin/vicinae state open >/dev/null 2>&1; then /opt/homebrew/bin/vicinae 'vicinae://close?popToRootType=suspended&clearRootSearch=false'; else /opt/homebrew/bin/vicinae 'vicinae://open'; fi]] }):start() end },
                 { key = "Alt+Shift+V", desc = "Clipboard History", fn = function() hs.task.new("/opt/homebrew/bin/vicinae", nil, { "vicinae://launch/clipboard/history?toggle=true" }):start() end },
+                { key = "Ctrl+Alt+Y", desc = "Yazi picker for an Open/Upload dialog", fn = nil },
                 { key = "Alt+Shift+W", desc = "Open Work Org", fn = nil },
                 { key = "Alt+Shift+D", desc = "Open Dump Org", fn = nil },
                 { key = "Alt+Shift+Y", desc = "Open YouTube Org", fn = nil },
