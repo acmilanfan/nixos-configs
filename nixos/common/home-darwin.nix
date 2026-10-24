@@ -182,7 +182,7 @@ in
       hide-hidden = "defaults write com.apple.finder AppleShowAllFiles -bool false && killall Finder";
 
       # Docker/Colima shortcuts - optimized for testcontainers
-      docker-start = "colima start --cpu 4 --memory 8 --disk 60 --network-address";
+      docker-start = "colima start --cpu 6 --memory 12 --disk 60 --network-address";
       colima-light = "colima start --cpu 2 --memory 4 --disk 30 --network-address";
       docker-stop = "colima stop";
       docker-status = "colima status";
