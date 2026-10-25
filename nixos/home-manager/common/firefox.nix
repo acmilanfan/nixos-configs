@@ -46,8 +46,10 @@
             # font-weight: bold !important;
           }
           .tabbrowser-tab .tab-label {
-            font-size: 13pt !important;
-            font-weight: bold !important;
+            font-size: 11pt !important; /* 13pt before vertical tabs; 12pt was too subtle */
+            /* Trial (2026-10-25): no bold labels with vertical tabs.
+               Restore with: font-weight: bold !important; */
+            font-weight: 500 !important;
           }
         '';
         settings = {
@@ -114,10 +116,12 @@
           "browser.ai.control.smartTabGroups" = "blocked";
           "browser.ai.control.translations" = "blocked";
 
-          # Disable Sidebar Revamp / Vertical Tabs
-          "sidebar.revamp" = false;
-          "sidebar.verticalTabs" = false;
-          "sidebar.visibility" = "hide-sidebar";
+          # Vertical tabs in the sidebar, on the right, expanding on hover.
+          # (Trial started 2026-10-25; this used to disable the revamp.)
+          "sidebar.revamp" = true;
+          "sidebar.verticalTabs" = true;
+          "sidebar.visibility" = "expand-on-hover";
+          "sidebar.position_start" = false;
 
           # New Tab Page Clean-up
           "browser.newtabpage.activity-stream.feeds.topsites" = false;
@@ -131,7 +135,7 @@
           # Reduce background network activity
           "network.prefetch-next" = false;
           "network.dns.disablePrefetch" = true;
-          # "beacon.enabled" = false;
+          "beacon.enabled" = true;
 
           # Block all autoplay
           "media.autoplay.default" = 5;
