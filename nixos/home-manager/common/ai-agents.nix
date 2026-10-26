@@ -169,6 +169,9 @@ let
       DISABLE_TELEMETRY = "1";
       DISABLE_BUG_COMMAND = "1";
       DISABLE_ERROR_REPORTING = "1";
+      # Fullscreen (alt-screen) renderer: the inline one duplicates text in
+      # tmux scrollback on resize and when scrolling up
+      CLAUDE_CODE_NO_FLICKER = "1";
     };
     permissions = {
       allow = [ "Bash(mkdir:*)" ];
