@@ -348,18 +348,21 @@ local function repairTagMemory(mem)
     return out
 end
 
--- When the machine booted (kern.boottime, seconds), read once and cached. macOS reuses window
+-- Identifies the current boot (kern.bootsessionuuid), read once and cached. macOS reuses window
 -- ids after a reboot, so ids saved before one would hand an old window's tag, sticky/float state
 -- or size to whichever new window got the same id. Saved with the state and compared on load.
-local _bootTime = nil
-local function bootTime()
-    if _bootTime == nil then
-        local p = io.popen("/usr/sbin/sysctl -n kern.boottime 2>/dev/null")
+-- This used kern.boottime, which is wall clock minus uptime and so moves with clock corrections:
+-- after weeks of uptime it no longer matched the value a long-running instance had cached, and a
+-- plain reload wiped every tag as if the machine had rebooted.
+local _bootSession = nil
+local function bootSession()
+    if _bootSession == nil then
+        local p = io.popen("/usr/sbin/sysctl -n kern.bootsessionuuid 2>/dev/null")
         local out = p and p:read("*a") or ""
         if p then p:close() end
-        _bootTime = tonumber(out:match("sec%s*=%s*(%d+)")) or false
+        _bootSession = out:match("^%s*([%x%-]+)%s*$") or false
     end
-    return _bootTime or nil
+    return _bootSession or nil
 end
 
 -- Per-window state (keyed by window id): meaningless once the ids were reassigned by a reboot.
@@ -372,10 +375,10 @@ local ID_KEYED = {
 local function loadFromData(d)
     d = deepcopy(d)
     -- Saved before a reboot: drop per-window state so new windows don't inherit it. Per-tag
-    -- settings, tag memory and the active/current tags are kept. A file without bootTime
-    -- (written before this check existed) is kept as is.
-    local boot = bootTime()
-    if boot and d.bootTime and d.bootTime ~= boot then
+    -- settings, tag memory and the active/current tags are kept. A file without bootSession
+    -- (written before this check existed, or with the old bootTime) is kept as is.
+    local boot = bootSession()
+    if boot and d.bootSession and d.bootSession ~= boot then
         print("[NanoWM] state was saved before a reboot; dropping per-window state")
         for _, k in ipairs(ID_KEYED) do d[k] = nil end
     end
@@ -480,7 +483,7 @@ function M.save()
         prevTag            = M.prevTag,
         globalLayout       = M.layout,
         weekenduoWinId     = M.weekenduoWinId,
-        bootTime           = bootTime(),
+        bootSession        = bootSession(),
         appTagMemory       = M.appTagMemory,
         sketchybarEnabled  = M.sketchybarEnabled,
         batterySaverEnabled = M.batterySaverEnabled,
