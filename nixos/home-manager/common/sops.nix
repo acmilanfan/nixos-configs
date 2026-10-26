@@ -5,12 +5,17 @@
   config,
   lib,
   pkgs,
+  secrets,
   inputs ? { },
   ...
 }:
 
 let
   hasSopsNix = inputs ? sops-nix;
+
+  # Work MCP credentials (sops key -> env var), present only for the services
+  # configured in secrets.work.mcp.
+  workMcp = import ./work-mcp.nix { inherit lib pkgs secrets; };
 
   # Path to encrypted secrets file in secrets submodule. Only present in the
   # flake source because flake.nix sets `self.submodules = true`.
@@ -105,7 +110,7 @@ in
         # System services
         "syncthing_api_key" = { };
         "obsWebsocketPassword" = { };
-      };
+      } // lib.mapAttrs (_: _: { }) workMcp.credentials;
 
       templates = {
         "nix-github.conf" = {
@@ -145,6 +150,11 @@ in
             export RAG_MCP_URL="${config.sops.placeholder."mcp/ragUrl"}"
             export SCORECARD_MCP_URL="${config.sops.placeholder."mcp/scorecardUrl"}"
             export OBS_PASSWORD="${config.sops.placeholder."obsWebsocketPassword"}"
+            # Work MCP credentials (work-mcp.nix). An empty value stays unset, so
+            # the server reports a missing variable instead of failing auth.
+            ${lib.concatStrings (lib.mapAttrsToList (key: env: ''
+              _v='${config.sops.placeholder.${key}}'; [ -z "$_v" ] || export ${env}="$_v"
+            '') workMcp.credentials)}unset _v
           '';
         };
 

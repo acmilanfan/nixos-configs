@@ -5,6 +5,9 @@ let
   workMarketplaceName = secrets.claude.workMarketplaceName or "";
   workMarketplaceRepo = secrets.claude.workMarketplaceRepo or "";
 
+  workMcp = import ./work-mcp.nix { inherit lib pkgs secrets; };
+  claudeCode = inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.claude-code;
+
   # Common hooks to trigger SketchyBar and tmux state
   mkHooks = agent: {
     Notification = [
@@ -201,6 +204,8 @@ let
       "jdtls-java@${workMarketplaceName}" = true;
       "global-skills@${workMarketplaceName}" = true;
       "scorecard@${workMarketplaceName}" = true;
+    } // lib.optionalAttrs workMcp.kibanaEnabled {
+      "kibana@${workMarketplaceName}" = true;
     } else {});
 
     extraKnownMarketplaces = if isWork && workMarketplaceName != "" then {
@@ -342,11 +347,49 @@ EOF
   '';
 
   home.packages = [
-      inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.claude-code
+      claudeCode
       antigravityWrapped
       pkgs.opencode
       pkgs.mcp-nixos
-  ];
+  # The kibana plugin's MCP bridge is launched as a bare `node` (>= 20).
+  ] ++ lib.optional (isWork && workMcp.kibanaEnabled) pkgs.nodejs_22;
+
+  # Work MCP servers (work-mcp.nix) at Claude Code's user scope. They live in
+  # ~/.claude.json, which Claude Code rewrites constantly, so instead of owning
+  # the file this adds/replaces only the managed entries, through the CLI's own
+  # locked write path, and only when they differ. Entries dropped from the Nix
+  # config are removed; servers added by hand are left alone.
+  home.activation.claudeMcpServers = lib.mkIf isWork (lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    CLAUDE_JSON="$HOME/.claude.json"
+    MCP_STATE="$HOME/.claude/.nix-mcp-servers"
+    JQ=${pkgs.jq}/bin/jq
+    WANT=$(cat <<'EOF'
+${builtins.toJSON workMcp.claude}
+EOF
+    )
+    claude_mcp() { run ${claudeCode}/bin/claude mcp "$@" >/dev/null; }
+
+    if [ -f "$MCP_STATE" ]; then
+      while read -r name; do
+        if [ -n "$name" ] && [ "$(printf '%s' "$WANT" | $JQ --arg n "$name" 'has($n)')" = false ]; then
+          echo "Removing Claude Code MCP server no longer in the Nix config: $name"
+          claude_mcp remove -s user "$name" || true
+        fi
+      done < "$MCP_STATE"
+    fi
+
+    for name in $(printf '%s' "$WANT" | $JQ -r 'keys[]'); do
+      want=$(printf '%s' "$WANT" | $JQ -cS --arg n "$name" '.[$n]')
+      have=$($JQ -cS --arg n "$name" '.mcpServers[$n] // empty' "$CLAUDE_JSON" 2>/dev/null || true)
+      if [ "$want" != "$have" ]; then
+        echo "Updating Claude Code MCP server: $name"
+        [ -z "$have" ] || claude_mcp remove -s user "$name" || true
+        claude_mcp add-json -s user "$name" "$want"
+      fi
+    done
+
+    [[ -v DRY_RUN ]] || printf '%s' "$WANT" | $JQ -r 'keys[]' > "$MCP_STATE"
+  '');
 
   # Automate extension installation on activation
   # After sops-nix so the GitHub token can be spliced into settings.json.

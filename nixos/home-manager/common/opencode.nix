@@ -7,6 +7,9 @@ let
   # scorecard, global-skills, jdtls-java, check-setup.
   workMarketplaceRepo = secrets.claude.workMarketplaceRepo or "";
 
+  # Agent1, Jenkins and Kibana MCP servers, shared with Claude Code.
+  workMcp = import ./work-mcp.nix { inherit lib pkgs secrets; };
+
   # -------------------------------------------------------------------------
   # Providers
   #
@@ -349,7 +352,7 @@ let
           SONARQUBE_URL = "{env:SONAR_URL}";
         };
       };
-    } else { });
+    } // workMcp.opencode else { });
 
     # V2 normalizes these V1 keys into ordered rules after its built-in
     # `* allow`. Unlike V1, it no longer asks before touching paths outside
@@ -1621,6 +1624,27 @@ EOF
         agent_files=("${workAssetsDir}"/plugins/*/agents/*.md)
         if [ -e "''${agent_files[0]}" ]; then
           run ${agentConverter} "$HOME/.config/opencode/agent" "''${agent_files[@]}" || true
+        fi
+      ''}
+
+      ${lib.optionalString workMcp.kibanaEnabled ''
+        # Kibana plugin (an external repo in the marketplace): what its
+        # install-opencode.sh sets up, from a clone kept at a fixed path. The
+        # repo comes from the marketplace manifest, so nothing company-specific
+        # is committed here. MCP servers are in workMcp.opencode.
+        KIBANA_DIR="${workMcp.kibanaPluginDir}"
+        KIBANA_REPO=$(${pkgs.jq}/bin/jq -r '.plugins[] | select(.name == "kibana") | .source.repo // empty' \
+          "${workAssetsDir}/.claude-plugin/marketplace.json" 2>/dev/null || true)
+        if [ -d "$KIBANA_DIR/.git" ]; then
+          run git -C "$KIBANA_DIR" pull -q --ff-only || true
+        elif [ -n "$KIBANA_REPO" ]; then
+          run git clone -q "git@github-work:$KIBANA_REPO.git" "$KIBANA_DIR" || true
+        fi
+        if [ -d "$KIBANA_DIR/skills" ]; then
+          run ln -sfn "$KIBANA_DIR/skills" "$HOME/.config/opencode/skills/kibana"
+          for worker in ${lib.concatStringsSep " " workMcp.kibanaWorkers}; do
+            run ln -sfn "$KIBANA_DIR/harnesses/opencode/agent/$worker.md" "$HOME/.config/opencode/agent/$worker.md"
+          done
         fi
       ''}
     ''
