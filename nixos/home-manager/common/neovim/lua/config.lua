@@ -316,7 +316,7 @@ vim.keymap.set("n", "j", "v:count == 0 ? 'gj' : 'j'", { expr = true, silent = tr
 
 vim.api.nvim_create_autocmd("FileType", {
   callback = function(args)
-    if args.match == "markdown" then
+    if args.match == "markdown" or args.match == "org-preview" then
       return
     end
     pcall(vim.treesitter.start, args.buf)

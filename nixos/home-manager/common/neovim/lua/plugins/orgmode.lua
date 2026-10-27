@@ -144,6 +144,7 @@ local projects = require("plugins.org.projects")
 local ideas = require("plugins.org.ideas")
 local health = require("plugins.org.health")
 local notes = require("plugins.org.notes")
+local preview = require("plugins.org.preview")
 
 calories.setup()
 youtube.setup()
@@ -151,6 +152,7 @@ projects.setup()
 ideas.setup()
 health.setup()
 notes.setup()
+preview.setup()
 
 vim.api.nvim_create_autocmd("FileType", {
   pattern = "org",
@@ -164,6 +166,9 @@ vim.api.nvim_create_autocmd("FileType", {
 
     -- Buffer-local YouTube keymaps
     youtube.setup_buffer_keymaps()
+
+    -- Buffer-local Org rendered preview toggle.
+    preview.setup_buffer(vim.api.nvim_get_current_buf())
 
     -- Calorie tracker keymaps — only in calories.org
     local filepath = vim.api.nvim_buf_get_name(0)
