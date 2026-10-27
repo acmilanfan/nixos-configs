@@ -80,6 +80,85 @@ let
     fi
   '';
 
+  # The linux-builder VM holds its whole memorySize (12-32 GB) while it runs,
+  # and upstream keeps it running from boot. It is loaded stopped instead (see
+  # launchd.daemons below); this starts it when an aarch64-linux build needs
+  # it. `run CMD...` wraps a command, stopping the builder afterwards only if
+  # `run` was what started it.
+  builderEnabled = config.nix.linux-builder.enable;
+  linuxBuilderCtl = pkgs.writeShellScriptBin "linux-builder" ''
+    set -euo pipefail
+    # `run` gives its command the caller's PATH back.
+    CALLER_PATH=$PATH
+    export PATH=/usr/bin:/bin:/usr/sbin:/sbin
+    JOB=system/org.nixos.linux-builder
+    PLIST=/Library/LaunchDaemons/org.nixos.linux-builder.plist
+    SELF=/run/current-system/sw/bin/linux-builder
+
+    usage() { echo "usage: linux-builder [status|start|stop|run CMD...]" >&2; exit 2; }
+
+    running() {
+      [ "$(launchctl print "$JOB" 2>/dev/null | awk '/^\tstate = /{print $3; exit}')" = running ]
+    }
+
+    # QEMU accepts on the forwarded port as soon as it starts, before the
+    # guest's sshd is up; a host key comes back only once sshd answers.
+    # Port 31022 is upstream's, as in /etc/ssh/ssh_config.d/100-linux-builder.conf.
+    ready() { [ -n "$(ssh-keyscan -p 31022 -T 2 127.0.0.1 2>/dev/null)" ]; }
+
+    # start/stop only run launchctl on this one fixed job; the sudo rule below
+    # permits just those two subcommands.
+    as_root() {
+      if [ "$EUID" -ne 0 ]; then
+        exec sudo -n "$SELF" "$1"
+      fi
+    }
+
+    case "''${1:-status}" in
+      status)
+        [ "$#" -le 1 ] || usage
+        if running; then echo "linux-builder: running"; else echo "linux-builder: stopped"; exit 3; fi
+        ;;
+      start)
+        [ "$#" -eq 1 ] || usage
+        as_root start
+        # A `launchctl bootout` (or `stop` below) unloads the job; sup only
+        # reloads it when the plist changes.
+        launchctl print "$JOB" >/dev/null 2>&1 || launchctl bootstrap system "$PLIST"
+        running || launchctl kickstart "$JOB"
+        echo "linux-builder: waiting for the VM's sshd..." >&2
+        for _ in $(seq 90); do
+          if ready; then echo "linux-builder: running" >&2; exit 0; fi
+          sleep 2
+        done
+        echo "linux-builder: started, but sshd did not answer within 3 minutes" >&2
+        exit 1
+        ;;
+      stop)
+        [ "$#" -eq 1 ] || usage
+        as_root stop
+        # bootout, not `launchctl kill`: the job's shell waits on QEMU and
+        # would not pass a SIGTERM on, while bootout ends the process group.
+        if launchctl print "$JOB" >/dev/null 2>&1; then launchctl bootout "$JOB"; fi
+        echo "linux-builder: stopped" >&2
+        ;;
+      run)
+        shift
+        [ "$#" -ge 1 ] || usage
+        export PATH=$CALLER_PATH
+        # Stdout stays the command's own, e.g. for $(... --print-out-paths).
+        if running; then
+          "$SELF" start >&2 # already started elsewhere: wait for sshd, leave it up
+          exec "$@"
+        fi
+        "$SELF" start >&2
+        trap '"$SELF" stop' EXIT
+        "$@"
+        ;;
+      *) usage ;;
+    esac
+  '';
+
   # Dedicated startup script for GUI apps and driver initialization.
   # Runs under Apple's /bin/bash, not nix bash: launchd makes the interpreter
   # the TCC-responsible process, and every new nix bash store path triggered a
@@ -255,6 +334,7 @@ in
     startupScript
     kanataCtl
     noSleep
+  ] ++ lib.optional builderEnabled linuxBuilderCtl ++ [
     pkgs.warpd
     unstable.kanata
     pkgs.blueutil-tui
@@ -284,7 +364,17 @@ in
   security.sudo.extraConfig = ''
     %admin ALL=(root) NOPASSWD: /run/current-system/sw/bin/kanata-ctl
     ${user} ALL=(root) NOPASSWD: /run/current-system/sw/bin/no-sleep on, /run/current-system/sw/bin/no-sleep off, /run/current-system/sw/bin/no-sleep toggle
+  '' + lib.optionalString builderEnabled ''
+    ${user} ALL=(root) NOPASSWD: /run/current-system/sw/bin/linux-builder start, /run/current-system/sw/bin/linux-builder stop
   '';
+
+  # Loaded but not started: `linux-builder start` / `run` bring it up on demand.
+  launchd.daemons.linux-builder = lib.mkIf builderEnabled {
+    serviceConfig = {
+      KeepAlive = lib.mkForce false;
+      RunAtLoad = lib.mkForce false;
+    };
+  };
 
   launchd.agents.darwin-startup = {
     command = "/usr/local/bin/darwin-startup";

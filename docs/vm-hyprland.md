@@ -9,11 +9,20 @@ helpers are in `nixos/common/home-darwin.nix` and `darwin/mac-*.nix`.
 1. **Apply the Mac config:** `sup`. This installs `create-utm-vm-hyprland`,
    `utm-vm-hyprland-share` and `sup-vm-hyprland`, and the linux-builder's GC
    thresholds (`min-free` 20 GiB / `max-free` 40 GiB). Changing the builder's
-   config makes the running builder build its replacement, so it needs some
-   free disk; see below if it doesn't have it.
+   config (or bumping nixpkgs) makes the builder build its replacement, so it
+   needs some free disk; see below if it doesn't have it.
+
+   The builder holds its whole `memorySize` while it runs, so it is loaded
+   stopped (`darwin/common.nix`). `sup-vm-hyprland` and
+   `create-utm-vm-hyprland` start it for their build and stop it afterwards.
+   For anything else, use `linux-builder start` / `stop` / `status`, or
+   `linux-builder run <cmd>`. A `sup` that fails with
+   `Required system: 'aarch64-linux'` (typically the first one after a
+   nixpkgs bump) needs `linux-builder start` first.
 2. **Check the linux-builder** (it builds every aarch64-linux path):
 
    ```bash
+   linux-builder start
    sudo nix store info --store ssh-ng://linux-builder   # must say Trusted: 1
    sudo ssh linux-builder 'df -h /'
    ```
@@ -28,9 +37,9 @@ helpers are in `nixos/common/home-darwin.nix` and `darwin/mac-*.nix`.
      are kept:
 
      ```bash
-     sudo launchctl bootout system/org.nixos.linux-builder
+     linux-builder stop
      sudo rm /var/lib/linux-builder/nixos.qcow2
-     sudo launchctl bootstrap system /Library/LaunchDaemons/org.nixos.linux-builder.plist
+     linux-builder start
      ```
 
      It comes back with an empty store, so the next build re-uploads or

@@ -44,7 +44,7 @@ Build the `vm-hyprland` QEMU image from macOS (uses the nix-darwin Linux builder
 nix build .#vm-hyprland-image
 ```
 
-`create-utm-vm-hyprland` builds it and creates the UTM VM; `VM_HYPRLAND_HOST=<ip> sup-vm-hyprland` deploys to a running one. Setup on another Mac, the remaining manual steps (disk resize, boot partition, linux-builder recovery) and why the VM's display/cursor config looks the way it does: `docs/vm-hyprland.md`.
+`create-utm-vm-hyprland` builds it and creates the UTM VM; `VM_HYPRLAND_HOST=<ip> sup-vm-hyprland` deploys to a running one. The linux-builder is loaded stopped, because it holds its whole `memorySize` while running. Both scripts start it for their build and stop it afterwards; otherwise use `linux-builder start|stop|status|run <cmd>`. The first `sup` after a nixpkgs bump rebuilds the builder image, so start it first. Setup on another Mac, the remaining manual steps (disk resize, boot partition, linux-builder recovery) and why the VM's display/cursor config looks the way it does: `docs/vm-hyprland.md`.
 
 *Note: evaluation is pure, so no `--impure`. `flake.nix` sets `inputs.self.submodules = true`, so the `secrets/` submodule is part of the flake source. It must be checked out (`git submodule update --init`), and its whole contents are copied into the world-readable `/nix/store` on every evaluation (Nix ignores `export-ignore` there). Keep only encrypted or non-sensitive data there: `flake.nix` refuses to evaluate when `secrets/` holds anything outside its allowlist, but by then the copy exists, so delete the leaked `*-source` paths with `nix-store --delete`.*
 

@@ -148,8 +148,10 @@ in
       # sup-vm-hyprland` prefix applies, so the override never took effect.
       # No --build-host localhost: it made nixos-rebuild copy from
       # ssh://localhost, needing Remote Login and the Mac password.
+      # `linux-builder run` starts the (normally stopped) builder for the
+      # build and stops it again afterwards (darwin/common.nix).
       (pkgs.writeShellScriptBin "sup-vm-hyprland" ''
-        exec nixos-rebuild switch \
+        exec linux-builder run nixos-rebuild switch \
           --flake "$HOME/configs/nixos-configs#vm-hyprland" \
           --target-host "gentooway@''${VM_HYPRLAND_HOST:-vm-hyprland}" \
           --sudo --ask-sudo-password "$@"
