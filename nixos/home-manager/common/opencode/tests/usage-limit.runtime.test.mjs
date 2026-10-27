@@ -90,6 +90,13 @@ before(async () => {
         // ChatGPT-subscription style usage limit
         return limit({ type: "usage_limit_reached", message: "You have hit your usage limit.", resets_in_seconds: 1 });
       }
+      if (user.includes("Header limit check") && attempts === 1) {
+        // The reset is only in retry-after, as some providers report it.
+        res.writeHead(429, { "content-type": "application/json", "retry-after": "10" });
+        return res.end(JSON.stringify({
+          error: { type: "usage_limit_reached", message: "You have hit your usage limit." },
+        }));
+      }
       res.writeHead(200, { "content-type": "text/event-stream" });
       res.end(sse("Resumed fixture"));
     });
@@ -140,6 +147,16 @@ test("a usage limit with a reset time resumes the same turn after the reset", { 
   assert.equal(modelRequests.length - before, 2, "one failed request, one retried request");
   const logText = await readFile(resolve(root, "server.log"), "utf8");
   assert.match(logText, /\[usage-limit\] .*provider\.quota, resuming at/);
+});
+
+test("a limit whose reset is only in retry-after resumes the same turn", { skip, timeout: 90000 }, async () => {
+  const before = modelRequests.length;
+  const logPath = resolve(root, "server.log");
+  const logBefore = await readFile(logPath, "utf8");
+  assert.equal(await runTurn("Header limit check"), "succeeded");
+  assert.equal(modelRequests.length - before, 2, "one failed request, one retried request");
+  const added = (await readFile(logPath, "utf8")).slice(logBefore.length);
+  assert.match(added, /\[usage-limit\] .*provider\.quota, resuming at/);
 });
 
 test("a billing quota error still fails the turn", { skip, timeout: 90000 }, async () => {

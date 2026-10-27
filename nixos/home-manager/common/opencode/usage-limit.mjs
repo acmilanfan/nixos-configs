@@ -3,7 +3,9 @@
 // opencode retries short rate limits itself (about 1.5 min in total, provider
 // delays capped at 15 min) and fails the turn on a quota or usage limit. This
 // retry hook turns a limit with a known reset time into one long retry that
-// resumes the same turn. OPENCODE_LIMIT_RESUME=0 disables it.
+// resumes the same turn. The reset may come from the body/message, the
+// response's retry-after header, or opencode's retryAfterMs.
+// OPENCODE_LIMIT_RESUME=0 disables it.
 
 const DAY = 24 * 60 * 60 * 1000;
 // Reset times are rounded; asking a little late avoids a second failure.
@@ -15,6 +17,46 @@ const BILLING =
   /insufficient[-_\s]?(?:quota|balance)|billing|payment|credit balance|budget exceeded|package has expired|plan does not (?:yet )?include/i;
 
 const UNIT_MS = { d: 86400000, h: 3600000, m: 60000, s: 1000 };
+// Header resets are read from the HTTP response before the error reaches the
+// retry hook. Older opencode versions drop retryAfterMs from that error.
+const HEADER_TTL = 5 * 60 * 1000;
+const headerResets = new Map();
+
+function header(headers, name) {
+  if (!headers) return undefined;
+  return typeof headers.get === "function" ? headers.get(name) : headers[name];
+}
+
+/** Retry-after delay in ms from response headers, if the provider sent one. */
+export function retryAfterFromHeaders(headers, now = Date.now()) {
+  const rawMillis = header(headers, "retry-after-ms");
+  const millis = Number(rawMillis);
+  if (
+    rawMillis !== undefined &&
+    rawMillis !== null &&
+    rawMillis !== "" &&
+    Number.isFinite(millis) &&
+    millis >= 0
+  )
+    return millis;
+  const value = header(headers, "retry-after");
+  if (!value) return undefined;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds) && seconds >= 0) return seconds * 1000;
+  const at = Date.parse(value);
+  if (!Number.isNaN(at)) return Math.max(0, at - now);
+  return undefined;
+}
+
+/** Remember a rate or quota response's reset for the retry hook in that session. */
+export function noteResponse(event, now = Date.now()) {
+  const status = event?.response?.status;
+  if (status !== 429 && status !== 402) return;
+  const delay = retryAfterFromHeaders(event.response.headers, now);
+  if (delay === undefined) return;
+  if (headerResets.size >= 1000) headerResets.delete(headerResets.keys().next().value);
+  headerResets.set(event.sessionID, { at: now + delay, seen: now });
+}
 
 function parseJson(text) {
   try {
@@ -71,6 +113,10 @@ export function resetAt(error, now = Date.now()) {
     const t = Date.parse(iso[0].replace(/\s?UTC$/, "Z").replace(" ", "T"));
     if (!Number.isNaN(t)) return t;
   }
+  // Providers often put the reset only in a retry-after header. OpenCode
+  // surfaces it as retryAfterMs counted from the failure.
+  const retryAfterMs = Number(error?.retryAfterMs);
+  if (Number.isFinite(retryAfterMs) && retryAfterMs >= 0) return now + retryAfterMs;
   return undefined;
 }
 
@@ -82,20 +128,31 @@ export function decide(event, now = Date.now()) {
   const error = event?.error;
   if (!error || !LIMIT_TYPES.has(error.type)) return undefined;
   if (BILLING.test(`${error.message ?? ""} ${error.response?.body ?? ""}`)) return undefined;
-  const at = resetAt(error, now);
+  let at = resetAt(error, now);
+  const captured = headerResets.get(event.sessionID);
+  if (captured) {
+    headerResets.delete(event.sessionID);
+    if (Math.abs(now - captured.seen) <= HEADER_TTL)
+      at = at === undefined ? captured.at : Math.max(at, captured.at);
+  }
   if (at === undefined) return undefined;
   const delay = Math.ceil(at - now + MARGIN);
-  if (delay <= MARGIN || delay > DAY) return undefined;
+  if (delay > DAY) return undefined;
   // opencode's own short retry already covers it
   if (event.decision?.retry && delay <= event.decision.delay) return undefined;
-  event.decision = { retry: true, delay };
-  return delay;
+  // A quota is terminal to opencode, so a reset that just passed still needs
+  // one short recheck instead of becoming an immediate failure. Rate limits
+  // keep opencode's own shorter retry unless the reset is farther away.
+  const wait = Math.max(MARGIN, delay);
+  event.decision = { retry: true, delay: wait };
+  return wait;
 }
 
 export default {
   id: "usage-limit",
   async setup(ctx) {
     if (process.env.OPENCODE_LIMIT_RESUME === "0") return;
+    await ctx.session.hook("http.response", (event) => noteResponse(event));
     await ctx.session.hook("retry", (event) => {
       const delay = decide(event);
       if (delay !== undefined) {

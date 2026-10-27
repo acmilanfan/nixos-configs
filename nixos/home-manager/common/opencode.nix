@@ -1455,8 +1455,10 @@ EOF
   '';
 
   # Usage limits with a known reset time (ChatGPT subscription) become one
-  # long retry that resumes the same turn instead of failing it; Claude Code
-  # does this on its own. OPENCODE_LIMIT_RESUME=0 disables it.
+  # long retry that resumes the same turn instead of failing it. The reset may
+  # be in the error body/message or in the response's retry-after header; an
+  # already-due quota gets one short recheck. Claude Code does this on its own.
+  # OPENCODE_LIMIT_RESUME=0 disables it.
   home.file.".config/opencode/plugins/usage-limit".source = pkgs.runCommand "opencode-usage-limit-plugin" { } ''
     mkdir -p "$out"
     cp ${./opencode/usage-limit.mjs} "$out/index.js"

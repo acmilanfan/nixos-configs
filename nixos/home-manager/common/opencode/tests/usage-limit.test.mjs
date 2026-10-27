@@ -61,17 +61,75 @@ test("a short rate limit opencode already retries sooner is left alone", async (
   assert.deepEqual(event.decision, { retry: true, delay: 10 * MIN });
 });
 
-test("the plugin registers a retry hook unless disabled", async () => {
+test("a provider retry-after delay is used when the body does not name a reset", async () => {
+  const { decide } = await plugin();
+  const rateLimit = failure("provider.rate-limit", {
+    message: "The usage limit has been reached",
+    decision: { retry: true, delay: 15 * MIN },
+  });
+  rateLimit.error.retryAfterMs = 2 * 60 * MIN;
+  assert.equal(decide(rateLimit, NOW), 2 * 60 * MIN + MIN);
+  assert.deepEqual(rateLimit.decision, { retry: true, delay: 2 * 60 * MIN + MIN });
+
+  const quota = failure("provider.quota", { message: "The usage limit has been reached" });
+  quota.error.retryAfterMs = 3 * 60 * MIN;
+  assert.equal(decide(quota, NOW), 3 * 60 * MIN + MIN);
+  assert.deepEqual(quota.decision, { retry: true, delay: 3 * 60 * MIN + MIN });
+});
+
+test("a quota whose reset has already passed is checked again shortly", async () => {
+  const { decide } = await plugin();
+  const event = failure("provider.quota", {
+    body: JSON.stringify({ error: { resets_at: Math.floor(NOW / 1000) - 30 } }),
+  });
+  assert.equal(decide(event, NOW), MIN);
+  assert.deepEqual(event.decision, { retry: true, delay: MIN });
+});
+
+test("a quota reset that is only seconds away is not handed to a non-retrying policy", async () => {
+  const { decide } = await plugin();
+  const event = failure("provider.quota", {
+    body: JSON.stringify({ error: { resets_in_seconds: 30 } }),
+  });
+  assert.equal(decide(event, NOW), 30_000 + MIN);
+  assert.deepEqual(event.decision, { retry: true, delay: 30_000 + MIN });
+});
+
+test("the plugin registers its hooks unless disabled", async () => {
   const { default: definition } = await plugin();
   const hooks = [];
   const ctx = { session: { hook: async (name, fn) => hooks.push([name, fn]) } };
   await definition.setup(ctx);
-  assert.deepEqual(hooks.map(([name]) => name), ["retry"]);
+  assert.deepEqual(hooks.map(([name]) => name), ["http.response", "retry"]);
   process.env.OPENCODE_LIMIT_RESUME = "0";
   try {
     await definition.setup(ctx);
-    assert.equal(hooks.length, 1);
+    assert.equal(hooks.length, 2);
   } finally {
     delete process.env.OPENCODE_LIMIT_RESUME;
   }
+});
+
+test("a retry-after response header supplies a reset the error omitted", async () => {
+  const { default: definition, decide } = await plugin();
+  const hooks = new Map();
+  await definition.setup({ session: { hook: async (name, fn) => hooks.set(name, fn) } });
+  const now = Date.now();
+  await hooks.get("http.response")({
+    sessionID: "ses_header",
+    response: new Response(null, { status: 429, headers: { "retry-after": "600" } }),
+  });
+  const event = failure("provider.quota", { message: "The usage limit has been reached" });
+  event.sessionID = "ses_header";
+  const delay = decide(event, now);
+  assert.ok(delay >= 10 * MIN + MIN && delay < 10 * MIN + MIN + 1000, `unexpected delay ${delay}`);
+  assert.deepEqual(event.decision, { retry: true, delay });
+});
+
+test("an HTTP-date retry-after header is converted to a delay", async () => {
+  const { retryAfterFromHeaders } = await plugin();
+  const now = NOW;
+  assert.equal(retryAfterFromHeaders({ "retry-after": new Date(now + 90_000).toUTCString() }, now), 90_000);
+  assert.equal(retryAfterFromHeaders({ "retry-after-ms": "2500" }, now), 2500);
+  assert.equal(retryAfterFromHeaders({ "retry-after": "soon" }, now), undefined);
 });
