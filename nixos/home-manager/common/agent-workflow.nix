@@ -23,6 +23,13 @@ let
     text = lib.readFile ./scripts/pr-watch;
   };
 
+  # worktree sibling + agent session; ai-branch-name, wt-setup, tmux, fzf
+  # and ai-models come from the profile
+  wtNew = pkgs.writeShellApplication {
+    name = "wt-new";
+    text = lib.readFile ./scripts/wt-new;
+  };
+
   agentSend = pkgs.writeShellApplication {
     name = "agent-send";
     text = lib.readFile ./scripts/agent-send;
@@ -54,7 +61,7 @@ let
   cleanupLog = "${home}/Library/Logs/agent-cleanup.log";
 in
 {
-  home.packages = [ wtPrune prWatch aiBranchName agentSend ];
+  home.packages = [ wtPrune wtNew prWatch aiBranchName agentSend ];
 
   home.file = lib.listToAttrs (map (name: {
     name = ".claude/skills/${name}";

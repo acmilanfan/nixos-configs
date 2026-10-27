@@ -1,0 +1,157 @@
+#!/usr/bin/env bash
+# Create a worktree sibling (<parent>/<repo>-<branch>) and optionally open an
+# agent in a tmux session for it. Bound to Ctrl+X n in zsh.
+#
+#   wt-new [options] [<task or branch>]
+#
+#   -b, --branch NAME     branch to check out or create
+#   -t, --task TEXT       task: names the branch (ai-branch-name) unless -b is
+#                         given, and becomes the agent's first prompt
+#   -B, --base REF        start point of a new branch (default: HEAD)
+#   -a, --agent NAME      none | shell | claude | opencode | antigravity
+#   -m, --models ENGINE   none | omlx | qwen: local models for opencode
+#   -C, --repo DIR        repository to branch from (default: current dir)
+#       --switch          switch the tmux client to the new session
+#       --no-switch       leave the client where it is
+#   -y, --yes             never prompt; take the defaults
+#
+# A positional argument with a space is a task, otherwise a branch. Without a
+# terminal on stdin (or with -y) nothing is asked: the suggested branch name
+# is taken, the agent defaults to none, models to none, and the client is not
+# switched. Only the worktree path goes to stdout; the rest goes to stderr.
+# The tmux session is named after the worktree directory, dots replaced by _.
+# An existing worktree for the same branch at that path is reused.
+set -euo pipefail
+
+# the header comment above, wherever the packaging puts it
+usage() { awk '/^# Create a worktree/ { f = 1 } f && !/^#/ { exit } f { sub(/^# ?/, ""); print }' "$0"; }
+die() { echo "wt-new: $*" >&2; exit 1; }
+need() { [ $# -ge 2 ] && [ -n "$2" ] || die "$1 needs a value"; }
+
+task="" branch="" base="" agent="" models="" repo="." switch="" yes=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -b|--branch) need "$@"; branch="$2"; shift 2 ;;
+    -t|--task) need "$@"; task="$2"; shift 2 ;;
+    -B|--base) need "$@"; base="$2"; shift 2 ;;
+    -a|--agent) need "$@"; agent="$2"; shift 2 ;;
+    -m|--models) need "$@"; models="$2"; shift 2 ;;
+    -C|--repo) need "$@"; repo="$2"; shift 2 ;;
+    --switch) switch=1; shift ;;
+    --no-switch) switch=0; shift ;;
+    -y|--yes) yes=1; shift ;;
+    -h|--help) usage; exit 0 ;;
+    --) shift; break ;;
+    -*) die "unknown option $1 (see --help)" ;;
+    *) break ;;
+  esac
+done
+[ $# -le 1 ] || die "one task or branch at a time (quote a task)"
+if [ $# -eq 1 ] && [ -n "$1" ]; then
+  if [[ "$1" == *" "* ]]; then
+    [ -z "$task" ] || die "both --task and a positional task given"
+    task="$1"
+  else
+    [ -z "$branch" ] || die "both --branch and a positional branch given"
+    branch="$1"
+  fi
+fi
+
+case "$agent" in ""|none|shell|claude|opencode|antigravity) ;; *) die "unknown agent: $agent" ;; esac
+case "$models" in ""|none|omlx|qwen) ;; *) die "unknown models engine: $models" ;; esac
+
+interactive=""
+[ -z "$yes" ] && [ -t 0 ] && interactive=1
+if [ -z "$switch" ]; then
+  if [ -n "$interactive" ]; then switch=1; else switch=0; fi
+fi
+
+git_root=$(git -C "$repo" rev-parse --show-toplevel 2>/dev/null) || die "not in a git repository: $repo"
+
+if [ -z "$task" ] && [ -z "$branch" ]; then
+  [ -n "$interactive" ] || die "give a task or branch (see --help)"
+  read -r -p "Task or branch name: " input
+  [ -n "$input" ] || exit 0
+  if [[ "$input" == *" "* ]]; then task="$input"; else branch="$input"; fi
+fi
+
+if [ -z "$branch" ]; then
+  echo "naming the branch ..." >&2
+  suggested=$(ai-branch-name "$task")
+  if [ -n "$interactive" ]; then
+    read -r -p "Branch [$suggested]: " branch || exit 0
+  fi
+  branch="${branch:-$suggested}"
+fi
+git check-ref-format --branch "$branch" >/dev/null 2>&1 || die "invalid branch name: $branch"
+
+repo_name=$(basename "$git_root")
+# One directory level per worktree: feat/x -> <repo>-feat-x, which keeps the
+# session name (its basename) in step with worktree-switch/worktree-remove.
+worktree_path="$(dirname "$git_root")/$repo_name-${branch//\//-}"
+session_name=$(basename "$worktree_path" | tr '.' '_')
+
+registered_branch() {
+  git -C "$git_root" worktree list --porcelain |
+    P="$worktree_path" awk '
+      $0 == "worktree " ENVIRON["P"] { f = 1; next }
+      /^$/ { f = 0 }
+      f && /^branch / { sub(/^branch refs\/heads\//, ""); print; exit }'
+}
+
+if [ -e "$worktree_path" ]; then
+  [ "$(registered_branch)" = "$branch" ] ||
+    die "$worktree_path exists and is not a worktree of $branch"
+  echo "Exists: $worktree_path" >&2
+elif git -C "$git_root" show-ref --verify --quiet "refs/heads/$branch"; then
+  [ -z "$base" ] || echo "wt-new: $branch already exists, ignoring --base $base" >&2
+  git -C "$git_root" worktree add "$worktree_path" "$branch" >&2
+  echo "Created: $worktree_path" >&2
+else
+  git -C "$git_root" worktree add "$worktree_path" -b "$branch" ${base:+"$base"} >&2
+  echo "Created: $worktree_path" >&2
+fi
+
+if [ -z "$agent" ] && [ -n "$interactive" ]; then
+  agent=$(printf "shell\nclaude\nopencode\nantigravity" | fzf --prompt="Open with > " --height=6 || true)
+fi
+if [ -z "$agent" ] || [ "$agent" = none ]; then
+  wt-setup "$worktree_path" >&2
+  printf '%s\n' "$worktree_path"
+  exit 0
+fi
+
+if ! tmux has-session -t="$session_name" 2>/dev/null; then
+  tmux new-session -ds "$session_name" -c "$worktree_path"
+fi
+# links .env/.envrc/agent permissions, devshell .envrc; a per-repo
+# setup script (if any) runs in the session's background "setup" window
+wt-setup --tmux "$session_name" "$worktree_path" >&2
+
+case "$agent" in
+  claude) cmd="claude${task:+ $(printf '%q' "$task")}" ;;
+  opencode)
+    # Local model servers are on-demand; start one detached (own ai-models
+    # tmux session, no focus steal) before launching.
+    if [ -z "$models" ] && [ -n "$interactive" ]; then
+      models=$(printf "none\nomlx\nqwen" | fzf --prompt="local models > " --height=5 || true)
+    fi
+    case "$models" in
+      omlx|qwen)
+        AI_MODELS_HEADLESS=1 ai-models "$models" >&2
+        echo "models starting in the ai-models session ..." >&2
+        ;;
+    esac
+    cmd="opencode${task:+ --prompt $(printf '%q' "$task")}" ;;
+  antigravity) cmd="antigravity" ;;
+  shell) cmd="" ;;
+esac
+[ -z "$cmd" ] || tmux send-keys -t "$session_name" "$cmd" Enter
+echo "Session: $session_name${cmd:+ (running $agent)}" >&2
+
+if [ "$switch" = 1 ] && [ -n "${TMUX:-}" ]; then
+  tmux switch-client -t "$session_name"
+elif [ "$switch" = 1 ]; then
+  echo "attach with: tmux attach -t $session_name" >&2
+fi
+printf '%s\n' "$worktree_path"

@@ -1,16 +1,63 @@
 #!/usr/bin/env bash
-# Fuzzy-pick a git worktree.
+# Pick a git worktree: fuzzy, or the one named by the argument (its path,
+# directory name or branch), which needs no terminal.
+#
+#   worktree-switch [--tmux|--claude|--gemini|--antigravity] [worktree]
+#
 # No flags  : prints selected path to stdout (ZSH widget cds to it)
 # --tmux    : create/switch a tmux session for the selected worktree
 # --claude  : like --tmux but also starts `claude` in the new session
 # --gemini  : like --tmux but also starts `gemini` in the new session
 # --antigravity : like --tmux but also starts `antigravity` in the new session
+#
+# Outside tmux the session is created detached and not switched to.
 
-selected=$(git worktree list --porcelain 2>/dev/null \
-  | awk '/^worktree / {print $2}' \
-  | fzf --prompt="Worktree > " \
-        --preview="git -C {} log --oneline --color=always -10 2>/dev/null; echo; ls {}" \
-        --height=50%)
+mode="" query=""
+for arg in "$@"; do
+  case "$arg" in
+    --tmux|--claude|--gemini|--antigravity) mode="$arg" ;;
+    -*) echo "worktree-switch: unknown option $arg" >&2; exit 2 ;;
+    *) query="$arg" ;;
+  esac
+done
+
+# Paths of the worktrees whose path, directory name or branch is $1, or
+# whose path is $2 (the resolved $1, as git prints symlinked paths resolved).
+match_worktrees() {
+  local want="$1" abs="$2"
+  git worktree list --porcelain 2>/dev/null |
+    W="$want" A="$abs" awk '
+      function check() {
+        n = split(p, parts, "/")
+        if (p != "" && (p == ENVIRON["W"] || p == ENVIRON["A"] || parts[n] == ENVIRON["W"] || b == ENVIRON["W"]))
+          print p
+        p = b = ""
+      }
+      /^worktree / { p = substr($0, 10) }
+      /^branch / { b = substr($0, 8); sub(/^refs\/heads\//, "", b) }
+      /^$/ { check() }
+      END { check() }'
+}
+
+if [[ -n "$query" ]]; then
+  # a path argument may live in another repository than the current dir
+  abs=""
+  if [[ -d "$query" ]]; then
+    abs=$(cd "$query" && pwd -P) && cd "$abs" || exit 1
+  fi
+  mapfile -t matches < <(match_worktrees "$query" "$abs")
+  if [[ ${#matches[@]} -ne 1 ]]; then
+    echo "worktree-switch: ${#matches[@]} worktrees match '$query'" >&2
+    exit 1
+  fi
+  selected="${matches[0]}"
+else
+  selected=$(git worktree list --porcelain 2>/dev/null \
+    | sed -n 's/^worktree //p' \
+    | fzf --prompt="Worktree > " \
+          --preview="git -C {} log --oneline --color=always -10 2>/dev/null; echo; ls {}" \
+          --height=50%)
+fi
 
 [[ -z "$selected" ]] && exit 0
 
@@ -21,11 +68,17 @@ _tmux_switch() {
   if ! tmux has-session -t="$name" 2>/dev/null; then
     tmux new-session -ds "$name" -c "$path"
   fi
-  tmux switch-client -t "$name"
-  [[ -n "$cmd" ]] && tmux send-keys -t "$name" "$cmd" Enter
+  if [[ -n "${TMUX:-}" ]]; then
+    tmux switch-client -t "$name"
+  else
+    echo "attach with: tmux attach -t $name" >&2
+  fi
+  if [[ -n "$cmd" ]]; then
+    tmux send-keys -t "$name" "$cmd" Enter
+  fi
 }
 
-case "$1" in
+case "$mode" in
   --claude) _tmux_switch "$selected" "claude" ;;
   --gemini) _tmux_switch "$selected" "gemini" ;;
   --antigravity) _tmux_switch "$selected" "antigravity" ;;

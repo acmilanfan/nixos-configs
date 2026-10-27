@@ -1,32 +1,96 @@
 #!/usr/bin/env bash
-# Fuzzy-pick a git worktree to remove.
-# Skips the main worktree (HEAD).
-# Passes --force if the worktree has uncommitted changes.
+# Remove a linked git worktree: fuzzy-picked, or the one named by the argument
+# (its path, directory name or branch). Never the main worktree.
+#
+#   worktree-remove [-f|--force] [--kill-session|--keep-session] [worktree]
+#
+# A worktree with uncommitted or untracked changes, or one git refuses to
+# remove (e.g. locked), is removed only after confirming, or with --force.
+# The tmux session named after it is killed after confirming, or with
+# --kill-session. Without a terminal every question is answered no.
+
+force_opt="" session_opt="" query=""
+for arg in "$@"; do
+  case "$arg" in
+    -f|--force) force_opt=1 ;;
+    --kill-session) session_opt="kill" ;;
+    --keep-session) session_opt="keep" ;;
+    -*) echo "worktree-remove: unknown option $arg" >&2; exit 2 ;;
+    *) query="$arg" ;;
+  esac
+done
+
+# Paths of the worktrees whose path, directory name or branch is $1, or
+# whose path is $2 (the resolved $1, as git prints symlinked paths resolved).
+match_worktrees() {
+  local want="$1" abs="$2"
+  git worktree list --porcelain 2>/dev/null |
+    W="$want" A="$abs" awk '
+      function check() {
+        n = split(p, parts, "/")
+        if (p != "" && (p == ENVIRON["W"] || p == ENVIRON["A"] || parts[n] == ENVIRON["W"] || b == ENVIRON["W"]))
+          print p
+        p = b = ""
+      }
+      /^worktree / { p = substr($0, 10) }
+      /^branch / { b = substr($0, 8); sub(/^refs\/heads\//, "", b) }
+      /^$/ { check() }
+      END { check() }'
+}
+
+# a path argument may live in another repository than the current dir
+abs=""
+if [[ -n "$query" && -d "$query" ]]; then
+  abs=$(cd "$query" && pwd -P) && cd "$abs" || exit 1
+fi
 
 # Collect all worktrees except the primary one (the whole rest of the line:
 # paths may contain spaces)
 mapfile -t all < <(git worktree list --porcelain 2>/dev/null | sed -n 's/^worktree //p')
 if [[ ${#all[@]} -lt 2 ]]; then
   echo "No linked worktrees to remove." >&2
+  [[ -z "$query" ]] || exit 1
   exit 0
 fi
 
 # The first entry is always the main worktree — skip it
 worktrees=("${all[@]:1}")
 
-selected=$(printf '%s\n' "${worktrees[@]}" \
-  | fzf --prompt="Remove worktree > " \
-        --preview="git -C {} log --oneline --color=always -10 2>/dev/null; echo; ls {}" \
-        --height=50%)
+if [[ -n "$query" ]]; then
+  mapfile -t matches < <(match_worktrees "$query" "$abs")
+  if [[ ${#matches[@]} -ne 1 ]]; then
+    echo "worktree-remove: ${#matches[@]} worktrees match '$query'" >&2
+    exit 1
+  fi
+  selected="${matches[0]}"
+  if [[ "$selected" == "${all[0]}" ]]; then
+    echo "worktree-remove: $selected is the main worktree" >&2
+    exit 1
+  fi
+else
+  selected=$(printf '%s\n' "${worktrees[@]}" \
+    | fzf --prompt="Remove worktree > " \
+          --preview="git -C {} log --oneline --color=always -10 2>/dev/null; echo; ls {}" \
+          --height=50%)
+fi
 
 [[ -z "$selected" ]] && exit 0
+
+# yes/no question; --force or --kill-session answer it up front
+confirm() {
+  local answer
+  read -r -p "$1 [y/N] " answer
+  [[ "$answer" == [yY] ]]
+}
 
 # Check for uncommitted changes. `git status --porcelain` covers staged,
 # unstaged, and untracked changes (ignored files excluded) — the same
 # conditions under which `git worktree remove` refuses without --force.
 if [[ -n "$(git -C "$selected" status --porcelain 2>/dev/null)" ]]; then
-  read -r -p "Worktree has uncommitted or untracked changes. Remove anyway? [y/N] " confirm
-  [[ "$confirm" != [yY] ]] && exit 0
+  if [[ -z "$force_opt" ]] && ! confirm "Worktree has uncommitted or untracked changes. Remove anyway?"; then
+    echo "Kept: $selected (uncommitted or untracked changes; --force removes it)" >&2
+    exit 0
+  fi
   force="--force"
 fi
 
@@ -71,8 +135,8 @@ else
     echo "Worktree is locked${reason:+:${reason}}." >&2
     force_args=(--force --force)
   fi
-  read -r -p "git could not remove the worktree. Force removal? [y/N] " force_confirm
-  if [[ "$force_confirm" == [yY] ]] && git worktree remove "${force_args[@]}" "$selected"; then
+  if { [[ -n "$force_opt" ]] || confirm "git could not remove the worktree. Force removal?"; } &&
+    git worktree remove "${force_args[@]}" "$selected"; then
     removed=1
   fi
 fi
@@ -87,6 +151,9 @@ echo "Removed: $selected"
 # Kill the associated tmux session if it exists
 session_name=$(basename "$selected" | tr '.' '_')
 if tmux has-session -t="$session_name" 2>/dev/null; then
-  read -r -p "Kill tmux session '$session_name'? [y/N] " kill_session
-  [[ "$kill_session" == [yY] ]] && tmux kill-session -t "$session_name"
+  case "$session_opt" in
+    kill) tmux kill-session -t "$session_name" ;;
+    keep) ;;
+    *) if confirm "Kill tmux session '$session_name'?"; then tmux kill-session -t "$session_name"; fi ;;
+  esac
 fi

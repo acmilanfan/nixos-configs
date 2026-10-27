@@ -145,82 +145,23 @@
       bindkey '^g' fzf-cd-widget
 
       # Worktree switch: Ctrl+X w → fzf-pick a worktree and cd into it
+      # (or `wt-sw <path|dir|branch>`)
       wt-sw() {
         local selected
-        selected=$(worktree-switch 2>/dev/null)
+        selected=$(worktree-switch "$@" 2>/dev/null)
         [[ -n "$selected" ]] && cd "$selected"
       }
       bindkey -s '^xw' 'wt-sw\n'
 
-      # Worktree new: Ctrl+X n → prompt for a task or branch, create worktree
-      # sibling, optionally open an agent. A task (anything with a space) is
-      # named by ai-branch-name (CFE-123-short-slug) and becomes the agent's
-      # first prompt.
-      wt-new() {
-        local input task branch git_root parent_dir repo_name worktree_path agent session_name
-        git_root=$(git rev-parse --show-toplevel 2>/dev/null)
-        if [[ -z "$git_root" ]]; then
-          echo "Not in a git repository" >&2
-          return 1
-        fi
-        read "input?Task or branch name: "
-        [[ -z "$input" ]] && return
-        if [[ "$input" == *" "* ]]; then
-          task="$input"
-          echo "naming the branch ..."
-          local suggested
-          suggested=$(ai-branch-name "$task")
-          read "branch?Branch [$suggested]: " || return
-          [[ -z "$branch" ]] && branch="$suggested"
-        else
-          branch="$input"
-        fi
-        repo_name=$(basename "$git_root")
-        parent_dir=$(dirname "$git_root")
-        # Sibling pattern: <parent>/<repo>-<branch>
-        worktree_path="$parent_dir/$repo_name-$branch"
-        if git -C "$git_root" show-ref --verify --quiet "refs/heads/$branch" 2>/dev/null; then
-          git -C "$git_root" worktree add "$worktree_path" "$branch" || return 1
-        else
-          git -C "$git_root" worktree add "$worktree_path" -b "$branch" || return 1
-        fi
-        echo "Created: $worktree_path"
-        agent=$(printf "shell\nclaude\nopencode\nantigravity" | fzf --prompt="Open with > " --height=6)
-        if [[ -z "$agent" ]]; then
-          wt-setup "$worktree_path"
-          return
-        fi
-        session_name=$(echo "$repo_name-$branch" | tr '.' '_' | tr '/' '-')
-        if ! tmux has-session -t="$session_name" 2>/dev/null; then
-          tmux new-session -ds "$session_name" -c "$worktree_path"
-        fi
-        # links .env/.envrc/agent permissions, devshell .envrc; a per-repo
-        # setup script (if any) runs in the session's background "setup" window
-        wt-setup --tmux "$session_name" "$worktree_path"
-        case "$agent" in
-          claude) tmux send-keys -t "$session_name" "claude''${task:+ ''${(qq)task}}" Enter ;;
-          opencode)
-            # Local model servers are on-demand; offer to start one detached
-            # (own ai-models tmux session, no focus steal) before launching.
-            # Prompt runs here, in the still-focused pane — switch-client
-            # happens below, after all prompting is done.
-            engine=$(printf "none\nomlx\nqwen" | fzf --prompt="local models > " --height=5)
-            case "$engine" in
-              omlx|qwen)
-                AI_MODELS_HEADLESS=1 ai-models "$engine"
-                echo "models starting in the ai-models session ..."
-                ;;
-            esac
-            tmux send-keys -t "$session_name" "opencode''${task:+ --prompt ''${(qq)task}}" Enter ;;
-          antigravity) tmux send-keys -t "$session_name" "antigravity" Enter ;;
-        esac
-        tmux switch-client -t "$session_name"
-      }
+      # Worktree new: Ctrl+X n → the wt-new script (prompts for a task or
+      # branch, creates the worktree sibling, optionally opens an agent;
+      # `wt-new --help` for the non-interactive flags)
       bindkey -s '^xn' 'wt-new\n'
 
       # Worktree remove: Ctrl+X d → fzf-pick a linked worktree and remove it
+      # (or `wt-rm [--force] [--kill-session] <path|dir|branch>`)
       wt-rm() {
-        worktree-remove
+        worktree-remove "$@"
       }
       bindkey -s '^xd' 'wt-rm\n'
     '';
