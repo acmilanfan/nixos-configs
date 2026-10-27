@@ -751,28 +751,39 @@ PY
     # designated requirement is "identifier + certificate leaf", not a raw content hash -
     # Input Monitoring permission survives binary updates instead of needing to be re-granted.
     # To update kanata: touch ~/.config/kanata/update-kanata && darwin-rebuild switch
+    #
+    # The copy is a raw Mach-O binary, so its absolute dylib paths (libiconv) must
+    # stay valid. Pin the source closure with a GC root; otherwise a later
+    # nixpkgs update can collect libiconv and leave kanata-nix crashing in dyld.
+    # Missing/broken copies are re-copied automatically so an ordinary switch
+    # heals a collected closure; a healthy copy still only updates via the flag.
     echo "Ensuring kanata stable binary path for Input Monitoring permissions..."
-    mkdir -p /usr/local/bin
+    mkdir -p /usr/local/bin /nix/var/nix/gcroots
     KANATA_UPDATE_FLAG="/Users/${user}/.config/kanata/update-kanata"
-    if [ -f "$KANATA_UPDATE_FLAG" ]; then
-      echo "User requested kanata update. Copying binary..."
-      cp -f ${unstable.kanata}/bin/kanata /usr/local/bin/kanata-nix
-      chmod 755 /usr/local/bin/kanata-nix
-      codesign --force -s "kanata-local-codesign" -i "local.kanata.kanata-nix" /usr/local/bin/kanata-nix 2>/dev/null || true
+    KANATA_GC_ROOT="/nix/var/nix/gcroots/kanata-nix"
+    KANATA_LOCAL_BIN="/usr/local/bin/kanata-nix"
+    KANATA_WAS_MISSING=0
+    [ -f "$KANATA_LOCAL_BIN" ] || KANATA_WAS_MISSING=1
+    if [ -f "$KANATA_UPDATE_FLAG" ] || [ "$KANATA_WAS_MISSING" = 1 ] || [ ! -e "$KANATA_GC_ROOT" ] || ! "$KANATA_LOCAL_BIN" --version >/dev/null 2>&1; then
+      echo "Copying kanata-nix binary and pinning its runtime closure..."
+      # Pin before copying so the copy can never outlive its dylibs.
+      ln -sfn "${unstable.kanata}" "$KANATA_GC_ROOT"
+      cp -f ${unstable.kanata}/bin/kanata "$KANATA_LOCAL_BIN"
+      chmod 755 "$KANATA_LOCAL_BIN"
+      codesign --force -s "kanata-local-codesign" -i "local.kanata.kanata-nix" "$KANATA_LOCAL_BIN" 2>/dev/null || true
       rm -f "$KANATA_UPDATE_FLAG"
-    elif [ ! -f /usr/local/bin/kanata-nix ]; then
-      echo "First install: copying kanata-nix binary..."
-      cp -f ${unstable.kanata}/bin/kanata /usr/local/bin/kanata-nix
-      chmod 755 /usr/local/bin/kanata-nix
-      codesign --force -s "kanata-local-codesign" -i "local.kanata.kanata-nix" /usr/local/bin/kanata-nix 2>/dev/null || true
-      echo "> Grant Input Monitoring permission to /usr/local/bin/kanata-nix in System Settings"
+      # Re-run the daemon with the copy that was just installed.
+      launchctl kickstart -k system/local.kanata 2>/dev/null || true
+      if [ "$KANATA_WAS_MISSING" = 1 ]; then
+        echo "> Grant Input Monitoring permission to /usr/local/bin/kanata-nix in System Settings"
+      fi
     else
       # Compare --version output rather than raw bytes: codesign embeds a
       # signature into the local copy after it's copied, so its bytes never
       # match the pristine (unsigned) store binary even when the version is
       # identical - a raw `cmp` here always false-positives on "update available".
       STORE_KANATA_VERSION=$(${unstable.kanata}/bin/kanata --version 2>/dev/null || echo "unknown")
-      LOCAL_KANATA_VERSION=$(/usr/local/bin/kanata-nix --version 2>/dev/null || echo "unknown")
+      LOCAL_KANATA_VERSION=$("$KANATA_LOCAL_BIN" --version 2>/dev/null || echo "unknown")
       if [ "$STORE_KANATA_VERSION" != "$LOCAL_KANATA_VERSION" ]; then
         echo "> Kanata update available ($LOCAL_KANATA_VERSION -> $STORE_KANATA_VERSION) but NOT applied."
         echo "> To update: touch ~/.config/kanata/update-kanata && darwin-rebuild switch"

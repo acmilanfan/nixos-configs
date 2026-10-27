@@ -204,7 +204,16 @@ in
         ProgramArguments = [
           "${serverScript}"
         ];
-        KeepAlive = true;
+        # The server exits 0 when another instance already owns the port.
+        # KeepAlive=true would then respawn it every 15 seconds forever.
+        # Restart on failure only, matching the systemd unit below.
+        # Restart the managed service with
+        # `launchctl kickstart -k gui/$(id -u)/opencode-serve` when no
+        # TUI-child service holds the port; `opencode service restart` can
+        # spawn such a child.
+        KeepAlive = {
+          SuccessfulExit = false;
+        };
         RunAtLoad = true;
         ThrottleInterval = 15;
         EnvironmentVariables.PATH = servicePath;
