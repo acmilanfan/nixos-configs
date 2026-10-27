@@ -33,8 +33,10 @@ let
           "mcp-jenkins@3.4.0"
           "--jenkins-url=${s.url}"
           "--jenkins-username=${s.username or jenkins.username}"
-          "--jenkins-password=${ref (jenkinsTokenEnv name)}"
         ] ++ lib.optional (s.readOnly or false) "--read-only";
+        # mcp-jenkins reads the token from this env var when --jenkins-password
+        # is absent; an argument would expose it to every local user via ps.
+        env.jenkins_password = ref (jenkinsTokenEnv name);
       }) (jenkins.servers or { });
 
   # Claude Code gets Kibana from the marketplace's kibana plugin. opencode uses
