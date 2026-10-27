@@ -225,6 +225,12 @@ let
 
   claudeSettingsJson = builtins.toJSON claudeSettings;
 
+  # For the claudePlugins activation: what to install/update, and the
+  # marketplaces they come from (name -> `claude plugin marketplace add` source).
+  claudePluginIds = lib.attrNames (lib.filterAttrs (_: enabled: enabled) claudeSettings.enabledPlugins);
+  claudeMarketplaces = { claude-plugins-official = "anthropics/claude-plugins-official"; }
+    // lib.mapAttrs (_: m: m.source.url) claudeSettings.extraKnownMarketplaces;
+
   # GitHub MCP token: spliced into Antigravity's settings.json at activation
   # from the sops secret (see installGeminiExtensions), never via /nix/store.
   # Same choice as GITHUB_PERSONAL_ACCESS_TOKEN in sops.nix: only the work
@@ -350,6 +356,39 @@ EOF
 
     [[ -v DRY_RUN ]] || printf '%s' "$NEW_SETTINGS" > "$CLAUDE_SETTINGS"
     run chmod 644 "$CLAUDE_SETTINGS"
+  '';
+
+  # The claude wrapper sets DISABLE_AUTOUPDATER=1, which also stops plugin
+  # auto-updates, so every activation (`sup`) brings the plugins in
+  # enabledPlugins to their marketplace's latest version instead (work ones
+  # are only listed on the work machine). Network failures only warn. No -y:
+  # a plugin whose marketplace declares an install command is reported and
+  # left for an interactive `claude plugin update`.
+  home.activation.claudePlugins = lib.hm.dag.entryAfter [ "claudeSettings" ] ''
+    export PATH="${pkgs.git}/bin:$PATH:/usr/bin"
+    # System SSH so ~/.ssh/config (github-work host, UseKeychain) applies.
+    export GIT_SSH_COMMAND="/usr/bin/ssh"
+    CLAUDE=${claudeCode}/bin/claude
+    JQ=${pkgs.jq}/bin/jq
+
+    KNOWN=$($CLAUDE plugin marketplace list --json 2>/dev/null </dev/null | $JQ -r '.[].name' || true)
+    ${lib.concatStrings (lib.mapAttrsToList (name: source: ''
+      if ! grep -qxF ${lib.escapeShellArg name} <<<"$KNOWN"; then
+        echo "Adding Claude Code marketplace: ${name}"
+        run $CLAUDE plugin marketplace add ${lib.escapeShellArg source} </dev/null >/dev/null || true
+      fi
+    '') claudeMarketplaces)}
+    run $CLAUDE plugin marketplace update </dev/null >/dev/null 2>&1 \
+      || echo "Claude Code: marketplace update failed (offline?), plugins left as they are"
+
+    INSTALLED=$($CLAUDE plugin list --json 2>/dev/null </dev/null | $JQ -r '.[] | select(.scope == "user") | .id' || true)
+    for id in ${lib.escapeShellArgs claudePluginIds}; do
+      if grep -qxF "$id" <<<"$INSTALLED"; then action=update; else action=install; fi
+      # Print only what changed or failed, not "already at the latest version".
+      run $CLAUDE plugin "$action" --json -s user "$id" </dev/null 2>/dev/null \
+        | $JQ -r 'select(.outcome != "ok" or (.updateOutcome // "") != "up_to_date") | "Claude Code plugin: \(.message // .outcome)"' \
+        || echo "Claude Code plugin: $action failed for $id"
+    done
   '';
 
   home.packages = [
