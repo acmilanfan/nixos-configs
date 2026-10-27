@@ -21,6 +21,12 @@ let
   # flake source because flake.nix sets `self.submodules = true`.
   secretsFile = ../../../secrets/secrets.yaml;
 
+  # GitHub token for the GitHub MCP servers (GITHUB_PERSONAL_ACCESS_TOKEN):
+  # only the work credential can see the wkda org, so it is used on the work
+  # machine and the personal one everywhere else.
+  githubMcpTokenKey =
+    if config.home.username == "andreishumailov" then "github/token" else "github/personal_token";
+
   cfg = config.customSops;
 in
 {
@@ -99,8 +105,10 @@ in
         "aiProxy/selfHostedKey" = { };
 
         # MCP / Developer Tools
+        # Work credential (wkda access): GitHub MCP on the work machine.
         "github/token" = { };
-        # Personal-account credential for Nix downloads.
+        # Personal-account credential: Nix downloads, and the GitHub MCP
+        # off the work machine.
         "github/personal_token" = { };
         "sonar/apiKey" = { };
         "sonar/url" = { };
@@ -144,7 +152,7 @@ in
             SELF_HOSTED_API_KEY="${config.sops.placeholder."aiProxy/selfHostedKey"}"
             [ -n "$SELF_HOSTED_API_KEY" ] || SELF_HOSTED_API_KEY="$AI_PROXY_API_KEY"
             export SELF_HOSTED_BASE_URL SELF_HOSTED_API_KEY
-            export GITHUB_PERSONAL_ACCESS_TOKEN="${config.sops.placeholder."github/token"}"
+            export GITHUB_PERSONAL_ACCESS_TOKEN="${config.sops.placeholder.${githubMcpTokenKey}}"
             export SONAR_API_KEY="${config.sops.placeholder."sonar/apiKey"}"
             export SONAR_URL="${config.sops.placeholder."sonar/url"}"
             export RAG_MCP_URL="${config.sops.placeholder."mcp/ragUrl"}"

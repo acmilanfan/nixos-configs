@@ -227,8 +227,11 @@ let
 
   # GitHub MCP token: spliced into Antigravity's settings.json at activation
   # from the sops secret (see installGeminiExtensions), never via /nix/store.
-  githubTokenFile = lib.optionalString (config.sops.secrets ? "github/token")
-    config.sops.secrets."github/token".path;
+  # Same choice as GITHUB_PERSONAL_ACCESS_TOKEN in sops.nix: only the work
+  # token can see the wkda org.
+  githubTokenKey = if isWork then "github/token" else "github/personal_token";
+  githubTokenFile = lib.optionalString (config.sops.secrets ? ${githubTokenKey})
+    config.sops.secrets.${githubTokenKey}.path;
 
   antigravitySettings = {
     colorScheme = "tokyo night";
