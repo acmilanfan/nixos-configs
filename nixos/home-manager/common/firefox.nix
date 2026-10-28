@@ -1,4 +1,9 @@
-{ config, pkgs, lib, ... }: {
+{ config, pkgs, lib, ... }:
+
+let
+  # Width (px) of the vertical tab strip while it is expanded on hover.
+  verticalTabsWidth = 455;
+in {
 
   programs.firefox = {
     enable = true;
@@ -50,6 +55,30 @@
             /* Trial (2026-10-25): no bold labels with vertical tabs.
                Restore with: font-weight: bold !important; */
             font-weight: 500 !important;
+          }
+
+          /* Vertical tabs: the same expanded width in every window. Firefox
+             keeps a width per window (dragging the splitter sets it inline),
+             so new and restored windows otherwise differ. */
+          :root {
+            --sidebar-expanded-launcher-width: ${toString verticalTabsWidth}px !important;
+          }
+          #sidebar-container[sidebar-launcher-expanded] {
+            width: ${toString verticalTabsWidth}px !important;
+          }
+
+          /* Vertical tabs: hide the strip while the window has a single tab.
+             The selected tab is always there, so any other visible tab means
+             two or more. Moved offscreen instead of display:none, because
+             Firefox measures the collapsed width to offset the page on hover. */
+          #sidebar-container:not(:has(.tabbrowser-tab:not([selected], [hidden]))) {
+            position: fixed !important;
+            translate: 200vw !important;
+            visibility: hidden !important;
+          }
+          #sidebar-container:not(:has(.tabbrowser-tab:not([selected], [hidden])))
+            + #sidebar-launcher-splitter {
+            display: none !important;
           }
         '';
         settings = {
@@ -122,6 +151,20 @@
           "sidebar.verticalTabs" = true;
           "sidebar.visibility" = "expand-on-hover";
           "sidebar.position_start" = false;
+          # State for windows opened without a parent window (Dock, Hammerspoon,
+          # `firefox --new-window`). Firefox saves the last closed window's
+          # state here, and a hidden launcher then stays hidden in every such
+          # window; this resets it on each start.
+          "sidebar.backupState" = builtins.toJSON {
+            panelOpen = false;
+            launcherVisible = true;
+            launcherExpanded = false;
+            expandedLauncherWidth = verticalTabsWidth;
+          };
+
+          # Ctrl+Tab goes to the next tab in strip order; Hammerspoon's
+          # firefox-tab-mode relies on it for j/k.
+          "browser.ctrlTab.sortByRecentlyUsed" = false;
 
           # New Tab Page Clean-up
           "browser.newtabpage.activity-stream.feeds.topsites" = false;

@@ -43,8 +43,12 @@ end)
 -- Required for the `hs` CLI tool
 pcall(require, "hs.ipc")
 
--- Aurora Sweep Browser Remapper
+-- Browser Remapper (right Ctrl <-> right Cmd)
 pcall(require, "sweep-remapper")
+
+-- Firefox: Ctrl+Z expands the vertical tabs, then j/k switch tabs
+local fok, ferr = pcall(require, "firefox-tab-mode")
+if not fok then hs.notify.new({ title = "Hammerspoon", informativeText = "firefox-tab-mode: " .. tostring(ferr) }):send() end
 
 -- macOS Vim Navigation
 local ok, err = pcall(require, "macos-vim-navigation/init")
