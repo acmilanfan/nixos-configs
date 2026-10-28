@@ -79,7 +79,8 @@ in
       '')
 
       # Window management
-      sketchybar # Status bar
+      # 2.24.1 fixes #850; the pinned local patch coordinates the native menu (#852).
+      (unstable.callPackage ./pkgs/sketchybar { }) # Status bar
       nowplaying-cli # Media info for sketchybar
 
       shortcat

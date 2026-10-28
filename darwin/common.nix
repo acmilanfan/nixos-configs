@@ -569,6 +569,16 @@ in
     };
   };
 
+  # A root activation/launchctl load can create root-owned log files even
+  # for GUI agents. Then the GUI job fails before executing its script
+  # (EX_CONFIG / unable to open stdout), so no startup app is launched.
+  # Pre-create/repair as the user BEFORE launchd activation, including boot.
+  system.activationScripts.preActivation.text = ''
+    echo "Preparing user-owned GUI startup logs..."
+    /usr/bin/sudo -H -u ${user} /bin/bash ${./scripts/prepare-gui-logs.sh} \
+      "/Users/${user}/Library/Logs"
+  '';
+
   system.activationScripts.postActivation.text = ''
     # oMLX tuning (see nixos/home-manager/common/opencode.nix: serve-omlx).
     # Set prefill_priority=speed so the adaptive prefill throttle doesn't

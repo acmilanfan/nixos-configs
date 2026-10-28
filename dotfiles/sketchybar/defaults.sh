@@ -25,6 +25,8 @@ sketchybar --default \
   background.padding_right=2 \
   background.padding_left=2
 
+# The pinned macOS 27 patch raises the bar while the native menu is hidden.
+# Keep the base level at window so the bar yields when the native menu appears.
 sketchybar --bar \
   height=32 \
   color=$BAR_COLOR \

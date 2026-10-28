@@ -1,0 +1,2 @@
+# Preserve the reviewed patch verbatim, including unified-diff context lines.
+macos27-menu-bar.patch -whitespace
