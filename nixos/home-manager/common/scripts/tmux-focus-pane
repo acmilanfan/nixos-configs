@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+# Make a tmux pane visible in an attached terminal and print the outer terminal
+# title tmux gives that terminal, so a window manager can raise the right window.
+#
+# Usage: tmux-focus-pane <pane-id>
+#   pane-id is %N only; it is checked so the value is safe inside a tmux format.
+#
+# Output (stdout):
+#   title=<outer terminal title>   omitted when tmux has no title format
+#   client=<tty> <pid>             one line per client that now shows the pane
+#
+# Exit: 0 ok, 1 no such pane (or a bad pane id), 2 no tmux client is attached.
+#
+# Why the title is printed: a terminal app is a single process for all of its
+# windows (Ghostty), so a client PID identifies the app, never its window.
+# tmux owns the outer title (set-titles in tmux.nix) and every client showing
+# the pane carries the same title, which the caller can exact-match against a
+# window title. The format is read from tmux, so it has one definition.
+set -uo pipefail
+
+pane=${1:-}
+if [[ ! $pane =~ ^%[0-9]+$ ]]; then
+  printf 'tmux-focus-pane: invalid pane id: %s\n' "$pane" >&2
+  exit 1
+fi
+
+# Fields are queried one at a time: tmux replaces tabs in -F output with "_"
+# when the locale is unset (as in a launchd/Hammerspoon child), so a
+# multi-field format cannot be split reliably.
+session=$(tmux display -p -t "$pane" '#{session_name}' 2>/dev/null)
+window=$(tmux display -p -t "$pane" '#{window_index}' 2>/dev/null)
+[[ -n $session && -n $window ]] || exit 1
+
+# Clients already attached to the pane's session: selecting its window shows the
+# pane in them. Do not switch any other client over; `switch-client -t <session>`
+# moves whichever client tmux considers current, which with several windows is
+# often an unrelated one (that was the "switches the session, focuses the wrong
+# window" bug).
+mapfile -t clients < <(tmux list-clients -t "$session" -F '#{client_tty}' 2>/dev/null)
+if (( ${#clients[@]} == 0 )); then
+  # Detached session: move the most recently active client over, as before, but
+  # target it explicitly so the window that changes is the one we report.
+  target=""
+  newest=-1
+  while read -r tty activity; do
+    [[ -n $tty ]] || continue
+    if (( activity > newest )); then
+      newest=$activity
+      target=$tty
+    fi
+  done < <(tmux list-clients -F '#{client_tty} #{client_activity}' 2>/dev/null)
+  [[ -n $target ]] || exit 2
+  tmux switch-client -c "$target" -t "$session" 2>/dev/null || exit 2
+  clients=("$target")
+fi
+
+tmux select-window -t "$session:$window" 2>/dev/null
+tmux select-pane -t "$pane" 2>/dev/null
+
+# The title is rewritten when the client redraws; force that now so the caller
+# does not race the terminal's OSC handling.
+for client in "${clients[@]}"; do
+  tmux refresh-client -S -t "$client" 2>/dev/null
+done
+
+# set-titles-string is a session option; -A includes the inherited global value.
+# Expand it for the pane (same context the client uses) to get the title the
+# client's terminal must now carry.
+fmt=$(tmux show -Av -t "$session" set-titles-string 2>/dev/null)
+if [[ -n $fmt ]]; then
+  title=$(tmux display -p -t "$pane" "$fmt" 2>/dev/null)
+  [[ -n $title ]] && printf 'title=%s\n' "$title"
+fi
+for client in "${clients[@]}"; do
+  pid=$(tmux display -p -t "$client" '#{client_pid}' 2>/dev/null)
+  [[ -n $pid ]] && printf 'client=%s %s\n' "$client" "$pid"
+done
+exit 0

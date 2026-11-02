@@ -63,6 +63,9 @@ local function focusWindowOnTag(win)
     end)
 end
 
+-- Last resort when no window carries the expected title. With several windows of
+-- the same app this can raise the wrong one (all Ghostty windows share a process),
+-- which is why focusAgent normally matches by title instead.
 local function focusByPid(termPid)
     local app = hs.application.applicationForPID(termPid)
     if app then
@@ -73,6 +76,32 @@ local function focusByPid(termPid)
             app:activate(true)
         end
     end
+end
+
+-- Match the outer terminal title tmux gives the pane's clients (set-titles in
+-- tmux.nix, printed by tmux-focus-pane). The title arrives as an OSC sequence, so
+-- poll briefly before giving up.
+local TITLE_POLL_INTERVAL = 0.04
+local TITLE_POLL_TRIES = 15 -- ~0.6 s
+
+local function focusByTitle(title, onFail)
+    local tries = 0
+    local function attempt()
+        for _, win in ipairs(hs.window.allWindows()) do
+            local app = win:application()
+            if app and TERMINALS[app:name()] and win:title() == title then
+                focusWindowOnTag(win)
+                return
+            end
+        end
+        tries = tries + 1
+        if tries >= TITLE_POLL_TRIES then
+            onFail()
+        else
+            hs.timer.doAfter(TITLE_POLL_INTERVAL, attempt)
+        end
+    end
+    attempt()
 end
 
 -- =============================================================================
@@ -90,53 +119,65 @@ end
 
 function M.focusAgent(paneId)
     -- paneId can come from hammerspoon://nanowm?cmd=focusAgent, which any local process (or a
-    -- web page via the browser's open-app prompt) can open. The script below puts it inside a
+    -- web page via the browser's open-app prompt) can open. tmux-focus-pane puts it inside a
     -- tmux format (-f "#{m:...}"), where #(...) would run a shell command, so accept only a
     -- real tmux pane id (%<n>).
     if type(paneId) ~= "string" or not paneId:match("^%%%d+$") then
         print("[NanoWM] focusAgent: ignoring invalid pane id " .. tostring(paneId))
         return
     end
-    -- All the tmux work happens in ONE shell invocation, which prints the controlling client's
-    -- pid. This used to be four blocking calls -- three of them `zsh -lc`, i.e. full login
-    -- shells that source the entire profile -- run directly on the Hammerspoon main thread.
+    -- tmux-focus-pane (nixos/home-manager/common/scripts/tmux-focus-pane) does all the tmux
+    -- work in one async invocation and prints the title its clients now carry. It selects the
+    -- window/pane in the sessions that already show it instead of moving whichever client tmux
+    -- considers current -- that used to switch an unrelated window's session, so focusing its
+    -- client PID then raised the wrong window.
     --
-    -- It matters more than an ordinary hotkey path: the sketchybar agent-focus plugin invokes
-    -- this via `hs -c`, and blocking the event loop while an IPC request is in flight is what
-    -- produced the `hs.ipc: already recursing` floods.
+    -- The title is the only reliable window identity: every Ghostty window belongs to one
+    -- process, so the client PID identifies the app, never the window. Titles are tmux's
+    -- set-titles-string (tmux.nix), and every client showing that window carries the same one.
     --
-    -- paneId is passed as an argument rather than interpolated, so no quoting or escaping.
-    local script = [==[
-        pane_target="$1"
-        info=$(tmux list-panes -a -F '#{pane_id} #{session_name} #{window_index}' \
-                    -f "#{m:#{pane_id},$pane_target}" 2>/dev/null)
-        [ -z "$info" ] && exit 1
-        # ${=info} forces word splitting: zsh, unlike sh/bash, does NOT split unquoted
-        # expansions, so a plain `set -- $info` leaves $1 holding the whole line and $2/$3
-        # empty — every tmux call below would then get an empty target.
-        set -- ${=info}
-        tmux switch-client -t "$2"    2>/dev/null
-        tmux select-window -t "$2:$3" 2>/dev/null
-        tmux select-pane   -t "$1"    2>/dev/null
-        tmux list-clients  -t "$2" -F '#{client_pid}' 2>/dev/null | head -1
-    ]==]
-
-    hs.task.new("/bin/zsh", function(exitCode, stdOut)
-        if exitCode ~= 0 then
+    -- Everything here is async: the sketchybar agent-focus plugin invokes this via `hs -c`, and
+    -- blocking the event loop while an IPC request is in flight is what produced the
+    -- `hs.ipc: already recursing` floods.
+    hs.task.new("/bin/zsh", function(exitCode, stdOut, stdErr)
+        if exitCode == 1 then
             hs.alert.show("Could not locate tmux pane " .. tostring(paneId))
             return
         end
-        local clientPid = (stdOut or ""):match("(%d+)")
-        if not clientPid then return end
+        if exitCode ~= 0 then
+            -- 2 = no tmux client attached anywhere, so there is no window to raise.
+            if exitCode ~= 2 then
+                print("[NanoWM] focusAgent: tmux-focus-pane exited " .. tostring(exitCode) .. ": " .. tostring(stdErr))
+            end
+            return
+        end
 
-        -- Process table, also async. The terminal-detection walk stays in Lua so TERMINALS
-        -- remains the single definition instead of being duplicated into shell -- the mistake
-        -- that made the deleted getAgents() a maintenance burden.
-        hs.task.new("/bin/ps", function(_, psOut)
-            local termPid = findTerminalPid(clientPid, parseProcessTable(psOut))
-            if termPid then focusByPid(termPid) end
-        end, { "-eo", "pid,ppid,ucomm" }):start()
-    end, { "-lc", script, "nanowm-focus-agent", tostring(paneId) }):start()
+        local title, pids
+        for line in (stdOut or ""):gmatch("[^\n]+") do
+            local t = line:match("^title=(.+)$")
+            local pid = line:match("^client=%S+%s+(%d+)$")
+            if t then
+                title = t
+            elseif pid then
+                pids = pids or {}
+                table.insert(pids, pid)
+            end
+        end
+
+        -- No window carries the title (set-titles off, another terminal app): fall back to the
+        -- old app-level focus. Its process-table walk stays in Lua so TERMINALS remains the
+        -- single definition instead of being duplicated into shell.
+        local function fallback()
+            local pid = pids and pids[1]
+            if not pid then return end
+            hs.task.new("/bin/ps", function(_, psOut)
+                local termPid = findTerminalPid(pid, parseProcessTable(psOut))
+                if termPid then focusByPid(termPid) end
+            end, { "-eo", "pid,ppid,ucomm" }):start()
+        end
+
+        if title then focusByTitle(title, fallback) else fallback() end
+    end, { "-lc", "tmux-focus-pane " .. paneId }):start()
 end
 
 -- =============================================================================

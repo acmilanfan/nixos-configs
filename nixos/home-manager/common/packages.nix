@@ -7,6 +7,7 @@
       (writeShellScriptBin "worktree-switch" (lib.readFile ./scripts/worktree-switch))
       (writeShellScriptBin "worktree-remove" (lib.readFile ./scripts/worktree-remove))
       (writeShellScriptBin "ai-agent-list" (lib.readFile ./scripts/ai-agent-list))
+      (writeShellScriptBin "tmux-focus-pane" (lib.readFile ./scripts/tmux-focus-pane))
       (writeShellScriptBin "wt-setup" (lib.readFile ./scripts/wt-setup))
       (writeShellApplication {
         name = "pins";

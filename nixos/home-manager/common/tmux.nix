@@ -290,6 +290,16 @@ in
     keyMode = "vi";
     extraConfig = ''
       ${lib.readFile ./tmux/tmux.conf}
+
+      # The outer terminal title names the window each client shows. The agent
+      # focus path (dotfiles/hammerspoon/nanowm/agents.lua via tmux-focus-pane)
+      # matches it to raise the right window: every Ghostty window belongs to one
+      # process, so a client PID cannot identify it. tmux-focus-pane expands the
+      # same set-titles-string from the target session, so this is its only
+      # definition. No pane index: selecting a pane does not change the window.
+      set -g set-titles on
+      set -g set-titles-string '#{session_name}:#{window_index}'
+
       set-hook -g client-attached 'run-shell "${tmuxUpdateEnv}/bin/tmux-update-env"'
 
       # Pin exact agent conversations (claude/agy) into every resurrect save
