@@ -1,6 +1,12 @@
-{ lib, symlinkJoin, writeShellScriptBin, stdenv, inputs }:
+{ lib, symlinkJoin, writeShellScriptBin, stdenv, pkgs, inputs }:
 let
-  cli = inputs.llm-agents.packages.${stdenv.hostPlatform.system}.opencode2;
+  # Darwin uses a source build with the reconnect-retry fix (upstream PR
+  # #59543): a transient session read after an event stream reconnect would
+  # otherwise drop the TUI back to the home screen. Linux keeps the pinned
+  # prebuilt binary until the fix is released.
+  cli =
+    if stdenv.hostPlatform.isDarwin then pkgs.opencode2-patched
+    else inputs.llm-agents.packages.${stdenv.hostPlatform.system}.opencode2;
   launcher = writeShellScriptBin "opencode" ''
     # The shared service needs the same runtime-decrypted provider/MCP env as
     # interactive clients. Nothing secret is included in the store.

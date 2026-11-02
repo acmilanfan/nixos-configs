@@ -44,6 +44,13 @@ final: prev: {
 
   opencode = final.callPackage ./pkgs/opencode.nix { inherit inputs; };
 
+  # Source build with the TUI reconnect-retry fix (upstream PR #59543).
+  # Linux keeps the pinned prebuilt binary until the fix is released.
+  opencode2-patched =
+    if final.stdenv.hostPlatform.isDarwin
+    then final.callPackage ./pkgs/opencode2-patched { }
+    else throw "opencode2-patched is only built on aarch64-darwin";
+
   mtplx = if final.stdenv.hostPlatform.isDarwin
     then final.callPackage ./pkgs/mtplx { inherit inputs; }
     else prev.mtplx or null;

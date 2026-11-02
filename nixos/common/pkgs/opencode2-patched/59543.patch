@@ -1,0 +1,231 @@
+diff --git a/packages/tui/src/routes/session/index.tsx b/packages/tui/src/routes/session/index.tsx
+index 9f70bb81758c..58bf3eda7d12 100644
+--- a/packages/tui/src/routes/session/index.tsx
++++ b/packages/tui/src/routes/session/index.tsx
+@@ -77,6 +77,8 @@ import { Composer } from "./composer"
+ import { filetype } from "../../util/filetype"
+ import parsers from "../../parsers-config"
+ import { errorMessage } from "../../util/error"
++import { retrySessionSync } from "../../util/session-sync"
++import { abort } from "@opencode/util/abort"
+ import { useToast } from "../../ui/toast"
+ import stripAnsi from "strip-ansi"
+ import { usePromptRef } from "../../context/prompt"
+@@ -286,6 +288,7 @@ export function Session(props: {
+     (id) => {
+       if (id === sessionID) setRowsSynced(true)
+     },
++    (message) => toast.show({ title: "Failed to load session history", message, variant: "error", duration: 5000 }),
+   )
+   const boundaries = createMemo(() => messageBoundaryIDs(rows, messages()))
+   const anchors = createTimelineAnchors()
+@@ -330,38 +333,29 @@ export function Session(props: {
+     }),
+   )
+ 
+-  createEffect(() => {
+-    if (client.connection.status() !== "connected") return
+-    setSynced(false)
+-    const sessionID = route.sessionID
+-    void (async () => {
+-      await Promise.all([
+-        data.session.sync(sessionID, { children: true }),
+-        data.session.permission.sync(sessionID).catch(() => undefined),
+-        data.session.form.sync(sessionID).catch(() => undefined),
+-      ])
+-      const info = data.session.get(sessionID)
+-      if (!info) {
+-        toast.show({
+-          message: `Session not found: ${sessionID}`,
+-          variant: "error",
+-          duration: 5000,
++  createEffect(
++    on([() => route.sessionID, () => client.connection.status()], ([sessionID, status]) => {
++      if (status !== "connected") return
++      setSynced(false)
++      const controller = new AbortController()
++      onCleanup(() => abort(controller))
++      void data.session.permission.sync(sessionID).catch(() => undefined)
++      void data.session.form.sync(sessionID).catch(() => undefined)
++      void retrySessionSync(() => data.session.sync(sessionID, { children: true }), controller.signal)
++        .then(() => {
++          if (controller.signal.aborted) return
++          const info = data.session.get(sessionID)
++          if (!info) throw new Error(`Session not found: ${sessionID}`)
++          editor.reconnect(info.location.directory)
++          setSynced(true)
+         })
+-        sessionTabs.enabled() ? sessionTabs.close(sessionID) : navigate({ type: "home" })
+-        return
+-      }
+-      editor.reconnect(info.location.directory)
+-      setSynced(true)
+-    })().catch((error) => {
+-      if (route.sessionID !== sessionID) return
+-      toast.show({
+-        message: errorMessage(error),
+-        variant: "error",
+-        duration: 5000,
+-      })
+-      sessionTabs.enabled() ? sessionTabs.close(sessionID) : navigate({ type: "home" })
+-    })
+-  })
++        .catch((error) => {
++          if (controller.signal.aborted) return
++          toast.show({ message: errorMessage(error), variant: "error", duration: 5000 })
++          sessionTabs.enabled() ? sessionTabs.close(sessionID) : navigate({ type: "home" })
++        })
++    }),
++  )
+ 
+   let seeded = false
+   let sent = false
+diff --git a/packages/tui/src/routes/session/rows.ts b/packages/tui/src/routes/session/rows.ts
+index 4a8437a13548..526b3e79f1dd 100644
+--- a/packages/tui/src/routes/session/rows.ts
++++ b/packages/tui/src/routes/session/rows.ts
+@@ -4,6 +4,9 @@ import { createStore, produce, reconcile } from "solid-js/store"
+ import { useConfig } from "../../config"
+ import { useData } from "../../context/data"
+ import { useClient } from "../../context/client"
++import { abort } from "@opencode/util/abort"
++import { retrySessionSync } from "../../util/session-sync"
++import { errorMessage } from "../../util/error"
+ import {
+   append,
+   completePrevious,
+@@ -44,7 +47,11 @@ export async function completeGroupBoundary(input: {
+   }
+ }
+ 
+-export function createSessionRows(sessionID: Accessor<string>, onSynced?: (sessionID: string) => void) {
++export function createSessionRows(
++  sessionID: Accessor<string>,
++  onSynced?: (sessionID: string) => void,
++  onError?: (message: string) => void,
++) {
+   const data = useData()
+   const client = useClient()
+   const config = useConfig()
+@@ -119,12 +126,13 @@ export function createSessionRows(sessionID: Accessor<string>, onSynced?: (sessi
+   createEffect(
+     on([sessionID, () => client.connection.status()], ([id, status]) => {
+       if (status !== "connected") return
++      const controller = new AbortController()
++      onCleanup(() => abort(controller))
+       rebuild()
+       void data.session.pending.sync(id).catch(() => undefined)
+-      void data.session.message
+-        .sync(id)
++      void retrySessionSync(() => data.session.message.sync(id), controller.signal)
+         .then(async () => {
+-          if (sessionID() !== id) return
++          if (controller.signal.aborted) return
+           rebuild()
+           // Restoration waits for complete boundary groups so saved group IDs resolve.
+           await completeGroupBoundary({
+@@ -132,11 +140,14 @@ export function createSessionRows(sessionID: Accessor<string>, onSynced?: (sessi
+             messages: () => data.session.message.list(id).length,
+             more: () => data.session.message.more(id),
+             loadMore: () => data.session.message.loadMore(id),
+-            active: () => sessionID() === id,
++            active: () => !controller.signal.aborted && sessionID() === id,
+           }).catch(() => undefined)
+-          if (sessionID() === id) onSynced?.(id)
++          if (!controller.signal.aborted) onSynced?.(id)
++        })
++        .catch((error) => {
++          if (controller.signal.aborted) return
++          onError?.(errorMessage(error))
+         })
+-        .catch(() => undefined)
+     }),
+   )
+ 
+diff --git a/packages/tui/src/util/session-sync.ts b/packages/tui/src/util/session-sync.ts
+new file mode 100644
+index 000000000000..8598fb3e07a9
+--- /dev/null
++++ b/packages/tui/src/util/session-sync.ts
+@@ -0,0 +1,25 @@
++import { ClientError, isUnknownError } from "@opencode/client"
++import { isTransientError, retry } from "@opencode/util/retry"
++import { Option, Schema } from "effect"
++
++const status = Schema.decodeUnknownOption(Schema.Struct({ status: Schema.Number }))
++
++export function retrySessionSync(operation: () => Promise<void>, signal: AbortSignal) {
++  return retry(operation, {
++    attempts: 5,
++    signal,
++    retryIf: (error) => {
++      if (isUnknownError(error)) return true
++      if (!(error instanceof ClientError)) return false
++      if (error.reason === "Transport") return isTransientError(error)
++      if (error.reason !== "UnexpectedStatus") return false
++      const response = status(error.cause)
++      return (
++        Option.isSome(response) &&
++        (response.value.status === 408 ||
++          response.value.status === 429 ||
++          (response.value.status >= 500 && response.value.status < 600))
++      )
++    },
++  })
++}
+diff --git a/packages/util/src/retry.ts b/packages/util/src/retry.ts
+index 4766e88c34f7..4f32e06abdb8 100644
+--- a/packages/util/src/retry.ts
++++ b/packages/util/src/retry.ts
+@@ -4,6 +4,7 @@ export interface RetryOptions {
+   factor?: number
+   maxDelay?: number
+   retryIf?: (error: unknown) => boolean
++  signal?: AbortSignal
+ }
+ 
+ const transientMessages = [
+@@ -20,7 +21,7 @@ const transientMessages = [
+ 
+ // Generated clients wrap fetch failures as ClientError("Transport", { cause }) and Bun/Node put the
+ // network detail in `code`, so the transient signal may sit anywhere along the cause chain.
+-function isTransientError(error: unknown, depth = 0): boolean {
++export function isTransientError(error: unknown, depth = 0): boolean {
+   if (!error) return false
+   const code = error instanceof Error && "code" in error && typeof error.code === "string" ? error.code : ""
+   // oxlint-disable-next-line no-base-to-string -- Error input is intentionally normalized for message matching.
+@@ -36,15 +37,32 @@ export async function retry<T>(operation: () => Promise<T>, options: RetryOption
+   const factor = options.factor ?? 2
+   const maxDelay = options.maxDelay ?? 10_000
+   const retryIf = options.retryIf ?? isTransientError
++  const signal = options.signal
+   let lastError: unknown
+ 
+   for (let attempt = 0; attempt < attempts; attempt++) {
++    signal?.throwIfAborted()
+     try {
+-      return await operation()
++      const value = await operation()
++      signal?.throwIfAborted()
++      return value
+     } catch (error) {
++      signal?.throwIfAborted()
+       lastError = error
+       if (attempt === attempts - 1 || !retryIf(error)) throw error
+-      await new Promise((resolve) => setTimeout(resolve, Math.min(delay * Math.pow(factor, attempt), maxDelay)))
++      await new Promise<void>((resolve, reject) => {
++        signal?.throwIfAborted()
++        const timer = setTimeout(done, Math.min(delay * Math.pow(factor, attempt), maxDelay))
++        function done() {
++          signal?.removeEventListener("abort", cancel)
++          resolve()
++        }
++        function cancel() {
++          clearTimeout(timer)
++          reject(signal?.reason)
++        }
++        signal?.addEventListener("abort", cancel, { once: true })
++      })
+     }
+   }
+   throw lastError
