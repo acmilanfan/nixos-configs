@@ -10,6 +10,18 @@ let
   # Agent1, Jenkins and Kibana MCP servers, shared with Claude Code.
   workMcp = import ./work-mcp.nix { inherit lib pkgs secrets; };
 
+  # Personal Plane workspace slug (secrets.nix). Empty disables the entry, so
+  # older secrets checkouts keep evaluating.
+  planeSlug = (secrets.plane or { }).workspaceSlug or "";
+
+  # Secret files instead of {env:...} for MCP headers: opencode reads them when
+  # it loads the config, so a long-lived server picks up a rendered or rotated
+  # secret on its next reload without a restart. The files are sops-nix 0400
+  # outputs and contain no trailing newline.
+  planeKeyFile = config.sops.secrets."plane/apiKey".path;
+  githubMcpKeyFile = config.sops.secrets.${if isWork then "github/token" else "github/personal_token"}.path;
+  context7KeyFile = config.sops.secrets."context7/apiKey".path;
+
   # -------------------------------------------------------------------------
   # Providers
   #
@@ -308,14 +320,33 @@ let
         type = "remote";
         url = "https://api.githubcopilot.com/mcp/";
         headers = {
-          Authorization = "Bearer {env:GITHUB_PERSONAL_ACCESS_TOKEN}";
+          Authorization = "Bearer {file:${githubMcpKeyFile}}";
         };
       };
       context7 = {
         type = "remote";
         url = "https://mcp.context7.com/mcp";
+        oauth = false;
+        headers = {
+          Authorization = "Bearer {file:${context7KeyFile}}";
+        };
       };
-    } // (if isWork then {
+    }
+    // lib.optionalAttrs (planeSlug != "") {
+      # Personal Plane workspace (app.plane.so) over Plane's hosted PAT
+      # endpoint: no local runtime, one credential for MCP and the CLI.
+      plane = {
+        type = "remote";
+        url = "https://mcp.plane.so/http/api-key/mcp";
+        # API-key endpoint: skip opencode's OAuth discovery.
+        oauth = false;
+        headers = {
+          Authorization = "Bearer {file:${planeKeyFile}}";
+          "x-workspace-slug" = planeSlug;
+        };
+      };
+    }
+    // (if isWork then {
       "core-developers-assistant-rag" = {
         type = "remote";
         url = "{env:RAG_MCP_URL}";
@@ -1338,7 +1369,9 @@ in
   # pattern.
   # Seed before enabling the plugin in a watched config: a running v2 service
   # must not win the race by creating empty upstream defaults first.
-  home.activation.opencodeSettings = lib.hm.dag.entryAfter [ "writeBoundary" "opencodeMemory" ] ''
+  # After sops-nix: with {file:...} headers the config must be (re)written after
+  # the secret files exist, so the reload triggered by this write reads them.
+  home.activation.opencodeSettings = lib.hm.dag.entryAfter [ "writeBoundary" "opencodeMemory" "sops-nix" ] ''
     OPENCODE_DIR="$HOME/.config/opencode"
     OPENCODE_SETTINGS="$OPENCODE_DIR/opencode.json"
     run mkdir -p "$OPENCODE_DIR"

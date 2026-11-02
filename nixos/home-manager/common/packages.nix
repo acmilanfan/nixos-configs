@@ -8,6 +8,12 @@
       (writeShellScriptBin "worktree-remove" (lib.readFile ./scripts/worktree-remove))
       (writeShellScriptBin "ai-agent-list" (lib.readFile ./scripts/ai-agent-list))
       (writeShellScriptBin "tmux-focus-pane" (lib.readFile ./scripts/tmux-focus-pane))
+      # Plane (app.plane.so). The PyPI package and its command name differ,
+      # hence --from. Pinned like mcp-jenkins; uvx caches the environment.
+      # Credentials come from ai-env.sh (PLANE_API_KEY, PLANE_WORKSPACE_SLUG).
+      (writeShellScriptBin "plane" ''
+        exec ${uv}/bin/uvx --from plane-cli@0.2.4 plane "$@"
+      '')
       (writeShellScriptBin "wt-setup" (lib.readFile ./scripts/wt-setup))
       (writeShellApplication {
         name = "pins";

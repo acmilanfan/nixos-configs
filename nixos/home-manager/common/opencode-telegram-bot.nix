@@ -147,7 +147,10 @@ in
     # generate it, and persist the port so every discovery/start uses it.
     home.activation.opencodeServiceConfig = lib.hm.dag.entryBetween
       [ "setupLaunchAgents" "reloadSystemd" ]
-      [ "opencodeSettings" "opencodeTelegramDirs" "opencodeSuperpowers" ] ''
+      # No opencodeSettings: that entry now runs after sops-nix, which itself
+      # runs after setupLaunchAgents, so depending on it here closes a cycle.
+      # This script only touches the service registration file, not the config.
+      [ "opencodeTelegramDirs" "opencodeSuperpowers" ] ''
       ${lib.optionalString cfg.useLocalServicePassword ''
         run ${opencode}/bin/opencode service get password >/dev/null
       ''}

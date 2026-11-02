@@ -231,13 +231,16 @@ let
   claudeMarketplaces = { claude-plugins-official = "anthropics/claude-plugins-official"; }
     // lib.mapAttrs (_: m: m.source.url) claudeSettings.extraKnownMarketplaces;
 
-  # GitHub MCP token: spliced into Antigravity's settings.json at activation
+  # MCP credentials: spliced into Antigravity's settings.json at activation
   # from the sops secret (see installGeminiExtensions), never via /nix/store.
   # Same choice as GITHUB_PERSONAL_ACCESS_TOKEN in sops.nix: only the work
   # token can see the wkda org.
   githubTokenKey = if isWork then "github/token" else "github/personal_token";
   githubTokenFile = lib.optionalString (config.sops.secrets ? ${githubTokenKey})
     config.sops.secrets.${githubTokenKey}.path;
+  context7KeyFile = lib.optionalString (config.sops.secrets ? "context7/apiKey")
+    config.sops.secrets."context7/apiKey".path;
+  mcpCredentialsGeneration = config.sops.templates."mcp-credentials-generation" or null;
 
   antigravitySettings = {
     colorScheme = "tokyo night";
@@ -437,7 +440,7 @@ EOF
   '');
 
   # Automate extension installation on activation
-  # After sops-nix so the GitHub token can be spliced into settings.json.
+  # After sops-nix so MCP credentials can be spliced into settings.json.
   home.activation.installGeminiExtensions = lib.hm.dag.entryAfter ["writeBoundary" "sops-nix"] (''
     # Prepend git but keep system bins at the END so launchctl/hostname and nix tools are available
     export PATH="${pkgs.git}/bin:$PATH:/usr/bin:/bin:/usr/sbin:/sbin"
@@ -459,10 +462,28 @@ ${builtins.toJSON antigravitySettings}
 EOF
     )
 
-    # GitHub MCP auth header from the sops secret. sops-nix's launchd agent
-    # decrypts asynchronously (GPG took >5s on a first switch), so wait up to
-    # 20s for the file to exist; an empty token (hosts without one) exists
-    # too, so this never stalls a routine switch.
+    ${lib.optionalString (mcpCredentialsGeneration != null) ''
+      # launchctl bootstrap returns before decryption finishes. Existing secret
+      # files may belong to the previous generation, so wait for this source's
+      # marker before reading either credential. Unchanged sources need no wait.
+      if [[ ! -v DRY_RUN ]]; then
+        SOPS_MCP_READY=0
+        for _ in $(seq 40); do
+          if [ "$(cat "${mcpCredentialsGeneration.path}" 2>/dev/null)" = "${mcpCredentialsGeneration.content}" ]; then
+            SOPS_MCP_READY=1
+            break
+          fi
+          sleep 0.5
+        done
+        if [ "$SOPS_MCP_READY" -ne 1 ]; then
+          echo "SOPS did not publish the current MCP credential generation; leaving Antigravity settings unchanged." >&2
+          exit 1
+        fi
+      fi
+    ''}
+
+    # GitHub MCP auth header from the sops secret. The file-existence wait also
+    # covers custom secret configurations without the generation marker.
     GITHUB_TOKEN_FILE="${githubTokenFile}"
     if [ -n "$GITHUB_TOKEN_FILE" ]; then
       for _ in $(seq 40); do [ -e "$GITHUB_TOKEN_FILE" ] && break; sleep 0.5; done
@@ -472,14 +493,24 @@ EOF
       fi
     fi
 
+    # Context7 follows the same runtime-only secret handling as GitHub.
+    CONTEXT7_KEY_FILE="${context7KeyFile}"
+    if [ -n "$CONTEXT7_KEY_FILE" ]; then
+      for _ in $(seq 40); do [ -e "$CONTEXT7_KEY_FILE" ] && break; sleep 0.5; done
+      if [ -s "$CONTEXT7_KEY_FILE" ]; then
+        NEW_AGY_SETTINGS=$(printf '%s' "$NEW_AGY_SETTINGS" | ${pkgs.jq}/bin/jq -c --rawfile t "$CONTEXT7_KEY_FILE" \
+          '.mcpServers.context7.headers.Authorization = "Bearer " + ($t | rtrimstr("\n"))')
+      fi
+    fi
+
     if [ -L "$AGY_SETTINGS" ]; then
       run rm "$AGY_SETTINGS"
     elif [ -f "$AGY_SETTINGS" ]; then
       OLD_AGY_SETTINGS=$(cat "$AGY_SETTINGS")
-      # The auth header is left out of the comparison so the drift diff never
-      # prints the token (and a rotated token isn't reported as drift).
-      OLD_AGY_NORM=$(printf '%s' "$OLD_AGY_SETTINGS" | ${pkgs.jq}/bin/jq -S 'del(.mcpServers.github.headers)')
-      NEW_AGY_NORM=$(printf '%s' "$NEW_AGY_SETTINGS" | ${pkgs.jq}/bin/jq -S 'del(.mcpServers.github.headers)')
+      # Auth headers are left out of the comparison so the drift diff never
+      # prints credentials (and rotated credentials aren't reported as drift).
+      OLD_AGY_NORM=$(printf '%s' "$OLD_AGY_SETTINGS" | ${pkgs.jq}/bin/jq -S 'del(.mcpServers.github.headers, .mcpServers.context7.headers)')
+      NEW_AGY_NORM=$(printf '%s' "$NEW_AGY_SETTINGS" | ${pkgs.jq}/bin/jq -S 'del(.mcpServers.github.headers, .mcpServers.context7.headers)')
       if [ "$OLD_AGY_NORM" != "$NEW_AGY_NORM" ]; then
         echo ""
         echo "==> ~/.gemini/antigravity-cli/settings.json has drifted from the Nix-managed config (nixos/home-manager/common/ai-agents.nix)."

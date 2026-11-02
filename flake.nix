@@ -174,7 +174,11 @@
         "secrets.yaml"
         "secrets.yaml.example"
       ];
-      secretsExtra = builtins.filter (n: !builtins.elem n secretsAllowed) (
+      # A submodule checkout carries a `.git` file pointing into the parent
+      # repository. It is metadata, not content, and it is copied whenever the
+      # flake source falls back to the working tree (dirty tree), so it must
+      # not trip the allowlist.
+      secretsExtra = builtins.filter (n: n != ".git" && !builtins.elem n secretsAllowed) (
         builtins.attrNames (builtins.readDir ./secrets)
       );
       secrets =

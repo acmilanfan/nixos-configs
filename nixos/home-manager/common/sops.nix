@@ -27,6 +27,10 @@ let
   githubMcpTokenKey =
     if config.home.username == "andreishumailov" then "github/token" else "github/personal_token";
 
+  # Personal Plane workspace. The slug is a non-secret identifier from
+  # secrets.nix; its presence enables the Plane MCP server and CLI env vars.
+  planeSlug = (secrets.plane or { }).workspaceSlug or "";
+
   cfg = config.customSops;
 in
 {
@@ -105,6 +109,7 @@ in
         "aiProxy/selfHostedKey" = { };
 
         # MCP / Developer Tools
+        "context7/apiKey" = { };
         # Work credential (wkda access): GitHub MCP on the work machine.
         "github/token" = { };
         # Personal-account credential: Nix downloads, and the GitHub MCP
@@ -118,9 +123,21 @@ in
         # System services
         "syncthing_api_key" = { };
         "obsWebsocketPassword" = { };
-      } // lib.mapAttrs (_: _: { }) workMcp.credentials;
+      } // lib.mapAttrs (_: _: { }) workMcp.credentials
+      # Personal Plane token: only declared when the workspace slug is
+      # configured, so older secrets checkouts still evaluate.
+      // lib.optionalAttrs (planeSlug != "") {
+        "plane/apiKey" = { };
+      };
 
       templates = {
+        # Published atomically with the secret generation. Consumers can wait
+        # for this ciphertext fingerprint instead of accepting an existing,
+        # possibly stale secret file while launchd is still decrypting.
+        "mcp-credentials-generation" = {
+          content = builtins.hashFile "sha256" cfg.secretsFile;
+        };
+
         "nix-github.conf" = {
           mode = "0600";
           content = ''
@@ -152,6 +169,11 @@ in
             SELF_HOSTED_API_KEY="${config.sops.placeholder."aiProxy/selfHostedKey"}"
             [ -n "$SELF_HOSTED_API_KEY" ] || SELF_HOSTED_API_KEY="$AI_PROXY_API_KEY"
             export SELF_HOSTED_BASE_URL SELF_HOSTED_API_KEY
+            export CONTEXT7_API_KEY="${config.sops.placeholder."context7/apiKey"}"
+            ${lib.optionalString (planeSlug != "") ''
+              export PLANE_API_KEY="${config.sops.placeholder."plane/apiKey"}"
+              export PLANE_WORKSPACE_SLUG="${planeSlug}"
+            ''}
             export GITHUB_PERSONAL_ACCESS_TOKEN="${config.sops.placeholder.${githubMcpTokenKey}}"
             export SONAR_API_KEY="${config.sops.placeholder."sonar/apiKey"}"
             export SONAR_URL="${config.sops.placeholder."sonar/url"}"
