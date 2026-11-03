@@ -3,6 +3,7 @@
   imports = [
     ./../common
     ./configs
+    ../configs/remote-access.nix
     ./../configs/music.nix
   ];
 

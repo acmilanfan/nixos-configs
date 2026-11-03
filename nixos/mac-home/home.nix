@@ -10,6 +10,7 @@
   imports = [
     ../common/home-darwin.nix
     ./git.nix
+    ../home-manager/configs/remote-access.nix
   ];
 
   home.username = "gentooway";

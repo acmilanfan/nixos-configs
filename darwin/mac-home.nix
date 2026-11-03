@@ -1,7 +1,10 @@
 { pkgs, lib, ... }:
 
 {
-  imports = [ ./common.nix ];
+  imports = [
+    ./common.nix
+    ./remote-access.nix
+  ];
 
   system.primaryUser = "gentooway";
 

@@ -26,6 +26,13 @@ This repository contains Nix-based configurations for various NixOS and macOS ma
 
 ## Deployment Commands
 
+### Private remote terminal access
+
+mac-home, yogabook-gen10 and t480-home opt into Nix-managed Tailscale plus key-only
+SSH for gentooway. Setup, local enrollment/public-key exchange, SSH aliases,
+tmux attachment, security/awake requirements and rollback: `docs/remote-access.md`.
+mac-work and vm-hyprland are unchanged. No router port forwarding is needed.
+
 ### NixOS
 To apply a configuration on a NixOS machine:
 ```bash
