@@ -6,6 +6,7 @@
     # pkgs.jetbrains.idea-ultimate
     #genymotionPkgs.genymotion
     unstable.jdk
+    unstable.render-cli
   ];
 
 }
