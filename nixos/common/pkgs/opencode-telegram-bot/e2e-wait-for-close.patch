@@ -1,0 +1,13 @@
+--- a/tests/e2e/run-test-bot.test.ts
++++ b/tests/e2e/run-test-bot.test.ts
+@@ -75,7 +75,9 @@
+   let output = "";
+   child.stdout.on("data", (chunk: Buffer) => (output += chunk.toString("utf8")));
+   child.stderr.on("data", (chunk: Buffer) => (output += chunk.toString("utf8")));
+-  return new Promise((resolveRun) => child.on("exit", (code) => resolveRun({ code, output })));
++  // 'exit' can fire before the piped stdout/stderr has been read, which loses the
++  // launcher's message under load; 'close' waits for the stdio streams to close.
++  return new Promise((resolveRun) => child.on("close", (code) => resolveRun({ code, output })));
+ }
+ 
+ /** PowerShell wraps error records at the console width, even mid-word. */

@@ -22,7 +22,12 @@ buildNpmPackage (finalAttrs: {
   npmDepsHash = "sha256-1PeS2g4rU/E2+ITWYO3troB1v3FlnHFWrIWlZWImjHg=";
 
   # Avoid notifying about requests immediately auto-approved by a TUI client.
-  patches = [ ./opencode-telegram-bot/auto-permission-notices.patch ];
+  patches = [
+    ./opencode-telegram-bot/auto-permission-notices.patch
+    # The e2e launcher test resolved on 'exit', which can race the piped output
+    # and fail with an empty message under load; upstream v0.26.6 still does.
+    ./opencode-telegram-bot/e2e-wait-for-close.patch
+  ];
 
   postPatch = ''
     mkdir -p tests/bot/events
