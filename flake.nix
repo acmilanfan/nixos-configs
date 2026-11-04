@@ -11,6 +11,9 @@
 
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
     unstable-nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    # The Linux builder VM is pinned by its own lock so `up`/`sup` never
+    # rebuild it; `linux-builder-update` moves it explicitly.
+    linux-builder.url = "path:./linux-builder";
     musnix.url = "github:musnix/musnix/master";
     musnix.inputs.nixpkgs.follows = "nixpkgs";
 

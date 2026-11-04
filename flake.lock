@@ -53,6 +53,22 @@
         "type": "github"
       }
     },
+    "builder-nixpkgs": {
+      "locked": {
+        "lastModified": 1793633738,
+        "narHash": "sha256-tItrb9M8eYA6WhFgmT9tpGKueri3+wRuVA952o/2xSU=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "7dcdd87373d72e7a2173e4db02e20d3d7f495cfd",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "7dcdd87373d72e7a2173e4db02e20d3d7f495cfd",
+        "type": "github"
+      }
+    },
     "bun2nix": {
       "inputs": {
         "flake-parts": [
@@ -399,6 +415,20 @@
         "repo": "LeechBlockNG",
         "type": "github"
       }
+    },
+    "linux-builder": {
+      "inputs": {
+        "builder-nixpkgs": "builder-nixpkgs"
+      },
+      "locked": {
+        "path": "./linux-builder",
+        "type": "path"
+      },
+      "original": {
+        "path": "./linux-builder",
+        "type": "path"
+      },
+      "parent": []
     },
     "llm-agents": {
       "inputs": {
@@ -822,6 +852,7 @@
         "homebrew-k06a": "homebrew-k06a",
         "homebrew-omlx": "homebrew-omlx",
         "leechblockng": "leechblockng",
+        "linux-builder": "linux-builder",
         "llm-agents": "llm-agents",
         "lsplinks-nvim": "lsplinks-nvim",
         "lua-async": "lua-async",

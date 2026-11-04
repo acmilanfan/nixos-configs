@@ -20,8 +20,9 @@ if [[ "${1:-}" == "--populate" ]] || [[ "${1:-}" == "-p" ]]; then
   POPULATE=true
 fi
 
-root_nixpkgs="$(jq -c '.nodes.nixpkgs' "$ROOT_LOCK")"
-root_ref="$(jq -r '.nodes.nixpkgs.original | "\(.type):\(.owner)/\(.repo)/\(.ref)"' "$ROOT_LOCK")"
+main_node="$(jq -r '.nodes.root.inputs.nixpkgs' "$ROOT_LOCK")"
+root_nixpkgs="$(jq -c --arg n "$main_node" '.nodes[$n]' "$ROOT_LOCK")"
+root_ref="$(jq -r --arg n "$main_node" '.nodes[$n].original | "\(.type):\(.owner)/\(.repo)/\(.ref)"' "$ROOT_LOCK")"
 
 while IFS= read -r -d '' flake; do
   dir="$(dirname "$flake")"

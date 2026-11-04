@@ -159,6 +159,63 @@ let
     esac
   '';
 
+  # The builder's nixpkgs pin lives in linux-builder/flake.nix and its lock,
+  # which `up`/`sup` never touch. Move it to the stable branch head on demand.
+  linuxBuilderUpdate = pkgs.writeShellScriptBin "linux-builder-update" ''
+    set -euo pipefail
+    repo="''${NIXOS_CONFIGS:-$HOME/configs/nixos-configs}"
+    host=${lib.escapeShellArg config.networking.hostName}
+    pin="$repo/linux-builder/flake.nix"
+    lock="$repo/flake.lock"
+    jq=${pkgs.jq}/bin/jq
+
+    case "''${1:-}" in
+      -h | --help)
+        echo "usage: linux-builder-update"
+        echo "Move the pinned Linux builder nixpkgs to the stable branch head and prebuild its VM installer."
+        exit 0
+        ;;
+      "") ;;
+      *)
+        echo "linux-builder-update: unknown argument: $1" >&2
+        exit 2
+        ;;
+    esac
+
+    # The guest is aarch64-linux, so the build needs the (normally stopped) VM.
+    if ! ${linuxBuilderCtl}/bin/linux-builder status >/dev/null 2>&1; then
+      echo "linux-builder is stopped; run 'linux-builder start' first, then rerun this command." >&2
+      exit 1
+    fi
+
+    main_node=$("$jq" -r '.nodes.root.inputs.nixpkgs' "$lock")
+    branch=$("$jq" -r --arg n "$main_node" '.nodes[$n].original.ref' "$lock")
+    if [ -z "$branch" ] || [ "$branch" = "null" ]; then
+      echo "cannot read the nixpkgs branch from $lock" >&2
+      exit 1
+    fi
+    rev=$(nix flake metadata --json "github:NixOS/nixpkgs/$branch" | "$jq" -r .revision)
+    if ! [[ "$rev" =~ ^[0-9a-f]{40}$ ]]; then
+      echo "unexpected $branch revision '$rev'" >&2
+      exit 1
+    fi
+
+    sed -i.bak -E "s|github:NixOS/nixpkgs/[0-9a-f]{40}|github:NixOS/nixpkgs/$rev|" "$pin"
+    rm -f "$pin.bak"
+    grep -q "github:NixOS/nixpkgs/$rev" "$pin"
+    (cd "$repo/linux-builder" && nix flake lock)
+    # The root lock caches the path input's nodes; refresh only the builder's.
+    nix flake update --flake "$repo" linux-builder/builder-nixpkgs
+
+    nix build --no-link --print-out-paths \
+      "$repo#darwinConfigurations.$host.config.nix.linux-builder.package"
+
+    echo
+    echo "The builder image is built but not applied."
+    echo "Run 'sup' to install it."
+    echo "When done, run 'linux-builder stop': it releases its memory and the next start uses the new image."
+  '';
+
   # Dedicated startup script for GUI apps and driver initialization.
   # Runs under Apple's /bin/bash, not nix bash: launchd makes the interpreter
   # the TCC-responsible process, and every new nix bash store path triggered a
@@ -321,6 +378,11 @@ let
   '';
 in
 {
+  # Use the builder's own nixpkgs pin (linux-builder/flake.lock), not the main
+  # one, so a normal nixpkgs bump does not rebuild the builder VM.
+  nix.linux-builder.package =
+    inputs.linux-builder.legacyPackages.${pkgs.stdenv.hostPlatform.system}.darwin.linux-builder;
+
   ## TODO things to fix
   # - firenvim does not work
   # - keyboard BT control
@@ -334,7 +396,7 @@ in
     startupScript
     kanataCtl
     noSleep
-  ] ++ lib.optional builderEnabled linuxBuilderCtl ++ [
+  ] ++ lib.optionals builderEnabled [ linuxBuilderCtl linuxBuilderUpdate ] ++ [
     pkgs.warpd
     unstable.kanata
     pkgs.blueutil-tui
