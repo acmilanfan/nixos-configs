@@ -311,7 +311,9 @@ let
     instructions = (if isWork then [ "${config.home.homeDirectory}/Work/CLAUDE.md" ] else [ "AGENTS.md" ])
       ++ [ "~/ai/instructions/planning.md" ];
 
-    mcp = {
+    # V2 nests server definitions under `mcp.servers`; the legacy
+    # `mcp.<name>` shape is V1 compatibility only.
+    mcp.servers = {
       nixos = {
         type = "local";
         command = [ "${pkgs.mcp-nixos}/bin/mcp-nixos" ];
