@@ -12,6 +12,8 @@ let
   cfg = secrets.work.mcp or { };
   jenkins = cfg.jenkins or { };
   marketplace = secrets.claude.workMarketplaceName or "";
+  # Bumped to the latest PyPI release by a bare `up` (scripts/pypi-pins).
+  pypiPins = lib.importJSON ./pypi-pins.json;
 
   # legacy-qa-jenkins -> JENKINS_LEGACY_QA_JENKINS_TOKEN
   jenkinsTokenEnv = name: "JENKINS_${lib.toUpper (lib.replaceStrings [ "-" ] [ "_" ] name)}_TOKEN";
@@ -30,7 +32,7 @@ let
       let s = if builtins.isString server then { url = server; } else server; in {
         command = [
           "${pkgs.uv}/bin/uvx"
-          "mcp-jenkins@3.4.0"
+          "mcp-jenkins@${pypiPins.mcp-jenkins}"
           "--jenkins-url=${s.url}"
           "--jenkins-username=${s.username or jenkins.username}"
         ] ++ lib.optional (s.readOnly or false) "--read-only";

@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# PyPI packages that uvx runs at a pinned release (mcp-jenkins, plane-cli).
+# The versions live in nixos/home-manager/common/pypi-pins.json, which the Nix
+# config reads; this bumps them to the latest PyPI release (pre-releases are
+# skipped). A bare `up` runs `pypi-pins update` after `nix flake update`.
+#
+#   pypi-pins [list]             name, pinned version, latest release
+#   pypi-pins update [name...]   bump all (or the named) pins to the latest release
+#
+# Uses the repo in the current git checkout if it has the pin file, else
+# $PINS_FLAKE (default ~/configs/nixos-configs). A changed version takes effect
+# on the next rebuild (`sup`).
+set -euo pipefail
+
+rel=nixos/home-manager/common/pypi-pins.json
+flake="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+[ -n "$flake" ] && [ -f "$flake/$rel" ] || flake="${PINS_FLAKE:-$HOME/configs/nixos-configs}"
+file="$flake/$rel"
+[ -f "$file" ] || { echo "pypi-pins: no $rel in $flake" >&2; exit 1; }
+
+latest() {
+  curl -fsS --max-time 15 "${PYPI_URL:-https://pypi.org/pypi}/$1/json" | jq -er '.info.version'
+}
+
+pinned() { jq -er --arg n "$1" '.[$n] // empty' "$file"; }
+
+cmd="${1:-list}"
+[ $# -gt 0 ] && shift
+
+case "$cmd" in
+  list)
+    jq -r 'keys[]' "$file" | while read -r name; do
+      printf '%-14s %-10s latest %s\n' "$name" "$(pinned "$name")" "$(latest "$name" 2>/dev/null || echo '?')"
+    done
+    ;;
+
+  update)
+    if [ $# -gt 0 ]; then
+      names=("$@")
+    else
+      mapfile -t names < <(jq -r 'keys[]' "$file")
+    fi
+    failed=0
+    changed=0
+    for name in "${names[@]}"; do
+      if ! old="$(pinned "$name")"; then
+        echo "pypi-pins: $name is not pinned in $rel" >&2
+        failed=1
+        continue
+      fi
+      if ! new="$(latest "$name")"; then
+        echo "pypi-pins: could not get the latest $name release from PyPI" >&2
+        failed=1
+        continue
+      fi
+      if [ "$new" = "$old" ]; then
+        printf '%-14s %s (up to date)\n' "$name" "$old"
+        continue
+      fi
+      tmp="$(mktemp "$file.XXXXXX")"
+      jq --arg n "$name" --arg v "$new" '.[$n] = $v' "$file" >"$tmp"
+      chmod 644 "$tmp"
+      mv "$tmp" "$file"
+      printf '%-14s %s -> %s  https://pypi.org/project/%s/%s/\n' "$name" "$old" "$new" "$name" "$new"
+      changed=1
+    done
+    [ "$changed" = 1 ] && echo "Updated $rel; apply with sup."
+    exit "$failed"
+    ;;
+
+  *)
+    echo "usage: pypi-pins [list] | pypi-pins update [name...]" >&2
+    exit 2
+    ;;
+esac

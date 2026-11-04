@@ -34,7 +34,6 @@
       yt = "cd ~/org/consume && vim ~/org/consume/youtube/youtube1.org";
       os = "(cd ~/org && git pull)";
       op = ''(cd ~/org && git add . && git commit -m "Sync" && git push)'';
-      up = "cd $HOME/configs/nixos-configs && nix flake update";
       nb = "newsboat-sync";
       refresh = "exec zsh";
 
@@ -54,6 +53,20 @@
       if [ -n "$TMUX" ]; then
         export SSH_AUTH_SOCK="$HOME/.ssh/ssh_auth_sock"
       fi
+
+      # `up [args]`: nix flake update in the config repo. A bare run (flags such
+      # as --refresh allowed, no input names) also bumps the uvx-pinned PyPI
+      # packages in pypi-pins.json. A function, not an alias, for that check;
+      # the `function` form so re-sourcing over the old `up` alias still works.
+      function up {
+        cd "$HOME/configs/nixos-configs" || return
+        nix flake update "$@" || return
+        local arg
+        for arg in "$@"; do
+          [[ $arg == -* ]] || return 0
+        done
+        pypi-pins update
+      }
 
       autoload -U colors && colors
       PS1="%B%{$fg[cyan]%}$IN_NIX_SHELL%{$fg[red]%}[%{$fg[yellow]%}%n%{$fg[green]%}@%{$fg[blue]%}%M %{$fg[magenta]%}%~%{$fg[red]%}]%{$reset_color%}$%b "
