@@ -541,7 +541,6 @@ in
       "karabiner-elements"
       "cleanupbuddy"
       "nextcloud"
-      "kitty"
       "dimentium/autoraise/autoraiseapp"
       "scroll-reverser"
       "hammerspoon"

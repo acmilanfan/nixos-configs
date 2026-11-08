@@ -41,7 +41,7 @@ local M = {}
 local managedAllowed = {
     ["Activity Monitor"] = true, Alacritty = true, Arc = true, Ghostty = true,
     ["App Store"] = true, ["Archive Utility"] = true, Brave = true,
-    Calculator = true, Cursor = true, ["Disk Utility"] = true,
+    Calculator = true, ChatGPT = true, Cursor = true, ["Disk Utility"] = true,
     Discord = true, Finder = true, FineTune = true,
     Firefox = true, ["Google Chrome"] = true, IINA = true,
     ["IntelliJ IDEA"] = true, Marta = true, Nextcloud = true,
