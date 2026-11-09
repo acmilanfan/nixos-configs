@@ -259,6 +259,37 @@ let
       # "FineTune" - prevent audio source switching, disabled until fixed
     )
 
+    # A cask upgrade by the activation's `brew bundle` replaces the app on
+    # disk, but the old process can keep running (Scroll Reverser's cask
+    # `quit` doesn't always stop it). WindowServer then rejects the events a
+    # stale input tool posts ("Sender is prohibited from synthesizing
+    # events"), and every two-finger scroll froze the window for seconds.
+    # Quit instances whose executable is no longer the file on disk; the loop
+    # below starts the new version.
+    stale_pids() {
+      local pid exe txt inode
+      for pid in $(pgrep -x "$1"); do
+        exe=$(ps -o comm= -p "$pid")
+        [ -n "$exe" ] || continue
+        txt=$(lsof -a -p "$pid" -d txt -Fi 2>/dev/null)
+        [ -n "$txt" ] || continue  # can't tell: leave it alone
+        inode=$(stat -f %i "$exe" 2>/dev/null)
+        printf '%s\n' "$txt" | grep -qx "i$inode" || echo "$pid"
+      done
+    }
+    for app in "''${ensure_apps[@]}"; do
+      pids=$(stale_pids "$app")
+      [ -n "$pids" ] || continue
+      echo "Restarting $app (running a replaced binary)..."
+      kill $pids 2>/dev/null
+      for _ in 1 2 3 4 5 6 7 8 9 10; do
+        kill -0 $pids 2>/dev/null || break
+        sleep 0.5
+      done
+      kill -9 $pids 2>/dev/null
+      sleep 0.5
+    done
+
     for app in "''${ensure_apps[@]}"; do
       if ! pgrep -x "$app" >/dev/null; then
         if [ -d "/Applications/$app.app" ] || [ -d "/Applications/Nix Apps/$app.app" ] || [ -d "$USER_HOME/Applications/$app.app" ] || [ -d "$USER_HOME/Applications/Home Manager Apps/$app.app" ]; then
