@@ -172,6 +172,10 @@ let
       # Fullscreen (alt-screen) renderer: the inline one duplicates text in
       # tmux scrollback on resize and when scrolling up
       CLAUDE_CODE_NO_FLICKER = "1";
+      # Inside tmux Claude Code drops to 256 colours unless this is set, so
+      # theme RGB values get rounded to xterm-256 slots (and slots 16/17 are
+      # Ghostty's orange/pink). tmux passes truecolor through (tmux/tmux.conf: Tc).
+      CLAUDE_CODE_TMUX_TRUECOLOR = "1";
     };
     permissions = {
       allow = [ "Bash(mkdir:*)" ];
@@ -188,6 +192,7 @@ let
       ask = [ ];
     };
     model = "opus";
+    theme = "custom:nightfox";
     # Per-model effort, as written by `/effort` (keyed by full model id).
     modelSettings = {
       "claude-opus-5-5".effortLevel = "high";
@@ -224,6 +229,100 @@ let
   };
 
   claudeSettingsJson = builtins.toJSON claudeSettings;
+
+  # Custom Claude Code theme matching the terminal (dotfiles/ghostty/config)
+  # and Neovim: the Nightfox palette with bg1 overridden to #1a1b26. Shades
+  # (bright/dim) and diff blends are computed with nightfox.nvim's own color
+  # lib against that bg. Token names: code.claude.com/docs/en/terminal-config.
+  # Read-only store symlink, so edit it here rather than via /theme's Ctrl+E.
+  # Needs CLAUDE_CODE_TMUX_TRUECOLOR (env above) to render as-is in tmux.
+  claudeTheme = {
+    name = "Nightfox";
+    base = "dark";
+    overrides = {
+      # Accents
+      claude = "#f4a261";                         # orange
+      claudeShimmer = "#f6b079";
+      clawd_body = "#f4a261";
+      briefLabelClaude = "#f4a261";
+      briefLabelYou = "#86abdc";
+      permission = "#719cd6";                     # blue
+      permissionShimmer = "#86abdc";
+      suggestion = "#719cd6";
+      remember = "#719cd6";
+      claudeBlue_FOR_SYSTEM_SPINNER = "#719cd6";
+      claudeBlueShimmer_FOR_SYSTEM_SPINNER = "#86abdc";
+      ide = "#6085b6";
+      autoAccept = "#9d79d6";                     # magenta
+      autoAcceptShimmer = "#baa1e2";
+      skill = "#9d79d6";
+      merged = "#9d79d6";
+      effortUltra = "#9d79d6";
+      planMode = "#54aeb0";                       # cyan.dim
+      background = "#63cdcf";
+      bashBorder = "#d67ad2";                     # pink
+      fastMode = "#cf8a52";                       # orange.dim
+      fastModeShimmer = "#f6b079";
+
+      # Text: fg1 / comment / bg4
+      text = "#cdcecf";
+      inverseText = "#1a1b26";
+      inactive = "#738091";
+      inactiveShimmer = "#aeafb0";
+      subtle = "#39506d";
+      promptBorder = "#71839b";
+      promptBorderShimmer = "#aeafb0";
+
+      # Status: Nightfox diagnostics
+      success = "#81b29a";
+      error = "#c94f6d";
+      warning = "#dbc074";
+      warningShimmer = "#e0c989";
+
+      # Diff: line backgrounds are green/red blended into bg1
+      diffAdded = "#394849";
+      diffRemoved = "#4f2b3b";
+      diffAddedDimmed = "#272e34";
+      diffRemovedDimmed = "#30212e";
+      diffAddedWord = "#6e9783";
+      diffRemovedWord = "#ab435d";
+
+      # Fullscreen backgrounds: bg0/bg2/bg3/sel1
+      userMessageBackground = "#212e3f";
+      userMessageBackgroundHover = "#29394f";
+      composerSidebarBackground = "#131a24";
+      selectionBg = "#3c5372";
+      bashMessageBackgroundColor = "#362940";
+      memoryBackgroundColor = "#25363f";
+
+      rate_limit_fill = "#719cd6";
+      rate_limit_empty = "#39506d";
+
+      red_FOR_SUBAGENTS_ONLY = "#c94f6d";
+      blue_FOR_SUBAGENTS_ONLY = "#719cd6";
+      green_FOR_SUBAGENTS_ONLY = "#81b29a";
+      yellow_FOR_SUBAGENTS_ONLY = "#dbc074";
+      purple_FOR_SUBAGENTS_ONLY = "#9d79d6";
+      orange_FOR_SUBAGENTS_ONLY = "#f4a261";
+      pink_FOR_SUBAGENTS_ONLY = "#d67ad2";
+      cyan_FOR_SUBAGENTS_ONLY = "#63cdcf";
+
+      rainbow_red = "#c94f6d";
+      rainbow_orange = "#f4a261";
+      rainbow_yellow = "#dbc074";
+      rainbow_green = "#81b29a";
+      rainbow_blue = "#719cd6";
+      rainbow_indigo = "#9d79d6";
+      rainbow_violet = "#d67ad2";
+      rainbow_red_shimmer = "#d16983";
+      rainbow_orange_shimmer = "#f6b079";
+      rainbow_yellow_shimmer = "#e0c989";
+      rainbow_green_shimmer = "#8ebaa4";
+      rainbow_blue_shimmer = "#86abdc";
+      rainbow_indigo_shimmer = "#baa1e2";
+      rainbow_violet_shimmer = "#dc8ed9";
+    };
+  };
 
   # For the claudePlugins activation: what to install/update, and the
   # marketplaces they come from (name -> `claude plugin marketplace add` source).
@@ -317,6 +416,8 @@ let
 in
 {
   # opencode config/plugins now live in ./opencode.nix.
+
+  home.file.".claude/themes/nightfox.json".text = builtins.toJSON claudeTheme;
 
   # Claude Code needs to write to its own settings.json at runtime (e.g. `/effort`,
   # `/model`), so it can't be a symlink into the read-only Nix store like a plain
