@@ -259,6 +259,15 @@ let
       # "FineTune" - prevent audio source switching, disabled until fixed
     )
 
+    # Process name of an ensure_apps entry. Warpd.app's launcher execs the
+    # stable copy at /usr/local/bin/warpd-nix, so no process is named Warpd.
+    proc_name() {
+      case "$1" in
+        Warpd) echo warpd-nix ;;
+        *) echo "$1" ;;
+      esac
+    }
+
     # A cask upgrade by the activation's `brew bundle` replaces the app on
     # disk, but the old process can keep running (Scroll Reverser's cask
     # `quit` doesn't always stop it). WindowServer then rejects the events a
@@ -278,7 +287,7 @@ let
       done
     }
     for app in "''${ensure_apps[@]}"; do
-      pids=$(stale_pids "$app")
+      pids=$(stale_pids "$(proc_name "$app")")
       [ -n "$pids" ] || continue
       echo "Restarting $app (running a replaced binary)..."
       kill $pids 2>/dev/null
@@ -291,7 +300,7 @@ let
     done
 
     for app in "''${ensure_apps[@]}"; do
-      if ! pgrep -x "$app" >/dev/null; then
+      if ! pgrep -x "$(proc_name "$app")" >/dev/null; then
         if [ -d "/Applications/$app.app" ] || [ -d "/Applications/Nix Apps/$app.app" ] || [ -d "$USER_HOME/Applications/$app.app" ] || [ -d "$USER_HOME/Applications/Home Manager Apps/$app.app" ]; then
           echo "Starting $app (was not running)..."
 
@@ -781,6 +790,9 @@ PY
     # Only copy if binary is different to avoid invalidating TCC permissions
     if ! cmp -s ${pkgs.warpd}/bin/warpd /usr/local/bin/warpd-nix; then
       echo "Updating warpd-nix binary..."
+      # Stop it before overwriting its executable in place; darwin-startup,
+      # triggered below, starts the new copy.
+      pkill -x warpd-nix || true
       cp -f ${pkgs.warpd}/bin/warpd /usr/local/bin/warpd-nix
       chmod 755 /usr/local/bin/warpd-nix
       codesign --force -s - /usr/local/bin/warpd-nix 2>/dev/null || true
@@ -845,7 +857,6 @@ PY
       echo "> Created and trusted $KANATA_CODESIGN_IDENTITY for local code signing."
     fi
 
-    pkill -x warpd || true
     pkill -9 kanata || true
     # Setup kanata stable path for Input Monitoring permissions
     # Binary update is opt-in to avoid unnecessary rebuild churn.
