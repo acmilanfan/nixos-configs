@@ -66,6 +66,9 @@ function M.new(adapter, options)
     end
     local function dispatch(s)
         if not s.dispatch then finish(s, s.message); return end
+        for _,tab in ipairs(s.tabs) do
+            if not adapter.isValid(tab) then finish(s,"Capture incomplete: a collected tab closed; nothing saved");return end
+        end
         if #s.urls == 0 then finish(s, "No YouTube video tabs found; skipped: " .. s.skipped); return end
         s.phase = "saving"
         stopTimer(s)
@@ -116,7 +119,9 @@ function M.new(adapter, options)
             if err == "pending" then schedule(s) else restore(s, false, "Capture incomplete: " .. (err or "URL unavailable") .. "; nothing saved") end
             return
         end
-        if videoCandidate(url) then s.urls[#s.urls + 1] = url else s.skipped = s.skipped + 1 end
+        if not (s.verifyFirst and s.index == 1) then
+            if videoCandidate(url) then s.urls[#s.urls + 1] = url else s.skipped = s.skipped + 1 end
+        end
         adapter.notify(string.format("Collected %d/%d tabs", s.index, #s.tabs))
         s.index = s.index + 1
         nextTab(s)
@@ -128,9 +133,18 @@ function M.new(adapter, options)
         local snapshot, err = adapter.snapshot()
         if not snapshot then adapter.notify("Capture failed: " .. (err or "Firefox accessibility unavailable")); return false end
         if mode == "window" and snapshot.complete == false then adapter.notify("Capture incomplete: " .. (snapshot.reason or "unsupported tab layout") .. "; nothing saved"); return false end
-        local tabs = mode == "current" and { snapshot.selected } or snapshot.tabs
+        local tabs, verifyFirst = {}, false
+        if mode == "current" then
+            if snapshot.verifyTab then tabs = {snapshot.verifyTab, snapshot.selected};verifyFirst = true
+            else tabs = {snapshot.selected} end
+        else
+            -- A genuine first transition establishes page identity even when the
+            -- tab strip's first tab was already selected at invocation time.
+            for _,tab in ipairs(snapshot.tabs) do if tab ~= snapshot.selected then tabs[#tabs+1]=tab end end
+            tabs[#tabs+1]=snapshot.selected
+        end
         if not snapshot.selected or #tabs == 0 or #tabs > 4096 then adapter.notify("Capture failed: missing tabs or more than 4096 tabs"); return false end
-        local s = { window = snapshot.window, original = snapshot.selected, tabs = tabs, index = 1, urls = {}, skipped = 0, deadline = adapter.now() + 120 }
+        local s = { window = snapshot.window, original = snapshot.selected, tabs = tabs, verifyFirst=verifyFirst, index = 1, urls = {}, skipped = 0, deadline = adapter.now() + 120 }
         active = s
         if adapter.traversalChanged then adapter.traversalChanged(true) end
         nextTab(s)

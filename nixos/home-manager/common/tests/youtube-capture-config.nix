@@ -6,7 +6,11 @@ let
       pkgs = basePkgs // {
         stdenv = basePkgs.stdenv // { inherit isDarwin; };
         # Capture the generated script body without building unrelated packages.
-        writeShellScript = name: text: builtins.toFile name text;
+        writeShellScript = name: text: builtins.toFile name (
+          if name == "newsboat-youtube-notify" then
+            ''printf '%s' "$1" > ${basePkgs.lib.escapeShellArg "${home}/notification"}''
+          else text
+        );
       };
       module = import ../rss.nix {
         inherit pkgs;

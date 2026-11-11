@@ -5,8 +5,23 @@ local FIREFOX = "org.mozilla.firefox"
 
 local function attr(element, name)
     if not element then return nil end
-    local ok, value = pcall(element.attributeValue, element, name)
-    if ok then return value end
+    local ok, value, err = pcall(element.attributeValue, element, name)
+    if ok then return value, err end
+    return nil, tostring(value)
+end
+
+local function optionalAttr(element, name)
+    local value, err = attr(element, name)
+    local message = err and tostring(err):lower() or ""
+    if message:find("unsupported",1,true) or message:find("not supported",1,true) then return nil end
+    return value, err
+end
+
+local function children(element)
+    local value, err = attr(element, "AXChildren")
+    if value == nil and err == nil then return {} end -- supported empty native leaf
+    if err or type(value) ~= "table" then return nil, "cannot read browser/tab subtree: " .. tostring(err or "AXChildren unavailable") end
+    return value
 end
 
 -- Browser chrome + WebArea roots only: never descend into page content.
@@ -20,14 +35,25 @@ local function chrome(root)
         i = i + 1
         if not seen[element] then
             seen[element] = true
-            local role, id = attr(element, "AXRole"), attr(element, "AXDOMIdentifier")
-            if id == "urlbar-input" then found.address = element end
-            if id == "tabbrowser-tabs" then found.strip = element end
-            if role == "AXWebArea" and attr(element, "AXHidden") ~= true then
-                if found.page then return nil, "ambiguous current browser page" end
-                found.page = element
-            elseif id ~= "tabbrowser-tabs" and depth < 8 then
-                for _, child in ipairs(attr(element, "AXChildren") or {}) do queue[#queue + 1] = {child, depth + 1} end
+            local role, roleErr = attr(element, "AXRole")
+            local id, idErr = optionalAttr(element, "AXDOMIdentifier")
+            if roleErr or type(role) ~= "string" or idErr then return nil, "cannot read browser chrome attributes" end
+            if role == "AXWebArea" then
+                local hidden, err = optionalAttr(element,"AXHidden")
+                if err then return nil, "cannot determine page visibility" end
+                if hidden ~= true then
+                    if found.page then return nil, "ambiguous current browser page" end
+                    found.page = element
+                end
+                -- Hidden pages are also content boundaries, never chrome roots.
+            else
+                if id == "urlbar-input" and (role == "AXComboBox" or role == "AXTextField") then found.address = element end
+                if id == "tabbrowser-tabs" and role == "AXTabGroup" then found.strip = element end
+                if id ~= "tabbrowser-tabs" and depth < 8 then
+                    local descendants, err = children(element)
+                    if not descendants then return nil, err end
+                    for _, child in ipairs(descendants) do queue[#queue + 1] = {child, depth + 1} end
+                end
             end
         end
     end
@@ -43,22 +69,28 @@ local function browserTabs(strip)
         i = i + 1
         if not seen[element] then
             seen[element] = true
-            local role = attr(element, "AXRole")
-            local id = attr(element, "AXDOMIdentifier") or ""
-            if attr(element, "AXHidden") == true or attr(element, "AXExpanded") == false
+            local role, roleErr = attr(element, "AXRole")
+            local id, idErr = optionalAttr(element, "AXDOMIdentifier")
+            local hidden, hiddenErr = optionalAttr(element, "AXHidden")
+            local expanded, expandedErr = optionalAttr(element, "AXExpanded")
+            if roleErr or type(role) ~= "string" or idErr or hiddenErr or expandedErr then return nil, false, "cannot read tab structure attributes" end
+            id = id or ""
+            if hidden == true or expanded == false
                 or role == "AXDisclosureTriangle" or id:find("tab-group", 1, true) then
                 complete, reason = false, "grouped/hidden tabs are not safely enumerable; expand or ungroup them first"
             end
             if role == "AXRadioButton" then tabs[#tabs + 1] = element end
-            local children = attr(element, "AXChildren") or {}
-            if depth >= 12 and #children > 0 then complete, reason = false, "tab tree depth exceeds safe search limit"
-            elseif role ~= "AXRadioButton" then
-                for _, child in ipairs(children) do queue[#queue + 1] = {child, depth + 1} end
+            if role ~= "AXRadioButton" then
+                local descendants, err = children(element)
+                if not descendants then return nil, false, err end
+                if depth >= 12 and #descendants > 0 then complete, reason = false, "tab tree depth exceeds safe search limit"
+                else for _, child in ipairs(descendants) do queue[#queue + 1] = {child, depth + 1} end end
             end
         end
     end
     for _, tab in ipairs(tabs) do
-        local count = attr(tab, "AXARIASetSize")
+        local count, err = optionalAttr(tab, "AXARIASetSize")
+        if err then return nil, false, "cannot verify tab count" end
         if type(count) == "number" and count > #tabs then complete, reason = false, "Firefox reports tabs missing from accessibility enumeration" end
     end
     return tabs, complete, reason
@@ -117,10 +149,13 @@ function M.newAdapter(options)
         if not tabs then return nil, reason end
         local current = selected(tabs)
         if not current then return nil, "cannot identify one selected browser tab" end
-        return { window = {root=root,win=win,pid=app:pid(),strip=parts.strip}, tabs=tabs, selected=current, complete=complete, reason=reason }
+        local verifyTab
+        for _,tab in ipairs(tabs) do if tab ~= current then verifyTab=tab;break end end
+        return { window = {root=root,win=win,pid=app:pid(),strip=parts.strip,tabCount=#tabs,complete=complete}, tabs=tabs, selected=current, verifyTab=verifyTab, complete=complete, reason=reason }
     end
     function adapter.selected(window)
-        local tabs = browserTabs(window.strip)
+        local tabs, complete = browserTabs(window.strip)
+        if complete == false then return nil end
         return tabs and selected(tabs)
     end
     function adapter.select(tab)
@@ -138,7 +173,12 @@ function M.newAdapter(options)
         local parts, err = chrome(window.root)
         if not parts or not parts.address then return nil, err or "address bar inaccessible" end
         if attr(parts.address, "AXFocused") == true then return nil, "address bar is being edited" end
+        -- Cold multi-tab reads have no tab→page relation in Firefox's AX API.
+        -- Core first verifies a genuine away/back transition; one complete tab
+        -- has no competing live browser page to disambiguate.
+        if not selection and (window.tabCount ~= 1 or window.complete ~= true) then return nil, "pending" end
         if selection and selection.tab == tab and selection.changed and (not parts.page or parts.page == selection.oldPage) then return nil, "pending" end
+        if not parts.page or not adapter.isValid(parts.page) then return nil, "pending" end
         local url = attr(parts.page, "AXURL")
         if type(url) == "table" then url = url.url end
         if type(url) ~= "string" or url == "" then return nil, "pending" end
@@ -181,7 +221,7 @@ function M.setup(options)
         if tap then tap:stop(); tap=nil end
         if not active then return end
         local types = h.eventtap.event.types
-        tap = h.eventtap.new({types.keyDown,types.leftMouseDown,types.rightMouseDown}, function(event)
+        tap = h.eventtap.new({types.keyDown,types.leftMouseDown,types.rightMouseDown,types.otherMouseDown,types.scrollWheel}, function(event)
             local escape = event:getType() == types.keyDown and event:getKeyCode() == h.keycodes.map.escape
             controller.cancel(escape and "Capture cancelled" or "Capture interrupted by user")
             return escape

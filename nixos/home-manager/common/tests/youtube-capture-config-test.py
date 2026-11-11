@@ -34,17 +34,19 @@ def main():
         target = home / ".local/bin/youtube-org"
         target.parent.mkdir(parents=True)
         log = home / "arguments.json"
-        target.write_text(f"#!/usr/bin/env python3\nimport json,sys\nfrom pathlib import Path\nPath({str(log)!r}).write_text(json.dumps(sys.argv[1:]))\nsys.exit(0)\n")
+        target.write_text(f"#!/usr/bin/env python3\nimport json,sys\nfrom pathlib import Path\nPath({str(log)!r}).write_text(json.dumps(sys.argv[1:]))\nprint('Saved: 1; already present: 0; failed: 0')\nsys.exit(0)\n")
         target.chmod(0o700)
         arguments = ["https://www.youtube.com/watch?v=3V_wgHB4eFw&x=';false", "$(touch nope) \"title\"", "description", "feed"]
-        subprocess.run(["/bin/sh", wrapper, *arguments], check=True, timeout=10)
+        result = subprocess.run(["/bin/sh", wrapper, *arguments], check=True, capture_output=True, text=True, timeout=10)
+        assert result.stdout == "", "Newsboat interprets successful helper output as failure"
+        assert (home / "notification").read_text().startswith("Saved: 1"), "success counts not delivered separately"
         assert json.loads(log.read_text()) == ["bookmark", *arguments], "argument boundaries lost"
         target.write_text("#!/bin/sh\nprintf 'fixture save failure\\n' >&2\nexit 7\n")
         result = subprocess.run(["/bin/sh", wrapper, *arguments], capture_output=True, text=True, timeout=10)
-        assert result.returncode == 7 and "fixture save failure" in result.stderr, "save failure masked"
+        assert result.returncode != 0 and "fixture save failure" in result.stdout, "Newsboat ignores stderr/exit status: save failure masked"
         target.unlink()
         result = subprocess.run(["/bin/sh", wrapper, *arguments], capture_output=True, text=True, timeout=10)
-        assert result.returncode != 0 and result.stderr, "missing executable masked"
+        assert result.returncode != 0 and result.stdout.strip(), "Newsboat stdout-based consumer would falsely report missing executable as success"
     print("PASS: Newsboat Darwin/Linux configuration and wrapper behavior")
 
 

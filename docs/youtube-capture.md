@@ -41,7 +41,11 @@ or opening a tab does not save it. Non-YouTube Newsboat bookmarks fail visibly.
 ## Firefox behavior and limits
 
 The current-video action reads macOS accessibility information without touching
-the clipboard. The window action snapshots browser-tab controls in the focused
+the clipboard. With multiple tabs, it briefly visits one other tab and returns
+to establish the original tab's page identity; **only the original video is
+saved**. This extra check avoids saving a stale URL during a tab transition and
+may load that other tab if suspended. If the check cannot complete, nothing is
+saved. The window action snapshots browser-tab controls in the focused
 window, briefly selects each, collects video URLs, then restores the starting tab
 **before** metadata fetching starts. It does not visit another Firefox window,
 close/reorder tabs, navigate pages, or intentionally change playback/muting.
@@ -55,6 +59,7 @@ bar, inaccessible/special page, or readiness timeout aborts safely. Per-tab wait
 are bounded to five seconds and collection to two minutes.
 
 Typing, clicking, closing a tab/window, or switching away interrupts traversal.
+Middle-button clicks and scrolling interrupt it too.
 The original tab is restored only if its window is still focused and the tab
 survives; the tool never steals focus back. Repeated capture/save requests are
 rejected while one is active. Ordinary Escape is not captured outside traversal.
@@ -83,6 +88,12 @@ Earlier successes are skipped. Closing unsaved failed tabs loses those pending
 URLs. If the helper reports uncertainty after a filesystem error, inspect/retry;
 deduplication prevents duplicating already-durable entries.
 
+Newsboat's bookmark API treats nonempty stdout as an error, regardless of exit
+status. Its adapter therefore keeps successful stdout empty, displays failures in
+Newsboat, and sends saved/existing counts as a macOS notification. Notification
+delivery depends on macOS notification settings; a suppressed notification does
+not turn a successful save into an error.
+
 ## Manual commands, old stash, and isolated smoke tests
 
 ```sh
@@ -107,7 +118,9 @@ require("youtube-capture").setup({orgRoot = "/absolute/path/to/isolated-org-root
 ```
 
 This replaces only the capture module's bindings, not the whole Hammerspoon
-configuration. Call `.setup()` again without overrides after the isolated test to
+configuration. Wait for any in-flight save to finish before replacing setup;
+replacement during saving can otherwise overlap helper invocations/notifications
+(the Go writer lock still deduplicates). Call `.setup()` again without overrides after the isolated test to
 restore normal capture paths. Do not invoke bulk capture on a work window during
 testing. Verify the starting tab and clipboard remain as expected.
 

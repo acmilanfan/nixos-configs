@@ -1,7 +1,27 @@
 { config, pkgs, lib, ... }:
 let
+  youtubeNotify = pkgs.writeShellScript "newsboat-youtube-notify" ''
+    /usr/bin/osascript - "$1" <<'APPLESCRIPT'
+    on run argv
+      display notification (item 1 of argv) with title "YouTube to Org"
+    end run
+    APPLESCRIPT
+  '';
   youtubeSave = pkgs.writeShellScript "newsboat-youtube-save" ''
-    exec ${lib.escapeShellArg "${config.home.homeDirectory}/.local/bin/youtube-org"} bookmark "$@"
+    helper=${lib.escapeShellArg "${config.home.homeDirectory}/.local/bin/youtube-org"}
+    # Newsboat ignores exit status/stderr: only nonempty stdout signals failure.
+    if [ ! -x "$helper" ]; then
+      printf '%s\n' 'youtube-org is missing/not executable; install it from ~/Projects/YouTubeToOrgJava'
+      exit 1
+    fi
+    if message=$("$helper" bookmark "$@" 2>&1); then
+      /bin/sh ${youtubeNotify} "$message" >/dev/null 2>&1 || true
+      exit 0
+    else
+      printf '%s' "''${message:-YouTube capture failed; keep the video open and retry}" | /usr/bin/tr '\r\n' '  '
+      printf '\n'
+      exit 1
+    fi
   '';
 in {
 

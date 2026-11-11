@@ -13,7 +13,7 @@ local function runTests()
         }
         local state = { tabs = tabs, selected = tabs[2], focused = true, time = 0, queue = {}, events = {}, notices = {}, runs = 0 }
         local adapter = {}
-        function adapter.snapshot() return { window = state, tabs = tabs, selected = tabs[2], complete = not options.incomplete, reason = "unsupported collapsed group" } end
+        function adapter.snapshot() return { window = state, tabs = tabs, selected = tabs[2], verifyTab = options.cold and tabs[1] or nil, complete = not options.incomplete, reason = "unsupported collapsed group" } end
         function adapter.isFocused() return state.focused end
         function adapter.isValid(element) return not element.closed end
         function adapter.select(tab)
@@ -66,6 +66,11 @@ local function runTests()
         assert(s.runs == 1 and #s.urls == 1 and s.urls[1]:find("abcdefghijk", 1, true))
         assert(#s.events == 1 and not s.controller.busy())
     end
+    function tests.cold_current_verifies_by_roundtrip_but_saves_only_original()
+        local s=fixture({cold=true});s.controller.start("current");s.drain()
+        assert(s.events[1]=="select:first" and s.runs==1 and #s.urls==1)
+        assert(s.urls[1]:find("abcdefghijk",1,true) and s.selected==s.tabs[2])
+    end
     function tests.window_restores_before_run()
         local s = fixture(); s.controller.start("window"); s.drain()
         assert(s.events[#s.events - 1] == "restore:original" and s.events[#s.events] == "run:2")
@@ -102,6 +107,11 @@ local function runTests()
     function tests.closed_tab_aborts_without_partial_save()
         local s = fixture(); s.controller.start("window"); s.tabs[3].closed = true; s.drain()
         assert(s.runs == 0 and not s.controller.busy())
+    end
+    function tests.already_visited_tab_closed_before_commit_aborts()
+        local s=fixture();s.controller.start("window");s.step()
+        s.tabs[1].closed=true;s.drain()
+        assert(s.runs==0,"closed previously visited tab still dispatched")
     end
     function tests.closed_window_aborts_without_restore()
         local s = fixture(); s.controller.start("window"); s.closed = true; s.drain()
@@ -164,16 +174,40 @@ local function runTests()
             alert = { show = function() end },
             pasteboard = setmetatable({}, {__index = function() error("clipboard access forbidden") end}),
         }
-        local env = setmetatable({ hs = fake, require = function(name) assert(name == "youtube-capture-core"); return core end }, {__index = _G})
+        local env = setmetatable({ hs = fake, _G = {}, require = function(name) assert(name == "youtube-capture-core"); return core end }, {__index = _G})
         local module = assert(loadfile(root .. "/youtube-capture.lua", "t", env))()
         return module.newAdapter({ hs = fake }), page, tab1, tab2, address, strip, module, fake, rootNode
     end
     function tests.adapter_reads_url_without_sidebar_or_page_controls()
-        local a, _, tab1, _, address = liveFixture()
-        local snapshot = assert(a.snapshot()); assert(#snapshot.tabs == 2 and snapshot.selected == tab1)
+        local a, _, tab1, _, address, strip = liveFixture()
+        strip.attrs.AXChildren={tab1} -- one exposed tab has no competing live page
+        local snapshot = assert(a.snapshot()); assert(#snapshot.tabs == 1 and snapshot.selected == tab1)
         assert(a.readURL(snapshot.window,tab1) == "https://www.youtube.com/watch?v=3V_wgHB4eFw")
         address.attrs.AXFocused = true
         local url, err = a.readURL(snapshot.window,tab1); assert(not url and err ~= "pending")
+    end
+    function tests.initial_unassociated_page_is_not_accepted()
+        local a, _, tab1, tab2 = liveFixture()
+        tab1.attrs.AXSelected=false;tab2.attrs.AXSelected=true
+        local snapshot=a.snapshot()
+        assert(a.readURL(snapshot.window,tab2)==nil, "accepted A's coherent URL while B is selected")
+    end
+    function tests.initial_stale_page_cannot_dispatch_through_real_core()
+        local a, _, tab1, tab2, _, _, _, fake = liveFixture()
+        tab1.attrs.AXSelected=false;tab2.attrs.AXSelected=true
+        local now,queue,runs=0,{},0
+        fake.timer.secondsSinceEpoch=function()return now end
+        fake.timer.doAfter=function(seconds,fn)
+            local timer={at=now+seconds,fn=fn};function timer:stop()self.stopped=true end
+            queue[#queue+1]=timer;return timer
+        end
+        a.run=function(_,callback) runs=runs+1;callback(0,'{"saved":1,"existing":0,"failed":0,"items":[]}',"") end
+        local c=core.new(a,{decode=decode});c.start("current")
+        for _=1,300 do
+            local timer=table.remove(queue,1);if not timer then break end
+            now=timer.at;if not timer.stopped then timer.fn() end
+        end
+        assert(runs==0, "initial stale page dispatched through real core/adapter")
     end
     function tests.adapter_rejects_stale_page_after_selection()
         local a, page, tab1, tab2, address = liveFixture()
@@ -187,6 +221,49 @@ local function runTests()
         local a, _, _, _, _, strip = liveFixture()
         strip.attrs.AXChildren[#strip.attrs.AXChildren + 1] = node("AXDisclosureTriangle", "", {}, {AXExpanded=false})
         assert(a.snapshot().complete == false)
+    end
+    function tests.required_tab_children_error_cannot_claim_complete()
+        local a, _, tab1, tab2, _, strip=liveFixture()
+        local group=node("AXGroup","",{tab2})
+        function group:attributeValue(key)
+            if key=="AXChildren" then return nil,"AXErrorCannotComplete" end
+            return self.attrs[key]
+        end
+        strip.attrs.AXChildren={tab1,group}
+        local snapshot=a.snapshot()
+        assert(not snapshot or snapshot.complete==false, "unreadable tab subtree reported complete")
+    end
+    function tests.native_unsupported_optional_attrs_and_empty_leaf_are_valid()
+        local a, _, _, _, _, _, _, _, window=liveFixture()
+        function window:attributeValue(key)
+            if key=="AXDOMIdentifier" then return nil,"Attribute is not supported by target" end
+            return self.attrs[key]
+        end
+        local leaf=node("AXButton",nil)
+        leaf.attrs.AXChildren=nil
+        function leaf:attributeValue(key)
+            if key=="AXDOMIdentifier" then return nil,"Attribute is not supported by target" end
+            return self.attrs[key]
+        end
+        window.attrs.AXChildren[#window.attrs.AXChildren+1]=leaf
+        local snapshot,err=a.snapshot()
+        assert(snapshot and snapshot.complete and #snapshot.tabs==2,err)
+    end
+    function tests.subsequent_tab_enumeration_errors_do_not_return_partial_selection()
+        local a, _, tab1, tab2, _, strip=liveFixture()
+        local snapshot=a.snapshot()
+        local group=node("AXGroup","",{tab2})
+        function group:attributeValue(key)
+            if key=="AXChildren" then return nil,"AXErrorCannotComplete" end
+            return self.attrs[key]
+        end
+        strip.attrs.AXChildren={tab1,group}
+        assert(a.selected(snapshot.window)==nil)
+    end
+    function tests.subsequent_hidden_group_does_not_return_complete_selection()
+        local a, _, _, _, _, strip=liveFixture();local snapshot=a.snapshot()
+        strip.attrs.AXChildren[#strip.attrs.AXChildren+1]=node("AXDisclosureTriangle","",{},{AXExpanded=false})
+        assert(a.selected(snapshot.window)==nil,"incomplete later enumeration accepted")
     end
     function tests.adapter_accepts_new_page_only_after_coherent_url_update()
         local a, _, tab1, tab2, address, _, _, _, window = liveFixture()
@@ -203,12 +280,52 @@ local function runTests()
         local snapshot, err = a.snapshot()
         assert(not snapshot and err:find("limit",1,true))
     end
+    function tests.hidden_webarea_descendants_are_never_chrome()
+        local a, _, tab1, _, _, _, _, _, window=liveFixture()
+        local rogue=node("AXRadioButton","",{}, {AXSelected=true})
+        local hidden=node("AXWebArea","",{
+            node("AXTabGroup","tabbrowser-tabs",{rogue}),
+            node("AXComboBox","urlbar-input",{}, {AXValue="attacker content"}),
+        },{AXHidden=true})
+        local reads=0
+        function hidden:attributeValue(key)
+            if key=="AXChildren" then reads=reads+1 end
+            return self.attrs[key]
+        end
+        window.attrs.AXChildren[#window.attrs.AXChildren+1]=hidden
+        local snapshot=a.snapshot()
+        assert(reads==0 and snapshot and #snapshot.tabs==2 and snapshot.selected==tab1, "hidden webpage crossed chrome boundary")
+    end
     function tests.adapter_missing_helper_is_a_failure()
         local a, _, _, _, _, _, _, fake = liveFixture()
         fake.fs = { attributes = function() return nil end }
         local code
         a.run({"https://youtu.be/3V_wgHB4eFw"}, function(c) code=c end)
         assert(code ~= nil and code ~= 0)
+    end
+    function tests.setup_observes_middle_click_and_scroll_interruption()
+        for _,interruption in ipairs({4,5}) do
+            local _, _, _, _, _, _, module, fake=liveFixture()
+            local subscribed, callback
+            local function object()
+                return {start=function(self)return self end,stop=function()end,enable=function()end,disable=function()end,delete=function()end}
+            end
+            fake.application.watcher={activated=1,terminated=2,new=function()return object()end}
+            fake.hotkey={new=function()return object()end}
+            fake.keycodes={map={escape=53}}
+            fake.json={decode=decode}
+            fake.timer.doAfter=function()return object()end
+            fake.eventtap={event={types={keyDown=1,leftMouseDown=2,rightMouseDown=3,otherMouseDown=4,scrollWheel=5}},new=function(types,fn)subscribed=types;callback=fn;return object()end}
+            fake.task={new=function()error("cancelled traversal dispatched a helper")end}
+            local handle=module.setup({hs=fake})
+            handle.controller.start("window")
+            local observed=false;for _,value in ipairs(subscribed or {}) do if value==interruption then observed=true end end
+            assert(observed,"physical interruption not subscribed: "..interruption)
+            local event={getType=function()return interruption end,getKeyCode=function()return 0 end}
+            callback(event)
+            assert(not handle.controller.busy(),"interrupted traversal still active")
+            handle.stop()
+        end
     end
 
     local count, failures = 0, {}
