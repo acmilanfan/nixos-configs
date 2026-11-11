@@ -50,6 +50,10 @@ pcall(require, "sweep-remapper")
 local fok, ferr = pcall(require, "firefox-tab-mode")
 if not fok then hs.notify.new({ title = "Hammerspoon", informativeText = "firefox-tab-mode: " .. tostring(ferr) }):send() end
 
+-- Explicit current-video / focused-window YouTube capture, active only in Firefox.
+local yok, yerr = pcall(function() require("youtube-capture").setup() end)
+if not yok then hs.notify.new({ title = "Hammerspoon", informativeText = "youtube-capture: " .. tostring(yerr) }):send() end
+
 -- macOS Vim Navigation
 local ok, err = pcall(require, "macos-vim-navigation/init")
 if not ok then hs.notify.new({ title = "Hammerspoon", informativeText = "macos-vim-navigation: " .. tostring(err) }):send() end

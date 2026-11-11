@@ -397,6 +397,8 @@ function M.showKeybindMenu()
                 { key = "Alt+Shift+W", desc = "Open Work Org", fn = nil },
                 { key = "Alt+Shift+D", desc = "Open Dump Org", fn = nil },
                 { key = "Alt+Shift+Y", desc = "Open YouTube Org", fn = nil },
+                { key = "Cmd+Alt+Y", desc = "Firefox: save current YouTube video", fn = nil },
+                { key = "Cmd+Alt+Shift+Y", desc = "Firefox: save video tabs in this window", fn = nil },
                 { key = "Alt+Shift+Z", desc = "Open Weekenduo", fn = nil },
             },
         },

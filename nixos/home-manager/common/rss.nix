@@ -1,4 +1,9 @@
-{ pkgs, ... }: {
+{ config, pkgs, lib, ... }:
+let
+  youtubeSave = pkgs.writeShellScript "newsboat-youtube-save" ''
+    exec ${lib.escapeShellArg "${config.home.homeDirectory}/.local/bin/youtube-org"} bookmark "$@"
+  '';
+in {
 
   # Wrapper that syncs the cache from/to the Nextcloud folder only while
   # newsboat is not running, so the SQLite file is never copied mid-write.
@@ -51,6 +56,13 @@ programs.newsboat = {
       bind-key l open
       bind-key h quit
       bind-key ^A open-all-unread-in-browser-and-mark-read
+    '' + lib.optionalString pkgs.stdenv.isDarwin ''
+
+      # Explicitly save only the selected YouTube video. No metadata prompts.
+      bookmark-cmd "${youtubeSave}"
+      bookmark-autopilot yes
+      bind-key s bookmark articlelist
+      bind-key s bookmark article
     '';
   };
 
