@@ -1,0 +1,156 @@
+--- a/include/formaction.h
++++ b/include/formaction.h
+@@ -129,6 +129,8 @@
+ 		const std::string& feed_title);
+ 
+ protected:
++	virtual void bookmark_succeeded(const std::string&) {}
++
+ 	virtual bool process_operation(Operation op,
+ 		const std::vector<std::string>& args,
+ 		BindingType bindingType = BindingType::BindKey) = 0;
+--- a/include/itemlistformaction.h
++++ b/include/itemlistformaction.h
+@@ -69,6 +69,8 @@
+ 	void restore_selected_position();
+ 
+ protected:
++	void bookmark_succeeded(const std::string& url) override;
++
+ 	bool process_operation(Operation op,
+ 		const std::vector<std::string>& args,
+ 		BindingType bindingType = BindingType::BindKey) override;
+--- a/include/itemviewformaction.h
++++ b/include/itemviewformaction.h
+@@ -54,6 +54,8 @@
+ 	void update_percent();
+ 
+ protected:
++	void bookmark_succeeded(const std::string& url) override;
++
+ 	std::string main_widget() const override
+ 	{
+ 		return "article";
+--- a/src/configcontainer.cpp
++++ b/src/configcontainer.cpp
+@@ -35,6 +35,7 @@
+ 		"bookmark-autopilot",
+ 		ConfigData("false", ConfigDataType::BOOL)},
+ 	{"bookmark-cmd", ConfigData("", ConfigDataType::STR)},
++	{"bookmark-mark-read", ConfigData("false", ConfigDataType::BOOL)},
+ 	{
+ 		"bookmark-interactive",
+ 		ConfigData("false", ConfigDataType::BOOL)},
+--- a/src/formaction.cpp
++++ b/src/formaction.cpp
+@@ -621,6 +621,10 @@
+ 				qna_responses[3]);
+ 		if (retval.length() == 0) {
+ 			v.get_statusline().show_message(_("Saved bookmark."));
++			if (cfg->get_configvalue_as_bool("bookmark-mark-read") &&
++				!cfg->get_configvalue_as_bool("bookmark-interactive")) {
++				bookmark_succeeded(qna_responses[0]);
++			}
+ 		} else {
+ 			v.get_statusline().show_message(
+ 				_s("Error while saving bookmark: ") + retval);
+@@ -693,6 +697,10 @@
+ 					default_feed_title);
+ 			if (retval.length() == 0) {
+ 				v.get_statusline().show_message(_("Saved bookmark."));
++				if (cfg->get_configvalue_as_bool("bookmark-mark-read") &&
++					!cfg->get_configvalue_as_bool("bookmark-interactive")) {
++					bookmark_succeeded(default_url);
++				}
+ 			} else {
+ 				v.get_statusline().show_message(
+ 					_s("Error while saving bookmark: ") +
+--- a/src/itemlistformaction.cpp
++++ b/src/itemlistformaction.cpp
+@@ -47,6 +47,29 @@
+ 	, filter_container(f)
+ {
+ 	register_format_styles();
++}
++
++void ItemListFormAction::bookmark_succeeded(const std::string& url)
++{
++	const unsigned int itempos = list.get_position();
++	if (itempos >= visible_items.size()) {
++		return;
++	}
++	const auto item = visible_items[itempos].first;
++	if (item->link() != url) {
++		return;
++	}
++	try {
++		const bool was_unread = item->unread();
++		item->set_unread(false);
++		if (was_unread) {
++			v.get_ctrl().mark_article_read(item->guid(), true);
++		}
++		invalidate_list();
++	} catch (const DbException& e) {
++		v.get_statusline().show_error(strprintf::fmt(
++				_("Bookmark saved, but could not mark article read: %s"), e.what()));
++	}
+ }
+ 
+ bool ItemListFormAction::process_operation(Operation op,
+--- a/src/itemviewformaction.cpp
++++ b/src/itemviewformaction.cpp
+@@ -152,6 +152,25 @@
+ 	}
+ }
+ 
++void ItemViewFormAction::bookmark_succeeded(const std::string& url)
++{
++	if (!item || item->link() != url) {
++		return;
++	}
++	try {
++		const bool was_unread = item->unread();
++		item->set_unread(false);
++		if (was_unread) {
++			v.get_ctrl().mark_article_read(item->guid(), true);
++		}
++		itemlist->invalidate_list();
++		do_redraw = true;
++	} catch (const DbException& e) {
++		v.get_statusline().show_error(strprintf::fmt(
++				_("Bookmark saved, but could not mark article read: %s"), e.what()));
++	}
++}
++
+ bool ItemViewFormAction::process_operation(Operation op,
+ 	const std::vector<std::string>& args,
+ 	BindingType bindingType)
+@@ -166,16 +185,18 @@
+ 	 * is done, since only _changes_ to the unread flag are
+ 	 * recorded in the database.
+ 	 */
+-	try {
+-		bool old_unread = item->unread();
+-		item->set_unread(false);
+-		if (old_unread) {
+-			v.get_ctrl().mark_article_read(item->guid(), true);
+-		}
+-	} catch (const DbException& e) {
+-		v.get_statusline().show_error(strprintf::fmt(
+-				_("Error while marking article as read: %s"),
+-				e.what()));
++	if (op != OP_BOOKMARK || !cfg->get_configvalue_as_bool("bookmark-mark-read")) {
++		try {
++			bool old_unread = item->unread();
++			item->set_unread(false);
++			if (old_unread) {
++				v.get_ctrl().mark_article_read(item->guid(), true);
++			}
++		} catch (const DbException& e) {
++			v.get_statusline().show_error(strprintf::fmt(
++					_("Error while marking article as read: %s"),
++					e.what()));
++		}
+ 	}
+ 
+ 	switch (op) {

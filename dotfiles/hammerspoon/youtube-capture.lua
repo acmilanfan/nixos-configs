@@ -1,5 +1,6 @@
 -- Explicit Firefox captures only. No clipboard, profile scraping, JS, or server.
 local core = require("youtube-capture-core")
+local logging = require("youtube-capture-log")
 local M = {}
 local FIREFOX = "org.mozilla.firefox"
 
@@ -121,8 +122,15 @@ function M.newAdapter(options)
         if ok and type(config)=="table" and type(config.helper)=="string" and config.helper:sub(1,1)=="/" then helper=config.helper end
     end
     local adapter, selection = {}, nil
+    local diagnostics = options.diagnostics or logging.new({hs=h})
+    adapter.logPath = diagnostics.path
+    local function record(event, fields)
+        -- Diagnostics must never prevent a save, callback, or visible alert.
+        pcall(diagnostics.record, event, fields)
+    end
     local liveTask, alert
     function adapter.notify(text)
+        record("notice", {message=text})
         if alert and h.alert.closeSpecific then h.alert.closeSpecific(alert) end
         alert = h.alert.show("YouTube: " .. text, 5)
     end
@@ -192,14 +200,18 @@ function M.newAdapter(options)
         return url
     end
     function adapter.run(urls, callback)
+        local function completed(code, out, err)
+            record("helper_result", {code=code,stdout=out or "",stderr=err or "",helper=helper})
+            callback(code, out, err)
+        end
         local info = helper and h.fs.attributes(helper)
-        if not info or info.mode ~= "file" then callback(1, "", "Nix helper unavailable; apply the configuration with sup"); return end
+        if not info or info.mode ~= "file" then completed(1, "", "Nix helper unavailable; apply the configuration with sup"); return end
         local task
         task = h.task.new(helper, function(code, out, err)
             if liveTask == task then liveTask = nil end
-            callback(code, out, err)
+            completed(code, out, err)
         end, {"save","--json","--stdin"})
-        if not task then callback(1, "", "helper could not start"); return end
+        if not task then completed(1, "", "helper could not start"); return end
         if options.orgRoot or options.credentialsDir then
             local env = {}
             for k,v in pairs(h.processInfo.environment) do env[k]=v end
@@ -209,7 +221,7 @@ function M.newAdapter(options)
         end
         task:setInput(table.concat(urls,"\n") .. "\n")
         liveTask = task
-        if not task:start() then liveTask = nil; callback(1, "", "helper could not start") end
+        if not task:start() then liveTask = nil; completed(1, "", "helper could not start") end
     end
     return adapter
 end
@@ -241,7 +253,7 @@ function M.setup(options)
     local watcher = h.application.watcher.new(function(_,event)
         if event == h.application.watcher.activated or event == h.application.watcher.terminated then sync() end
     end):start()
-    local handle = {controller=controller}
+    local handle = {controller=controller,logPath=adapter.logPath}
     function handle.stop()
         controller.cancel("Capture configuration stopped")
         if tap then tap:stop() end

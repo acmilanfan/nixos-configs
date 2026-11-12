@@ -37,6 +37,13 @@ in {
 programs.newsboat = {
     enable = true;
 
+    # Stock bookmark macros cannot observe save failure. Keep the read-state
+    # update inside Newsboat, after confirmed noninteractive bookmark success.
+    package = if pkgs.stdenv.isDarwin then pkgs.newsboat.overrideAttrs (old: {
+      patches = (old.patches or [ ]) ++ [ ../../common/pkgs/newsboat-bookmark-mark-read.patch ];
+      doCheck = true;
+    }) else pkgs.newsboat;
+
     extraConfig = ''
       # Cross-platform browser command: uses xdg-open on Linux and falls back to open on macOS.
       browser "(command -v xdg-open >/dev/null 2>&1 && xdg-open '%u' || open '%u') & sleep 0.2"
@@ -81,6 +88,8 @@ programs.newsboat = {
       # Explicitly save only the selected YouTube video. No metadata prompts.
       bookmark-cmd "${youtubeSave}"
       bookmark-autopilot yes
+      bookmark-interactive no
+      bookmark-mark-read yes
       bind-key s bookmark articlelist
       bind-key s bookmark article
     '';

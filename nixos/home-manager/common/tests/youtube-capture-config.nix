@@ -21,5 +21,7 @@ let
     in {
       configText = module.programs.newsboat.extraConfig;
       includesHelper = builtins.elem pkgs.youtube-org module.home.packages;
+      hasReadPatch = builtins.any (patch: baseNameOf patch == "newsboat-bookmark-mark-read.patch")
+        (module.programs.newsboat.package.patches or [ ]);
     };
 in { darwin = evaluate true; linux = evaluate false; }

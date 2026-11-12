@@ -25,8 +25,10 @@ def main():
         result = json.loads(command("nix", "eval", "--json", "--file", str(Path(__file__).with_name("youtube-capture-config.nix")), "--apply", apply))
         assert result["darwin"]["includesHelper"], "sup does not install the capture helper"
         assert not result["linux"]["includesHelper"], "macOS-only package added to Linux"
+        assert result["darwin"]["hasReadPatch"] and not result["linux"]["hasReadPatch"], "read-marking patch must be Darwin-only"
         darwin, linux = result["darwin"]["configText"], result["linux"]["configText"]
         assert "bookmark-autopilot yes" in darwin, "macOS capture missing"
+        assert "bookmark-mark-read yes" in darwin and "bookmark-interactive no" in darwin, "success-only marking missing"
         assert "bind-key s bookmark articlelist" in darwin and "bind-key s bookmark article" in darwin
         assert "bookmark-cmd" not in linux and "bookmark-autopilot" not in linux, "Linux capture changed"
         for config in (darwin, linux):

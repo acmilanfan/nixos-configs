@@ -47,11 +47,30 @@ without activating anything with `nix build .#youtube-org --no-link`; run
 | Firefox focused | Cmd+Alt+Y | Save the current YouTube video |
 | Firefox focused | Cmd+Alt+Shift+Y | Save video tabs from this window |
 | During Firefox tab collection | Esc | Cancel; no batch is submitted |
-| Newsboat article list or article | s | Save the selected video |
+| Newsboat article list or article | s | Save the selected video, then mark it read on success |
 
 Other Newsboat browser-opening keys remain unchanged. `s` replaces Newsboat's
 default save-article action in those views. Only explicit saves happen; browsing
 or opening a tab does not save it. Non-YouTube Newsboat bookmarks fail visibly.
+
+Newsboat's `s` marks the selected article **read only after** a successful save or
+an already-present result. Failed saves leave its previous read status unchanged;
+already-read articles stay read. There is no explicit jump to another article,
+though an unread-only list/query naturally removes an article once it becomes read.
+Normal Newsboat actions (opening/reading/scrolling articles, for example) retain
+their own read-marking behavior independently of saving.
+
+This uses a small Darwin-only Nix package patch with the opt-in
+`bookmark-mark-read yes` setting. Stock Newsboat has no such option, and chaining
+`bookmark` with a read-toggle macro cannot safely distinguish failed saves.
+The wrapper keeps `bookmark-interactive no`, because interactive bookmark scripts
+do not provide a reliable success result. No external script edits Newsboat's
+live SQLite cache: the patched application updates its normal in-memory/cache
+state. Linux and normal browser-opening bindings are unchanged.
+
+To activate this change, close Newsboat, apply `sup`, and reopen it through your
+usual `nb`/`newsboat-sync` command. A running old Newsboat process cannot load the
+new behavior merely by reading the updated configuration.
 
 ## Firefox behavior and limits
 
@@ -109,6 +128,52 @@ Newsboat, and sends saved/existing counts as a macOS notification. Notification
 delivery depends on macOS notification settings; a suppressed notification does
 not turn a successful save into an error.
 
+## Firefox capture diagnostics
+
+After applying the logging update with `sup`, Hammerspoon records timestamped
+notifications and helper results in both its Console (prefixed `YouTube:`) and:
+
+```text
+~/Library/Logs/youtube-org/capture.log
+```
+
+The `helper_result` record retains exit status (`code`), complete redacted
+`stdout`/`stderr`, and the helper path **before** the short alert summary truncates
+errors. This includes per-video errors inside the helper's JSON result. Browser
+collection/start failures also appear as records; this log covers the Hammerspoon
+entry point, not Newsboat or standalone terminal commands. Earlier failures from
+before logging was enabled cannot be recovered.
+
+To watch the next retry in a terminal:
+
+```sh
+tail -F ~/Library/Logs/youtube-org/capture.log
+```
+
+Or view recent records with
+`tail -n 20 ~/Library/Logs/youtube-org/capture.log`. The file is created on the
+first logged event. In Hammerspoon Console, `print(youtubeCapture.logPath)` shows
+the configured location. No Firefox restart is needed for this logging change.
+
+The directory is mode `0700` and newly created log files are mode `0600`. One previous file
+(`capture.log.1`) is retained when the current log would exceed 2 MiB; an individual
+larger record stays intact rather than being truncated. Logging failures warn in
+Console but do not block captures. Symlink/nonregular log destinations and
+hard-linked log files are refused.
+
+An existing regular rotated log is not permission-normalized; it remains protected
+by the private directory. The active log's permissions are checked/repaired.
+
+Credential fields such as access/refresh tokens, client secrets and authorization
+headers are redacted. Credential-bearing free-text lines, private-key blocks and
+malformed JSON responses are suppressed rather than saved unsafely. Unparsed text
+lines containing Unicode escapes are also suppressed, since these can obscure
+credential field names in embedded JSON fragments. The logger
+does not read credential files or separately record collected URLs, but helper
+results may contain video URLs/IDs and local paths. Treat logs as private; review
+them before sharing. Redaction is not a guarantee against every possible secret
+format. These logs are diagnostics only, never a retry queue.
+
 ## Manual commands, old stash, and isolated smoke tests
 
 ```sh
@@ -145,6 +210,14 @@ runner under `dotfiles/hammerspoon/tests/`, and
 do not authorize an account, touch live tabs, or write to the real collection.
 The Nix derivation also runs the capture package's tests during its build; its
 source allowlist excludes runtime JSON credentials and unrelated project files.
+
+For read-marking UI/cache regressions, run
+`NEWSBOAT_TEST_BINARY=/absolute/path/to/patched/bin/newsboat python3 nixos/home-manager/common/tests/newsboat-save-read-test.py`
+from the configuration repository. This requires tmux and uses a separate random
+tmux socket, private fixture HOME/cache, local file feeds and a stub bookmark
+command. It never opens the real cache or saves a real video. Assertions inspect
+the cache while Newsboat is still running, so normal mark-on-quit behavior cannot
+mask a failed save. Screens/cache evidence remains under the Org artifact folder.
 
 `tests/firefox-single-tab-test.py` in the same module directory validates generated
 userChrome in a fresh headless Firefox profile with synthetic blank tabs. It

@@ -4,6 +4,7 @@ local root = source:match("^(.*)/tests/[^/]+$")
 local decode = hs.json.decode
 local function runTests()
     local core = assert(loadfile(root .. "/youtube-capture-core.lua", "t", setmetatable({ hs = false }, {__index = _G})))()
+    local diagnostics = assert(loadfile(root .. "/youtube-capture-log.lua"))()
     local function fixture(options)
         options = options or {}
         local tabs = {
@@ -174,12 +175,16 @@ local function runTests()
             alert = { show = function() end },
             pasteboard = setmetatable({}, {__index = function() error("clipboard access forbidden") end}),
         }
+        fake.diagnostics = {events={}, record=function(event, fields)
+            fake.diagnostics.events[#fake.diagnostics.events+1]={event=event,fields=fields}
+        end}
         local env = setmetatable({ hs = fake, _G = {}, require = function(name)
             if name == "youtube-capture-config" and nixHelper then return {helper=nixHelper} end
+            if name == "youtube-capture-log" then return diagnostics end
             assert(name == "youtube-capture-core"); return core
         end }, {__index = _G})
         local module = assert(loadfile(root .. "/youtube-capture.lua", "t", env))()
-        return module.newAdapter({ hs = fake }), page, tab1, tab2, address, strip, module, fake, rootNode
+        return module.newAdapter({ hs = fake, diagnostics=fake.diagnostics }), page, tab1, tab2, address, strip, module, fake, rootNode
     end
     function tests.adapter_reads_url_without_sidebar_or_page_controls()
         local a, _, tab1, _, address, strip = liveFixture()
@@ -318,6 +323,38 @@ local function runTests()
         a.run({"https://youtu.be/3V_wgHB4eFw"},function(code)assert(code==0)end)
         assert(invoked==expected and input=="https://youtu.be/3V_wgHB4eFw\n")
     end
+    function tests.adapter_records_complete_helper_result_before_summary()
+        local a, _, _, _, _, _, _, fake=liveFixture("/fixture/helper")
+        local long=string.rep("long error ",100).."END OF ERROR"
+        local out='{"saved":0,"existing":0,"failed":1,"error":"'..long..'","items":[]}'
+        fake.fs={attributes=function()return {mode="file"}end}
+        fake.task={new=function(_,callback)
+            return {setInput=function()end,start=function()callback(7,out,"stderr detail");return true end}
+        end}
+        local calls=0
+        a.run({"https://youtu.be/3V_wgHB4eFw"},function(code,stdout,stderr)
+            calls=calls+1;assert(code==7 and stdout==out and stderr=="stderr detail")
+        end)
+        local event=fake.diagnostics.events[#fake.diagnostics.events]
+        assert(event and event.event=="helper_result","helper result was not logged")
+        assert(event.fields.code==7 and event.fields.stdout==out and event.fields.stderr=="stderr detail")
+        assert(calls==1)
+    end
+    function tests.adapter_records_browser_notifications()
+        local a, _, _, _, _, _, _, fake=liveFixture()
+        a.notify("Capture failed: browser unavailable")
+        local event=fake.diagnostics.events[1]
+        assert(event and event.event=="notice" and event.fields.message:find("browser unavailable",1,true))
+    end
+    function tests.broken_diagnostics_never_block_helper_callback()
+        local a, _, _, _, _, _, _, fake=liveFixture()
+        fake.diagnostics.record=function()error("disk full")end
+        fake.fs={attributes=function()return nil end}
+        local called=false
+        a.run({},function()called=true end)
+        a.notify("Capture failed")
+        assert(called)
+    end
     function tests.setup_observes_middle_click_and_scroll_interruption()
         for _,interruption in ipairs({4,5}) do
             local _, _, _, _, _, _, module, fake=liveFixture()
@@ -332,7 +369,7 @@ local function runTests()
             fake.timer.doAfter=function()return object()end
             fake.eventtap={event={types={keyDown=1,leftMouseDown=2,rightMouseDown=3,otherMouseDown=4,scrollWheel=5}},new=function(types,fn)subscribed=types;callback=fn;return object()end}
             fake.task={new=function()error("cancelled traversal dispatched a helper")end}
-            local handle=module.setup({hs=fake})
+            local handle=module.setup({hs=fake,diagnostics=fake.diagnostics})
             handle.controller.start("window")
             local observed=false;for _,value in ipairs(subscribed or {}) do if value==interruption then observed=true end end
             assert(observed,"physical interruption not subscribed: "..interruption)
