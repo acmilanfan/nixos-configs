@@ -5,6 +5,7 @@ let
     let
       pkgs = basePkgs // {
         stdenv = basePkgs.stdenv // { inherit isDarwin; };
+        youtube-org = "${home}/nix-package";
         # Capture the generated script body without building unrelated packages.
         writeShellScript = name: text: builtins.toFile name (
           if name == "newsboat-youtube-notify" then
@@ -17,5 +18,8 @@ let
         lib = basePkgs.lib;
         config.home.homeDirectory = home;
       };
-    in module.programs.newsboat.extraConfig;
+    in {
+      configText = module.programs.newsboat.extraConfig;
+      includesHelper = builtins.elem pkgs.youtube-org module.home.packages;
+    };
 in { darwin = evaluate true; linux = evaluate false; }

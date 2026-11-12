@@ -67,14 +67,17 @@ in {
             width: ${toString verticalTabsWidth}px !important;
           }
 
-          /* Vertical tabs: hide the strip while the window has a single tab.
+          /* Vertical tabs: visually hide the strip while the window has a single tab.
              The selected tab is always there, so any other visible tab means
              two or more. Moved offscreen instead of display:none, because
-             Firefox measures the collapsed width to offset the page on hover. */
+             Firefox measures the collapsed width to offset the page on hover.
+             Keep visibility intact: visibility:hidden also removes tab controls
+             from accessibility, breaking Hammerspoon's explicit capture actions. */
           #sidebar-container:not(:has(.tabbrowser-tab:not([selected], [hidden]))) {
             position: fixed !important;
             translate: 200vw !important;
-            visibility: hidden !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
           }
           #sidebar-container:not(:has(.tabbrowser-tab:not([selected], [hidden])))
             + #sidebar-launcher-splitter {

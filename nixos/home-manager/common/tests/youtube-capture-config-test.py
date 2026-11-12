@@ -23,7 +23,9 @@ def main():
         home = Path(temporary)
         apply = f"f: f {{ nixpkgsPath = {json.dumps(nixpkgs)}; home = {json.dumps(str(home))}; }}"
         result = json.loads(command("nix", "eval", "--json", "--file", str(Path(__file__).with_name("youtube-capture-config.nix")), "--apply", apply))
-        darwin, linux = result["darwin"], result["linux"]
+        assert result["darwin"]["includesHelper"], "sup does not install the capture helper"
+        assert not result["linux"]["includesHelper"], "macOS-only package added to Linux"
+        darwin, linux = result["darwin"]["configText"], result["linux"]["configText"]
         assert "bookmark-autopilot yes" in darwin, "macOS capture missing"
         assert "bind-key s bookmark articlelist" in darwin and "bind-key s bookmark article" in darwin
         assert "bookmark-cmd" not in linux and "bookmark-autopilot" not in linux, "Linux capture changed"
@@ -31,7 +33,7 @@ def main():
             assert 'bind-key ^A open-all-unread-in-browser-and-mark-read' in config
             assert "xdg-open '%u'" in config and "open '%u'" in config
         wrapper = re.search(r'^\s*bookmark-cmd "([^"]+)"', darwin, re.M).group(1)
-        target = home / ".local/bin/youtube-org"
+        target = home / "nix-package/bin/youtube-org"
         target.parent.mkdir(parents=True)
         log = home / "arguments.json"
         target.write_text(f"#!/usr/bin/env python3\nimport json,sys\nfrom pathlib import Path\nPath({str(log)!r}).write_text(json.dumps(sys.argv[1:]))\nprint('Saved: 1; already present: 0; failed: 0')\nsys.exit(0)\n")

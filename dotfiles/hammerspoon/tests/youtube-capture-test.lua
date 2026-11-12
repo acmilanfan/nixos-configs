@@ -156,7 +156,7 @@ local function runTests()
         function n:performAction(action) assert(action == "AXPress"); return self end
         return n
     end
-    local function liveFixture()
+    local function liveFixture(nixHelper)
         local tab1 = node("AXRadioButton", "", nil, { AXSelected = true })
         local tab2 = node("AXRadioButton", "", nil, { AXSelected = false })
         local sidebar = node("AXRadioButton", "main-button", nil, { AXSelected = true })
@@ -174,7 +174,10 @@ local function runTests()
             alert = { show = function() end },
             pasteboard = setmetatable({}, {__index = function() error("clipboard access forbidden") end}),
         }
-        local env = setmetatable({ hs = fake, _G = {}, require = function(name) assert(name == "youtube-capture-core"); return core end }, {__index = _G})
+        local env = setmetatable({ hs = fake, _G = {}, require = function(name)
+            if name == "youtube-capture-config" and nixHelper then return {helper=nixHelper} end
+            assert(name == "youtube-capture-core"); return core
+        end }, {__index = _G})
         local module = assert(loadfile(root .. "/youtube-capture.lua", "t", env))()
         return module.newAdapter({ hs = fake }), page, tab1, tab2, address, strip, module, fake, rootNode
     end
@@ -302,6 +305,18 @@ local function runTests()
         local code
         a.run({"https://youtu.be/3V_wgHB4eFw"}, function(c) code=c end)
         assert(code ~= nil and code ~= 0)
+    end
+    function tests.adapter_uses_generated_nix_helper()
+        local expected="/nix/store/fixture-youtube-org/bin/youtube-org"
+        local a, _, _, _, _, _, _, fake=liveFixture(expected)
+        local invoked,input
+        fake.fs={attributes=function(path)assert(path==expected,"manual helper path still used");return {mode="file"}end}
+        fake.task={new=function(path,callback,args)
+            invoked=path;assert(table.concat(args," ")=="save --json --stdin")
+            return {setInput=function(_,data)input=data end,start=function()callback(0,'{"saved":1,"existing":0,"failed":0,"items":[]}',"");return true end}
+        end}
+        a.run({"https://youtu.be/3V_wgHB4eFw"},function(code)assert(code==0)end)
+        assert(invoked==expected and input=="https://youtu.be/3V_wgHB4eFw\n")
     end
     function tests.setup_observes_middle_click_and_scroll_interruption()
         for _,interruption in ipairs({4,5}) do

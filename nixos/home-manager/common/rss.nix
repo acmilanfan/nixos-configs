@@ -8,10 +8,10 @@ let
     APPLESCRIPT
   '';
   youtubeSave = pkgs.writeShellScript "newsboat-youtube-save" ''
-    helper=${lib.escapeShellArg "${config.home.homeDirectory}/.local/bin/youtube-org"}
+    helper=${pkgs.youtube-org}/bin/youtube-org
     # Newsboat ignores exit status/stderr: only nonempty stdout signals failure.
     if [ ! -x "$helper" ]; then
-      printf '%s\n' 'youtube-org is missing/not executable; install it from ~/Projects/YouTubeToOrgJava'
+      printf '%s\n' 'Nix youtube-org helper unavailable; apply the configuration with sup'
       exit 1
     fi
     if message=$("$helper" bookmark "$@" 2>&1); then
@@ -32,7 +32,7 @@ in {
     (pkgs.writeShellScriptBin "newsboat-sync"
       (builtins.replaceStrings [ "@flock@" ] [ "${pkgs.flock}/bin/flock" ]
         (builtins.readFile ./newsboat-sync.sh)))
-  ];
+  ] ++ lib.optionals pkgs.stdenv.isDarwin [ pkgs.youtube-org ];
 
 programs.newsboat = {
     enable = true;

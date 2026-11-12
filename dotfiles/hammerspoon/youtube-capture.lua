@@ -115,7 +115,11 @@ end
 function M.newAdapter(options)
     options = options or {}
     local h = options.hs or hs
-    local helper = options.helper or (os.getenv("HOME") .. "/.local/bin/youtube-org")
+    local helper = options.helper
+    if not helper then
+        local ok, config = pcall(require,"youtube-capture-config")
+        if ok and type(config)=="table" and type(config.helper)=="string" and config.helper:sub(1,1)=="/" then helper=config.helper end
+    end
     local adapter, selection = {}, nil
     local liveTask, alert
     function adapter.notify(text)
@@ -188,8 +192,8 @@ function M.newAdapter(options)
         return url
     end
     function adapter.run(urls, callback)
-        local info = h.fs.attributes(helper)
-        if not info or info.mode ~= "file" then callback(1, "", "helper missing; install youtube-org first"); return end
+        local info = helper and h.fs.attributes(helper)
+        if not info or info.mode ~= "file" then callback(1, "", "Nix helper unavailable; apply the configuration with sup"); return end
         local task
         task = h.task.new(helper, function(code, out, err)
             if liveTask == task then liveTask = nil end

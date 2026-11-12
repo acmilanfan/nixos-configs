@@ -327,6 +327,11 @@ in
       recursive = true;
     };
 
+    # Absolute package path: GUI capture never relies on PATH or a manual install.
+    ".hammerspoon/youtube-capture-config.lua".text = ''
+      return { helper = "${pkgs.youtube-org}/bin/youtube-org" }
+    '';
+
     # Rofi-like menus
     # ".hammerspoon/rofi-menus/init.lua".source = ../../dotfiles/hammerspoon/rofi-menus/init.lua;
     # ".hammerspoon/rofi-menus/services-scan.sh".source =

@@ -6,24 +6,39 @@ clipboard copying, or stash/queue is used. Linux configuration is unchanged.
 
 ## Setup and activation
 
-1. From `~/Projects/YouTubeToOrgJava`, run `sh scripts/install-local.sh` to build
-   `~/.local/bin/youtube-org`. The installer refuses an existing executable;
-   inspect it before choosing `--replace`. Reinstall after Go source changes.
-2. Keep the existing private `client_secret.json` and `token.json` in that Go
-   project. Do not copy them here. If authorization needs renewing, run
-   `~/.local/bin/youtube-org auth` explicitly in a terminal. Save commands never
+1. Apply the normal macOS configuration (`sup` / the appropriate Darwin rebuild).
+   The shared Home Manager configuration builds and installs `youtube-org` from
+   the tracked `apps/youtube-org` source with pinned Go dependencies. No manual
+   installer, local Go installation, or external project checkout is required to
+   build it. Source changes are picked up on the next `sup`.
+2. Keep private `client_secret.json` and `token.json` outside this repository and
+   outside the Nix store. Existing runtime defaults still use
+   `~/Projects/YouTubeToOrgJava`; `YOUTUBE_ORG_CREDENTIALS_DIR` can select another
+   absolute private directory. If authorization needs renewing, run
+   `youtube-org auth` explicitly in a terminal. Save commands never
    open an interactive login. Existing token files must have mode `0600`.
-3. Apply the normal macOS configuration (`sup` / the appropriate Darwin rebuild).
-   This installs Newsboat configuration and Hammerspoon sources. The existing
-   activation machinery reloads Hammerspoon when its Lua changes. Do not reload
-   before the helper is installed.
+3. That same activation installs Newsboat/Hammerspoon configuration and a
+   generated `.hammerspoon/youtube-capture-config.lua` containing the exact package
+   executable. Both entry points invoke the Nix-store path directly, never GUI
+   PATH or `~/.local/bin`. The existing activation machinery reloads Hammerspoon
+   when Lua/settings change. Manually reloading source without applying `sup`
+   cannot install the helper or its generated settings.
 4. Test with a disposable Firefox window and an **isolated output root first**.
    Do not use all of your real tabs as an installation test. A real capture writes
    to your collection; authorization/rebuild and GUI smoke tests are explicit
    rollout actions, not part of the automated fixture suite.
 
-The Go project is currently not Git-managed. Its README describes the CLI and
-tests. Both integrations use the absolute installed executable, not `go run`.
+The single-tab sidebar hiding rule uses opacity/pointer-events rather than
+`visibility:hidden`, keeping Firefox's tab controls in the accessibility tree.
+After updating that userChrome rule through `sup`, restart Firefox when convenient
+so it reloads the stylesheet. Until then, an extra tab in the same window works
+around the old rule. The configuration never restarts Firefox automatically.
+
+The packaged implementation and tests are maintained in `apps/youtube-org`.
+The old non-Git Go/Java project is preserved for its credentials and legacy
+workflow, but its manual installer is not part of this setup. Validate the package
+without activating anything with `nix build .#youtube-org --no-link`; run
+`nix run .#youtube-org -- --help` for CLI usage.
 
 ## Controls
 
@@ -97,8 +112,8 @@ not turn a successful save into an error.
 ## Manual commands, old stash, and isolated smoke tests
 
 ```sh
-~/.local/bin/youtube-org save --dry-run 'https://youtu.be/VIDEO_ID'
-~/.local/bin/youtube-org import-stash --dry-run ~/org/consume/video_stash
+youtube-org save --dry-run 'https://youtu.be/VIDEO_ID'
+youtube-org import-stash --dry-run ~/org/consume/video_stash
 ```
 
 Replace `VIDEO_ID` with a real 11-character video ID. Preview may fetch metadata
@@ -124,7 +139,17 @@ replacement during saving can otherwise overlap helper invocations/notifications
 restore normal capture paths. Do not invoke bulk capture on a work window during
 testing. Verify the starting tab and clipboard remain as expected.
 
-Automated checks: Go `go test -race ./...` / `go vet ./...`, the Hammerspoon fixture
+Automated checks: Go `go test -race ./...` / `go vet ./...` in `apps/youtube-org`, the Hammerspoon fixture
 runner under `dotfiles/hammerspoon/tests/`, and
 `python3 nixos/home-manager/common/tests/youtube-capture-config-test.py`. Fixtures
 do not authorize an account, touch live tabs, or write to the real collection.
+The Nix derivation also runs the capture package's tests during its build; its
+source allowlist excludes runtime JSON credentials and unrelated project files.
+
+`tests/firefox-single-tab-test.py` in the same module directory validates generated
+userChrome in a fresh headless Firefox profile with synthetic blank tabs. It
+checks both computed appearance and Gecko accessibility for one/two tabs. It
+uses a loopback Marionette connection restricted to the fresh test process,
+never the user's profile/windows, and terminates only its own test-profile
+Firefox. Pass an exported `programs.firefox.profiles.default.userChrome` CSS file
+as its argument; profiles/logs remain under the Org artifact directory.

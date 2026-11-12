@@ -378,6 +378,7 @@
         {
           inherit (pkgsFor system) opencode opencode-telegram-bot;
         } // nixpkgs.lib.optionalAttrs (system == macSystem) {
+          youtube-org = (pkgsFor system).youtube-org;
           vm-hyprland-image = self.nixosConfigurations.vm-hyprland.config.system.build.images.qemu-efi;
         });
     };
