@@ -33,6 +33,7 @@ local integrations = require("nanowm.integrations")
 local keybinds = require("nanowm.keybinds")
 local watchers = require("nanowm.watchers")
 local agents = require("nanowm.agents")
+local ciWatch = require("nanowm.ci_watch")
 
 -- =============================================================================
 -- Wire up module callbacks
@@ -240,6 +241,7 @@ function M.init()
 
     -- Initialize integrations
     integrations.init()
+    ciWatch.start()
 
     -- Initial tile
     layout.tile()

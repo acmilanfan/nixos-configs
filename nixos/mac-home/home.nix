@@ -11,9 +11,14 @@
     ../common/home-darwin.nix
     ./git.nix
     ../home-manager/configs/remote-access.nix
+    ../home-manager/configs/local-ci-status.nix
   ];
 
   home.username = "gentooway";
+  services.localCiStatus = {
+    enable = true;
+    allowedProjects = [ "weekenduo/backend" "weekenduo/duomobile" ];
+  };
   home.homeDirectory = lib.mkForce "/Users/gentooway";
 
   # Antigravity workspaces trusted at runtime on this machine only; merged

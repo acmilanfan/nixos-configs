@@ -373,6 +373,27 @@ sketchybar --add item help_menu right \
                  padding_right=2 \
                  click_script="/usr/bin/open -g 'hammerspoon://nanowm?cmd=keybindMenu'"
 
+# --- Local CI/E2E (mac-home opt-in only) ---
+# Right-aligned items are laid out right-to-left: register after help to sit left of '?'.
+if [ -f "$HOME/.config/local-ci-status/enabled" ] && command -v local-ci-status >/dev/null 2>&1; then
+  sketchybar --add item ci_status right \
+             --set ci_status icon="󰙨" icon.color=$INACTIVE_COLOR \
+                   background.color=$ITEM_BG_COLOR background.drawing=on \
+                   drawing=off updates=on label.drawing=off update_freq=0 \
+                   script="$CONFIG_DIR/plugins/ci_status.sh" \
+                   popup.background.color=$ITEM_BG_COLOR popup.background.corner_radius=12 \
+             --subscribe ci_status mouse.clicked mouse.exited.global system_woke
+  for slot in {0..19}; do
+    sketchybar --add item "ci_status.row.$slot" popup.ci_status \
+               --set "ci_status.row.$slot" drawing=off icon="●" label.padding_right=8
+  done
+  sketchybar --add item ci_status.overflow popup.ci_status \
+             --set ci_status.overflow drawing=off icon.drawing=off \
+             --add item ci_status.ack popup.ci_status \
+             --set ci_status.ack drawing=off icon="󰄬" label="Acknowledge failures" \
+                   click_script="local-ci-status ack"
+fi
+
 sketchybar --trigger caps_lock_update
 sketchybar --update
 
