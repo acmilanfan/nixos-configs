@@ -1,6 +1,7 @@
 local core = require("plugins.org.core")
 local state_mod = require("plugins.org.preview.state")
 local block_render = require("plugins.org.preview.render")
+local markdown_render = require("plugins.org.preview.markdown")
 local highlights = require("plugins.org.preview.highlights")
 local proxy = require("plugins.org.preview.proxy")
 
@@ -29,10 +30,25 @@ local function source_lines(src)
   return ok and lines or {}
 end
 
-local function render_lines(src, win)
-  local width = (win and vim.api.nvim_win_is_valid(win)) and vim.api.nvim_win_get_width(win) or 80
+local renderers = {
+  org = block_render.render,
+  markdown = markdown_render.render,
+}
+
+-- The preview reserves a two-column fold column. It is not part of the text
+-- area (`wrap=false`), so a renderer using the raw window width clips the right
+-- edge of full-width lines, including table borders.
+local function preview_width(win)
+  if not (win and vim.api.nvim_win_is_valid(win)) then return 80 end
+  local folds = tonumber(vim.api.nvim_get_option_value("foldcolumn", { win = win })) or 0
+  return math.max(vim.api.nvim_win_get_width(win) - folds, 1)
+end
+
+local function render_lines(src, win, filetype)
+  local width = preview_width(win)
   local filename = vim.fn.fnamemodify(vim.api.nvim_buf_get_name(src), ":t")
-  return block_render.render(source_lines(src), {
+  local render = renderers[filetype or vim.bo[src].filetype] or block_render.render
+  return render(source_lines(src), {
     width = width,
     filename = filename,
   })
@@ -209,8 +225,8 @@ local function link_at_cursor(line)
   return proxy.link_at(line, vim.api.nvim_win_get_cursor(0)[2])
 end
 
--- Toggle a checkbox, open a link, or proxy <CR> to the source. Other lines
--- keep the source mapping authoritative.
+-- Toggle a checkbox, open a link, or proxy <CR> to the source. Markdown has
+-- no Org command proxy, so a plain <CR> there is a no-op.
 local function preview_action(src)
   local state = state_mod.get(src)
   local line = state and state.lines[vim.fn.line(".")]
@@ -223,7 +239,8 @@ local function preview_action(src)
     proxy.toggle_checkbox(state, line)
     return true
   end
-  return proxy.run(state, "<CR>")
+  if state.filetype == "org" then return proxy.run(state, "<CR>") end
+  return false
 end
 
 local function open_link_at_cursor(src)
@@ -240,21 +257,27 @@ local function jump_to_source(src)
   return proxy.jump(state)
 end
 
-local function set_preview_keymaps(src, preview)
-  vim.keymap.set("n", "<leader>ov", function() M.toggle(src) end,
-    { buffer = preview, nowait = true, desc = "Toggle Org preview" })
-  vim.keymap.set("n", "<leader>oj", function() jump_to_source(src) end,
-    { buffer = preview, nowait = true, desc = "Jump to Org source" })
-  vim.keymap.set("n", "q", function() M.close(src) end,
-    { buffer = preview, nowait = true, desc = "Close Org preview" })
-  vim.keymap.set("n", "<CR>", function() preview_action(src) end,
-    { buffer = preview, nowait = true, desc = "Org preview action" })
-  vim.keymap.set("n", "gx", function() open_link_at_cursor(src) end,
-    { buffer = preview, nowait = true, desc = "Open Org link" })
+local function file_label(filetype)
+  return filetype == "markdown" and "Markdown" or "Org"
 end
 
--- :OrgPreview is context-aware: in a preview it closes that preview, in an Org
--- buffer it toggles, and anywhere else M.toggle warns that no Org file is open.
+local function set_preview_keymaps(src, preview)
+  local label = file_label(vim.bo[src].filetype)
+  vim.keymap.set("n", "<leader>ov", function() M.toggle(src) end,
+    { buffer = preview, nowait = true, desc = "Toggle " .. label .. " preview" })
+  vim.keymap.set("n", "<leader>oj", function() jump_to_source(src) end,
+    { buffer = preview, nowait = true, desc = "Jump to " .. label .. " source" })
+  vim.keymap.set("n", "q", function() M.close(src) end,
+    { buffer = preview, nowait = true, desc = "Close " .. label .. " preview" })
+  vim.keymap.set("n", "<CR>", function() preview_action(src) end,
+    { buffer = preview, nowait = true, desc = label .. " preview action" })
+  vim.keymap.set("n", "gx", function() open_link_at_cursor(src) end,
+    { buffer = preview, nowait = true, desc = "Open " .. label .. " link" })
+end
+
+-- :Preview is context-aware: in a preview it closes that preview, in an Org or
+-- Markdown buffer it toggles, and anywhere else M.toggle warns that no
+-- previewable file is open.
 local function toggle_current()
   local state = state_mod.for_preview(vim.api.nvim_get_current_buf())
   if state then
@@ -267,11 +290,12 @@ end
 function M.setup(opts)
   config = vim.tbl_deep_extend("force", config, opts or {})
   highlights.setup()
+  core.command("Preview", toggle_current, { desc = "Toggle file preview" })
   core.command("OrgPreview", toggle_current, { desc = "Toggle Org preview" })
-  -- Global fallback so <leader>ov outside an Org buffer explains itself. The
-  -- buffer-local maps installed for Org buffers and previews win over this.
+  -- Global fallback so <leader>ov outside a previewable buffer explains itself.
+  -- The buffer-local maps installed for Org/Markdown buffers and previews win.
   vim.keymap.set("n", "<leader>ov", function() M.toggle(vim.api.nvim_get_current_buf()) end,
-    { nowait = true, desc = "Toggle Org preview" })
+    { nowait = true, desc = "Toggle preview" })
 end
 
 function M.setup_buffer(buf)
@@ -279,14 +303,16 @@ function M.setup_buffer(buf)
   -- closure and every state key use the buffer the mapping belongs to, not
   -- whatever is current when the mapping is pressed.
   buf = (buf == nil or buf == 0) and vim.api.nvim_get_current_buf() or buf
+  local desc = "Toggle " .. file_label(vim.bo[buf].filetype) .. " preview"
   vim.keymap.set("n", "<leader>ov", function() M.toggle(buf) end,
-    { buffer = buf, nowait = true, desc = "Toggle Org preview" })
+    { buffer = buf, nowait = true, desc = desc })
 end
 
 function M.open(src)
   if not vim.api.nvim_buf_is_valid(src) then return nil end
-  if vim.bo[src].filetype ~= "org" then
-    vim.notify("Open an Org file first", vim.log.levels.WARN)
+  local filetype = vim.bo[src].filetype
+  if filetype ~= "org" and filetype ~= "markdown" then
+    vim.notify("Open an Org or Markdown file first.", vim.log.levels.WARN)
     return nil
   end
   highlights.setup()
@@ -306,7 +332,7 @@ function M.open(src)
     vim.api.nvim_set_current_win(win)
     set_preview_keymaps(src, existing.preview)
     watch_source(existing)
-    proxy.mirror(existing)
+    if existing.filetype == "org" then proxy.mirror(existing) end
     return existing
   elseif existing then
     state_mod.remove(src)
@@ -321,7 +347,10 @@ function M.open(src)
   local view = vim.api.nvim_win_call(win, function() return vim.fn.winsaveview() end)
   local options = save_window_options(win)
   local source_line = vim.api.nvim_win_get_cursor(win)[1]
-  local lines = render_lines(src, win)
+  -- Apply the preview options before rendering so the renderer sees the same
+  -- fold column that will display the result and fits the remaining text area.
+  apply_preview_options(win)
+  local lines = render_lines(src, win, filetype)
   local preview = vim.api.nvim_create_buf(false, true)
   local texts = vim.tbl_map(function(line) return line.text end, lines)
   vim.api.nvim_buf_set_lines(preview, 0, -1, false, texts)
@@ -336,11 +365,12 @@ function M.open(src)
     options = options,
     dirty = false,
     lines = lines,
+    filetype = filetype,
   }
   state_mod.set(src, state)
 
   set_preview_keymaps(src, preview)
-  proxy.mirror(state)
+  if filetype == "org" then proxy.mirror(state) end
 
   local group = vim.api.nvim_create_augroup(group_name(src), { clear = true })
   watch_source(state)
@@ -493,7 +523,7 @@ function M.refresh(state)
     end
   end
 
-  local lines = render_lines(state.src, state.win)
+  local lines = render_lines(state.src, state.win, state.filetype)
   local texts = vim.tbl_map(function(line) return line.text end, lines)
 
   vim.bo[state.preview].modifiable = true

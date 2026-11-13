@@ -74,7 +74,7 @@ require("plugins.snacks")
 require("plugins.oil-nvim")
 require("plugins.avante")
 require("plugins.minuet-ai")
-require("plugins.glow")
+require("plugins.render-markdown")
 
 -- Main configuration (keymaps, options, LSP, etc.)
 require("config")

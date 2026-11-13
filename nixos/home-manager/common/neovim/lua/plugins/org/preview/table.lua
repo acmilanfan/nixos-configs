@@ -44,13 +44,20 @@ local function split_row(line)
   return cells
 end
 
--- A separator row (|---+---|) contains only pipes, dashes, plus signs and
--- spaces, and at least one dash.
-local function is_separator(line)
+-- A separator row (|---+---|) contains only pipes, dashes, colons, plus signs
+-- and spaces, and at least one dash. `bare` accepts a separator without the
+-- outer pipes, as Markdown tables allow.
+local function is_separator(line, bare)
   local body = line:gsub("%s+", "")
-  if body:sub(1, 1) ~= "|" or body:sub(-1) ~= "|" then return false end
+  if body == "" then return false end
   if not body:find("-", 1, true) then return false end
-  return body:match("^[|%-+]+$") ~= nil
+  local inner = body
+  if body:sub(1, 1) == "|" and body:sub(-1) == "|" then
+    inner = body:sub(2, -2)
+  elseif not bare then
+    return false
+  end
+  return inner:match("^[|%-+:]+$") ~= nil
 end
 
 -- Org column cookies: <l>, <r>, <c> and <N>, optionally combined (<r8>).
@@ -216,13 +223,16 @@ function M.render(rows, opts)
   local source_start = opts.source_start or 1
   local indent = opts.indent or 0
   local indent_text = string.rep(" ", indent)
+  local bare = opts.bare
+  local render_inline = opts.inline or inline.render
+  local align_overrides = opts.align or {}
 
   -- Classify rows: separators and column-cookie rows are not drawn, and the
   -- row directly before the first separator is the header.
   local data, cookies = {}, {}
   local seen_separator = false
   for index, line in ipairs(rows) do
-    if is_separator(line) then
+    if is_separator(line, bare) then
       if not seen_separator then
         seen_separator = true
         if #data > 0 then data[#data].header = true end
@@ -263,7 +273,7 @@ function M.render(rows, opts)
   for _, row in ipairs(data) do
     row.rendered = {}
     for column, cell in ipairs(row.cells) do
-      local rendered = inline.render(cell.text, { source_col = cell.col })
+      local rendered = render_inline(cell.text, { source_col = cell.col })
       row.rendered[column] = rendered
       local width = display_width(rendered.text)
       if width > widths[column] then widths[column] = width end
@@ -297,7 +307,8 @@ function M.render(rows, opts)
     total = total - reduction
   end
 
-  -- Numeric columns are right-aligned; cookies override the heuristic.
+  -- Numeric columns are right-aligned; cookies override the heuristic and
+  -- explicit per-column overrides win over both.
   local aligns = {}
   for column = 1, ncols do
     local parsed = cookies[column]
@@ -314,6 +325,7 @@ function M.render(rows, opts)
       end
       aligns[column] = (filled > 0 and numeric * 2 >= filled) and "right" or "left"
     end
+    if align_overrides[column] then aligns[column] = align_overrides[column] end
   end
 
   local out = {}

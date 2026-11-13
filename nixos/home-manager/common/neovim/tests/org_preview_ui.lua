@@ -35,6 +35,34 @@ h.test("open and close restore the source window and options", function()
   assert(not vim.api.nvim_buf_is_valid(pbuf))
 end)
 
+h.test("fits the Org preview inside the fold column text area", function()
+  if #vim.api.nvim_list_wins() > 1 then vim.cmd("only") end
+  local path = h.fixture(root, "life/notes/width.org", {
+    "* Width", "| Name | Description |", "|---+---|",
+    "| a | one two three four five six seven eight nine ten eleven twelve |",
+  })
+  vim.cmd("edit " .. vim.fn.fnameescape(path))
+  local src = vim.api.nvim_get_current_buf()
+  vim.cmd("vsplit")
+  local win = vim.api.nvim_get_current_win()
+  vim.api.nvim_win_set_width(win, 60)
+  h.eq(vim.api.nvim_win_get_width(win), 60)
+  preview.setup({})
+  preview.open(src)
+  local pbuf = vim.api.nvim_get_current_buf()
+  h.eq(vim.wo.foldcolumn, "2")
+  local text_width = vim.api.nvim_win_get_width(0) - 2
+  local border
+  for i, text in ipairs(vim.api.nvim_buf_get_lines(pbuf, 0, -1, false)) do
+    local used = vim.fn.strdisplaywidth(text)
+    assert(used <= text_width, ("line %d uses %d of %d columns: %q"):format(i, used, text_width, text))
+    if text:find("┌", 1, true) then border = text end
+  end
+  assert(border, "the table border must be rendered")
+  h.eq(vim.fn.strdisplaywidth(border), text_width)
+  preview.close(src)
+end)
+
 h.test("a hidden preview is shown again instead of duplicated", function()
   local first_path = h.fixture(root, "life/notes/first.org", { "* First" })
   local second_path = h.fixture(root, "life/notes/second.org", { "* Second" })

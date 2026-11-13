@@ -1,5 +1,8 @@
 local M = {}
 
+-- Each record holds the source handle, the preview buffer/window, the saved
+-- view/options, the rendered lines, and `filetype` ("org" or "markdown") so
+-- render and proxy dispatch do not depend on the source staying loaded.
 local by_source = {}
 
 function M.get(src)

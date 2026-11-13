@@ -1,4 +1,5 @@
 local core = require("plugins.org.core")
+local markdown_render = require("plugins.org.preview.markdown")
 
 local M = {}
 
@@ -29,11 +30,37 @@ local function in_source(state, fn)
   if not ok then error(err, 0) end
 end
 
+-- Markdown `[ ]` -> `[x]`, `[x]`/`[X]` -> `[ ]`, and `[-]` -> `[x]`. Read the
+-- real marker from the source line because the renderer normalizes `x`/`X` to
+-- one state, and never auto-write the buffer.
+local function toggle_markdown_checkbox(state, line)
+  local row = line.source
+  if not row or row < 1 or type(line.checkbox.col) ~= "number" then return false end
+  local text = vim.api.nvim_buf_get_lines(state.src, row - 1, row, false)[1]
+  if not text then return false end
+  local marker = text:sub(line.checkbox.col + 1, line.checkbox.col + 3)
+  local current = marker:match("^%[([ xX%-])%]$")
+  if not current then return false end
+  local next_state = (current == " " or current == "-") and "x" or " "
+  local updated = text:sub(1, line.checkbox.col)
+    .. "[" .. next_state .. "]"
+    .. text:sub(line.checkbox.col + 4)
+  vim.api.nvim_buf_set_lines(state.src, row - 1, row, false, { updated })
+  vim.bo[state.src].modified = true
+  require("plugins.org.preview").refresh(state)
+  return true
+end
+
 function M.toggle_checkbox(state, line)
   if not state or not line or not line.checkbox then return end
   if not vim.api.nvim_buf_is_valid(state.src) then return end
   if not vim.api.nvim_buf_is_valid(state.preview) then return end
   if not (state.win and vim.api.nvim_win_is_valid(state.win)) then return end
+
+  if state.filetype == "markdown" then
+    toggle_markdown_checkbox(state, line)
+    return
+  end
 
   in_source(state, function()
     vim.api.nvim_win_set_cursor(0, { line.source, line.checkbox.col })
@@ -151,6 +178,113 @@ local function link_position(state, link)
   return first, math.max(link.source_col or 0, 0)
 end
 
+-- Markdown keeps the literal `](target)` destination in the source. Search the
+-- real paragraph instead of trusting a normalized table/cell source column.
+local function markdown_link_position(state, link)
+  local lines = vim.api.nvim_buf_get_lines(state.src, 0, -1, false)
+  local first = math.max(math.min(link.source or 1, math.max(#lines, 1)), 1)
+  local needles = {
+    "](" .. link.target .. ")",
+    "](<" .. link.target .. ">)",
+  }
+  local i = first
+  while i <= #lines and not lines[i]:match("^%s*$") do
+    for _, needle in ipairs(needles) do
+      local close = lines[i]:find(needle, 1, true)
+      if close then
+        -- `close` is the `]`; walk back to the `[` (or `![`) that opens the
+        -- label, since the label text sits between the two brackets.
+        local open
+        for pos = close - 1, 1, -1 do
+          if lines[i]:sub(pos, pos) == "[" then
+            open = pos
+            break
+          end
+        end
+        if open and open > 1 and lines[i]:sub(open - 1, open - 1) == "!" then
+          open = open - 1
+        end
+        if open then return i, open - 1 end
+      end
+    end
+    i = i + 1
+  end
+  return first, math.max(link.source_col or 0, 0)
+end
+
+local function anchor_slug(fragment)
+  return markdown_render.slug(vim.uri_decode(fragment or ""))
+end
+
+-- Scroll the preview to a rendered heading anchor without leaving it. A
+-- missing anchor falls back to the first line, like cross-file targets.
+local function scroll_to_anchor(state, slug)
+  local target = 1
+  for index, line in ipairs(state.lines or {}) do
+    if line.anchor == slug then
+      target = index
+      break
+    end
+  end
+  local win = state.win
+  if win and vim.api.nvim_win_is_valid(win) then
+    vim.api.nvim_win_call(win, function()
+      pcall(vim.api.nvim_win_set_cursor, win, { target, 0 })
+      pcall(vim.cmd, "normal! zz")
+    end)
+  end
+  return true
+end
+
+local function markdown_path(state, target)
+  local path = target:gsub("^file:", "")
+  path = vim.uri_decode(path)
+  if path:sub(1, 1) == "~" then path = vim.fn.expand(path) end
+  if path:sub(1, 1) ~= "/" then
+    path = vim.fn.fnamemodify(vim.api.nvim_buf_get_name(state.src), ":h") .. "/" .. path
+  end
+  return vim.fs.normalize(path)
+end
+
+-- Resolve a `file.md#slug` target to its source line in the rendered target.
+-- Rendering the target reuses the same title/anchor normalization as the
+-- preview, including consumed H1s and duplicate suffixes.
+local function markdown_anchor_line(path, fragment)
+  local lines = target_lines(path)
+  if not lines then return 1 end
+  local ok, rendered = pcall(markdown_render.render, lines, {
+    filename = vim.fn.fnamemodify(path, ":t"),
+  })
+  if not ok then return 1 end
+  local slug = anchor_slug(fragment)
+  for _, line in ipairs(rendered) do
+    if line.anchor == slug then return math.max(line.source or 1, 1) end
+  end
+  return 1
+end
+
+local function open_markdown_file(state, path, fragment)
+  if vim.fn.filereadable(path) == 0 then
+    vim.notify("Cannot open Markdown link target: " .. path, vim.log.levels.WARN)
+    return false
+  end
+  vim.cmd("edit " .. vim.fn.fnameescape(path))
+  if fragment and fragment ~= "" then
+    local line = markdown_anchor_line(path, fragment)
+    pcall(vim.api.nvim_win_set_cursor, 0, { math.min(line, math.max(vim.fn.line("$"), 1)), 0 })
+  end
+  return true
+end
+
+-- Same-file `#slug` stays in the preview; a path with `#slug` opens that file
+-- and hides the preview, so Ctrl-o returns. Plain local paths open normally.
+local function open_markdown_link(state, link)
+  local path, fragment = link.target:match("^(.-)#(.*)$")
+  if path == "" then return scroll_to_anchor(state, anchor_slug(fragment)) end
+  if fragment then return open_markdown_file(state, markdown_path(state, path), fragment) end
+  return open_markdown_file(state, markdown_path(state, link.target), nil)
+end
+
 -- The link whose rendered text covers a preview cursor column. Carrying the
 -- rendered line's first source line keeps reflowed id links resolvable.
 function M.link_at(line, col)
@@ -175,7 +309,10 @@ end
 local function source_position(state, line, col)
   -- A link under the cursor wins even on a checkbox line.
   local link = M.link_at(line, col)
-  if link then return link_position(state, link) end
+  if link then
+    if state.filetype == "markdown" then return markdown_link_position(state, link) end
+    return link_position(state, link)
+  end
   if line.checkbox then
     return line.source, line.checkbox.col
   end
@@ -337,6 +474,8 @@ function M.open_link(state, link)
     vim.ui.open(link.target)
     return true
   end
+
+  if state.filetype == "markdown" then return open_markdown_link(state, link) end
 
   local opened = open_file(state, link.target)
   if opened ~= nil then return opened end
