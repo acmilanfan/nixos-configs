@@ -208,17 +208,18 @@ source "$CONFIG"
         self.commands = [[v.decode() for v in c.split(b'\0')] for c in calls.read_bytes().split(b'\0\0') if c]
 
     def test_ci_starts_hidden_but_keeps_polling_while_hidden(self):
-        command = next(c for c in self.commands if c[:4] == ['--add', 'item', 'ci_status', 'right'])
+        command = next(c for c in self.commands if c[:4] == ['--add', 'item', 'ci_status', 'left'])
         self.assertIn('drawing=off', command)
         self.assertIn('updates=on', command)
         self.assertIn('update_freq=0', command)
         self.assertFalse(self.helper_calls.exists(), 'bar initialization should not query a periodic interval')
 
-    def test_ci_is_immediately_left_of_help_in_the_right_aligned_group(self):
-        names = []
+    def test_ci_sits_after_front_app_in_the_left_group_clear_of_the_notch(self):
+        left, right = [], []
         for cmd in self.commands:
             for index in range(len(cmd) - 3):
-                if cmd[index:index+2] == ['--add', 'item'] and cmd[index+3] == 'right':
-                    names.append(cmd[index+2])
-        # Right-aligned items render from right to left in registration order.
-        self.assertEqual(list(reversed(names))[:2], ['ci_status', 'help_menu'])
+                if cmd[index:index+2] == ['--add', 'item']:
+                    (left if cmd[index+3] == 'left' else right).append(cmd[index+2])
+        self.assertIn('ci_status', left)
+        self.assertNotIn('ci_status', right)
+        self.assertEqual(left.index('ci_status'), left.index('front_app') + 1)
