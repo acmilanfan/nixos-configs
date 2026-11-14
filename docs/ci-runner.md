@@ -90,7 +90,7 @@ sudo darwin-rebuild switch --flake "$HOME/configs/nixos-configs#mac-home"
 
 This installs:
 
-- system LaunchDaemon `local.weekenduo-ci-runner`, running as `weekenduo-ci`
+- system LaunchDaemon `org.nixos.local.weekenduo-ci-runner`, running as `weekenduo-ci`
   with `gitlab-runner run`;
 - sops-rendered `/Users/weekenduo-ci/.gitlab-runner/config.toml`, owner/mode
   `weekenduo-ci` / `0600`, with two runners, concurrency 1, CI builds/cache,
@@ -104,7 +104,7 @@ without a login session.
 ## Verify
 
 ```sh
-sudo launchctl print system/local.weekenduo-ci-runner
+sudo launchctl print system/org.nixos.local.weekenduo-ci-runner
 stat -f '%Su %Sp %N' /Users/weekenduo-ci/.gitlab-runner/config.toml
 sudo -u weekenduo-ci -H /etc/profiles/per-user/weekenduo-ci/bin/node --version
 ```

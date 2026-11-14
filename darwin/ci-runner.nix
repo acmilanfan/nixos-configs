@@ -123,7 +123,8 @@ in
         defaultSopsFormat = "yaml";
         validateSopsFiles = false;
         age.sshKeyFile = "/etc/ssh/ssh_host_ed25519_key";
-        # Use only the host age key; do not import SSH host keys as GPG keys.
+        # Native age SSH support; do not also import/convert host keys.
+        age.sshKeyPaths = lib.mkForce [ ];
         gnupg.sshKeyPaths = lib.mkForce [ ];
 
         secrets = {
@@ -150,7 +151,8 @@ in
       system.activationScripts.postActivation.text = lib.mkBefore ''
         /usr/bin/install -d -m 0700 -o ${ciUser} -g staff \
           ${ciHome}/.gitlab-runner ${ciHome}/ci-builds ${ciHome}/ci-cache \
-          ${ciHome}/ai/artifacts ${ciHome}/Library/Logs
+          ${ciHome}/ai ${ciHome}/ai/artifacts ${ciHome}/Library/Logs
+        /usr/sbin/chown -R ${ciUser}:staff ${ciHome}/ai
       '';
     })
 
@@ -158,11 +160,11 @@ in
     # the system daemon if a previous generation installed it. The account stays.
     (lib.mkIf (!cfg.enable) {
       system.activationScripts.postActivation.text = lib.mkBefore ''
-        /bin/launchctl bootout system/local.weekenduo-ci-runner 2>/dev/null || true
-        /bin/rm -f /Library/LaunchDaemons/local.weekenduo-ci-runner.plist
+        /bin/launchctl bootout system/org.nixos.local.weekenduo-ci-runner 2>/dev/null || true
+        /bin/rm -f /Library/LaunchDaemons/org.nixos.local.weekenduo-ci-runner.plist
         if uid=$(/usr/bin/id -u ${ciUser} 2>/dev/null); then
-          /bin/launchctl bootout "gui/$uid/local.weekenduo-ci-runner" 2>/dev/null || true
-          /bin/rm -f "${ciHome}/Library/LaunchAgents/local.weekenduo-ci-runner.plist"
+          /bin/launchctl bootout "gui/$uid/org.nixos.local.weekenduo-ci-runner" 2>/dev/null || true
+          /bin/rm -f "${ciHome}/Library/LaunchAgents/org.nixos.local.weekenduo-ci-runner.plist"
         fi
       '';
     })

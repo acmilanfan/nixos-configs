@@ -98,6 +98,7 @@ class HostIsolation(unittest.TestCase):
           template = { inherit (template) path owner mode content; };
           secrets = builtins.attrNames config.sops.secrets;
           ageKey = config.sops.age.sshKeyFile;
+          agePaths = config.sops.age.sshKeyPaths;
           gpgHostKeys = config.sops.gnupg.sshKeyPaths;
           postActivation = config.system.activationScripts.postActivation.text;
           failed = map (a: a.message) (builtins.filter (a: !a.assertion) config.assertions);
@@ -158,6 +159,7 @@ class HostIsolation(unittest.TestCase):
         self.assertIn('gitlab_runner/backend_token', value['secrets'])
         self.assertIn('gitlab_runner/frontend_token', value['secrets'])
         self.assertEqual(value['ageKey'], '/etc/ssh/ssh_host_ed25519_key')
+        self.assertEqual(value['agePaths'], [])
         self.assertEqual(value['gpgHostKeys'], [])
         self.assertIn('install -d', value['postActivation'])
         self.assertIn('/Users/weekenduo-ci/.gitlab-runner', value['postActivation'])
@@ -167,5 +169,5 @@ class HostIsolation(unittest.TestCase):
 
     def test_disabled_rebuild_removes_only_the_old_user_agent(self):
         value = disabled('config.system.activationScripts.postActivation.text')
-        self.assertIn('local.weekenduo-ci-runner', value)
+        self.assertIn('org.nixos.local.weekenduo-ci-runner', value)
         self.assertIn('bootout', value)
