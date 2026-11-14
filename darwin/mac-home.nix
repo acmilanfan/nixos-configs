@@ -4,9 +4,14 @@
   imports = [
     ./common.nix
     ./remote-access.nix
+    ./ci-runner.nix
   ];
 
   system.primaryUser = "gentooway";
+
+  # Enable after creating the weekenduo-ci account and adding both runner tokens
+  # to sops, then run: sops updatekeys secrets/secrets.yaml
+  # services.ciRunner.enable = true;
 
   networking.hostName = "mac-home";
 
