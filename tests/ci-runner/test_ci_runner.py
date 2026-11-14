@@ -179,6 +179,7 @@ class HostIsolation(unittest.TestCase):
         self.assertLess(value['postActivation'].index('ssh-to-age -private-key'),
                         value['postActivation'].index('sops-install-secrets'))
         self.assertIn('install -d', value['postActivation'])
+        self.assertIn('.metadata_never_index', value['postActivation'])
         self.assertIn('/Users/weekenduo-ci/.gitlab-runner', value['postActivation'])
         self.assertLess(value['postActivation'].index('install -d'),
                         value['postActivation'].index('sops-install-secrets'))

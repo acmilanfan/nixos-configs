@@ -189,6 +189,14 @@ in
           ${ciHome}/.gitlab-runner ${ciHome}/ci-builds ${ciHome}/ci-cache \
           ${ciHome}/ai ${ciHome}/ai/artifacts ${ciHome}/Library/Logs
         /usr/sbin/chown -R ${ciUser}:staff ${ciHome}/ai
+
+        # Keep Spotlight from indexing large dependency/build trees. Without
+        # these markers, dozens of mdworker processes compete with CI jobs.
+        for p in ${ciHome} ${ciHome}/ci-builds ${ciHome}/ci-cache \
+                 ${ciHome}/ai ${ciHome}/.gitlab-runner ${ciHome}/Library; do
+          /usr/bin/touch "$p/.metadata_never_index"
+          /usr/sbin/chown ${ciUser}:staff "$p/.metadata_never_index"
+        done
       '';
     })
 

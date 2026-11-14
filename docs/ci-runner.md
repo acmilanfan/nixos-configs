@@ -1,5 +1,8 @@
 # Nix-managed CI runner account and daemon
 
+Moving to another Mac or a dedicated CI Mac mini: see
+[ci-runner-setup.md](ci-runner-setup.md).
+
 mac-home now creates a hidden, headless `weekenduo-ci` service account and can
 run GitLab Runner as a system LaunchDaemon. No GUI login or account password is
 needed.
@@ -136,6 +139,9 @@ home-directory deletion. Do not re-enable the GitLab merge gate.
 - Runner creation/token issuance is manual; sops stores the issued tokens.
 - First CI Colima VM creation happens during the first job and can take a few
   minutes; the VM stays running afterward. Personal Colima is never shared.
+- CI build trees are marked `.metadata_never_index` to keep Spotlight from
+  competing with jobs. If load is still high, inspect other host workloads
+  before increasing Colima CPU.
 - Jobs can still fail before the VM is ready if the host is resource-constrained;
   inspect `colima status` and the runner logs.
 - SAST verification, GitLab merge/runner/schedule settings and publication remain
