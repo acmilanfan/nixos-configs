@@ -129,6 +129,8 @@ home-directory deletion. Do not re-enable the GitLab merge gate.
 
 ## Limits
 
+- A rebuild or runner restart interrupts an active job; GitLab may keep it
+  marked running until it times out. Cancel/retry it after the rebuild.
 - Headless account only; nix-darwin cannot manage a GUI login password,
   SecureToken or FileVault.
 - Runner creation/token issuance is manual; sops stores the issued tokens.
