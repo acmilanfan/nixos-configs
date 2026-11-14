@@ -54,10 +54,10 @@ account.
    sops updatekeys secrets/secrets.yaml
    ```
 
-   The host SSH private key (`/etc/ssh/ssh_host_ed25519_key`, root-only) can now
-   decrypt the shared secrets file. This is the tradeoff of using the host age
-   recipient. A dedicated age key and separate CI sops file is the stricter
-   alternative.
+   At activation, Nix derives a root-only age key from
+   `/etc/ssh/ssh_host_ed25519_key` into `/var/lib/sops-nix/age.key` and sops uses
+   that key file. The host key can therefore decrypt the shared secrets file;
+   a dedicated age key and separate CI sops file is the stricter alternative.
 
 4. No manual Colima start is needed. The runner's `pre_build_script` starts the
    **dedicated** CI Colima VM on the first job:

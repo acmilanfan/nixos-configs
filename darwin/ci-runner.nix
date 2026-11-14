@@ -122,9 +122,11 @@ in
         defaultSopsFile = ../secrets/secrets.yaml;
         defaultSopsFormat = "yaml";
         validateSopsFiles = false;
-        age.sshKeyFile = "/etc/ssh/ssh_host_ed25519_key";
-        # Native age SSH support; do not also import/convert host keys.
+        # sops' native SOPS_AGE_SSH_PRIVATE_KEY_FILE path is broken for the
+        # ssh-to-age recipient; derive a root-only age key file instead.
+        age.keyFile = "/var/lib/sops-nix/age.key";
         age.sshKeyPaths = lib.mkForce [ ];
+        age.sshKeyFile = lib.mkForce null;
         gnupg.sshKeyPaths = lib.mkForce [ ];
 
         secrets = {
@@ -149,6 +151,12 @@ in
       # The user exists from the users activation script; sops installs later
       # in postActivation, so create the owned directories before it runs.
       system.activationScripts.postActivation.text = lib.mkBefore ''
+        /usr/bin/install -d -m 0700 -o root -g wheel /var/lib/sops-nix
+        umask 077
+        ${pkgs.ssh-to-age}/bin/ssh-to-age -private-key \
+          -i /etc/ssh/ssh_host_ed25519_key > /var/lib/sops-nix/age.key
+        /bin/chmod 600 /var/lib/sops-nix/age.key
+
         /usr/bin/install -d -m 0700 -o ${ciUser} -g staff \
           ${ciHome}/.gitlab-runner ${ciHome}/ci-builds ${ciHome}/ci-cache \
           ${ciHome}/ai ${ciHome}/ai/artifacts ${ciHome}/Library/Logs
