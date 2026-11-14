@@ -77,6 +77,7 @@ class HostIsolation(unittest.TestCase):
         value = enabled('''let
           user = config.users.users.weekenduo-ci;
           daemon = config.launchd.daemons."local.weekenduo-ci-runner";
+          configDaemon = config.launchd.daemons."local.weekenduo-ci-config";
           template = config.sops.templates."gitlab-runner-config";
         in {
           user = {
@@ -94,6 +95,10 @@ class HostIsolation(unittest.TestCase):
               inherit (daemon.serviceConfig) UserName GroupName RunAtLoad KeepAlive
                 WorkingDirectory StandardOutPath StandardErrorPath ProcessType ThrottleInterval;
             };
+          };
+          configDaemon = {
+            script = configDaemon.script;
+            serviceConfig = { inherit (configDaemon.serviceConfig) RunAtLoad KeepAlive WatchPaths; };
           };
           template = { inherit (template) path owner mode content; };
           secrets = builtins.attrNames config.sops.secrets;
@@ -136,6 +141,13 @@ class HostIsolation(unittest.TestCase):
         self.assertEqual(config['StandardErrorPath'], '/Users/weekenduo-ci/Library/Logs/gitlab-runner.error.log')
         self.assertEqual(config['ProcessType'], 'Background')
         self.assertEqual(config['ThrottleInterval'], 10)
+        copy = value['configDaemon']
+        self.assertIn('/run/secrets/rendered/gitlab-runner-config', copy['script'])
+        self.assertIn('/Users/weekenduo-ci/.gitlab-runner/config.toml', copy['script'])
+        self.assertIn('kickstart -k system/org.nixos.local.weekenduo-ci-runner', copy['script'])
+        self.assertTrue(copy['serviceConfig']['RunAtLoad'])
+        self.assertFalse(copy['serviceConfig']['KeepAlive'])
+        self.assertEqual(copy['serviceConfig']['WatchPaths'], ['/run/secrets.d'])
         template = value['template']
         self.assertEqual(template['path'], '/Users/weekenduo-ci/.gitlab-runner/config.toml')
         self.assertEqual(template['owner'], 'weekenduo-ci')
@@ -175,4 +187,5 @@ class HostIsolation(unittest.TestCase):
     def test_disabled_rebuild_removes_only_the_old_user_agent(self):
         value = disabled('config.system.activationScripts.postActivation.text')
         self.assertIn('org.nixos.local.weekenduo-ci-runner', value)
+        self.assertIn('org.nixos.local.weekenduo-ci-config', value)
         self.assertIn('bootout', value)

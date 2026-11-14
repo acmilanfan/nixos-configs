@@ -92,10 +92,12 @@ This installs:
 
 - system LaunchDaemon `org.nixos.local.weekenduo-ci-runner`, running as `weekenduo-ci`
   with `gitlab-runner run`;
-- sops-rendered `/Users/weekenduo-ci/.gitlab-runner/config.toml`, owner/mode
-  `weekenduo-ci` / `0600`, with two runners, concurrency 1, CI builds/cache,
-  Docker/Testcontainers/status environment and an on-demand CI Colima
-  `pre_build_script`;
+- a root one-shot daemon copies the sops-rendered config from the root-only
+  `/run/secrets` mount into a real `/Users/weekenduo-ci/.gitlab-runner/config.toml`
+  (owner/mode `weekenduo-ci` / `0600`) whenever a new secret generation appears,
+  then restarts the runner. The config contains two runners, concurrency 1,
+  CI builds/cache, Docker/Testcontainers/status environment and an on-demand CI
+  Colima `pre_build_script`;
 - owned `~/ci-builds`, `~/ci-cache`, `~/ai/artifacts`, `~/Library/Logs` dirs.
 
 No Home Manager user or GUI LaunchAgent is involved. The runner starts at boot
@@ -109,7 +111,8 @@ stat -f '%Su %Sp %N' /Users/weekenduo-ci/.gitlab-runner/config.toml
 sudo -u weekenduo-ci -H /etc/profiles/per-user/weekenduo-ci/bin/node --version
 ```
 
-Expected: daemon running, config `weekenduo-ci` `-rw-------`, Node 22. GitLab
+Expected: daemon running, config is a **regular file** owned `weekenduo-ci`
+with mode `-rw-------` (not a symlink into `/run/secrets`), Node 22. GitLab
 should show both runners online. Run a real test job to verify `node`, `go`,
 `docker` and the CI Docker daemon.
 

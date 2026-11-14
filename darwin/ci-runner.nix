@@ -118,6 +118,34 @@ in
         };
       };
 
+      # /run/secrets is root-only, so a symlink in the CI home is unreadable
+      # by weekenduo-ci. Copy the rendered config to a real owned file whenever
+      # a new secret generation appears, then restart the runner.
+      launchd.daemons."local.weekenduo-ci-config" = {
+        script = ''
+          i=0
+          while [ ! -s /run/secrets/rendered/gitlab-runner-config ] && [ "$i" -lt 150 ]; do
+            /bin/sleep 2
+            i=$((i + 1))
+          done
+          if [ -s /run/secrets/rendered/gitlab-runner-config ]; then
+            /usr/bin/install -d -m 0700 -o ${ciUser} -g staff ${ciHome}/.gitlab-runner
+            /usr/bin/install -m 0600 -o ${ciUser} -g staff \
+              /run/secrets/rendered/gitlab-runner-config \
+              ${ciHome}/.gitlab-runner/config.toml.new
+            /bin/mv -f ${ciHome}/.gitlab-runner/config.toml.new \
+              ${ciHome}/.gitlab-runner/config.toml
+            /bin/launchctl kickstart -k system/org.nixos.local.weekenduo-ci-runner 2>/dev/null || true
+          fi
+        '';
+        serviceConfig = {
+          RunAtLoad = true;
+          KeepAlive = false;
+          ProcessType = "Background";
+          WatchPaths = [ "/run/secrets.d" ];
+        };
+      };
+
       sops = {
         defaultSopsFile = ../secrets/secrets.yaml;
         defaultSopsFormat = "yaml";
@@ -169,7 +197,9 @@ in
     (lib.mkIf (!cfg.enable) {
       system.activationScripts.postActivation.text = lib.mkBefore ''
         /bin/launchctl bootout system/org.nixos.local.weekenduo-ci-runner 2>/dev/null || true
+        /bin/launchctl bootout system/org.nixos.local.weekenduo-ci-config 2>/dev/null || true
         /bin/rm -f /Library/LaunchDaemons/org.nixos.local.weekenduo-ci-runner.plist
+        /bin/rm -f /Library/LaunchDaemons/org.nixos.local.weekenduo-ci-config.plist
         if uid=$(/usr/bin/id -u ${ciUser} 2>/dev/null); then
           /bin/launchctl bootout "gui/$uid/org.nixos.local.weekenduo-ci-runner" 2>/dev/null || true
           /bin/rm -f "${ciHome}/Library/LaunchAgents/org.nixos.local.weekenduo-ci-runner.plist"
