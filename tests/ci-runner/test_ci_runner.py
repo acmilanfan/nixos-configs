@@ -11,7 +11,7 @@ AGE_RECIPIENT = 'age1m2j9773er9hwv2twsfe8a5fwfc4ya0ex56cpsrk8jrfjgduy4fcs3c0gla'
 
 def evaluate(host, expression, extend=''):
     flake = str(ROOT)
-    source = (f'let f = builtins.getFlake "{flake}"; '
+    source = (f'let f = builtins.getFlake "{flake}"; lib = f.inputs.nixpkgs.lib; '
               f'h = f.darwinConfigurations.{host}{extend}; '
               f'in let config = h.config; in {expression}')
     result = subprocess.run(['nix', 'eval', '--json', '--no-write-lock-file', '--impure',
@@ -23,7 +23,12 @@ def evaluate(host, expression, extend=''):
 
 def enabled(expression):
     return evaluate('mac-home', expression,
-                    '.extendModules { modules = [ { services.ciRunner.enable = true; } ]; }')
+                    '.extendModules { modules = [ { services.ciRunner.enable = lib.mkForce true; } ]; }')
+
+
+def disabled(expression):
+    return evaluate('mac-home', expression,
+                    '.extendModules { modules = [ { services.ciRunner.enable = lib.mkForce false; } ]; }')
 
 
 def user_expression():
@@ -45,7 +50,7 @@ def user_expression():
 
 class HostIsolation(unittest.TestCase):
     def test_account_is_managed_but_runner_is_disabled_by_default(self):
-        value = evaluate('mac-home', user_expression())
+        value = disabled(user_expression())
         self.assertEqual(value['uid'], 599)
         self.assertEqual(value['home'], '/Users/weekenduo-ci')
         self.assertTrue(value['createHome'])
@@ -145,6 +150,11 @@ class HostIsolation(unittest.TestCase):
             self.assertTrue(any(item.startswith('PATH=/etc/profiles/per-user/weekenduo-ci/bin') for item in env))
             self.assertIn('DOCKER_HOST=unix:///Users/weekenduo-ci/.colima/default/docker.sock', env)
             self.assertIn('WD_CI_STATUS_ENABLE=1', env)
+            pre = runner['pre_build_script']
+            self.assertIn('colima status', pre)
+            self.assertIn('colima start --cpu 6 --memory 12 --disk 60 --activate=false', pre)
+            self.assertIn('DOCKER_HOST=unix:///Users/weekenduo-ci/.colima/default/docker.sock', pre)
+            self.assertNotIn('/Users/gentooway/.colima', pre)
         self.assertIn('gitlab_runner/backend_token', value['secrets'])
         self.assertIn('gitlab_runner/frontend_token', value['secrets'])
         self.assertEqual(value['ageKey'], '/etc/ssh/ssh_host_ed25519_key')
@@ -156,6 +166,6 @@ class HostIsolation(unittest.TestCase):
         self.assertIn(AGE_RECIPIENT, (ROOT / '.sops.yaml').read_text())
 
     def test_disabled_rebuild_removes_only_the_old_user_agent(self):
-        value = evaluate('mac-home', 'config.system.activationScripts.postActivation.text')
+        value = disabled('config.system.activationScripts.postActivation.text')
         self.assertIn('local.weekenduo-ci-runner', value)
         self.assertIn('bootout', value)

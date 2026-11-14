@@ -26,6 +26,7 @@ let
         "TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock",
         "WD_CI_STATUS_ENABLE=1"
       ]
+      pre_build_script = 'if ! /etc/profiles/per-user/weekenduo-ci/bin/colima status >/dev/null 2>&1; then /etc/profiles/per-user/weekenduo-ci/bin/colima start --cpu 6 --memory 12 --disk 60 --activate=false; fi; DOCKER_HOST=unix:///Users/weekenduo-ci/.colima/default/docker.sock /etc/profiles/per-user/weekenduo-ci/bin/docker info >/dev/null'
       [runners.custom_build_dir]
         enabled = false
 
@@ -43,6 +44,7 @@ let
         "TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock",
         "WD_CI_STATUS_ENABLE=1"
       ]
+      pre_build_script = 'if ! /etc/profiles/per-user/weekenduo-ci/bin/colima status >/dev/null 2>&1; then /etc/profiles/per-user/weekenduo-ci/bin/colima start --cpu 6 --memory 12 --disk 60 --activate=false; fi; DOCKER_HOST=unix:///Users/weekenduo-ci/.colima/default/docker.sock /etc/profiles/per-user/weekenduo-ci/bin/docker info >/dev/null'
       [runners.custom_build_dir]
         enabled = false
   '';

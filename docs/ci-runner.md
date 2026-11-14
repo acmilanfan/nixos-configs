@@ -59,15 +59,19 @@ account.
    recipient. A dedicated age key and separate CI sops file is the stricter
    alternative.
 
-4. Create the CI Colima VM (first start is manual), as the service account:
+4. No manual Colima start is needed. The runner's `pre_build_script` starts the
+   **dedicated** CI Colima VM on the first job:
 
    ```sh
-   sudo -u weekenduo-ci -H \
+   /etc/profiles/per-user/weekenduo-ci/bin/colima status >/dev/null 2>&1 ||
      /etc/profiles/per-user/weekenduo-ci/bin/colima start \
-     --cpu 6 --memory 12 --disk 60 --activate=false
+       --cpu 6 --memory 12 --disk 60 --activate=false
    ```
 
-   Record `docker info --format '{{.ID}}'` and put it in
+   It then checks the CI Docker socket. The VM stays running between jobs.
+   Do **not** point it at the personal `/Users/gentooway/.colima` socket; that
+   would let CI jobs control personal containers/images. After the first job,
+   record the CI daemon ID in
    `/Users/weekenduo-ci/.config/weekenduo-ci/runtime.json` (see the E2E runbook).
 
 ## Enable
@@ -90,7 +94,8 @@ This installs:
   with `gitlab-runner run`;
 - sops-rendered `/Users/weekenduo-ci/.gitlab-runner/config.toml`, owner/mode
   `weekenduo-ci` / `0600`, with two runners, concurrency 1, CI builds/cache,
-  Docker/Testcontainers/status environment;
+  Docker/Testcontainers/status environment and an on-demand CI Colima
+  `pre_build_script`;
 - owned `~/ci-builds`, `~/ci-cache`, `~/ai/artifacts`, `~/Library/Logs` dirs.
 
 No Home Manager user or GUI LaunchAgent is involved. The runner starts at boot
@@ -124,6 +129,9 @@ home-directory deletion. Do not re-enable the GitLab merge gate.
 - Headless account only; nix-darwin cannot manage a GUI login password,
   SecureToken or FileVault.
 - Runner creation/token issuance is manual; sops stores the issued tokens.
-- First Colima VM creation is manual; Nix pins the binary/config, not disk state.
+- First CI Colima VM creation happens during the first job and can take a few
+  minutes; the VM stays running afterward. Personal Colima is never shared.
+- Jobs can still fail before the VM is ready if the host is resource-constrained;
+  inspect `colima status` and the runner logs.
 - SAST verification, GitLab merge/runner/schedule settings and publication remain
   operator gates.
