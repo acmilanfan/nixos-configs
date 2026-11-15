@@ -275,18 +275,36 @@ Recommendations:
 
 - **Do not increase Colima CPU/RAM just because product jobs feel slow.** Product
   builds run on the host; Colima CPU only helps Docker/Supabase work.
-- Keep 6 vCPU/12 GB for one job until a full E2E run shows Docker CPU/memory
-  pressure (`docker stats`, VM CPU). Then try 8 vCPU/16 GB.
+- Route A uses `concurrent = 2`; the measured frontend MR wall was 10:56
+  (E2E 10:56, unit 7:25, web-build 1:45, secret 0:29). The former serial wall
+  was ~20:45.
+- Keep 6 vCPU/12 GB until a two-shard E2E run shows Docker CPU/memory pressure
+  (`docker stats`, VM CPU). Then try 8 vCPU/16 GB.
 - Dedicated CI Mac mini sizing:
-  - 16 GB RAM: 6 vCPU/10 GB VM, 80 GB disk (full E2E may be tight).
+  - 16 GB RAM: 6 vCPU/10 GB VM, 80 GB disk (two smoke shards may be tight).
   - 24 GB RAM: 8 vCPU/16 GB VM, 100 GB disk.
   - 32-48 GB RAM: 8-10 vCPU/24 GB VM, 150 GB disk.
   - Leave at least 8 GB RAM and 2-4 host CPUs for macOS and the runner.
-- Keep `concurrent = 1` unless you deliberately want parallel jobs; the two
-  runner registrations are for backend/frontend, not simultaneous capacity.
+- `concurrent = 2` is intentional. The second slot overlaps host-side
+  unit/build work with Docker E2E; it is not a licence to raise Colima or run
+  unlimited Docker jobs. Per-lane host locks serialize same-lane E2E work.
 - For a dedicated mini, keep it awake (energy settings/`pmset`), logged in is
   not required, and monitor disk space; Docker images and source artifacts grow.
-- Avoid rebuilding or restarting the runner during a job; cancel/retry it.
+- Avoid rebuilding or restarting the runner during a job. A rebuild waits up to
+  `shutdown_timeout = 420` seconds; cancel/retry anything interrupted.
+- A cold Colima start is serialized by `.colima-autostart.lock`; do not remove
+  that file while a job is starting Docker.
+- E2E lane locks are under `~/ai/artifacts/wd-e2e/locks/lane-{1,2}.lock`. Remove
+  one only when no E2E or `race-tests` job is active. A dead owner or a lock
+  with no heartbeat is reclaimed automatically.
+- Root `node_modules` is preserved with `GIT_CLEAN_FLAGS=-ffdx -e /node_modules`.
+  If a lockfile change leaves a bad cache, stop the runner, remove
+  `/Users/weekenduo-ci/ci-builds/*/0/weekenduo/duomobile/node_modules`, and let
+  the next job reinstall. Do not unanchor the exclude.
+- B+C adds an E2E-only `web-build` artifact. `web-build` bakes placeholder
+  tokens; E2E replaces them with the run's Supabase URL/anon key and backend
+  port. If the artifact is absent (`WD_CI_PRODUCT_CHECKS=false` or a manual
+  E2E-only pipeline), E2E falls back to the in-job install/build.
 
 ### Spotlight exclusion
 
@@ -314,3 +332,19 @@ Pause both runners in GitLab and disable the schedule. Set
 the hidden account and per-user profile remain. Remove `users.knownUsers` only
 deliberately, as it can delete the account/home. Do not re-enable the merge
 gate unless explicitly requested.
+
+Runtime-specific rollback:
+
+- Two smoke shards too heavy: set the `e2e-smoke` `parallel` key to `1` and
+  remove the shard/lane arguments, then update the suite pin.
+- Artifact path slower than the in-job build: remove the frontend `web-build`
+  artifact/`needs`/`WD_CI_FRONTEND_DIST` wiring and keep the artifact build
+  disabled. E2E falls back to the existing install/build.
+- Testcontainers timeout under `race-tests`: keep the all-lanes lock; reduce
+  backend test parallelism before raising the CI VM.
+- `node_modules` corruption: stop the runner, purge the frontend build
+  directory's `node_modules`, and rerun. Do not remove the `/node_modules`
+  anchor from `GIT_CLEAN_FLAGS`.
+- Lane lock stuck: verify no E2E/`race-tests` job is active, then remove
+  `~/ai/artifacts/wd-e2e/locks/lane-*.lock`. Never remove a lock held by a live
+  job.

@@ -98,9 +98,10 @@ This installs:
 - a root one-shot daemon copies the sops-rendered config from the root-only
   `/run/secrets` mount into a real `/Users/weekenduo-ci/.gitlab-runner/config.toml`
   (owner/mode `weekenduo-ci` / `0600`) whenever a new secret generation appears,
-  then restarts the runner. The config contains two runners, concurrency 1,
-  CI builds/cache, Docker/Testcontainers/status environment and an on-demand CI
-  Colima `pre_build_script`;
+  then restarts the runner. The config contains two runners, concurrency 2,
+  a 420-second shutdown grace, CI builds/cache, Docker/Testcontainers/status
+  environment and an on-demand CI Colima `pre_build_script`. The Colima start
+  is guarded by `.colima-autostart.lock` so two jobs cannot race the same VM;
 - owned `~/ci-builds`, `~/ci-cache`, `~/ai/artifacts`, `~/Library/Logs` dirs.
 
 No Home Manager user or GUI LaunchAgent is involved. The runner starts at boot
@@ -133,7 +134,23 @@ home-directory deletion. Do not re-enable the GitLab merge gate.
 ## Limits
 
 - A rebuild or runner restart interrupts an active job; GitLab may keep it
-  marked running until it times out. Cancel/retry it after the rebuild.
+  marked running until it times out. The runner waits up to
+  `shutdown_timeout = 420` seconds for the job's own teardown. Cancel/retry it
+  after the rebuild.
+- `concurrent = 2` lets one E2E stack overlap host-side unit/build work. Do not
+  raise it without measuring Colima memory and host load.
+- E2E lanes take host locks under `~/ai/artifacts/wd-e2e/locks/lane-{1,2}.lock`.
+  The suite removes a dead owner or a lock without a heartbeat; a live job is
+  never preempted. Backend `race-tests` acquires both lane locks before
+  Testcontainers, so Docker-heavy work never overlaps E2E.
+- Frontend jobs keep root `node_modules` via
+  `GIT_CLEAN_FLAGS=-ffdx -e /node_modules`. The leading slash is required;
+  without it, `.ci-work/suite/node_modules` is also preserved and the next E2E
+  fails its fresh-destination check. Purge the cache once if a lockfile change
+  or a corrupted install is suspected.
+- Frontend `web-build` publishes an E2E-only `dist` with placeholder values.
+  E2E patches it with the run's Supabase/backend values and serves it
+  statically. A missing artifact falls back to the in-job install/build.
 - Headless account only; nix-darwin cannot manage a GUI login password,
   SecureToken or FileVault.
 - Runner creation/token issuance is manual; sops stores the issued tokens.

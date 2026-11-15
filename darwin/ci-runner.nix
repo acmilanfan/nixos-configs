@@ -10,7 +10,7 @@ let
   runnerConfig = ''
     concurrent = 2
     check_interval = 3
-    shutdown_timeout = 30
+    shutdown_timeout = 420
 
     [[runners]]
       name = "weekenduo-laptop-backend"
@@ -26,7 +26,7 @@ let
         "TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock",
         "WD_CI_STATUS_ENABLE=1"
       ]
-      pre_build_script = 'if ! /etc/profiles/per-user/weekenduo-ci/bin/colima status >/dev/null 2>&1; then /etc/profiles/per-user/weekenduo-ci/bin/colima start --cpu 6 --memory 12 --disk 60 --activate=false; fi; DOCKER_HOST=unix:///Users/weekenduo-ci/.colima/default/docker.sock /etc/profiles/per-user/weekenduo-ci/bin/docker info >/dev/null'
+      pre_build_script = 'if ! /etc/profiles/per-user/weekenduo-ci/bin/colima status >/dev/null 2>&1; then lock="/Users/weekenduo-ci/.colima-autostart.lock"; while ! /bin/mkdir "$lock" 2>/dev/null; do /bin/sleep 1; done; trap "/bin/rmdir \"$lock\"" EXIT; if ! /etc/profiles/per-user/weekenduo-ci/bin/colima status >/dev/null 2>&1; then /etc/profiles/per-user/weekenduo-ci/bin/colima start --cpu 6 --memory 12 --disk 60 --activate=false; fi; /bin/rmdir "$lock"; trap - EXIT; fi; DOCKER_HOST=unix:///Users/weekenduo-ci/.colima/default/docker.sock /etc/profiles/per-user/weekenduo-ci/bin/docker info >/dev/null'
       [runners.custom_build_dir]
         enabled = false
 
@@ -44,7 +44,7 @@ let
         "TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock",
         "WD_CI_STATUS_ENABLE=1"
       ]
-      pre_build_script = 'if ! /etc/profiles/per-user/weekenduo-ci/bin/colima status >/dev/null 2>&1; then /etc/profiles/per-user/weekenduo-ci/bin/colima start --cpu 6 --memory 12 --disk 60 --activate=false; fi; DOCKER_HOST=unix:///Users/weekenduo-ci/.colima/default/docker.sock /etc/profiles/per-user/weekenduo-ci/bin/docker info >/dev/null'
+      pre_build_script = 'if ! /etc/profiles/per-user/weekenduo-ci/bin/colima status >/dev/null 2>&1; then lock="/Users/weekenduo-ci/.colima-autostart.lock"; while ! /bin/mkdir "$lock" 2>/dev/null; do /bin/sleep 1; done; trap "/bin/rmdir \"$lock\"" EXIT; if ! /etc/profiles/per-user/weekenduo-ci/bin/colima status >/dev/null 2>&1; then /etc/profiles/per-user/weekenduo-ci/bin/colima start --cpu 6 --memory 12 --disk 60 --activate=false; fi; /bin/rmdir "$lock"; trap - EXIT; fi; DOCKER_HOST=unix:///Users/weekenduo-ci/.colima/default/docker.sock /etc/profiles/per-user/weekenduo-ci/bin/docker info >/dev/null'
       [runners.custom_build_dir]
         enabled = false
   '';

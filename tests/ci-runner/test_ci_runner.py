@@ -155,6 +155,7 @@ class HostIsolation(unittest.TestCase):
         self.assertNotIn('glrt-', template['content'])
         parsed = tomllib.loads(template['content'])
         self.assertEqual(parsed['concurrent'], 2)
+        self.assertEqual(parsed['shutdown_timeout'], 420)
         self.assertEqual(len(parsed['runners']), 2)
         for runner in parsed['runners']:
             self.assertTrue(runner['token'].startswith('<SOPS:'))
@@ -169,6 +170,10 @@ class HostIsolation(unittest.TestCase):
             self.assertIn('colima start --cpu 6 --memory 12 --disk 60 --activate=false', pre)
             self.assertIn('DOCKER_HOST=unix:///Users/weekenduo-ci/.colima/default/docker.sock', pre)
             self.assertNotIn('/Users/gentooway/.colima', pre)
+            self.assertIn('.colima-autostart.lock', pre)
+            self.assertIn('while ! /bin/mkdir', pre)
+            self.assertIn('trap', pre)
+            self.assertIn('/bin/rmdir', pre)
         self.assertIn('gitlab_runner/backend_token', value['secrets'])
         self.assertIn('gitlab_runner/frontend_token', value['secrets'])
         self.assertEqual(value['ageKey'], '/var/lib/sops-nix/age.key')
