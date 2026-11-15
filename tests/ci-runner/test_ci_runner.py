@@ -154,7 +154,7 @@ class HostIsolation(unittest.TestCase):
         self.assertEqual(template['mode'], '0600')
         self.assertNotIn('glrt-', template['content'])
         parsed = tomllib.loads(template['content'])
-        self.assertEqual(parsed['concurrent'], 4)
+        self.assertEqual(parsed['concurrent'], 2)
         self.assertEqual(parsed['shutdown_timeout'], 420)
         self.assertEqual(len(parsed['runners']), 2)
         for runner in parsed['runners']:
