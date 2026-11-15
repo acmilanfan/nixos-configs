@@ -277,9 +277,9 @@ Recommendations:
   builds run on the host; Colima CPU only helps Docker/Supabase work.
 - Route A used `concurrent = 2`; the measured frontend MR wall was 10:56
   (E2E 10:56, unit 7:25, web-build 1:45, secret 0:29). The former serial wall
-  was ~20:45. B+C needs three slots so both smoke shards can start after
-  `web-build` while `unit-tests` still runs; `concurrent = 3` is the current
-  setting.
+  was ~20:45. C keeps two smoke shards and needs four slots so both shards,
+  `unit-tests`, and the normal `web-build` check can start together;
+  `concurrent = 4` is the current setting.
 - Keep 6 vCPU/12 GB until a two-shard E2E run shows Docker CPU/memory pressure
   (`docker stats`, VM CPU). Then try 8 vCPU/16 GB.
 - Dedicated CI Mac mini sizing:
@@ -287,11 +287,10 @@ Recommendations:
   - 24 GB RAM: 8 vCPU/16 GB VM, 100 GB disk.
   - 32-48 GB RAM: 8-10 vCPU/24 GB VM, 150 GB disk.
   - Leave at least 8 GB RAM and 2-4 host CPUs for macOS and the runner.
-- `concurrent = 3` is intentional. Two slots carry the smoke shards after
-  `web-build` finishes while the third carries host-side unit/build work; it is
-  not a licence to raise Colima or run unlimited Docker jobs. Per-lane host
-  locks serialize same-lane E2E work, and backend `race-tests` takes both lane
-  locks.
+- `concurrent = 4` is intentional. Two slots carry the smoke shards while the
+  other two carry host-side unit/build work; it is not a licence to raise
+  Colima or run unlimited Docker jobs. Per-lane host locks serialize same-lane
+  E2E work, and backend `race-tests` takes both lane locks.
 - For a dedicated mini, keep it awake (energy settings/`pmset`), logged in is
   not required, and monitor disk space; Docker images and source artifacts grow.
 - Avoid rebuilding or restarting the runner during a job. A rebuild waits up to
@@ -305,10 +304,9 @@ Recommendations:
   If a lockfile change leaves a bad cache, stop the runner, remove
   `/Users/weekenduo-ci/ci-builds/*/0/weekenduo/duomobile/node_modules`, and let
   the next job reinstall. Do not unanchor the exclude.
-- B+C adds an E2E-only `web-build` artifact. `web-build` bakes placeholder
-  tokens; E2E replaces them with the run's Supabase URL/anon key and backend
-  port. If the artifact is absent (`WD_CI_PRODUCT_CHECKS=false` or a manual
-  E2E-only pipeline), E2E falls back to the in-job install/build.
+- `web-build` remains a normal product check; E2E builds its own preview.
+  The two smoke shards start immediately rather than waiting for a build
+  artifact.
 
 ### Spotlight exclusion
 
@@ -341,9 +339,6 @@ Runtime-specific rollback:
 
 - Two smoke shards too heavy: set the `e2e-smoke` `parallel` key to `1` and
   remove the shard/lane arguments, then update the suite pin.
-- Artifact path slower than the in-job build: remove the frontend `web-build`
-  artifact/`needs`/`WD_CI_FRONTEND_DIST` wiring and keep the artifact build
-  disabled. E2E falls back to the existing install/build.
 - Testcontainers timeout under `race-tests`: keep the all-lanes lock; reduce
   backend test parallelism before raising the CI VM.
 - `node_modules` corruption: stop the runner, purge the frontend build
