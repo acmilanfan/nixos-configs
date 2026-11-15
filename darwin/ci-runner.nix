@@ -8,7 +8,7 @@ let
   backendToken = config.sops.placeholder."gitlab_runner/backend_token";
   frontendToken = config.sops.placeholder."gitlab_runner/frontend_token";
   runnerConfig = ''
-    concurrent = 1
+    concurrent = 2
     check_interval = 3
     shutdown_timeout = 30
 
