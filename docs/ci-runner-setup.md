@@ -275,9 +275,11 @@ Recommendations:
 
 - **Do not increase Colima CPU/RAM just because product jobs feel slow.** Product
   builds run on the host; Colima CPU only helps Docker/Supabase work.
-- Route A uses `concurrent = 2`; the measured frontend MR wall was 10:56
+- Route A used `concurrent = 2`; the measured frontend MR wall was 10:56
   (E2E 10:56, unit 7:25, web-build 1:45, secret 0:29). The former serial wall
-  was ~20:45.
+  was ~20:45. B+C needs three slots so both smoke shards can start after
+  `web-build` while `unit-tests` still runs; `concurrent = 3` is the current
+  setting.
 - Keep 6 vCPU/12 GB until a two-shard E2E run shows Docker CPU/memory pressure
   (`docker stats`, VM CPU). Then try 8 vCPU/16 GB.
 - Dedicated CI Mac mini sizing:
@@ -285,9 +287,11 @@ Recommendations:
   - 24 GB RAM: 8 vCPU/16 GB VM, 100 GB disk.
   - 32-48 GB RAM: 8-10 vCPU/24 GB VM, 150 GB disk.
   - Leave at least 8 GB RAM and 2-4 host CPUs for macOS and the runner.
-- `concurrent = 2` is intentional. The second slot overlaps host-side
-  unit/build work with Docker E2E; it is not a licence to raise Colima or run
-  unlimited Docker jobs. Per-lane host locks serialize same-lane E2E work.
+- `concurrent = 3` is intentional. Two slots carry the smoke shards after
+  `web-build` finishes while the third carries host-side unit/build work; it is
+  not a licence to raise Colima or run unlimited Docker jobs. Per-lane host
+  locks serialize same-lane E2E work, and backend `race-tests` takes both lane
+  locks.
 - For a dedicated mini, keep it awake (energy settings/`pmset`), logged in is
   not required, and monitor disk space; Docker images and source artifacts grow.
 - Avoid rebuilding or restarting the runner during a job. A rebuild waits up to

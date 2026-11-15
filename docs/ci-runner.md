@@ -98,7 +98,7 @@ This installs:
 - a root one-shot daemon copies the sops-rendered config from the root-only
   `/run/secrets` mount into a real `/Users/weekenduo-ci/.gitlab-runner/config.toml`
   (owner/mode `weekenduo-ci` / `0600`) whenever a new secret generation appears,
-  then restarts the runner. The config contains two runners, concurrency 2,
+  then restarts the runner. The config contains two runners, concurrency 3,
   a 420-second shutdown grace, CI builds/cache, Docker/Testcontainers/status
   environment and an on-demand CI Colima `pre_build_script`. The Colima start
   is guarded by `.colima-autostart.lock` so two jobs cannot race the same VM;
@@ -137,8 +137,9 @@ home-directory deletion. Do not re-enable the GitLab merge gate.
   marked running until it times out. The runner waits up to
   `shutdown_timeout = 420` seconds for the job's own teardown. Cancel/retry it
   after the rebuild.
-- `concurrent = 2` lets one E2E stack overlap host-side unit/build work. Do not
-  raise it without measuring Colima memory and host load.
+- `concurrent = 3` lets the two smoke shards overlap host-side unit/build work.
+  The two shards share the 6-vCPU/12-GB CI VM, so watch `docker stats` and host
+  load before raising it further.
 - E2E lanes take host locks under `~/ai/artifacts/wd-e2e/locks/lane-{1,2}.lock`.
   The suite removes a dead owner or a lock without a heartbeat; a live job is
   never preempted. Backend `race-tests` acquires both lane locks before
