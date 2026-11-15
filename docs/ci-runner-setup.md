@@ -268,7 +268,8 @@ Measured on the current 14-vCPU/48-GB Mac with the CI VM at 6 vCPU/12 GB:
 - CI VM RSS was about 1.5 GB and CPU was low outside Docker-heavy work.
 - The bottleneck was host load: Vitest used about 128% of one core, while many
   Spotlight `mdworker` processes indexed `ci-builds` and `node_modules`.
-- CI build trees are now marked `.metadata_never_index`; keep those markers.
+- `.metadata_never_index` is **not** enough on current macOS; Spotlight ignores
+  it for subfolders. Exclude the CI home from Spotlight (see below).
 
 Recommendations:
 
@@ -286,6 +287,25 @@ Recommendations:
 - For a dedicated mini, keep it awake (energy settings/`pmset`), logged in is
   not required, and monitor disk space; Docker images and source artifacts grow.
 - Avoid rebuilding or restarting the runner during a job; cancel/retry it.
+
+### Spotlight exclusion
+
+`.metadata_never_index` is ignored for subfolders on current macOS. Without an
+explicit exclusion, `mds_stores` indexes `ci-builds`, `ci-cache` and Yarn caches
+and can consume multiple cores for hours. Add the CI home to the privacy list:
+
+1. Open **System Settings → Spotlight → Search Privacy**.
+2. Add `/Users/weekenduo-ci` (use Cmd+Shift+G to enter the path).
+3. Verify the exclusion:
+
+   ```sh
+   sudo mdutil -P / | grep -A10 Exclusions
+   ```
+
+The Nix module still writes `.metadata_never_index` as a best-effort marker for
+older macOS, but the privacy list is the reliable fix on macOS 14 and later. For
+a dedicated CI mini, a separate APFS volume for the CI home/builds with
+`sudo mdutil -i off /Volumes/CI` is stricter.
 
 ## 10. Rollback
 

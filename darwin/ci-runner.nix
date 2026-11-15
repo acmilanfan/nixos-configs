@@ -190,8 +190,9 @@ in
           ${ciHome}/ai ${ciHome}/ai/artifacts ${ciHome}/Library/Logs
         /usr/sbin/chown -R ${ciUser}:staff ${ciHome}/ai
 
-        # Keep Spotlight from indexing large dependency/build trees. Without
-        # these markers, dozens of mdworker processes compete with CI jobs.
+        # Best-effort marker for older macOS. Current macOS ignores it for
+        # subfolders, so also add the CI home to Spotlight Search Privacy; see
+        # docs/ci-runner-setup.md. Without that, mds_stores can saturate the host.
         for p in ${ciHome} ${ciHome}/ci-builds ${ciHome}/ci-cache \
                  ${ciHome}/ai ${ciHome}/.gitlab-runner ${ciHome}/Library; do
           /usr/bin/touch "$p/.metadata_never_index"

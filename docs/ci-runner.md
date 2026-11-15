@@ -139,9 +139,11 @@ home-directory deletion. Do not re-enable the GitLab merge gate.
 - Runner creation/token issuance is manual; sops stores the issued tokens.
 - First CI Colima VM creation happens during the first job and can take a few
   minutes; the VM stays running afterward. Personal Colima is never shared.
-- CI build trees are marked `.metadata_never_index` to keep Spotlight from
-  competing with jobs. If load is still high, inspect other host workloads
-  before increasing Colima CPU.
+- Add the CI home to Spotlight Search Privacy. Current macOS ignores
+  `.metadata_never_index` for subfolders, and `mds_stores` can otherwise
+  saturate the host. If load is still high, inspect other host workloads before
+  increasing Colima CPU. See
+  [ci-runner-setup.md](ci-runner-setup.md#spotlight-exclusion).
 - Jobs can still fail before the VM is ready if the host is resource-constrained;
   inspect `colima status` and the runner logs.
 - SAST verification, GitLab merge/runner/schedule settings and publication remain
