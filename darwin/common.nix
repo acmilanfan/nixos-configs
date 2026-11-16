@@ -928,6 +928,12 @@ PY
       "/nix"; do
       [ -d "$p" ] && touch "$p/.metadata_never_index" 2>/dev/null || true
     done
+
+    # Screenshot destination: `screencapture` silently writes to the Desktop when
+    # the configured folder is missing, so create and own it here.
+    echo "Preparing screenshot directory..."
+    mkdir -p "/Users/${user}/Documents/Screenshots"
+    chown ${user}:staff "/Users/${user}/Documents/Screenshots"
   '';
 
   # Create /etc/zshrc that loads the nix-darwin environment.
@@ -1164,11 +1170,22 @@ PY
       ShowDayOfWeek = true;
     };
 
-    # Screen Capture
+    # Screen Capture.
+    # Needs an absolute path: `screencapture` does not expand `~`, and an
+    # unresolvable path silently falls back to the Desktop.
     screencapture = {
-      location = "~/Documents/Screenshots";
+      location = "/Users/${user}/Documents/Screenshots";
       type = "png";
       disable-shadow = true;
+    };
+
+    # Per-mode capture destinations (Screenshot app > Options). macOS stores a
+    # separate path for screenshots and screen recordings, and those override
+    # `screencapture.location` when present, so they must be kept in sync.
+    CustomUserPreferences."com.apple.screencapture" = {
+      location-last = "/Users/${user}/Documents/Screenshots";
+      location-screenshot = "/Users/${user}/Documents/Screenshots";
+      location-screenrecording = "/Users/${user}/Documents/Screenshots";
     };
 
     # NSGlobalDomain settings (system-wide preferences)
