@@ -68,7 +68,7 @@ account.
    ```sh
    /etc/profiles/per-user/weekenduo-ci/bin/colima status >/dev/null 2>&1 ||
      /etc/profiles/per-user/weekenduo-ci/bin/colima start \
-       --cpu 6 --memory 12 --disk 60 --activate=false
+       --cpu 8 --memory 16 --disk 60 --activate=false
    ```
 
    It then checks the CI Docker socket. The VM stays running between jobs.
@@ -137,9 +137,11 @@ home-directory deletion. Do not re-enable the GitLab merge gate.
   marked running until it times out. The runner waits up to
   `shutdown_timeout = 420` seconds for the job's own teardown. Cancel/retry it
   after the rebuild.
-- `concurrent = 2` lets the single E2E stack overlap host-side unit/build work.
-  Smoke sharding was tested and rejected: two stacks plus unit/build saturated
-  the 6-vCPU/12-GB VM.
+- `concurrent = 2` carries both smoke jobs when they use different lanes, or one
+  E2E stack plus host-side unit/build work. The VM runs at 8 vCPU/16 GB so
+  backend lane 2 can run beside frontend lane 1; at 6/12 that pair flaked.
+  Smoke sharding was tested and rejected: two shards plus unit/build saturated
+  even the 6-vCPU/12-GB VM.
 - E2E lanes take host locks under `~/ai/artifacts/wd-e2e/locks/lane-{1,2}.lock`.
   The suite removes a dead owner or a lock without a heartbeat; a live job is
   never preempted. Backend `race-tests` acquires both lane locks before

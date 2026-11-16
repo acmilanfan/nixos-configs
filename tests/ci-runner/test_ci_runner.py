@@ -167,7 +167,7 @@ class HostIsolation(unittest.TestCase):
             self.assertIn('WD_CI_STATUS_ENABLE=1', env)
             pre = runner['pre_build_script']
             self.assertIn('colima status', pre)
-            self.assertIn('colima start --cpu 6 --memory 12 --disk 60 --activate=false', pre)
+            self.assertIn('colima start --cpu 8 --memory 16 --disk 60 --activate=false', pre)
             self.assertIn('DOCKER_HOST=unix:///Users/weekenduo-ci/.colima/default/docker.sock', pre)
             self.assertNotIn('/Users/gentooway/.colima', pre)
             self.assertIn('.colima-autostart.lock', pre)
