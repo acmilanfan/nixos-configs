@@ -269,7 +269,8 @@ Measured on the current 14-vCPU/48-GB Mac, CI VM at 8 vCPU/16 GB:
   (E2E 655s/1465s, unit 613s).
 - 8/16 separate lanes (backend lane 2, frontend lane 1): both pipelines finished
   in 21:34 and 21:40 on two runs, both E2E green (790-840s each), unit 418-449s,
-  swap 0. That is about 24% below the 8/16 serialized baseline.
+  swap 0. That is about 24% below the 8/16 serialized baseline. This option is
+  measured but not enabled; automatic smoke uses one shared lane.
 - 6/12: serialized 29:04; separate lanes 29:06 with load-induced Cypress flakes
   in both E2E jobs. Lane 2 is not safe at 6/12.
 - CI VM RSS was about 1.5 GB at 6/12 and CPU was low outside Docker-heavy work.
@@ -282,22 +283,22 @@ Recommendations:
 
 - **Do not increase Colima CPU/RAM just because product jobs feel slow.** Product
   builds run on the host; Colima CPU only helps Docker/Supabase work. The 8/16
-  step was justified by measured two-lane results, not by slow product jobs.
+  size is kept for the nightly full's parallel lanes and host-side headroom.
 - Route A used `concurrent = 2`; the measured frontend MR wall was 10:56
   (E2E 10:56, unit 7:25, web-build 1:45, secret 0:29). The former serial wall
   was ~20:45. The final route keeps one E2E job per product and `concurrent = 2`.
-- Keep 8 vCPU/16 GB while backend smoke uses lane 2. Two concurrent E2E stacks
-  need that capacity; 6/12 flaked under the same load. Two smoke shards plus
-  unit/build over-saturated the VM and were slower.
+- Keep 8 vCPU/16 GB. Automatic smoke runs one shared lane: 28:25 at 8/16 versus
+  29:04 at 6/12. The nightly full starts both lanes in parallel and needs the
+  capacity; the lane-2 smoke option (22:55) is not enabled.
 - Dedicated CI Mac mini sizing:
-  - 24 GB RAM: 8 vCPU/16 GB VM, 100 GB disk (minimum for two lanes).
+  - 24 GB RAM: 8 vCPU/16 GB VM, 100 GB disk (minimum for the parallel full).
   - 32-48 GB RAM: 8-10 vCPU/24 GB VM, 150 GB disk.
-  - 16 GB RAM: lane 1 only; do not enable backend lane 2.
+  - 16 GB RAM: one lane only; no parallel full.
   - Leave at least 8 GB RAM and 2-4 host CPUs for macOS and the runner.
-- `concurrent = 2` is intentional. The two slots carry both smoke jobs when they
-  use different lanes, or one E2E job plus host-side unit/build work; it is not a
-  licence to raise Colima or run unlimited Docker jobs. Per-lane host locks
-  serialize same-lane E2E work, and backend `race-tests` takes both lane locks.
+- `concurrent = 2` is intentional. One slot runs the E2E stack while the other
+  carries host-side unit/build work or the queued project; it is not a licence to
+  raise Colima or run unlimited Docker jobs. Per-lane host locks serialize
+  same-lane E2E work, and backend `race-tests` takes both lane locks.
 - For a dedicated mini, keep it awake (energy settings/`pmset`), logged in is
   not required, and monitor disk space; Docker images and source artifacts grow.
 - Avoid rebuilding or restarting the runner during a job. A rebuild waits up to
@@ -312,8 +313,8 @@ Recommendations:
   `/Users/weekenduo-ci/ci-builds/*/0/weekenduo/duomobile/node_modules`, and let
   the next job reinstall. Do not unanchor the exclude.
 - `web-build` remains a normal product check; E2E builds its own preview.
-  Smoke stays one E2E job per product; with backend lane 2 the CI VM carries two
-  Supabase stacks at once, which is why it runs at 8 vCPU/16 GB.
+  Smoke stays one E2E job per product on one shared lane; the nightly full
+  carries two Supabase stacks at once, which is why the VM is 8 vCPU/16 GB.
 
 ### Spotlight exclusion
 
