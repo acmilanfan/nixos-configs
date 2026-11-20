@@ -85,6 +85,10 @@
       url = "github:fufexan/nixpkgs/howdy";
     };
 
+    # Cypress 13.17.0 for the Linux CI runner; kept separate from the main
+    # nixpkgs so the suite's tested version does not force an upgrade.
+    nixpkgs-cypress.url = "github:NixOS/nixpkgs/076e8c6678d8c54204abcb4b1b14c366835a58bb";
+
     mcp-nixos = {
       url = "github:utensils/mcp-nixos";
       inputs.nixpkgs.follows = "unstable-nixpkgs";

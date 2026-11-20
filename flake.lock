@@ -607,6 +607,22 @@
         "type": "github"
       }
     },
+    "nixpkgs-cypress": {
+      "locked": {
+        "lastModified": 1750386251,
+        "narHash": "sha256-1ovgdmuDYVo5OUC5NzdF+V4zx2uT8RtsgZahxidBTyw=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "076e8c6678d8c54204abcb4b1b14c366835a58bb",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "076e8c6678d8c54204abcb4b1b14c366835a58bb",
+        "type": "github"
+      }
+    },
     "nixpkgs-howdy": {
       "locked": {
         "lastModified": 1768922466,
@@ -862,6 +878,7 @@
         "nix-homebrew": "nix-homebrew",
         "nixos-hardware": "nixos-hardware",
         "nixpkgs": "nixpkgs",
+        "nixpkgs-cypress": "nixpkgs-cypress",
         "nixpkgs-howdy": "nixpkgs-howdy",
         "nvim-java": "nvim-java",
         "nvim-java-core": "nvim-java-core",
