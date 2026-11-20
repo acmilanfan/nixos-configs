@@ -44,6 +44,7 @@ def user_expression():
       known = config.users.knownUsers;
       hasHmUser = config.home-manager.users ? weekenduo-ci;
       hasDaemon = config.launchd.daemons ? "local.weekenduo-ci-runner";
+      hasWakeDaemon = config.launchd.daemons ? "local.weekenduo-ci-wake";
       failed = map (a: a.message) (builtins.filter (a: !a.assertion) config.assertions);
     }'''
 
@@ -59,6 +60,7 @@ class HostIsolation(unittest.TestCase):
         self.assertIn('weekenduo-ci', value['known'])
         self.assertFalse(value['hasHmUser'])
         self.assertFalse(value['hasDaemon'])
+        self.assertFalse(value['hasWakeDaemon'])
         self.assertEqual(value['failed'], [])
         packages = {p['name']: p['version'] for p in value['packages']}
         self.assertIn('nodejs', packages)
@@ -78,6 +80,7 @@ class HostIsolation(unittest.TestCase):
           user = config.users.users.weekenduo-ci;
           daemon = config.launchd.daemons."local.weekenduo-ci-runner";
           configDaemon = config.launchd.daemons."local.weekenduo-ci-config";
+          wakeDaemon = config.launchd.daemons."local.weekenduo-ci-wake";
           template = config.sops.templates."gitlab-runner-config";
         in {
           user = {
@@ -99,6 +102,13 @@ class HostIsolation(unittest.TestCase):
           configDaemon = {
             script = configDaemon.script;
             serviceConfig = { inherit (configDaemon.serviceConfig) RunAtLoad KeepAlive WatchPaths; };
+          };
+          wakeDaemon = {
+            script = wakeDaemon.script;
+            serviceConfig = {
+              inherit (wakeDaemon.serviceConfig) RunAtLoad KeepAlive ProcessType
+                StandardOutPath StandardErrorPath;
+            };
           };
           template = { inherit (template) path owner mode content; };
           secrets = builtins.attrNames config.sops.secrets;
@@ -124,6 +134,7 @@ class HostIsolation(unittest.TestCase):
         self.assertIn('curl', packages)
         self.assertIn('docker', packages)
         self.assertIn('colima', packages)
+        self.assertIn('nightly-power-guard', packages)
         self.assertIn('weekenduo-ci', value['known'])
         self.assertFalse(value['hasHmUser'])
         self.assertEqual(value['failed'], [])
@@ -148,6 +159,15 @@ class HostIsolation(unittest.TestCase):
         self.assertTrue(copy['serviceConfig']['RunAtLoad'])
         self.assertFalse(copy['serviceConfig']['KeepAlive'])
         self.assertEqual(copy['serviceConfig']['WatchPaths'], ['/run/secrets.d'])
+        wake = value['wakeDaemon']
+        self.assertIn('pmset repeat wakeorpoweron MTWRFSU 02:45:00', wake['script'])
+        self.assertTrue(wake['serviceConfig']['RunAtLoad'])
+        self.assertFalse(wake['serviceConfig']['KeepAlive'])
+        self.assertEqual(wake['serviceConfig']['ProcessType'], 'Background')
+        self.assertEqual(wake['serviceConfig']['StandardOutPath'],
+                         '/var/log/org.nixos.local.weekenduo-ci-wake.log')
+        self.assertEqual(wake['serviceConfig']['StandardErrorPath'],
+                         '/var/log/org.nixos.local.weekenduo-ci-wake.error.log')
         template = value['template']
         self.assertEqual(template['path'], '/Users/weekenduo-ci/.gitlab-runner/config.toml')
         self.assertEqual(template['owner'], 'weekenduo-ci')
@@ -174,6 +194,14 @@ class HostIsolation(unittest.TestCase):
             self.assertIn('while ! /bin/mkdir', pre)
             self.assertIn('trap', pre)
             self.assertIn('/bin/rmdir', pre)
+            self.assertIn('nightly-power-guard start', pre)
+            self.assertIn('CI_PIPELINE_SOURCE', pre)
+            self.assertIn('WD_CI_E2E', pre)
+            self.assertLess(pre.index('nightly-power-guard start'), pre.index('colima status'))
+            post = runner['post_build_script']
+            self.assertIn('nightly-power-guard stop', post)
+            self.assertIn('CI_PIPELINE_SOURCE', post)
+            self.assertIn('WD_CI_E2E', post)
         self.assertIn('gitlab_runner/backend_token', value['secrets'])
         self.assertIn('gitlab_runner/frontend_token', value['secrets'])
         self.assertEqual(value['ageKey'], '/var/lib/sops-nix/age.key')
@@ -194,4 +222,6 @@ class HostIsolation(unittest.TestCase):
         value = disabled('config.system.activationScripts.postActivation.text')
         self.assertIn('org.nixos.local.weekenduo-ci-runner', value)
         self.assertIn('org.nixos.local.weekenduo-ci-config', value)
+        self.assertIn('org.nixos.local.weekenduo-ci-wake', value)
         self.assertIn('bootout', value)
+        self.assertIn('pmset repeat cancel', value)

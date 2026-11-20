@@ -7,6 +7,100 @@ let
   profileBin = "/etc/profiles/per-user/${ciUser}/bin";
   backendToken = config.sops.placeholder."gitlab_runner/backend_token";
   frontendToken = config.sops.placeholder."gitlab_runner/frontend_token";
+  nightlyPowerGuard = pkgs.writeShellScriptBin "nightly-power-guard" ''
+    set -u
+
+    state_dir="${ciHome}/.cache/weekenduo-ci"
+    pid_file="$state_dir/nightly-power-guard.pid"
+    log_file="${ciHome}/Library/Logs/nightly-power-guard.log"
+    threshold="${toString cfg.batteryMin}"
+
+    /bin/mkdir -p "$state_dir" "$(/usr/bin/dirname "$log_file")"
+
+    log() {
+      /bin/echo "$(/bin/date -u +%Y-%m-%dT%H:%M:%SZ) $*" >> "$log_file"
+    }
+
+    is_running() {
+      [ -f "$pid_file" ] && /bin/kill -0 "$(/bin/cat "$pid_file")" 2>/dev/null
+    }
+
+    stop() {
+      if is_running; then
+        pid="$(/bin/cat "$pid_file")"
+        if /bin/ps -p "$pid" -o comm= | /usr/bin/grep -q caffeinate; then
+          /bin/kill "$pid" 2>/dev/null || true
+          i=0
+          while /bin/kill -0 "$pid" 2>/dev/null && [ "$i" -lt 5 ]; do
+            /bin/sleep 1
+            i=$((i + 1))
+          done
+          log "stopped caffeinate pid=$pid"
+        else
+          log "pid $pid is not caffeinate; not killing it"
+        fi
+      fi
+      /bin/rm -f "$pid_file"
+    }
+
+    read_battery() {
+      battery="$(/usr/bin/pmset -g batt)"
+      percent="$(/bin/echo "$battery" | /usr/bin/grep -o '[0-9][0-9]*%' | /usr/bin/head -n 1 | /usr/bin/tr -d '%')"
+      if /bin/echo "$battery" | /usr/bin/grep -q "AC Power"; then
+        source="AC"
+      else
+        source="battery"
+      fi
+    }
+
+    if [ "$#" -eq 0 ]; then
+      /bin/echo "usage: $0 start|stop|status" >&2
+      exit 2
+    fi
+
+    case "$1" in
+      start)
+        if is_running; then
+          log "already running pid=$(/bin/cat "$pid_file")"
+          exit 0
+        fi
+        read_battery
+        percent_display="$percent"
+        [ -n "$percent_display" ] || percent_display="unknown"
+        if [ "$source" = "battery" ]; then
+          if [ -z "$percent" ]; then
+            log "refusing nightly run: cannot read battery percentage"
+            /usr/bin/logger -t nightly-power-guard "refusing nightly run: cannot read battery"
+            exit 1
+          fi
+          if [ "$percent" -lt "$threshold" ]; then
+            log "refusing nightly run: battery $percent% below ${toString cfg.batteryMin}%"
+            /usr/bin/logger -t nightly-power-guard "refusing nightly run: battery $percent% below ${toString cfg.batteryMin}%"
+            exit 1
+          fi
+        fi
+        /usr/bin/caffeinate -imsu -t 7200 >> "$log_file" 2>&1 &
+        pid=$!
+        /bin/echo "$pid" > "$pid_file"
+        log "started caffeinate pid=$pid source=$source battery=$percent_display%"
+        ;;
+      stop)
+        stop
+        ;;
+      status)
+        read_battery
+        percent_display="$percent"
+        [ -n "$percent_display" ] || percent_display="unknown"
+        /bin/echo "source=$source battery=$percent_display% threshold=$threshold%"
+        ;;
+      *)
+        /bin/echo "usage: $0 start|stop|status" >&2
+        exit 2
+        ;;
+    esac
+  '';
+  powerGuardStart = "if [ \"$CI_PIPELINE_SOURCE\" = \"schedule\" ] && [ \"$WD_CI_E2E\" = \"full\" ]; then ${nightlyPowerGuard}/bin/nightly-power-guard start || exit 1; fi; ";
+  powerGuardStop = "if [ \"$CI_PIPELINE_SOURCE\" = \"schedule\" ] && [ \"$WD_CI_E2E\" = \"full\" ]; then ${nightlyPowerGuard}/bin/nightly-power-guard stop || true; fi";
   runnerConfig = ''
     concurrent = 2
     check_interval = 3
@@ -26,7 +120,8 @@ let
         "TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock",
         "WD_CI_STATUS_ENABLE=1"
       ]
-      pre_build_script = 'if ! /etc/profiles/per-user/weekenduo-ci/bin/colima status >/dev/null 2>&1; then lock="/Users/weekenduo-ci/.colima-autostart.lock"; while ! /bin/mkdir "$lock" 2>/dev/null; do /bin/sleep 1; done; trap "/bin/rmdir \"$lock\"" EXIT; if ! /etc/profiles/per-user/weekenduo-ci/bin/colima status >/dev/null 2>&1; then /etc/profiles/per-user/weekenduo-ci/bin/colima start --cpu 8 --memory 16 --disk 60 --activate=false; fi; /bin/rmdir "$lock"; trap - EXIT; fi; DOCKER_HOST=unix:///Users/weekenduo-ci/.colima/default/docker.sock /etc/profiles/per-user/weekenduo-ci/bin/docker info >/dev/null'
+      pre_build_script = '${powerGuardStart}if ! /etc/profiles/per-user/weekenduo-ci/bin/colima status >/dev/null 2>&1; then lock="/Users/weekenduo-ci/.colima-autostart.lock"; while ! /bin/mkdir "$lock" 2>/dev/null; do /bin/sleep 1; done; trap "/bin/rmdir \"$lock\"" EXIT; if ! /etc/profiles/per-user/weekenduo-ci/bin/colima status >/dev/null 2>&1; then /etc/profiles/per-user/weekenduo-ci/bin/colima start --cpu 8 --memory 16 --disk 60 --activate=false; fi; /bin/rmdir "$lock"; trap - EXIT; fi; DOCKER_HOST=unix:///Users/weekenduo-ci/.colima/default/docker.sock /etc/profiles/per-user/weekenduo-ci/bin/docker info >/dev/null'
+      post_build_script = '${powerGuardStop}'
       [runners.custom_build_dir]
         enabled = false
 
@@ -44,7 +139,8 @@ let
         "TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock",
         "WD_CI_STATUS_ENABLE=1"
       ]
-      pre_build_script = 'if ! /etc/profiles/per-user/weekenduo-ci/bin/colima status >/dev/null 2>&1; then lock="/Users/weekenduo-ci/.colima-autostart.lock"; while ! /bin/mkdir "$lock" 2>/dev/null; do /bin/sleep 1; done; trap "/bin/rmdir \"$lock\"" EXIT; if ! /etc/profiles/per-user/weekenduo-ci/bin/colima status >/dev/null 2>&1; then /etc/profiles/per-user/weekenduo-ci/bin/colima start --cpu 8 --memory 16 --disk 60 --activate=false; fi; /bin/rmdir "$lock"; trap - EXIT; fi; DOCKER_HOST=unix:///Users/weekenduo-ci/.colima/default/docker.sock /etc/profiles/per-user/weekenduo-ci/bin/docker info >/dev/null'
+      pre_build_script = '${powerGuardStart}if ! /etc/profiles/per-user/weekenduo-ci/bin/colima status >/dev/null 2>&1; then lock="/Users/weekenduo-ci/.colima-autostart.lock"; while ! /bin/mkdir "$lock" 2>/dev/null; do /bin/sleep 1; done; trap "/bin/rmdir \"$lock\"" EXIT; if ! /etc/profiles/per-user/weekenduo-ci/bin/colima status >/dev/null 2>&1; then /etc/profiles/per-user/weekenduo-ci/bin/colima start --cpu 8 --memory 16 --disk 60 --activate=false; fi; /bin/rmdir "$lock"; trap - EXIT; fi; DOCKER_HOST=unix:///Users/weekenduo-ci/.colima/default/docker.sock /etc/profiles/per-user/weekenduo-ci/bin/docker info >/dev/null'
+      post_build_script = '${powerGuardStop}'
       [runners.custom_build_dir]
         enabled = false
   '';
@@ -58,6 +154,16 @@ in
       type = lib.types.int;
       default = 599;
       description = "UID for the hidden headless weekenduo-ci service account.";
+    };
+    batteryMin = lib.mkOption {
+      type = lib.types.ints.between 0 100;
+      default = 30;
+      description = "Minimum battery percentage for a scheduled full run when not on AC.";
+    };
+    wakeTime = lib.mkOption {
+      type = lib.types.strMatching "([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]";
+      default = "02:45:00";
+      description = "Local time for the recurring pmset wake before the nightly full run.";
     };
   };
 
@@ -92,7 +198,7 @@ in
           curl
           docker
           colima
-        ] ++ [ pkgs.gitlab-runner ];
+        ] ++ [ pkgs.gitlab-runner nightlyPowerGuard ];
       };
     }
 
@@ -115,6 +221,21 @@ in
           ThrottleInterval = 10;
           StandardOutPath = "${ciHome}/Library/Logs/gitlab-runner.log";
           StandardErrorPath = "${ciHome}/Library/Logs/gitlab-runner.error.log";
+        };
+      };
+
+      # Re-apply the RTC wake at boot. pmset persists the repeating event, but
+      # a fresh or repaired host needs the schedule installed once.
+      launchd.daemons."local.weekenduo-ci-wake" = {
+        script = ''
+          exec /usr/bin/pmset repeat wakeorpoweron MTWRFSU ${cfg.wakeTime}
+        '';
+        serviceConfig = {
+          RunAtLoad = true;
+          KeepAlive = false;
+          ProcessType = "Background";
+          StandardOutPath = "/var/log/org.nixos.local.weekenduo-ci-wake.log";
+          StandardErrorPath = "/var/log/org.nixos.local.weekenduo-ci-wake.error.log";
         };
       };
 
@@ -207,8 +328,12 @@ in
       system.activationScripts.postActivation.text = lib.mkBefore ''
         /bin/launchctl bootout system/org.nixos.local.weekenduo-ci-runner 2>/dev/null || true
         /bin/launchctl bootout system/org.nixos.local.weekenduo-ci-config 2>/dev/null || true
+        /bin/launchctl bootout system/org.nixos.local.weekenduo-ci-wake 2>/dev/null || true
         /bin/rm -f /Library/LaunchDaemons/org.nixos.local.weekenduo-ci-runner.plist
         /bin/rm -f /Library/LaunchDaemons/org.nixos.local.weekenduo-ci-config.plist
+        /bin/rm -f /Library/LaunchDaemons/org.nixos.local.weekenduo-ci-wake.plist
+        # The repeating pmset wake persists; remove it with `pmset repeat cancel`
+        # if this host no longer runs nightly jobs.
         if uid=$(/usr/bin/id -u ${ciUser} 2>/dev/null); then
           /bin/launchctl bootout "gui/$uid/org.nixos.local.weekenduo-ci-runner" 2>/dev/null || true
           /bin/rm -f "${ciHome}/Library/LaunchAgents/org.nixos.local.weekenduo-ci-runner.plist"

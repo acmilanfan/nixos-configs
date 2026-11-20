@@ -123,11 +123,44 @@ should show both runners online. Run a real test job to verify `node`, `go`,
 The Nix store contains only sops placeholders; the decrypted tokens exist only
 in the runtime config.
 
+## Nightly power schedule
+
+`mac-home` installs `org.nixos.local.weekenduo-ci-wake`, a root one-shot daemon
+that runs at boot:
+
+```sh
+pmset repeat wakeorpoweron MTWRFSU 02:45:00
+```
+
+`services.ciRunner.wakeTime` changes the wake time; the default is 15 minutes
+before the 03:00 nightly full schedule.
+
+For scheduled full pipelines (`CI_PIPELINE_SOURCE=schedule` and
+`WD_CI_E2E=full`), the runner's `pre_build_script` runs
+`nightly-power-guard start` before Colima. The guard reads `pmset -g batt`; on
+battery below `services.ciRunner.batteryMin` (default 30%) it fails the job
+early. Otherwise it starts `caffeinate -imsu -t 7200`. The `post_build_script`
+runs `nightly-power-guard stop`, which releases the assertion. Logs:
+`/Users/weekenduo-ci/Library/Logs/nightly-power-guard.log`.
+`nightly-power-guard status` prints the current source and battery percentage
+without starting an assertion.
+
+After the job, normal macOS idle sleep decides when to sleep (30 minutes on AC,
+10 minutes on battery). The lid must stay open; `caffeinate` does not override
+clamshell sleep. For closed-lid operation use the existing `no-sleep on` helper
+and turn it off afterwards.
+
+A low-battery abort fails the pipeline before the suite starts. The GitLab
+schedule still creates the pipeline, so cancel or retry it manually if the Mac
+stays asleep. Inspect the RTC schedule with `pmset -g sched`; remove it with
+`sudo pmset repeat cancel`.
+
 ## Disable/rollback
 
-Set `services.ciRunner.enable = false` and rebuild. The system daemon and old
-user-agent plist are removed/unloaded; the hidden account and per-user profile
-remain. Remove the account only deliberately: delete `users.users.weekenduo-ci`
+Set `services.ciRunner.enable = false` and rebuild. The system daemons (including
+the wake daemon) and old user-agent plist are removed/unloaded; the hidden
+account and per-user profile remain. The repeating `pmset` wake persists; run
+`sudo pmset repeat cancel` if the host no longer needs it. Remove the account only deliberately: delete `users.users.weekenduo-ci`
 and `users.knownUsers` entries (or the module import) and rebuild, accepting
 home-directory deletion. Do not re-enable the GitLab merge gate.
 
