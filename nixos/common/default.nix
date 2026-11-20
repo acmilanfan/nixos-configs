@@ -4,6 +4,7 @@
     ./hardware
 
     ./awesome.nix
+    ./ci-runner
     ./console.nix
     ./environment.nix
     ./fonts.nix
