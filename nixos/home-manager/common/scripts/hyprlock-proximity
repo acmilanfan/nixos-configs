@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# Wake hyprlock's PAM/face-auth when someone approaches the locked session.
+#
+# The key is only injected while Hyprland reports the session locked. A leaked
+# hyprlock process must never be treated as "locked": that turned this service
+# into an Enter key press every 10 seconds in the focused application.
+#
+# Wake once on the approach/lock transition. Retrying by injecting Return every
+# few seconds submits empty password attempts; the user can press Enter or use
+# the scan-face button instead.
+set -uo pipefail
+
+SENSOR1=${HYPRLOCK_PROXIMITY_SENSOR1:-/sys/bus/iio/devices/iio:device1/in_proximity0_raw}
+SENSOR2=${HYPRLOCK_PROXIMITY_SENSOR2:-/sys/bus/iio/devices/iio:device2/in_proximity0_raw}
+TRIGGER_FILE=${HYPRLOCK_PROXIMITY_TRIGGER_FILE:-${XDG_RUNTIME_DIR:-/tmp}/hyprlock_face_trigger}
+POLL=${HYPRLOCK_PROXIMITY_POLL:-0.5}
+MAX_ITERATIONS=${HYPRLOCK_PROXIMITY_MAX_ITERATIONS:-0}
+
+locked() { [ "$(hyprctl locked 2>/dev/null)" = "true" ]; }
+
+presence() {
+  local a=0 b=0
+  [ -f "$SENSOR1" ] && a=$(cat "$SENSOR1" 2>/dev/null || echo 0)
+  [ -f "$SENSOR2" ] && b=$(cat "$SENSOR2" 2>/dev/null || echo 0)
+  printf '%s\n' "$((a | b))"
+}
+
+last_state=0
+was_locked=0
+iteration=0
+
+while :; do
+  if locked; then
+    state=$(presence)
+    wake=0
+
+    # Approach while locked, or the lock screen appearing while already present.
+    if [ "$state" -eq 1 ] && { [ "$last_state" -eq 0 ] || [ "$was_locked" -eq 0 ]; }; then
+      wake=1
+    fi
+    # Explicit "Scan Face" button on the lock screen.
+    [ -f "$TRIGGER_FILE" ] && wake=1
+
+    if [ "$wake" -eq 1 ]; then
+      rm -f "$TRIGGER_FILE"
+      sleep 0.2
+      wtype -P Return -p Return || true
+    fi
+
+    last_state=$state
+    was_locked=1
+  else
+    # Nothing to wake; drop requests aimed at a lock screen that is not up.
+    rm -f "$TRIGGER_FILE"
+    last_state=0
+    was_locked=0
+  fi
+
+  iteration=$((iteration + 1))
+  [ "$MAX_ITERATIONS" -gt 0 ] && [ "$iteration" -ge "$MAX_ITERATIONS" ] && break
+  sleep "$POLL"
+done

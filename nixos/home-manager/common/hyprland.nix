@@ -5,6 +5,18 @@
 }:
 let
   hypr-iio-rotate-script = (pkgs.writeShellScriptBin "hypr-iio-rotate" (lib.readFile ./scripts/hypr-iio-rotate));
+  # All lock starts go through hyprlock-session: it checks the compositor's
+  # real lock state, reaps leaked hyprlock processes, and serializes starts.
+  # TTY recovery for a wedged lock screen: `hyprlock-session restart`.
+  hyprlock-session = pkgs.writeShellScriptBin "hyprlock-session" (
+    lib.readFile ./scripts/hyprlock-session
+  );
+  hyprlock-proximity = pkgs.writeShellScriptBin "hyprlock-proximity" (
+    lib.readFile ./scripts/hyprlock-proximity
+  );
+  hyprlock-absence = pkgs.writeShellScriptBin "hyprlock-absence" (
+    lib.readFile ./scripts/hyprlock-absence
+  );
   # hyprlock's "Scan Face" button; read by the hyprlock-proximity service.
   # Per-user runtime dir rather than a predictable /tmp path.
   hyprlock-face-trigger = pkgs.writeShellScript "hyprlock-face-trigger" ''
@@ -208,8 +220,10 @@ in
     enable = true;
     settings = {
       general = {
-        lock_cmd = "pidof hyprlock || hyprlock";
-        before_sleep_cmd = "hyprlock";
+        # Never trust `pidof hyprlock`: a leaked locker must not block new
+        # locks. The wrapper reaps it and waits for the compositor lock.
+        lock_cmd = "${hyprlock-session}/bin/hyprlock-session start";
+        before_sleep_cmd = "${hyprlock-session}/bin/hyprlock-session start";
         after_sleep_cmd = "hyprctl dispatch dpms on";
       };
 
@@ -226,7 +240,7 @@ in
         }
         {
           timeout = 300;
-          on-timeout = "hyprlock";
+          on-timeout = "${hyprlock-session}/bin/hyprlock-session start";
         }
         {
           timeout = 330;
@@ -294,6 +308,7 @@ in
     kanshi
     hypridle
     hyprlock
+    hyprlock-session
     libnotify
     wlogout
     wdisplays
@@ -363,66 +378,7 @@ in
       After = [ "graphical-session.target" ];
     };
     Service = {
-      ExecStart = pkgs.writeShellScript "prox-trigger" ''
-        SENSOR1="/sys/bus/iio/devices/iio:device1/in_proximity0_raw"
-        SENSOR2="/sys/bus/iio/devices/iio:device2/in_proximity0_raw"
-        TRIGGER_FILE="$XDG_RUNTIME_DIR/hyprlock_face_trigger"
-        LAST_STATE=0
-        WAS_LOCKED=0
-        LAST_TRIGGER_TIME=0
-
-        while true; do
-          if pgrep -x "hyprlock" > /dev/null; then
-            CURRENT_TIME=$(date +%s)
-
-            # Combine both sensors (if either is 1, presence is detected)
-            STATE1=0
-            STATE2=0
-            [ -f "$SENSOR1" ] && STATE1=$(cat "$SENSOR1")
-            [ -f "$SENSOR2" ] && STATE2=$(cat "$SENSOR2")
-            STATE=$((STATE1 | STATE2))
-
-            TRIGGER=0
-            if [ "$STATE" -eq 1 ]; then
-              # 1. Trigger on approach (0 -> 1)
-              if [ "$LAST_STATE" -eq 0 ]; then
-                echo "Proximity detected (approach)! Waking up hyprlock..."
-                TRIGGER=1
-              # 2. Trigger on initial lock if already present
-              elif [ "$WAS_LOCKED" -eq 0 ]; then
-                echo "Proximity detected (initial lock)! Waking up hyprlock..."
-                TRIGGER=1
-              # 3. Periodic re-trigger while present (every 10 seconds)
-              elif [ $((CURRENT_TIME - LAST_TRIGGER_TIME)) -ge 10 ]; then
-                echo "Proximity detected (continuous presence)! Re-waking hyprlock..."
-                TRIGGER=1
-              fi
-            fi
-
-            if [ "$TRIGGER" -eq 1 ]; then
-              sleep 0.2
-              ${pkgs.wtype}/bin/wtype -P Return -p Return
-              LAST_TRIGGER_TIME=$CURRENT_TIME
-            fi
-
-            if [ -f "$TRIGGER_FILE" ]; then
-              echo "Manual trigger detected! Waking up hyprlock..."
-              rm -f "$TRIGGER_FILE"
-              sleep 0.1
-              ${pkgs.wtype}/bin/wtype -P Return -p Return
-              LAST_TRIGGER_TIME=$CURRENT_TIME
-            fi
-
-            LAST_STATE=$STATE
-            WAS_LOCKED=1
-          else
-            WAS_LOCKED=0
-            LAST_STATE=0
-            LAST_TRIGGER_TIME=0
-          fi
-          sleep 0.5
-        done
-      '';
+      ExecStart = "${hyprlock-proximity}/bin/hyprlock-proximity";
       Restart = "always";
     };
     Install = {
@@ -455,51 +411,7 @@ in
       After = [ "graphical-session.target" ];
     };
     Service = {
-      ExecStart = pkgs.writeShellScript "absence-trigger" ''
-        SENSOR1="/sys/bus/iio/devices/iio:device1/in_proximity0_raw"
-        SENSOR2="/sys/bus/iio/devices/iio:device2/in_proximity0_raw"
-        ABSENCE_LOCK_DELAY=5
-        POLL_INTERVAL=0.5
-
-        if [ ! -f "$SENSOR1" ] && [ ! -f "$SENSOR2" ]; then
-          echo "No proximity sensors found; exiting."
-          exit 0
-        fi
-
-        ABSENT_SINCE=0
-
-        while true; do
-          if pgrep -x "hyprlock" > /dev/null; then
-            # Already locked; wake-on-approach service handles this side.
-            ABSENT_SINCE=0
-          elif systemctl --user is-active --quiet hypr-idle-inhibit.service; then
-            # Manual idle inhibitor active: user asked not to be locked.
-            ABSENT_SINCE=0
-          else
-            STATE1=0
-            STATE2=0
-            [ -f "$SENSOR1" ] && STATE1=$(cat "$SENSOR1")
-            [ -f "$SENSOR2" ] && STATE2=$(cat "$SENSOR2")
-            # Non-zero = someone present (safer failure mode than ==1: sensor
-            # garbage keeps the screen unlocked and idle-lock stays the fallback)
-            STATE=$((STATE1 | STATE2))
-
-            NOW=$(date +%s)
-            if [ "$STATE" -eq 0 ]; then
-              if [ "$ABSENT_SINCE" -eq 0 ]; then
-                ABSENT_SINCE=$NOW
-              elif [ $((NOW - ABSENT_SINCE)) -ge $ABSENCE_LOCK_DELAY ]; then
-                echo "No presence for $ABSENCE_LOCK_DELAY s; locking..."
-                ${pkgs.hyprlock}/bin/hyprlock
-                ABSENT_SINCE=0
-              fi
-            else
-              ABSENT_SINCE=0
-            fi
-          fi
-          sleep $POLL_INTERVAL
-        done
-      '';
+      ExecStart = "${hyprlock-absence}/bin/hyprlock-absence";
       Restart = "always";
     };
     Install = {

@@ -1,0 +1,157 @@
+#!/usr/bin/env bash
+# Start, restart or inspect hyprlock using the compositor's real session-lock
+# state (`hyprctl locked`) instead of process existence.
+#
+# A hyprlock process can survive after the session was unlocked (for example a
+# second instance that lost the ext-session-lock race, or a locker wedged
+# across suspend). Such a process blocks `pidof hyprlock || hyprlock` forever
+# and must be reaped before a new locker starts. This wrapper also provides the
+# TTY recovery path:
+#
+#   hyprlock-session restart
+#
+# It discovers HYPRLAND_INSTANCE_SIGNATURE/WAYLAND_DISPLAY from `hyprctl
+# instances` when run outside the graphical session.
+set -uo pipefail
+
+PROC=${HYPRLOCK_PROCESS_NAME:-hyprlock}
+BIN=${HYPRLOCK_BIN:-hyprlock}
+TIMEOUT=${HYPRLOCK_START_TIMEOUT:-5}
+RUNDIR=${XDG_RUNTIME_DIR:-/tmp}
+
+log() { printf 'hyprlock-session: %s\n' "$*" >&2; }
+
+# hyprctl needs HYPRLAND_INSTANCE_SIGNATURE. A TTY login does not have it, but
+# `hyprctl instances` works without it, so pick the only running instance.
+discover_tty_env() {
+  [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && return 0
+
+  local instances count sig wl
+  instances=$(hyprctl instances 2>/dev/null) || return 0
+  count=$(printf '%s\n' "$instances" | grep -c '^instance ')
+  [ "$count" -eq 0 ] && return 0
+  if [ "$count" -ne 1 ]; then
+    log "multiple Hyprland instances; set HYPRLAND_INSTANCE_SIGNATURE"
+    return 1
+  fi
+
+  sig=$(printf '%s\n' "$instances" | sed -n 's/^instance \(.*\):$/\1/p' | head -n1)
+  wl=$(printf '%s\n' "$instances" | sed -n 's/^[[:space:]]*wl socket: //p' | head -n1)
+  [ -n "$sig" ] && export HYPRLAND_INSTANCE_SIGNATURE="$sig"
+  [ -n "$wl" ] && export WAYLAND_DISPLAY="$wl"
+  return 0
+}
+
+query_locked() { hyprctl locked 2>/dev/null; }
+locked() { [ "$(query_locked)" = "true" ]; }
+
+require_hyprland() {
+  case "$(query_locked)" in
+    true | false) return 0 ;;
+    *)
+      log "cannot query Hyprland session lock state"
+      return 1
+      ;;
+  esac
+}
+
+wait_locked() {
+  local i
+  for i in $(seq 1 $((TIMEOUT * 10))); do
+    locked && return 0
+    sleep 0.1
+  done
+  return 1
+}
+
+wait_unlocked() {
+  local i
+  for i in $(seq 1 $((TIMEOUT * 10))); do
+    locked || return 0
+    sleep 0.1
+  done
+  return 1
+}
+
+reap_stale() {
+  local i pids
+  pids=$(pgrep -x "$PROC" || true)
+  [ -n "$pids" ] || return 0
+
+  log "reaping stale ${PROC} process(es): $(printf '%s' "$pids" | tr '\n' ' ')"
+  pkill -x "$PROC" 2>/dev/null || true
+  for i in $(seq 1 20); do
+    pgrep -x "$PROC" >/dev/null || return 0
+    sleep 0.1
+  done
+  pkill -9 -x "$PROC" 2>/dev/null || true
+  sleep 0.1
+}
+
+# Start hyprlock in the background and wait until the compositor reports the
+# lock. Callers (before_sleep_cmd in particular) return only when it is safe.
+launch() {
+  "$BIN" &
+  if wait_locked; then
+    return 0
+  fi
+  log "hyprlock did not report a compositor lock within ${TIMEOUT}s"
+  return 1
+}
+
+take_lock() {
+  mkdir -p "$RUNDIR"
+  exec 9>"$RUNDIR/hyprlock-session.lock"
+  flock -w 10 9 || {
+    log "could not acquire start lock"
+    return 1
+  }
+}
+
+start() {
+  discover_tty_env || return 1
+  require_hyprland || return 1
+  take_lock || return 1
+
+  locked && return 0
+  reap_stale
+  launch
+}
+
+# Explicit recovery: replaces a wedged locker even when the compositor still
+# reports the session as locked. Never use automatically.
+restart() {
+  discover_tty_env || return 1
+  require_hyprland || return 1
+  take_lock || return 1
+
+  log "restarting ${PROC}"
+  reap_stale
+  wait_unlocked || {
+    log "compositor still reports locked after killing ${PROC}"
+    return 1
+  }
+  launch
+}
+
+status() {
+  discover_tty_env || return 1
+  require_hyprland || return 1
+
+  if locked; then
+    printf 'locked\n'
+  else
+    printf 'unlocked\n'
+  fi
+  pgrep -a -x "$PROC" || true
+}
+
+case "${1:-start}" in
+  start) start ;;
+  restart) restart ;;
+  status) status ;;
+  *)
+    echo "Usage: hyprlock-session [start|restart|status]" >&2
+    exit 2
+    ;;
+esac

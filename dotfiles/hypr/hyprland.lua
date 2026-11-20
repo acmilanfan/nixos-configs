@@ -197,7 +197,7 @@ hl.bind("CTRL + SHIFT + I", hl.dsp.exec_cmd('BEMOJI_PICKER_CMD="vicinae dmenu -p
 hl.bind(mod .. " + SUPER + C", hl.dsp.exec_cmd("rofi -show calc -modi calc -no-show-match -no-sort"))
 hl.bind(mod .. " + SHIFT + V", hl.dsp.exec_cmd("vicinae vicinae://launch/clipboard/history?toggle=true"))
 
-hl.bind(mod .. " + SHIFT + CTRL + SUPER + L", hl.dsp.exec_cmd("hyprlock"))
+hl.bind(mod .. " + SHIFT + CTRL + SUPER + L", hl.dsp.exec_cmd("hyprlock-session start"))
 
 hl.bind("CTRL + SHIFT + S", hl.dsp.exec_cmd("hypr-profile"))
 hl.bind(mod .. " + X", hl.dsp.exec_cmd('pkill -USR1 -f "waybar.*top"'))

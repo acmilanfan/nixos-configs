@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# Lock the session after the proximity sensors report absence.
+#
+# "Already locked" comes from `hyprctl locked`, not from a hyprlock process:
+# a stale locker process must not disable absence locking.
+set -uo pipefail
+
+SENSOR1=${HYPRLOCK_ABSENCE_SENSOR1:-/sys/bus/iio/devices/iio:device1/in_proximity0_raw}
+SENSOR2=${HYPRLOCK_ABSENCE_SENSOR2:-/sys/bus/iio/devices/iio:device2/in_proximity0_raw}
+LOCK_DELAY=${HYPRLOCK_ABSENCE_DELAY:-5}
+POLL=${HYPRLOCK_ABSENCE_POLL:-0.5}
+MAX_ITERATIONS=${HYPRLOCK_ABSENCE_MAX_ITERATIONS:-0}
+
+locked() { [ "$(hyprctl locked 2>/dev/null)" = "true" ]; }
+
+presence() {
+  local a=0 b=0
+  [ -f "$SENSOR1" ] && a=$(cat "$SENSOR1" 2>/dev/null || echo 0)
+  [ -f "$SENSOR2" ] && b=$(cat "$SENSOR2" 2>/dev/null || echo 0)
+  printf '%s\n' "$((a | b))"
+}
+
+if [ ! -f "$SENSOR1" ] && [ ! -f "$SENSOR2" ]; then
+  echo "No proximity sensors found; exiting." >&2
+  exit 0
+fi
+
+absent_since=0
+iteration=0
+
+while :; do
+  if locked; then
+    # Wake-on-approach handles the locked side.
+    absent_since=0
+  elif systemctl --user is-active --quiet hypr-idle-inhibit.service; then
+    # Manual idle inhibitor active: the user asked not to be locked.
+    absent_since=0
+  else
+    state=$(presence)
+    now=$(date +%s)
+
+    if [ "$state" -eq 0 ]; then
+      if [ "$absent_since" -eq 0 ]; then
+        absent_since=$now
+      elif [ $((now - absent_since)) -ge "$LOCK_DELAY" ]; then
+        echo "No presence for ${LOCK_DELAY}s; locking..." >&2
+        hyprlock-session start || true
+        absent_since=0
+      fi
+    else
+      absent_since=0
+    fi
+  fi
+
+  iteration=$((iteration + 1))
+  [ "$MAX_ITERATIONS" -gt 0 ] && [ "$iteration" -ge "$MAX_ITERATIONS" ] && break
+  sleep "$POLL"
+done
