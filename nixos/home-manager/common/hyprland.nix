@@ -1,4 +1,5 @@
 {
+  config,
   pkgs,
   lib,
   ...
@@ -24,7 +25,11 @@ let
   '';
 in
 {
-  home.sessionVariables = {
+  options.touchGestures =
+    lib.mkEnableOption "touchscreen gesture binds via the yb-touchpad daemon (tablet hosts)";
+
+  config = {
+    home.sessionVariables = {
     XDG_CURRENT_DESKTOP = "Hyprland";
     XDG_SESSION_TYPE = "wayland";
     QT_QPA_PLATFORM = "wayland;xcb";
@@ -44,7 +49,10 @@ in
     ];
     # HM generates the config header (incl. the dbus/systemd session
     # activation hook) and appends our config from dotfiles/
-    extraConfig = lib.readFile ../../../dotfiles/hypr/hyprland.lua;
+    extraConfig =
+      lib.readFile ../../../dotfiles/hypr/hyprland.lua
+      + lib.optionalString config.touchGestures
+        (lib.readFile ../../../dotfiles/hypr/touch-gestures.lua);
   };
 
   xdg.configFile."hypr/hyprsunset.conf".source = ../../../dotfiles/hypr/hyprsunset.conf;
@@ -334,6 +342,7 @@ in
     (writeShellScriptBin "hypr-profile" (lib.readFile ./scripts/hypr-profile))
     (writeShellScriptBin "hypr-profile-tablet" (lib.readFile ./scripts/hypr-profile-tablet))
     (writeShellScriptBin "hypr-toggle-kb" (lib.readFile ./scripts/hypr-toggle-kb))
+    (writeShellScriptBin "hypr-touchpad-mode" (lib.readFile ./scripts/hypr-touchpad-mode))
     (writeShellScriptBin "hypr-send-to-other-monitor" (
       lib.readFile ./scripts/hypr-send-to-other-monitor
     ))
@@ -448,4 +457,5 @@ in
     extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
   };
 
+  };
 }

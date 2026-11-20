@@ -38,6 +38,8 @@ final: prev: {
 
   tg2kobo = final.callPackage ./pkgs/tg2kobo.nix { };
 
+  yb-touchpad = final.callPackage ./pkgs/yb-touchpad.nix { };
+
   youtube-org = final.callPackage ./pkgs/youtube-org.nix { };
 
   opencode-telegram-bot = final.callPackage ./pkgs/opencode-telegram-bot.nix { };

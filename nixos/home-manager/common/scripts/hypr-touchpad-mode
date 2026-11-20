@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Toggle low-power mode for the Yoga Book base screen: fullscreen black
+# background layer on eDP-2 (OLED pixels off). Touchscreen, touchpad window,
+# wvkbd and waybar keep working on top; Hyprland output/mapping untouched.
+STATE_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+FLAG="$STATE_DIR/yb-touchpad-mode"
+
+if [ -f "$FLAG" ]; then
+    rm -f "$FLAG"
+    pkill -f "swaybg -o eDP-2" 2>/dev/null
+    # layout restore is manual: workspaces stay where the user put them
+    notify-send "Base screen on"
+else
+    touch "$FLAG"
+    # Vacate the base screen: no workspaces on eDP-2 in touchpad-mode
+    # (classic moveworkspacetomonitor is rejected on this build — Lua only).
+    for ws in $(hyprctl workspaces -j | jq -r '.[] | select(.monitor=="eDP-2") | .id'); do
+        hyprctl dispatch "hl.dsp.workspace.move({ workspace = $ws, monitor = \"eDP-1\" })" >/dev/null
+    done
+    pkill -f "swaybg -o eDP-2" 2>/dev/null
+    swaybg -o eDP-2 -c '#000000' &>/dev/null &
+    disown
+    notify-send "Base screen off (touch still active)"
+fi

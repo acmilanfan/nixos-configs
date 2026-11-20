@@ -6,6 +6,7 @@
     ./kanata.nix
     ./music.nix
     ./stream.nix
+    ./yb-touchpad.nix
   ];
 
 }
