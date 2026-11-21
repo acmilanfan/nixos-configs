@@ -21,5 +21,6 @@ in
   ] ./pre-build.sh;
   postBuild = mk "weekenduo-ci-post-build" [ pkgs.coreutils ] ./post-build.sh;
   recordDocker = mk "weekenduo-ci-record-docker" [ pkgs.coreutils pkgs.docker-client ] ./record-docker.sh;
+  setTokens = mk "weekenduo-ci-set-tokens" [ pkgs.coreutils pkgs.systemd ] ./set-tokens.sh;
   inherit diskGuard powerGuard;
 }

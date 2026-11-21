@@ -100,6 +100,20 @@ config is written to `/run/weekenduo-ci/config.toml` (mode 0600, owned by
 `weekenduo-ci`). Never put these tokens in Git, the Nix store, the home
 directory, job arguments, or logs.
 
+### Automated token setup
+
+After the host configuration is active, the helper can install both tokens
+without hand-editing a root file:
+
+```sh
+sudo weekenduo-ci-set-tokens
+```
+
+It prompts without echo, validates both `glrt-` tokens, writes
+`/etc/weekenduo-ci/runner.env` atomically as `root:root` mode 0600, and
+restarts `weekenduo-ci-runner`. It still requires both project runners to
+exist; a missing or malformed token is rejected.
+
 Start and inspect the service:
 
 ```sh

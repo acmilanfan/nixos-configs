@@ -172,6 +172,18 @@ class HelperScripts(unittest.TestCase):
             timeout=30,
         )
 
+    def test_set_tokens_syntax_and_root_guard(self):
+        syntax = subprocess.run(
+            ["bash", "-n", str(SCRIPTS / "set-tokens.sh")],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        self.assertEqual(syntax.returncode, 0, syntax.stderr)
+        result = self.run_script("set-tokens.sh", [])
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("sudo", result.stderr)
+
     def test_prepare_requires_both_tokens_and_writes_mode_0600(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

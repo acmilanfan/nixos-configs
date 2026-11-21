@@ -167,6 +167,8 @@ in
 
     fonts.packages = [ pkgs.dejavu_fonts ];
 
+    environment.systemPackages = [ scripts.setTokens ];
+
     virtualisation.docker.enable = true;
     virtualisation.docker.daemon.settings.data-root = cfg.dockerDataRoot;
 
