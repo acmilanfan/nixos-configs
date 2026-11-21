@@ -218,6 +218,7 @@ class HelperScripts(unittest.TestCase):
             (source / "Cypress").chmod(0o755)
             (source / "icudtl.dat").write_text("icu\n")
             (source / "resources/app/package.json").write_text('{"version":"13.17.0"}\n')
+            (source / "resources").chmod(0o555)
             cache = root / "cache/Cypress"
             env = {**os.environ,
                    "WEEKENDUO_CI_CYPRESS_SOURCE": str(source),
@@ -226,6 +227,7 @@ class HelperScripts(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertTrue((cache / "Cypress").is_file())
             self.assertTrue((cache / "resources").is_dir())
+            self.assertTrue((cache / "resources").stat().st_mode & 0o200)
             self.assertEqual((cache / "icudtl.dat").read_text(), "icu\n")
             self.assertEqual(json.loads((cache / "binary_state.json").read_text()), {"verified": True})
 
