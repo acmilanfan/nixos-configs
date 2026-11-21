@@ -117,7 +117,9 @@ Create one project runner in each project:
 
 Settings:
 
-- tag: `weekenduo-laptop-ci`
+- tags: `weekenduo-laptop-ci`, `weekenduo-laptop-full`
+  (full E2E jobs require both; the nightly preflight rejects a runner without
+  the full tag)
 - locked to the project
 - run untagged jobs: no
 - copy each `glrt-…` authentication token

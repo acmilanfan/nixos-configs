@@ -41,8 +41,10 @@ account.
 ## Prerequisites
 
 1. Create one project runner in each GitLab project (`weekenduo/backend` and
-   `weekenduo/duomobile`), tagged `weekenduo-laptop-ci`, locked, no untagged
-   jobs. Copy the two `glrt-…` tokens.
+   `weekenduo/duomobile`), tagged `weekenduo-laptop-ci` **and**
+   `weekenduo-laptop-full`, locked, no untagged jobs. Full E2E jobs require both
+   tags; the nightly preflight fails fast if the runner lacks the full tag.
+   Copy the two `glrt-…` tokens.
 2. Add them to the encrypted secrets:
 
    ```yaml
