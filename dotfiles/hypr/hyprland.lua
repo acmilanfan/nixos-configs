@@ -50,6 +50,21 @@ hl.device({
   repeat_rate = 45,
 })
 
+-- Yoga Book 9i Bluetooth keyboard. kanata grabs the physical device and
+-- re-emits through its virtual keyboard, so the repeat rule must match
+-- "kanata" for the seat to use it. The physical name covers kanata being down.
+hl.device({
+  name = "kanata",
+  repeat_delay = 200,
+  repeat_rate = 45,
+})
+
+hl.device({
+  name = "yoga-book-9-14-bluetooth-kb-keyboard",
+  repeat_delay = 200,
+  repeat_rate = 45,
+})
+
 -- --- CONFIG ---
 hl.config({
   input = {
