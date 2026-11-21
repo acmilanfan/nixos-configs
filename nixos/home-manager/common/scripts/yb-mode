@@ -11,7 +11,9 @@ set -uo pipefail
 SYSFS_GLOB=${YB_MODE_SYSFS_GLOB:-'/sys/bus/wmi/devices/E7F300FA-21CD-4003-ADAC-2696135982E6-*/keyboard_position'}
 STATE_DIR=${YB_MODE_RUNTIME_DIR:-"${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/yb-mode"}
 POLL_SECONDS=${YB_MODE_POLL_SECONDS:-0.5}
-WVKBD_HEIGHT=${YB_MODE_WVKBD_HEIGHT:-560}
+KEYBOARD_PERCENT=${YB_MODE_KEYBOARD_PERCENT:-58}
+WVKBD=${YB_MODE_WVKBD:-@WVKBD@}
+WVKBD_FALLBACK_HEIGHT=${YB_MODE_WVKBD_HEIGHT:-560}
 PAD_MARGIN=${YB_MODE_PAD_MARGIN:-20}
 
 mkdir -p "$STATE_DIR"
@@ -145,6 +147,22 @@ unblack_bottom() {
     pkill -f 'swaybg -o eDP-2' 2>/dev/null || true
 }
 
+bottom_bar_running() {
+    pgrep -f 'waybar -c .*config-hypr-bottom' >/dev/null 2>&1
+}
+
+hide_bottom_bar() {
+    pkill -f 'waybar -c .*config-hypr-bottom' 2>/dev/null || true
+}
+
+show_bottom_bar() {
+    if ! bottom_bar_running; then
+        nohup waybar -c "$HOME/.config/waybar/config-hypr-bottom" \
+            -s "$HOME/.config/waybar/style-hypr.css" >/dev/null 2>&1 &
+        sleep 0.2
+    fi
+}
+
 pad_live_pid() {
     local pid stat state
     pid=$(cat "$XDG_RUNTIME_DIR/yb-touchpad/pid" 2>/dev/null || true)
@@ -170,20 +188,33 @@ close_pad() {
     done
 }
 
-pad_geometry() {
-    local signal=$1 info x y w h half cx cy
-    info=$(hyprctl monitors -j 2>/dev/null |
-        jq -r '.[] | select(.name=="eDP-2") | [.x,.y,(.width/.scale|round),(.height/.scale|round)] | @tsv' 2>/dev/null) || return 1
+monitor_geometry() {
+    hyprctl monitors -j 2>/dev/null |
+        jq -r '.[] | select(.name=="eDP-2") | [.x,.y,(.width/.scale|round),(.height/.scale|round)] | @tsv' 2>/dev/null
+}
+
+keyboard_height() {
+    local info x y w h
+    info=$(monitor_geometry) || return 1
     [ -n "$info" ] || return 1
     IFS=$'\t' read -r x y w h <<< "$info"
-    half=$((h / 2))
+    printf '%s\n' "$((h * KEYBOARD_PERCENT / 100))"
+}
+
+pad_geometry() {
+    local signal=$1 info x y w h keyboard_h free_h cx cy
+    info=$(monitor_geometry) || return 1
+    [ -n "$info" ] || return 1
+    IFS=$'\t' read -r x y w h <<< "$info"
+    keyboard_h=$((h * KEYBOARD_PERCENT / 100))
+    free_h=$((h - keyboard_h))
     cx=$((x + w / 2))
     if [ "$signal" = 1 ]; then
-        cy=$((y + 3 * half / 2))
+        cy=$((y + keyboard_h + free_h / 2))
     else
-        cy=$((y + half / 2))
+        cy=$((y + free_h / 2))
     fi
-    printf '%s %s %s %s\n' "$cx" "$cy" "$((w - 2 * PAD_MARGIN))" "$((half - 2 * PAD_MARGIN))"
+    printf '%s %s %s %s\n' "$cx" "$cy" "$((w - 2 * PAD_MARGIN))" "$((free_h - 2 * PAD_MARGIN))"
 }
 
 open_pad() {
@@ -206,10 +237,13 @@ stop_wvkbd() {
 }
 
 start_wvkbd() {
+    local kh
     stop_wvkbd
-    # wvkbd creates its layer on the focused output.
+    kh=$(keyboard_height) || kh=$WVKBD_FALLBACK_HEIGHT
+    # wvkbd creates its layer on the focused output; the patched build
+    # anchors the keyboard to the top of that output.
     focus_monitor eDP-2
-    nohup wvkbd-mobintl -H "$WVKBD_HEIGHT" -L "$WVKBD_HEIGHT" >/dev/null 2>&1 &
+    nohup "$WVKBD" -H "$kh" -L "$kh" >/dev/null 2>&1 &
     printf '%s\n' "$!" > "$WVKBD_PID_FILE"
     sleep 0.3
     focus_monitor eDP-1
@@ -228,6 +262,7 @@ apply_dual() {
     stop_wvkbd
     close_pad
     unblack_bottom
+    show_bottom_bar
     unlock_rotation
 }
 
@@ -235,6 +270,7 @@ apply_laptop() {
     local signal=$1
     set_workspace_rules_top
     black_bottom
+    hide_bottom_bar
     stop_wvkbd
     close_pad
     lock_rotation
@@ -245,12 +281,13 @@ apply_laptop() {
 apply_virtual_laptop() {
     set_workspace_rules_top
     black_bottom
+    hide_bottom_bar
     close_pad
     lock_rotation
     move_workspaces_to_top
     start_wvkbd
-    # The virtual keyboard owns the lower half; the pad takes the upper half.
-    open_pad 2
+    # The virtual keyboard owns the top; the pad takes the bottom.
+    open_pad 1
 }
 
 apply_mode() {

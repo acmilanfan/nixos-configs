@@ -31,6 +31,7 @@ trap cleanup EXIT
 export XDG_RUNTIME_DIR="$RUN"
 export YB_MODE_RUNTIME_DIR="$RUN"
 export YB_MODE_SYSFS_GLOB="$WORK/wmi/*/keyboard_position"
+export YB_MODE_WVKBD="$SHIM/wvkbd-mobintl"
 export STATE LOG
 export PATH="$SHIM:$PATH"
 
@@ -81,6 +82,18 @@ SH
 cat > "$SHIM/pkill" <<'SH'
 #!/usr/bin/env bash
 printf 'pkill %s\n' "$*" >> "$LOG"
+SH
+
+cat > "$SHIM/waybar" <<'SH'
+#!/usr/bin/env bash
+printf 'waybar %s\n' "$*" >> "$LOG"
+sleep 0.3
+SH
+
+cat > "$SHIM/pgrep" <<'SH'
+#!/usr/bin/env bash
+printf 'pgrep %s\n' "$*" >> "$LOG"
+exit 1
 SH
 
 chmod +x "$SHIM"/*
@@ -181,19 +194,21 @@ set_signal 2
 check_contains "laptop sets top-only rules" 'for i=1,20 do hl.workspace_rule'
 check_contains "laptop blacks eDP-2" 'swaybg -o eDP-2 -c #000000'
 check_contains "laptop locks rotation" 'systemctl --user stop hypr-iio-rotate.service'
-check_contains "laptop puts pad on upper free half" 'yb-touchpad window 900 1411 --size 1760x522'
+check_contains "laptop hides bottom bar" 'pkill -f waybar -c .*config-hypr-bottom'
+check_contains "laptop puts pad on upper free half" 'yb-touchpad window 900 1366 --size 1760x433'
 check_not_contains "laptop does not launch wvkbd" 'wvkbd-mobintl -H'
 
 : > "$LOG"
 set_signal 1
 "$YB_MODE" laptop >/dev/null
-check_contains "laptop puts pad on lower free half" 'yb-touchpad window 900 1973 --size 1760x522'
+check_contains "laptop puts pad on lower free half" 'yb-touchpad window 900 2018 --size 1760x433'
 
 : > "$LOG"
 "$YB_MODE" virtual-laptop >/dev/null
-check_contains "virtual-laptop launches keyboard" 'wvkbd-mobintl -H 560 -L 560'
+check_contains "virtual-laptop launches keyboard" 'wvkbd-mobintl -H 652 -L 652'
 check_contains "virtual-laptop locks rotation" 'systemctl --user stop hypr-iio-rotate.service'
-check_contains "virtual-laptop puts pad above keyboard" 'yb-touchpad window 900 1411 --size 1760x522'
+check_contains "virtual-laptop hides bottom bar" 'pkill -f waybar -c .*config-hypr-bottom'
+check_contains "virtual-laptop puts pad below keyboard" 'yb-touchpad window 900 2018 --size 1760x433'
 
 : > "$LOG"
 "$YB_MODE" dual >/dev/null
@@ -201,6 +216,7 @@ check_contains "dual restores bottom rules" 'for i=1,10 do hl.workspace_rule'
 check_contains "dual restores top rules" 'for i=11,20 do hl.workspace_rule'
 check_contains "dual releases rotation" 'systemctl --user start hypr-iio-rotate.service'
 check_contains "dual removes black layer" 'pkill -f swaybg -o eDP-2'
+check_contains "dual restores bottom bar" 'config-hypr-bottom'
 check_not_contains "dual does not launch wvkbd" 'wvkbd-mobintl -H'
 
 # --- SUPER+M cycle ---------------------------------------------------------

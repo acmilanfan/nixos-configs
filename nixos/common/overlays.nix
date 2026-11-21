@@ -40,6 +40,12 @@ final: prev: {
 
   yb-touchpad = final.callPackage ./pkgs/yb-touchpad.nix { };
 
+  # Top-anchored wvkbd for the Yoga Book virtual-keyboard mode.
+  wvkbd-top = prev.wvkbd.overrideAttrs (old: {
+    pname = "wvkbd-top";
+    patches = (old.patches or [ ]) ++ [ ./pkgs/wvkbd-top.patch ];
+  });
+
   youtube-org = final.callPackage ./pkgs/youtube-org.nix { };
 
   opencode-telegram-bot = final.callPackage ./pkgs/opencode-telegram-bot.nix { };
