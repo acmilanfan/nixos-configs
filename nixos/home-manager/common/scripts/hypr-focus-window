@@ -1,17 +1,31 @@
 #!/bin/bash
 
-# Fetch all windows using hyprctl
-WINDOWS=$(hyprctl clients -j | jq -r '.[] | "\(.class): \(.title) | \(.pid)"')
+set -o pipefail
 
-if [ -z "$WINDOWS" ]; then
-  exit 0
-fi
+# Keep selectors separate from display text; window titles can contain newlines.
+windows=$(hyprctl -j clients | jq -c '
+  def display_text: tostring | gsub("[\\x00-\\x1f\\x7f]"; " ");
+  map(select((.address // "" | test("^0x[0-9a-fA-F]+$")) and
+             (.stableId // "" | tostring | test("^[0-9a-fA-F]+$"))))
+  | to_entries
+  | map(.value as $w | {
+      address: $w.address,
+      id: ($w.stableId | tostring),
+      row: "\(.key + 1). \($w.class | display_text): \($w.title | display_text)"
+    })
+') || exit 1
+rows=$(jq -r '.[].row' <<< "$windows") || exit 1
+[[ -n "$rows" ]] || exit 0
+choice=$(printf '%s\n' "$rows" | vicinae dmenu -W 700 -p "Switch to window...") || exit 0
+[[ -n "$choice" ]] || exit 0
+selected=$(jq -c --arg row "$choice" '.[] | select(.row == $row)' <<< "$windows") || exit 1
+[[ -n "$selected" ]] || exit 0
 
-# Show menu
-CHOICE=$(echo "$WINDOWS" | vicinae dmenu -W 700 -p "Switch to window...")
-
-if [ -n "$CHOICE" ]; then
-  # Extract PID and focus
-  PID=$(echo "$CHOICE" | rev | cut -d ' ' -f 1 | rev)
-  hyprctl dispatch "hl.dsp.focus({window = 'pid:$PID'})"
-fi
+# Check identity and focus in the same compositor call: the address may have
+# been recycled while the picker was open. Both interpolated fields are hex.
+address=$(jq -r '.address' <<< "$selected") || exit 1
+id=$(jq -r '.id' <<< "$selected") || exit 1
+hyprctl eval "local w = hl.get_window('address:$address')
+if w and w.stable_id == tonumber('$id', 16) then
+  hl.dispatch(hl.dsp.focus({window = w}))
+end"

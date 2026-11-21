@@ -9,6 +9,8 @@ KANATA_DIR="$HOME/.config/kanata"
 LABELS=(
   "Reload Hyprland Config"
   "Toggle Monocle/Tile"
+  "Toggle Pseudo-Tile"
+  "Previous Master Orientation"
   "Timer: Start 25m"
   "Timer: Start 5m"
   "Timer: Stop"
@@ -30,6 +32,8 @@ CHOICE=$(printf "%s\n" "${LABELS[@]}" | vicinae dmenu -W 600 -p "Search Commands
 case "$CHOICE" in
   "Reload Hyprland Config") hyprctl reload ;;
   "Toggle Monocle/Tile") hypr-cycle-layout ;;
+  "Toggle Pseudo-Tile") hyprctl dispatch 'hl.dsp.window.pseudo()' ;;
+  "Previous Master Orientation") hyprctl dispatch 'hl.dsp.layout("orientationprev")' ;;
   "Timer: Start 25m") hypr-timer start 25 ;;
   "Timer: Start 5m") hypr-timer start 5 ;;
   "Timer: Stop") hypr-timer stop ;;

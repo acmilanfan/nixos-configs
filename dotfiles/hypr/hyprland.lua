@@ -1,6 +1,9 @@
 local mod = "ALT"
 local terminal = "alacritty"
 local browser = "firefox"
+local bluetooth_menu = [[bzmenu -l custom --launcher-command 'vicinae dmenu -p "{hint}"']]
+local wifi_menu = [[iwmenu -l custom --launcher-command 'vicinae dmenu -p "{hint}"']]
+local audio_menu = [[pwmenu -l custom --launcher-command 'vicinae dmenu -p "{hint}"']]
 
 -- --- ENVIRONMENT ---
 hl.env("XDG_CURRENT_DESKTOP", "Hyprland")
@@ -189,10 +192,12 @@ hl.bind(mod .. " + D", hl.dsp.exec_cmd("vicinae toggle"))
 hl.bind(mod .. " + CTRL + D", hl.dsp.exec_cmd("vicinae vicinae://launch/clipboard/history?toggle=true"))
 hl.bind(mod .. " + SHIFT + T", hl.dsp.exec_cmd("rofi -show top -modi top"))
 hl.bind(mod .. " + SHIFT + P", hl.dsp.exec_cmd("wlogout"))
-hl.bind(mod .. " + SHIFT + B", hl.dsp.exec_cmd("bzmenu -l custom --launcher-command 'vicinae dmenu -p \"{hint}\"'"))
-hl.bind(mod .. " + CTRL + B", hl.dsp.exec_cmd("iwmenu -l custom --launcher-command 'vicinae dmenu -p \"{hint}\"'"))
+hl.bind(mod .. " + SHIFT + B", hl.dsp.exec_cmd(bluetooth_menu))
+hl.bind(mod .. " + CTRL + B", hl.dsp.exec_cmd(wifi_menu))
 hl.bind(mod .. " + CTRL + S", hl.dsp.exec_cmd("rofi-systemd"))
-hl.bind(mod .. " + SHIFT + I", hl.dsp.exec_cmd("pwmenu -l custom --launcher-command 'vicinae dmenu -p \"{hint}\"'"))
+hl.bind(mod .. " + SHIFT + I", hl.dsp.exec_cmd(audio_menu))
+hl.bind(mod .. " + I", hl.dsp.exec_cmd("hypr-focus-window"))
+hl.bind(mod .. " + A", hl.dsp.exec_cmd("hypr-ai-agents --menu"))
 hl.bind("CTRL + SHIFT + I", hl.dsp.exec_cmd('BEMOJI_PICKER_CMD="vicinae dmenu -p Emoji:" bemoji'))
 hl.bind(mod .. " + SUPER + C", hl.dsp.exec_cmd("rofi -show calc -modi calc -no-show-match -no-sort"))
 hl.bind(mod .. " + SHIFT + V", hl.dsp.exec_cmd("vicinae vicinae://launch/clipboard/history?toggle=true"))
@@ -236,7 +241,7 @@ hl.bind(mod .. " + SHIFT + CTRL + F", function()
   hl.dispatch(hl.dsp.window.set_prop({ prop = "noborder", value = 0 }))
   hl.dispatch(hl.dsp.window.float({ action = "toggle" }))
 end)
-hl.bind(mod .. " + P", hl.dsp.window.pseudo())
+hl.bind(mod .. " + P", hl.dsp.exec_cmd("hypr-commands"))
 hl.bind(mod .. " + S", hl.dsp.workspace.toggle_special())
 hl.bind(mod .. " + SHIFT + S", hl.dsp.window.move({ workspace = "special silent" }))
 hl.bind(mod .. " + U", hl.dsp.focus({ urgent_or_last = true }))
@@ -305,7 +310,7 @@ hl.bind(mod .. " + CTRL + Space", function()
   hl.dispatch(hl.dsp.window.float({ action = "toggle" }))
   hl.dispatch(hl.dsp.layout("orientationnext"))
 end)
-hl.bind(mod .. " + SHIFT + Space", hl.dsp.layout("orientationprev"))
+hl.bind(mod .. " + SHIFT + Space", hl.dsp.window.float({ action = "toggle" }))
 
 hl.bind(mod .. " + F5", _toggle_animations)
 
@@ -373,7 +378,6 @@ hl.bind(mod .. " + SHIFT + mouse_up", hl.dsp.exec_cmd("hyprctl -q keyword cursor
 hl.bind(mod .. " + SHIFT + mouse_down", hl.dsp.exec_cmd("hyprctl -q keyword cursor:zoom_factor 1"))
 hl.bind(mod .. " + SHIFT + minus", hl.dsp.exec_cmd("hyprctl -q keyword cursor:zoom_factor 1"))
 hl.bind(mod .. " + SHIFT + KP_Subtract", hl.dsp.exec_cmd("hyprctl -q keyword cursor:zoom_factor 1"))
-hl.bind(mod .. " + SHIFT + 0", hl.dsp.exec_cmd("hyprctl -q keyword cursor:zoom_factor 1"))
 
 -- Volume and brightness (locked = works when screens locked: bindl equivalent)
 for _, entry in ipairs({
@@ -396,6 +400,7 @@ hl.bind(mod .. " + slash", hl.dsp.exec_cmd("hypr-commands"))
 hl.bind(mod .. " + comma", hl.dsp.submap("leader"))
 
 hl.define_submap("leader", function()
+  hl.bind("c", hl.dsp.submap("leader-controls"))
   hl.bind("t", function()
     hl.dispatch(hl.dsp.exec_cmd(terminal))
     hl.dispatch(hl.dsp.submap("reset"))
@@ -416,6 +421,20 @@ hl.define_submap("leader", function()
     hl.dispatch(hl.dsp.exec_cmd("hypr-ai-agents --menu"))
     hl.dispatch(hl.dsp.submap("reset"))
   end)
+  hl.bind("escape", hl.dsp.submap("reset"))
+  hl.bind("q", hl.dsp.submap("reset"))
+end)
+
+hl.define_submap("leader-controls", function()
+  local function open_control(cmd)
+    return function()
+      hl.dispatch(hl.dsp.submap("reset"))
+      hl.dispatch(hl.dsp.exec_cmd(cmd))
+    end
+  end
+  hl.bind("w", open_control(wifi_menu))
+  hl.bind("b", open_control(bluetooth_menu))
+  hl.bind("m", open_control(audio_menu))
   hl.bind("escape", hl.dsp.submap("reset"))
   hl.bind("q", hl.dsp.submap("reset"))
 end)
