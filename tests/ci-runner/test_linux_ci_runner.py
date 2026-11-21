@@ -194,20 +194,22 @@ class HelperScripts(unittest.TestCase):
             )
             cred = root / "cred"
             cred.mkdir()
+            legacy_backend = "glrt-abcdefghijklmnopqrst"
+            routable_frontend = "glrt-abcdefghijklmnopqrstuvwxyz0.01.ab1234567"
             (cred / "runner-env").write_text(
-                "BACKEND_TOKEN=glrt-backend_TOKEN\nFRONTEND_TOKEN=glrt-frontend_TOKEN\n"
+                f"BACKEND_TOKEN={legacy_backend}\nFRONTEND_TOKEN={routable_frontend}\n"
             )
             output = root / "run/config.toml"
             env = {**os.environ, "CREDENTIALS_DIRECTORY": str(cred)}
             result = self.run_script("prepare.sh", [str(template), str(output)], env)
             self.assertEqual(result.returncode, 0, result.stderr)
             text = output.read_text()
-            self.assertIn("glrt-backend_TOKEN", text)
-            self.assertIn("glrt-frontend_TOKEN", text)
+            self.assertIn(legacy_backend, text)
+            self.assertIn(routable_frontend, text)
             self.assertNotIn("glrt-", result.stdout + result.stderr)
             self.assertEqual(stat.S_IMODE(output.stat().st_mode), 0o600)
 
-            (cred / "runner-env").write_text("BACKEND_TOKEN=glrt-backend_TOKEN\n")
+            (cred / "runner-env").write_text(f"BACKEND_TOKEN={legacy_backend}\n")
             missing = root / "missing/config.toml"
             result = self.run_script("prepare.sh", [str(template), str(missing)], env)
             self.assertNotEqual(result.returncode, 0)

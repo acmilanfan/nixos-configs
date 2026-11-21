@@ -95,6 +95,10 @@ BACKEND_TOKEN=glrt-...
 FRONTEND_TOKEN=glrt-...
 ```
 
+GitLab 18+ routable runner tokens contain dots. Both the helper and the
+service-side validation accept the legacy 20-character form and the
+routable `payload.version.length+checksum` form.
+
 The service reads the file through systemd `LoadCredential`; the generated
 config is written to `/run/weekenduo-ci/config.toml` (mode 0600, owned by
 `weekenduo-ci`). Never put these tokens in Git, the Nix store, the home

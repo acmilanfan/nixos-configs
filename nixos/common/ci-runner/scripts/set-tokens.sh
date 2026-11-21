@@ -6,16 +6,19 @@ if [ "$(id -u)" -ne 0 ]; then
   exit 2
 fi
 
+runner_token_re='^(glrt|glrtr)-((t[1-3]_)?[A-Za-z0-9_-]{20}|[A-Za-z0-9_-]{27,300}\.[0-9a-z]{2}\.[0-9a-z]{9})$'
+
 prompt_token() {
   local label=$1 value
   while true; do
     read -rsp "$label: " value
     printf '\n' >&2
-    if [[ "$value" =~ ^glrt-[A-Za-z0-9_-]+$ ]]; then
+    value=${value%$'\r'}
+    if [[ "$value" =~ $runner_token_re ]]; then
       printf '%s' "$value"
       return 0
     fi
-    printf 'Token must start with glrt- and use only letters, digits, _ or -.\n' >&2
+    printf 'Token must be a GitLab runner token: glrt-/glrtr- legacy or routable (dots allowed).\n' >&2
   done
 }
 

@@ -16,10 +16,12 @@ set -a
 . "$env_file"
 set +a
 
+runner_token_re='^(glrt|glrtr)-((t[1-3]_)?[A-Za-z0-9_-]{20}|[A-Za-z0-9_-]{27,300}\.[0-9a-z]{2}\.[0-9a-z]{9})$'
 for name in BACKEND_TOKEN FRONTEND_TOKEN; do
   value=${!name:-}
-  if [[ ! "$value" =~ ^glrt-[A-Za-z0-9_-]+$ ]]; then
-    printf '%s must be a glrt- runner authentication token\n' "$name" >&2
+  value=${value%$'\r'}
+  if [[ ! "$value" =~ $runner_token_re ]]; then
+    printf '%s is not a valid GitLab runner token (glrt-/glrtr-)\n' "$name" >&2
     exit 2
   fi
 done
