@@ -13,19 +13,20 @@
 # stream reconnect sends the session view back to the home screen).
 #
 # The llm-agents package installs the prebuilt npm binary, which cannot be
-# patched. This derivation compiles the CLI instead. It is intentionally
-# restricted to aarch64-darwin: Linux keeps the pinned npm binary until the
-# fix reaches a release, and the PR applies unmodified to 2.2.x (the 2.1.4 port needed
-# an inlined abort() because that helper did not exist there).
+# patched. This derivation compiles the CLI and embedded web UI instead. It is
+# intentionally restricted to aarch64-darwin: Linux keeps the pinned npm
+# binary until the fix reaches a release. The PR applies unmodified to 2.2.x;
+# 2.3.x added a `beforePublish` argument to createSessionRows(), so the port in
+# 59543.patch passes the new onError callback as the fourth argument.
 let
-  version = "2.2.5";
+  version = "2.3.2";
   bunVersion = "1.4.4";
 
   src = fetchFromGitHub {
     owner = "anomalyco";
     repo = "opencode";
     tag = "v${version}";
-    hash = "sha256-/a1czcXi12KWPXcESqplNdOZcjEs8gWCMO7w4nQYLkw=";
+    hash = "sha256-yEdLD000KJPNkuowiy4g+sHV+7dm3xazKTEf15ZIYKs=";
   };
 
   # The build script refuses to run on older Bun; nixpkgs has 1.4.2.
@@ -77,7 +78,7 @@ let
     '';
     outputHashMode = "recursive";
     outputHashAlgo = "sha256";
-    outputHash = "sha256-3iHVHeH0Rp6waPh/gJeC17Hfbtp6iwP2K6ioAk67cHc=";
+    outputHash = "sha256-HdCcHQsEqnMqni6Ym9GDP2TvGo7i8pNRpLddZeZj5WU=";
   };
 in
 stdenv.mkDerivation {
@@ -108,7 +109,7 @@ stdenv.mkDerivation {
     export OPENCODE_VERSION=${version}
     (
       cd packages/cli
-      bun run build --single --skip-web-ui --skip-install
+      bun run build --single --skip-install
     )
     runHook postBuild
   '';
@@ -124,7 +125,7 @@ stdenv.mkDerivation {
   dontStrip = true;
 
   meta = {
-    description = "OpenCode 2 CLI built from source with the session-read retry fix";
+    description = "OpenCode 2 CLI and web UI built from source with the session-read retry fix";
     homepage = "https://opencode.ai";
     license = lib.licenses.mit;
     mainProgram = "opencode2";

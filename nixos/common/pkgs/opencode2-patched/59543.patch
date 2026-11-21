@@ -1,8 +1,8 @@
 diff --git a/packages/tui/src/routes/session/index.tsx b/packages/tui/src/routes/session/index.tsx
-index 9f70bb81758c..58bf3eda7d12 100644
+index cd04436..e2ef59a 100644
 --- a/packages/tui/src/routes/session/index.tsx
 +++ b/packages/tui/src/routes/session/index.tsx
-@@ -77,6 +77,8 @@ import { Composer } from "./composer"
+@@ -80,6 +80,8 @@ import { Composer } from "./composer"
  import { filetype } from "../../util/filetype"
  import parsers from "../../parsers-config"
  import { errorMessage } from "../../util/error"
@@ -11,15 +11,15 @@ index 9f70bb81758c..58bf3eda7d12 100644
  import { useToast } from "../../ui/toast"
  import stripAnsi from "strip-ansi"
  import { usePromptRef } from "../../context/prompt"
-@@ -286,6 +288,7 @@ export function Session(props: {
-     (id) => {
-       if (id === sessionID) setRowsSynced(true)
+@@ -297,6 +299,7 @@ export function Session(props: {
      },
+     // A scroll-triggered history load joins this boundary load instead of publishing its own page.
+     () => pinAbove(),
 +    (message) => toast.show({ title: "Failed to load session history", message, variant: "error", duration: 5000 }),
    )
    const boundaries = createMemo(() => messageBoundaryIDs(rows, messages()))
    const anchors = createTimelineAnchors()
-@@ -330,38 +333,29 @@ export function Session(props: {
+@@ -341,38 +344,29 @@ export function Session(props: {
      }),
    )
  
@@ -81,7 +81,7 @@ index 9f70bb81758c..58bf3eda7d12 100644
    let seeded = false
    let sent = false
 diff --git a/packages/tui/src/routes/session/rows.ts b/packages/tui/src/routes/session/rows.ts
-index 4a8437a13548..526b3e79f1dd 100644
+index ed96640..6396def 100644
 --- a/packages/tui/src/routes/session/rows.ts
 +++ b/packages/tui/src/routes/session/rows.ts
 @@ -4,6 +4,9 @@ import { createStore, produce, reconcile } from "solid-js/store"
@@ -94,20 +94,15 @@ index 4a8437a13548..526b3e79f1dd 100644
  import {
    append,
    completePrevious,
-@@ -44,7 +47,11 @@ export async function completeGroupBoundary(input: {
-   }
- }
- 
--export function createSessionRows(sessionID: Accessor<string>, onSynced?: (sessionID: string) => void) {
-+export function createSessionRows(
-+  sessionID: Accessor<string>,
-+  onSynced?: (sessionID: string) => void,
+@@ -48,6 +51,7 @@ export function createSessionRows(
+   sessionID: Accessor<string>,
+   onSynced?: (sessionID: string) => void,
+   beforePublish?: () => void,
 +  onError?: (message: string) => void,
-+) {
+ ) {
    const data = useData()
    const client = useClient()
-   const config = useConfig()
-@@ -119,12 +126,13 @@ export function createSessionRows(sessionID: Accessor<string>, onSynced?: (sessi
+@@ -123,12 +127,13 @@ export function createSessionRows(
    createEffect(
      on([sessionID, () => client.connection.status()], ([id, status]) => {
        if (status !== "connected") return
@@ -124,10 +119,10 @@ index 4a8437a13548..526b3e79f1dd 100644
            rebuild()
            // Restoration waits for complete boundary groups so saved group IDs resolve.
            await completeGroupBoundary({
-@@ -132,11 +140,14 @@ export function createSessionRows(sessionID: Accessor<string>, onSynced?: (sessi
+@@ -136,11 +141,14 @@ export function createSessionRows(
              messages: () => data.session.message.list(id).length,
              more: () => data.session.message.more(id),
-             loadMore: () => data.session.message.loadMore(id),
+             loadMore: () => data.session.message.loadMore(id, { beforePublish }),
 -            active: () => sessionID() === id,
 +            active: () => !controller.signal.aborted && sessionID() === id,
            }).catch(() => undefined)
@@ -144,7 +139,7 @@ index 4a8437a13548..526b3e79f1dd 100644
  
 diff --git a/packages/tui/src/util/session-sync.ts b/packages/tui/src/util/session-sync.ts
 new file mode 100644
-index 000000000000..8598fb3e07a9
+index 0000000..8598fb3
 --- /dev/null
 +++ b/packages/tui/src/util/session-sync.ts
 @@ -0,0 +1,25 @@
@@ -174,7 +169,7 @@ index 000000000000..8598fb3e07a9
 +  })
 +}
 diff --git a/packages/util/src/retry.ts b/packages/util/src/retry.ts
-index 4766e88c34f7..4f32e06abdb8 100644
+index 4766e88..4f32e06 100644
 --- a/packages/util/src/retry.ts
 +++ b/packages/util/src/retry.ts
 @@ -4,6 +4,7 @@ export interface RetryOptions {
