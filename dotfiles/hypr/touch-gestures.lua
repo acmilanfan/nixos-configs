@@ -8,8 +8,8 @@
 -- The window is a layer-shell surface: no windowrules apply/needed.
 hl.bind("SUPER + T", hl.dsp.exec_cmd("yb-touchpad window"))
 
--- Touchpad mode toggle (yb-touchpad daemon gesture mode).
-hl.bind("SUPER + M", hl.dsp.exec_cmd("hypr-touchpad-mode"))
+-- Cycle dual-screen <-> virtual-laptop while detached.
+hl.bind("SUPER + M", hl.dsp.exec_cmd("yb-mode cycle"))
 
 -- The virtual touchpad is classified as a pointer device; enable touchpad
 -- semantics explicitly so taps/scroll work on it.

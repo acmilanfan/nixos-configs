@@ -1,0 +1,357 @@
+#!/usr/bin/env bash
+# Yoga Book dock-state watcher and display-mode selector.
+#
+# keyboard_position: 0 detached, 1 docked upper half, 2 docked lower half.
+# Both docked positions are laptop modes; the pad goes on the free half.
+# Positions 1/2 are physical-keyboard modes. Detached defaults to dual-screen;
+# SUPER+M (or `yb-mode virtual-laptop`) provides the virtual keyboard + pad.
+
+set -uo pipefail
+
+SYSFS_GLOB=${YB_MODE_SYSFS_GLOB:-'/sys/bus/wmi/devices/E7F300FA-21CD-4003-ADAC-2696135982E6-*/keyboard_position'}
+STATE_DIR=${YB_MODE_RUNTIME_DIR:-"${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/yb-mode"}
+POLL_SECONDS=${YB_MODE_POLL_SECONDS:-0.5}
+WVKBD_HEIGHT=${YB_MODE_WVKBD_HEIGHT:-560}
+PAD_MARGIN=${YB_MODE_PAD_MARGIN:-20}
+
+mkdir -p "$STATE_DIR"
+SIGNAL_FILE="$STATE_DIR/signal"
+MODE_FILE="$STATE_DIR/mode"
+OVERRIDE_FILE="$STATE_DIR/override"
+WVKBD_PID_FILE="$STATE_DIR/wvkbd.pid"
+
+read_signal() {
+    local file value
+    for file in $SYSFS_GLOB; do
+        [ -r "$file" ] || continue
+        value=$(tr -d '[:space:]' < "$file" 2>/dev/null || true)
+        case "$value" in
+            0|1|2) printf '%s\n' "$value"; return 0 ;;
+            *) printf 'unknown\n'; return 0 ;;
+        esac
+    done
+    printf 'unknown\n'
+}
+
+signal_name() {
+    case "$1" in
+        0) echo detached ;;
+        1) echo docked-upper ;;
+        2) echo docked-lower ;;
+        *) echo unknown ;;
+    esac
+}
+
+default_mode() {
+    case "$1" in
+        1|2) echo laptop ;;
+        *) echo dual ;;
+    esac
+}
+
+read_override() {
+    local value=auto
+    [ -r "$OVERRIDE_FILE" ] && value=$(<"$OVERRIDE_FILE")
+    case "$value" in
+        auto|dual|laptop|virtual-laptop) echo "$value" ;;
+        *) echo auto ;;
+    esac
+}
+
+effective_mode() {
+    local signal=$1 override
+    override=$(read_override)
+    if [ "$override" = auto ]; then
+        default_mode "$signal"
+    else
+        echo "$override"
+    fi
+}
+
+write_state() {
+    local signal=$1 mode=$2
+    printf '%s\n' "$signal" > "$SIGNAL_FILE"
+    printf '%s\n' "$mode" > "$MODE_FILE"
+}
+
+# --- Hyprland / session helpers --------------------------------------------
+
+ensure_wayland_env() {
+    local info
+    if [ -z "${XDG_RUNTIME_DIR:-}" ]; then
+        export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+    fi
+    if [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] &&
+        [ -d "$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE" ]; then
+        return 0
+    fi
+    info=$(hyprctl instances -j 2>/dev/null |
+        jq -r '.[0] | [.instance, .wl_socket] | @tsv' 2>/dev/null) || info=""
+    if [ -n "$info" ]; then
+        IFS=$'\t' read -r HYPRLAND_INSTANCE_SIGNATURE WAYLAND_DISPLAY <<< "$info"
+        export HYPRLAND_INSTANCE_SIGNATURE WAYLAND_DISPLAY
+    fi
+}
+
+hypr_eval() {
+    hyprctl eval "$1" >/dev/null 2>&1 || true
+}
+
+focus_monitor() {
+    hypr_eval "hl.dispatch(hl.dsp.focus({ monitor = \"$1\" }))"
+}
+
+move_workspace() {
+    hypr_eval "hl.dispatch(hl.dsp.workspace.move({ workspace = $1, monitor = \"$2\" }))"
+}
+
+set_workspace_rules_top() {
+    hypr_eval 'for i=1,20 do hl.workspace_rule({ workspace = tostring(i), monitor = "eDP-1" }) end'
+}
+
+set_workspace_rules_dual() {
+    hypr_eval 'for i=1,10 do hl.workspace_rule({ workspace = tostring(i), monitor = "eDP-2" }) end'
+    hypr_eval 'for i=11,20 do hl.workspace_rule({ workspace = tostring(i), monitor = "eDP-1" }) end'
+}
+
+move_workspaces_to_top() {
+    local id
+    for id in $(hyprctl workspaces -j 2>/dev/null |
+        jq -r '.[] | select(.monitor=="eDP-2" and .windows>0) | .id' 2>/dev/null); do
+        move_workspace "$id" "eDP-1"
+    done
+    focus_monitor eDP-1
+}
+
+enforce_top_only() {
+    local id focused
+    for id in $(hyprctl workspaces -j 2>/dev/null |
+        jq -r '.[] | select(.monitor=="eDP-2" and .windows>0) | .id' 2>/dev/null); do
+        move_workspace "$id" "eDP-1"
+    done
+    focused=$(hyprctl monitors -j 2>/dev/null |
+        jq -r '.[] | select(.focused) | .name' 2>/dev/null) || focused=""
+    if [ "$focused" = "eDP-2" ]; then
+        focus_monitor eDP-1
+    fi
+}
+
+black_bottom() {
+    pkill -f 'swaybg -o eDP-2' 2>/dev/null || true
+    nohup swaybg -o eDP-2 -c '#000000' >/dev/null 2>&1 &
+}
+
+unblack_bottom() {
+    pkill -f 'swaybg -o eDP-2' 2>/dev/null || true
+}
+
+pad_live_pid() {
+    local pid stat state
+    pid=$(cat "$XDG_RUNTIME_DIR/yb-touchpad/pid" 2>/dev/null || true)
+    [ -n "$pid" ] || return 1
+    stat=$(cat "/proc/$pid/stat" 2>/dev/null) || return 1
+    state=${stat##*\)}
+    state=${state# }
+    state=${state%% *}
+    [ -n "$state" ] && [ "$state" != Z ] && {
+        printf '%s\n' "$pid"
+        return 0
+    }
+    return 1
+}
+
+close_pad() {
+    local pid i
+    pid=$(pad_live_pid) || return 0
+    kill -TERM "$pid" 2>/dev/null || true
+    for i in 1 2 3 4 5 6 7 8 9 10; do
+        kill -0 "$pid" 2>/dev/null || break
+        sleep 0.05
+    done
+}
+
+pad_geometry() {
+    local signal=$1 info x y w h half cx cy
+    info=$(hyprctl monitors -j 2>/dev/null |
+        jq -r '.[] | select(.name=="eDP-2") | [.x,.y,(.width/.scale|round),(.height/.scale|round)] | @tsv' 2>/dev/null) || return 1
+    [ -n "$info" ] || return 1
+    IFS=$'\t' read -r x y w h <<< "$info"
+    half=$((h / 2))
+    cx=$((x + w / 2))
+    if [ "$signal" = 1 ]; then
+        cy=$((y + 3 * half / 2))
+    else
+        cy=$((y + half / 2))
+    fi
+    printf '%s %s %s %s\n' "$cx" "$cy" "$((w - 2 * PAD_MARGIN))" "$((half - 2 * PAD_MARGIN))"
+}
+
+open_pad() {
+    local signal=$1 geom cx cy pw ph
+    geom=$(pad_geometry "$signal") || return 0
+    read -r cx cy pw ph <<< "$geom"
+    close_pad
+    nohup yb-touchpad window "$cx" "$cy" --size "${pw}x${ph}" >/dev/null 2>&1 &
+    sleep 0.2
+}
+
+stop_wvkbd() {
+    local pid
+    pid=$(cat "$WVKBD_PID_FILE" 2>/dev/null || true)
+    if [ -n "$pid" ]; then
+        kill "$pid" 2>/dev/null || true
+    fi
+    pkill -x wvkbd-mobintl 2>/dev/null || true
+    rm -f "$WVKBD_PID_FILE"
+}
+
+start_wvkbd() {
+    stop_wvkbd
+    # wvkbd creates its layer on the focused output.
+    focus_monitor eDP-2
+    nohup wvkbd-mobintl -H "$WVKBD_HEIGHT" -L "$WVKBD_HEIGHT" >/dev/null 2>&1 &
+    printf '%s\n' "$!" > "$WVKBD_PID_FILE"
+    sleep 0.3
+    focus_monitor eDP-1
+}
+
+lock_rotation() {
+    systemctl --user stop hypr-iio-rotate.service >/dev/null 2>&1 || true
+}
+
+unlock_rotation() {
+    systemctl --user start hypr-iio-rotate.service >/dev/null 2>&1 || true
+}
+
+apply_dual() {
+    set_workspace_rules_dual
+    stop_wvkbd
+    close_pad
+    unblack_bottom
+    unlock_rotation
+}
+
+apply_laptop() {
+    local signal=$1
+    set_workspace_rules_top
+    black_bottom
+    stop_wvkbd
+    close_pad
+    lock_rotation
+    move_workspaces_to_top
+    open_pad "$signal"
+}
+
+apply_virtual_laptop() {
+    set_workspace_rules_top
+    black_bottom
+    close_pad
+    lock_rotation
+    move_workspaces_to_top
+    start_wvkbd
+    # The virtual keyboard owns the lower half; the pad takes the upper half.
+    open_pad 2
+}
+
+apply_mode() {
+    local mode=$1 signal=$2
+    case "$mode" in
+        dual) apply_dual ;;
+        laptop) apply_laptop "$signal" ;;
+        virtual-laptop) apply_virtual_laptop ;;
+    esac
+}
+
+status_line() {
+    local signal override
+    signal=$(read_signal)
+    override=$(read_override)
+    printf 'signal=%s mode=%s override=%s\n' \
+        "$(signal_name "$signal")" "$(effective_mode "$signal")" "$override"
+}
+
+cycle_mode() {
+    local signal current
+    signal=$(read_signal)
+    # Physical laptop modes are mandatory while docked.
+    if [ "$signal" = 1 ] || [ "$signal" = 2 ]; then
+        status_line
+        return 0
+    fi
+    current=$(effective_mode "$signal")
+    if [ "$current" = virtual-laptop ]; then
+        set_mode dual
+    else
+        set_mode virtual-laptop
+    fi
+}
+
+set_mode() {
+    local mode=$1 signal
+    case "$mode" in
+        auto|dual|laptop|virtual-laptop) ;;
+        *)
+            echo "yb-mode: invalid mode '$mode' (auto|dual|laptop|virtual-laptop)" >&2
+            exit 2
+            ;;
+    esac
+    ensure_wayland_env
+    printf '%s\n' "$mode" > "$OVERRIDE_FILE"
+    signal=$(read_signal)
+    write_state "$signal" "$(effective_mode "$signal")"
+    apply_mode "$(effective_mode "$signal")" "$signal"
+    status_line
+}
+
+run_daemon() {
+    local signal name previous_signal previous_name previous_mode mode override
+    local applied=0
+
+    ensure_wayland_env
+    previous_signal=$(cat "$SIGNAL_FILE" 2>/dev/null || true)
+    previous_mode=$(cat "$MODE_FILE" 2>/dev/null || true)
+    previous_name=""
+    [ -n "$previous_signal" ] && previous_name=$(signal_name "$previous_signal")
+
+    while :; do
+        signal=$(read_signal)
+        name=$(signal_name "$signal")
+
+        # A real dock change releases the manual override.
+        if [ -n "$previous_signal" ] && [ "$signal" != "$previous_signal" ]; then
+            printf 'auto\n' > "$OVERRIDE_FILE"
+        fi
+
+        override=$(read_override)
+        mode=$(effective_mode "$signal")
+        write_state "$signal" "$mode"
+
+        if [ "$applied" -eq 0 ] || [ "$name" != "$previous_name" ] || [ "$mode" != "$previous_mode" ]; then
+            printf 'yb-mode: signal=%s mode=%s override=%s\n' "$name" "$mode" "$override"
+            apply_mode "$mode" "$signal"
+            applied=1
+        fi
+
+        case "$mode" in
+            laptop|virtual-laptop) enforce_top_only ;;
+        esac
+
+        previous_signal=$signal
+        previous_name=$name
+        previous_mode=$mode
+
+        [ "${YB_MODE_ONCE:-0}" = 1 ] && break
+        sleep "$POLL_SECONDS"
+    done
+}
+
+case "${1:-status}" in
+    status) status_line ;;
+    daemon) run_daemon ;;
+    cycle) cycle_mode ;;
+    auto|dual|laptop|virtual-laptop) set_mode "$1" ;;
+    *)
+        echo "usage: yb-mode [status|daemon|auto|cycle|dual|laptop|virtual-laptop]" >&2
+        exit 2
+        ;;
+esac
