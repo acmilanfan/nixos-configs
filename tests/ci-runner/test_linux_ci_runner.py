@@ -111,7 +111,7 @@ class ModuleContract(unittest.TestCase):
         self.assertEqual(value["service"]["environment"]["NIX_LD_LIBRARY_PATH"],
                          "/run/current-system/sw/share/nix-ld/lib")
         self.assertIn("/opt/cypress", value["service"]["environment"]["WEEKENDUO_CI_CYPRESS_SOURCE"])
-        self.assertIn("/.cache/Cypress/13.17.0/Cypress",
+        self.assertIn("/cypress-cache/13.17.0/Cypress",
                       value["service"]["environment"]["WEEKENDUO_CI_CYPRESS_CACHE"])
         user = value["user"]
         self.assertEqual(user["uid"], 599)
@@ -155,7 +155,7 @@ class ModuleContract(unittest.TestCase):
             self.assertEqual(runner["request_concurrency"], 2)
             self.assertIn("DOCKER_HOST=unix:///var/run/docker.sock", runner["environment"])
             self.assertIn("CYPRESS_INSTALL_BINARY=0", runner["environment"])
-            self.assertIn("CYPRESS_RUN_BINARY=/home/weekenduo-ci/.cache/Cypress/13.17.0/Cypress/Cypress",
+            self.assertIn("CYPRESS_RUN_BINARY=/home/weekenduo-ci/cypress-cache/13.17.0/Cypress/Cypress",
                           runner["environment"])
             self.assertIn("NIX_LD=/run/current-system/sw/share/nix-ld/lib/ld.so", runner["environment"])
             self.assertIn("NIX_LD_LIBRARY_PATH=/run/current-system/sw/share/nix-ld/lib", runner["environment"])
