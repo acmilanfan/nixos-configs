@@ -9,6 +9,7 @@ let
 
   diskGuard = mk "weekenduo-ci-disk-guard" [ pkgs.coreutils pkgs.gawk ] ./disk-guard.sh;
   powerGuard = mk "weekenduo-ci-power-guard" [ pkgs.coreutils pkgs.gawk ] ./power-guard.sh;
+  cypressCache = mk "weekenduo-ci-cypress-cache" [ pkgs.coreutils ] ./cypress-cache.sh;
 in
 {
   prepare = mk "weekenduo-ci-prepare" [ pkgs.coreutils pkgs.gnused ] ./prepare.sh;
@@ -18,6 +19,7 @@ in
     pkgs.docker-client
     diskGuard
     powerGuard
+    cypressCache
   ] ./pre-build.sh;
   postBuild = mk "weekenduo-ci-post-build" [ pkgs.coreutils ] ./post-build.sh;
   recordDocker = mk "weekenduo-ci-record-docker" [ pkgs.coreutils pkgs.docker-client ] ./record-docker.sh;

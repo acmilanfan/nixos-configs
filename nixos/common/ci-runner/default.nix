@@ -31,7 +31,7 @@ let
         "NIX_SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt",
         "NIX_LD=/run/current-system/sw/share/nix-ld/lib/ld.so",
         "NIX_LD_LIBRARY_PATH=/run/current-system/sw/share/nix-ld/lib",
-        "CYPRESS_RUN_BINARY=${cypress}/opt/cypress/Cypress",
+        "CYPRESS_RUN_BINARY=${ciHome}/.cache/Cypress/${cypress.version}/Cypress/Cypress",
         "CYPRESS_INSTALL_BINARY=0",
         "CYPRESS_CACHE_FOLDER=${ciHome}/.cache/Cypress",
         "COREPACK_HOME=${ciHome}/.cache/corepack",
@@ -61,7 +61,7 @@ let
         "NIX_SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt",
         "NIX_LD=/run/current-system/sw/share/nix-ld/lib/ld.so",
         "NIX_LD_LIBRARY_PATH=/run/current-system/sw/share/nix-ld/lib",
-        "CYPRESS_RUN_BINARY=${cypress}/opt/cypress/Cypress",
+        "CYPRESS_RUN_BINARY=${ciHome}/.cache/Cypress/${cypress.version}/Cypress/Cypress",
         "CYPRESS_INSTALL_BINARY=0",
         "CYPRESS_CACHE_FOLDER=${ciHome}/.cache/Cypress",
         "COREPACK_HOME=${ciHome}/.cache/corepack",
@@ -217,6 +217,8 @@ in
         WEEKENDUO_CI_POWER_SUPPLY = "/sys/class/power_supply";
         NIX_LD = "/run/current-system/sw/share/nix-ld/lib/ld.so";
         NIX_LD_LIBRARY_PATH = "/run/current-system/sw/share/nix-ld/lib";
+        WEEKENDUO_CI_CYPRESS_SOURCE = "${cypress}/opt/cypress";
+        WEEKENDUO_CI_CYPRESS_CACHE = "${ciHome}/.cache/Cypress/${cypress.version}/Cypress";
       };
       serviceConfig = {
         User = ciUser;

@@ -110,6 +110,9 @@ class ModuleContract(unittest.TestCase):
                          "/run/current-system/sw/share/nix-ld/lib/ld.so")
         self.assertEqual(value["service"]["environment"]["NIX_LD_LIBRARY_PATH"],
                          "/run/current-system/sw/share/nix-ld/lib")
+        self.assertIn("/opt/cypress", value["service"]["environment"]["WEEKENDUO_CI_CYPRESS_SOURCE"])
+        self.assertIn("/.cache/Cypress/13.17.0/Cypress",
+                      value["service"]["environment"]["WEEKENDUO_CI_CYPRESS_CACHE"])
         user = value["user"]
         self.assertEqual(user["uid"], 599)
         self.assertEqual(user["home"], "/home/weekenduo-ci")
@@ -152,7 +155,8 @@ class ModuleContract(unittest.TestCase):
             self.assertEqual(runner["request_concurrency"], 2)
             self.assertIn("DOCKER_HOST=unix:///var/run/docker.sock", runner["environment"])
             self.assertIn("CYPRESS_INSTALL_BINARY=0", runner["environment"])
-            self.assertIn("CYPRESS_RUN_BINARY=", " ".join(runner["environment"]))
+            self.assertIn("CYPRESS_RUN_BINARY=/home/weekenduo-ci/.cache/Cypress/13.17.0/Cypress/Cypress",
+                          runner["environment"])
             self.assertIn("NIX_LD=/run/current-system/sw/share/nix-ld/lib/ld.so", runner["environment"])
             self.assertIn("NIX_LD_LIBRARY_PATH=/run/current-system/sw/share/nix-ld/lib", runner["environment"])
             self.assertIn("WD_CI_STATUS_ENABLE=0", runner["environment"])
@@ -204,6 +208,24 @@ class HelperScripts(unittest.TestCase):
         result = self.run_script("set-tokens.sh", [])
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("sudo", result.stderr)
+
+    def test_cypress_cache_provisions_a_writable_binary_state(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "source"
+            (source / "resources/app").mkdir(parents=True)
+            (source / "Cypress").write_text("#!/bin/sh\nexit 0\n")
+            (source / "Cypress").chmod(0o755)
+            (source / "resources/app/package.json").write_text('{"version":"13.17.0"}\n')
+            cache = root / "cache/Cypress"
+            env = {**os.environ,
+                   "WEEKENDUO_CI_CYPRESS_SOURCE": str(source),
+                   "WEEKENDUO_CI_CYPRESS_CACHE": str(cache)}
+            result = self.run_script("cypress-cache.sh", [], env)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue((cache / "Cypress").is_file())
+            self.assertTrue((cache / "resources").is_symlink())
+            self.assertEqual(json.loads((cache / "binary_state.json").read_text()), {"verified": True})
 
     def test_prepare_requires_both_tokens_and_writes_mode_0600(self):
         with tempfile.TemporaryDirectory() as tmp:

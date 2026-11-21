@@ -6,6 +6,7 @@ min_free_gb=${WEEKENDUO_CI_MIN_FREE_GB:-20}
 battery_min=${WEEKENDUO_CI_BATTERY_MIN:-30}
 
 weekenduo-ci-disk-guard "$ci_home" "$min_free_gb"
+weekenduo-ci-cypress-cache
 
 for attempt in $(seq 1 30); do
   if docker info >/dev/null 2>&1; then
