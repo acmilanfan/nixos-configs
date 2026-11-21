@@ -29,6 +29,8 @@ let
         "TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock",
         "SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt",
         "NIX_SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt",
+        "NIX_LD=/run/current-system/sw/share/nix-ld/lib/ld.so",
+        "NIX_LD_LIBRARY_PATH=/run/current-system/sw/share/nix-ld/lib",
         "CYPRESS_RUN_BINARY=${cypress}/bin/cypress",
         "CYPRESS_INSTALL_BINARY=0",
         "CYPRESS_CACHE_FOLDER=${ciHome}/.cache/Cypress",
@@ -57,6 +59,8 @@ let
         "TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock",
         "SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt",
         "NIX_SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt",
+        "NIX_LD=/run/current-system/sw/share/nix-ld/lib/ld.so",
+        "NIX_LD_LIBRARY_PATH=/run/current-system/sw/share/nix-ld/lib",
         "CYPRESS_RUN_BINARY=${cypress}/bin/cypress",
         "CYPRESS_INSTALL_BINARY=0",
         "CYPRESS_CACHE_FOLDER=${ciHome}/.cache/Cypress",
@@ -169,6 +173,10 @@ in
 
     fonts.packages = [ pkgs.dejavu_fonts ];
 
+    # The pinned Supabase CLI 2.121.0 release is dynamically linked against
+    # glibc; nix-ld lets it run on NixOS without patching the downloaded binary.
+    programs.nix-ld.enable = true;
+
     environment.systemPackages = [ scripts.setTokens ];
 
     virtualisation.docker.enable = true;
@@ -180,6 +188,8 @@ in
       "d ${cfg.dockerDataRoot} 0710 root docker -"
       "d ${ciHome}/ci-builds 0700 ${ciUser} ${ciUser} -"
       "d ${ciHome}/ci-cache 0700 ${ciUser} ${ciUser} -"
+      # Do not let tmpfiles create an implicit root-owned parent under ciHome.
+      "d ${ciHome}/ai 0700 ${ciUser} ${ciUser} -"
       "d ${ciHome}/ai/artifacts 0700 ${ciUser} ${ciUser} -"
       "d /etc/weekenduo-ci 0750 root root -"
     ];
@@ -205,6 +215,8 @@ in
         WEEKENDUO_CI_MIN_FREE_GB = toString cfg.minFreeGb;
         WEEKENDUO_CI_BATTERY_MIN = toString cfg.batteryMin;
         WEEKENDUO_CI_POWER_SUPPLY = "/sys/class/power_supply";
+        NIX_LD = "/run/current-system/sw/share/nix-ld/lib/ld.so";
+        NIX_LD_LIBRARY_PATH = "/run/current-system/sw/share/nix-ld/lib";
       };
       serviceConfig = {
         User = ciUser;

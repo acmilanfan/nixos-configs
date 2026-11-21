@@ -74,7 +74,9 @@ in {
     execStartPre = service.serviceConfig.ExecStartPre or "";
     execStart = service.serviceConfig.ExecStart or "";
     timeoutStopSec = service.serviceConfig.TimeoutStopSec or null;
+    environment = service.environment;
   };
+  nixLd = config.programs.nix-ld.enable;
   template = config.services.weekenduoCi.runnerConfigTemplate;
   logind = {
     handleLidSwitch = logind.HandleLidSwitch or null;
@@ -89,9 +91,25 @@ class ModuleContract(unittest.TestCase):
     def packages(self, value):
         return {p["name"]: p["version"] for p in value["user"]["packages"]}
 
+    def test_artifact_path_is_provisioned_for_runner(self):
+        rules = enabled("yogabook-gen10", "config.systemd.tmpfiles.rules")
+        directories = {
+            fields[1]: fields[2:5]
+            for rule in rules
+            if (fields := rule.split()) and fields[0] == "d"
+        }
+        for path in ("/home/weekenduo-ci/ai", "/home/weekenduo-ci/ai/artifacts"):
+            with self.subTest(path=path):
+                self.assertEqual(directories.get(path), ["0700", "weekenduo-ci", "weekenduo-ci"])
+
     def test_yogabook_contract(self):
         value = enabled("yogabook-gen10", MODULE_EXPRESSION)
         self.assertTrue(value["hasOption"])
+        self.assertTrue(value["nixLd"])
+        self.assertEqual(value["service"]["environment"]["NIX_LD"],
+                         "/run/current-system/sw/share/nix-ld/lib/ld.so")
+        self.assertEqual(value["service"]["environment"]["NIX_LD_LIBRARY_PATH"],
+                         "/run/current-system/sw/share/nix-ld/lib")
         user = value["user"]
         self.assertEqual(user["uid"], 599)
         self.assertEqual(user["home"], "/home/weekenduo-ci")
@@ -135,6 +153,8 @@ class ModuleContract(unittest.TestCase):
             self.assertIn("DOCKER_HOST=unix:///var/run/docker.sock", runner["environment"])
             self.assertIn("CYPRESS_INSTALL_BINARY=0", runner["environment"])
             self.assertIn("CYPRESS_RUN_BINARY=", " ".join(runner["environment"]))
+            self.assertIn("NIX_LD=/run/current-system/sw/share/nix-ld/lib/ld.so", runner["environment"])
+            self.assertIn("NIX_LD_LIBRARY_PATH=/run/current-system/sw/share/nix-ld/lib", runner["environment"])
             self.assertIn("WD_CI_STATUS_ENABLE=0", runner["environment"])
             self.assertIn("weekenduo-ci-pre-build", runner["pre_build_script"])
             self.assertIn("weekenduo-ci-post-build", runner["post_build_script"])
