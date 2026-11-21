@@ -216,6 +216,7 @@ class HelperScripts(unittest.TestCase):
             (source / "resources/app").mkdir(parents=True)
             (source / "Cypress").write_text("#!/bin/sh\nexit 0\n")
             (source / "Cypress").chmod(0o755)
+            (source / "icudtl.dat").write_text("icu\n")
             (source / "resources/app/package.json").write_text('{"version":"13.17.0"}\n')
             cache = root / "cache/Cypress"
             env = {**os.environ,
@@ -224,7 +225,8 @@ class HelperScripts(unittest.TestCase):
             result = self.run_script("cypress-cache.sh", [], env)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertTrue((cache / "Cypress").is_file())
-            self.assertTrue((cache / "resources").is_symlink())
+            self.assertTrue((cache / "resources").is_dir())
+            self.assertEqual((cache / "icudtl.dat").read_text(), "icu\n")
             self.assertEqual(json.loads((cache / "binary_state.json").read_text()), {"verified": True})
 
     def test_prepare_requires_both_tokens_and_writes_mode_0600(self):
