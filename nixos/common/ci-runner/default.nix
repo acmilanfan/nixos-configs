@@ -20,6 +20,7 @@ let
       shell = "bash"
       builds_dir = "${ciHome}/ci-builds"
       cache_dir = "${ciHome}/ci-cache"
+      request_concurrency = 2
       environment = [
         "PATH=${profileBin}:/run/current-system/sw/bin",
         "LANG=C.UTF-8",
@@ -47,6 +48,7 @@ let
       shell = "bash"
       builds_dir = "${ciHome}/ci-builds"
       cache_dir = "${ciHome}/ci-cache"
+      request_concurrency = 2
       environment = [
         "PATH=${profileBin}:/run/current-system/sw/bin",
         "LANG=C.UTF-8",

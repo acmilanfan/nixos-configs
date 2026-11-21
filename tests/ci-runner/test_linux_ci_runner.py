@@ -131,6 +131,7 @@ class ModuleContract(unittest.TestCase):
             self.assertTrue(runner["token"].startswith("__"), runner["token"])
             self.assertEqual(runner["executor"], "shell")
             self.assertEqual(runner["builds_dir"], "/home/weekenduo-ci/ci-builds")
+            self.assertEqual(runner["request_concurrency"], 2)
             self.assertIn("DOCKER_HOST=unix:///var/run/docker.sock", runner["environment"])
             self.assertIn("CYPRESS_INSTALL_BINARY=0", runner["environment"])
             self.assertIn("CYPRESS_RUN_BINARY=", " ".join(runner["environment"]))
@@ -255,7 +256,7 @@ class HelperScripts(unittest.TestCase):
             bindir = root / "bin"
             bindir.mkdir()
             docker = bindir / "docker"
-            docker.write_text("#!/bin/sh\nprintf 'abcdef123456\\n'\n")
+            docker.write_text("#!/bin/sh\nprintf '123e4567-e89b-12d3-a456-426614174000\\n'\n")
             docker.chmod(0o700)
             id_command = bindir / "id"
             id_command.write_text("#!/bin/sh\nprintf 'weekenduo-ci\\n'\n")
@@ -268,7 +269,7 @@ class HelperScripts(unittest.TestCase):
             self.assertEqual(policy["user"], "weekenduo-ci")
             self.assertEqual(policy["home"], str(root))
             self.assertEqual(policy["dockerSocket"], "/var/run/docker.sock")
-            self.assertEqual(policy["dockerId"], "abcdef123456")
+            self.assertEqual(policy["dockerId"], "123e4567-e89b-12d3-a456-426614174000")
             self.assertEqual(policy["buildRoot"], f"{root}/ci-builds")
             self.assertEqual(policy["artifactRoot"], f"{root}/ai/artifacts")
             self.assertEqual(stat.S_IMODE(policy_path.stat().st_mode), 0o600)

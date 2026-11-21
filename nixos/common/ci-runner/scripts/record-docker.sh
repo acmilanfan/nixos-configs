@@ -8,8 +8,9 @@ mkdir -p "$config_dir"
 chmod 700 "$config_dir"
 
 daemon_id=$(docker info --format '{{.ID}}')
-if [[ ! "$daemon_id" =~ ^[a-f0-9]{12,64}$ ]]; then
-  printf 'Docker daemon ID is not valid\n' >&2
+# Docker 29 reports a UUID; older engines report a 64-character hex ID.
+if [[ ! "$daemon_id" =~ ^([0-9a-fA-F]{12,64}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$ ]]; then
+  printf 'Docker daemon ID is not valid: %s\n' "$daemon_id" >&2
   exit 1
 fi
 
