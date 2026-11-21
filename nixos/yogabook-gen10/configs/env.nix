@@ -170,6 +170,10 @@
     # (Intel) falls back to the old 496-step PWM devices, which accept writes
     # but do not change the panels. Fallback: remove the line entirely.
     "xe.enable_dpcd_backlight=2"
+    # The top panel is physically mounted 180 degrees out. Tell the kernel so
+    # GDM/Mutter and the kernel console render it upright. The udev rule below
+    # hides the misleading keyboard-dock tablet switch that would otherwise
+    # make Mutter's accelerometer handling cancel this hint.
     "video=eDP-1:panel_orientation=upside_down"
     "btusb.enable_autosuspend=n"
   ];
@@ -287,6 +291,12 @@
     ACTION=="add", SUBSYSTEM=="input", ATTRS{name}=="INGENIC Gadget Serial and keyboard Stylus Bottom", ENV{LIBINPUT_DEVICE_GROUP}="group_bottom", ENV{CUSTOM_ID}="tablet_bottom"
     ACTION=="add", SUBSYSTEM=="input", ATTRS{name}=="INGENIC Gadget Serial and keyboard Keyboard", ENV{LIBINPUT_IGNORE_DEVICE}="1"
     ACTION=="add", SUBSYSTEM=="input", ATTRS{name}=="INGENIC Gadget Serial and keyboard Emulated Touchpad", ENV{LIBINPUT_IGNORE_DEVICE}="1"
+    # Linux 7.3's lenovo_yb9_kbdock reports SW_TABLET_MODE=1 whenever the
+    # detachable keyboard is detached, even when the panels are in laptop
+    # orientation. Mutter then enables accelerometer rotation and cancels the
+    # eDP-1 panel-orientation hint, leaving the top screen upside down. Keep
+    # the switch out of libinput; Hyprland auto-rotation uses SensorProxy.
+    ACTION=="add", SUBSYSTEM=="input", ATTRS{name}=="Lenovo Yoga Book 9 keyboard dock switch", ENV{LIBINPUT_IGNORE_DEVICE}="1"
     ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="17ef", ATTR{idProduct}=="6161", ATTR{power/control}="on"
   '';
 
