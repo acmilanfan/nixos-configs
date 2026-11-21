@@ -117,7 +117,46 @@ end
 -- Focus agent terminal
 -- =============================================================================
 
-function M.focusAgent(paneId)
+-- tmux-focus-pane output: title and the clients that now show the pane.
+local function parseFocusOutput(stdOut)
+    local title, pids
+    for line in (stdOut or ""):gmatch("[^\n]+") do
+        local t = line:match("^title=(.+)$")
+        local pid = line:match("^client=%S+%s+(%d+)$")
+        if t then
+            title = t
+        elseif pid then
+            pids = pids or {}
+            table.insert(pids, pid)
+        end
+    end
+    return title, pids
+end
+
+-- Title of the window the user invoked us from, but only when it is a terminal
+-- we can raise. The chooser is frontmost once it is open, so showMenu captures
+-- this before showing it.
+local function frontTerminalTitle()
+    local win = hs.window.focusedWindow()
+    local app = win and win:application()
+    if app and TERMINALS[app:name()] then
+        return win:title()
+    end
+end
+
+-- Last resort when no window carries the expected title. With several windows
+-- of the same app this can raise the wrong one (all Ghostty windows share a
+-- process), which is why focusAgent normally matches by title instead.
+local function focusPidFallback(pids)
+    local pid = pids and pids[1]
+    if not pid then return end
+    hs.task.new("/bin/ps", function(_, psOut)
+        local termPid = findTerminalPid(pid, parseProcessTable(psOut))
+        if termPid then focusByPid(termPid) end
+    end, { "-eo", "pid,ppid,ucomm" }):start()
+end
+
+function M.focusAgent(paneId, sourceTitle)
     -- paneId can come from hammerspoon://nanowm?cmd=focusAgent, which any local process (or a
     -- web page via the browser's open-app prompt) can open. tmux-focus-pane puts it inside a
     -- tmux format (-f "#{m:...}"), where #(...) would run a shell command, so accept only a
@@ -136,9 +175,57 @@ function M.focusAgent(paneId)
     -- process, so the client PID identifies the app, never the window. Titles are tmux's
     -- set-titles-string (tmux.nix), and every client showing that window carries the same one.
     --
+    -- A session's only client can be a hidden surface (background tab/split): selecting its
+    -- window updates a title no OS window carries, so the match below fails and nothing appears
+    -- to happen. Retry once with the title of the window the user is looking at; the script
+    -- moves that visible client to the target session, giving the next match a real window.
+    --
     -- Everything here is async: the sketchybar agent-focus plugin invokes this via `hs -c`, and
     -- blocking the event loop while an IPC request is in flight is what produced the
     -- `hs.ipc: already recursing` floods.
+    if sourceTitle == nil then sourceTitle = frontTerminalTitle() end
+    if sourceTitle == "" then sourceTitle = nil end
+
+    local function apply(stdOut)
+        local title, pids = parseFocusOutput(stdOut)
+        -- The script printed no title (set-titles off, another terminal app): fall back to the
+        -- old app-level focus. Its process-table walk stays in Lua so TERMINALS remains the
+        -- single definition instead of being duplicated into shell.
+        local function fallback() focusPidFallback(pids) end
+
+        if not title then
+            fallback()
+            return
+        end
+
+        focusByTitle(title, function()
+            if not sourceTitle then
+                fallback()
+                return
+            end
+            -- Positional arguments avoid shell-quoting the title: $1 is the pane,
+            -- $2 the title of the window the user invoked us from.
+            hs.task.new("/bin/zsh", function(exitCode, retryOut, retryErr)
+                if exitCode ~= 0 then
+                    -- 2 = the retry found no client to move; keep the old fallback.
+                    if exitCode ~= 2 then
+                        print("[NanoWM] focusAgent retry: tmux-focus-pane exited " .. tostring(exitCode) .. ": " .. tostring(retryErr))
+                    end
+                    fallback()
+                    return
+                end
+
+                local retryTitle, retryPids = parseFocusOutput(retryOut)
+                local function retryFallback() focusPidFallback(retryPids or pids) end
+                if retryTitle then
+                    focusByTitle(retryTitle, retryFallback)
+                else
+                    retryFallback()
+                end
+            end, { "-lc", 'tmux-focus-pane --source-title "$2" "$1"', "tmux-focus-pane", paneId, sourceTitle }):start()
+        end)
+    end
+
     hs.task.new("/bin/zsh", function(exitCode, stdOut, stdErr)
         if exitCode == 1 then
             hs.alert.show("Could not locate tmux pane " .. tostring(paneId))
@@ -151,32 +238,7 @@ function M.focusAgent(paneId)
             end
             return
         end
-
-        local title, pids
-        for line in (stdOut or ""):gmatch("[^\n]+") do
-            local t = line:match("^title=(.+)$")
-            local pid = line:match("^client=%S+%s+(%d+)$")
-            if t then
-                title = t
-            elseif pid then
-                pids = pids or {}
-                table.insert(pids, pid)
-            end
-        end
-
-        -- No window carries the title (set-titles off, another terminal app): fall back to the
-        -- old app-level focus. Its process-table walk stays in Lua so TERMINALS remains the
-        -- single definition instead of being duplicated into shell.
-        local function fallback()
-            local pid = pids and pids[1]
-            if not pid then return end
-            hs.task.new("/bin/ps", function(_, psOut)
-                local termPid = findTerminalPid(pid, parseProcessTable(psOut))
-                if termPid then focusByPid(termPid) end
-            end, { "-eo", "pid,ppid,ucomm" }):start()
-        end
-
-        if title then focusByTitle(title, fallback) else fallback() end
+        apply(stdOut)
     end, { "-lc", "tmux-focus-pane " .. paneId }):start()
 end
 
@@ -253,11 +315,14 @@ local STATUS_MAP = {
 }
 
 function M.showMenu()
+    -- The chooser is frontmost once shown, so capture the invoking window now.
+    -- focusAgent uses its title to find (and if needed move) the visible client.
+    local sourceTitle = frontTerminalTitle()
     if chooser then chooser:delete() end
     chooser = hs.chooser.new(function(choice)
         if not choice then return end
         if choice.uuid and choice.uuid ~= "loading" then
-            M.focusAgent(choice.paneId)
+            M.focusAgent(choice.paneId, sourceTitle)
         end
     end)
     chooser:width(55)
