@@ -1,5 +1,5 @@
 local mod = "ALT"
-local terminal = "alacritty"
+local terminal = "ghostty"
 local browser = "firefox"
 local bluetooth_menu = [[bzmenu -l custom --launcher-command 'vicinae dmenu -p "{hint}"']]
 local wifi_menu = [[iwmenu -l custom --launcher-command 'vicinae dmenu -p "{hint}"']]

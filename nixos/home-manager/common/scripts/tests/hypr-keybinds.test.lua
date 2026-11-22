@@ -111,7 +111,7 @@ for _, key in ipairs({ "escape", "q" }) do
   check("leader:" .. key, "submap", "reset")
   equal(invoke("leader-controls:" .. key), { { name = "submap", args = "reset" } }, key)
 end
-for key, cmd in pairs({t = "alacritty", b = "firefox", r = "hyprctl reload", k = "hypr-ai-agents --menu"}) do
+for key, cmd in pairs({t = "ghostty", b = "firefox", r = "hyprctl reload", k = "hypr-ai-agents --menu"}) do
   equal(invoke("leader:" .. key), {
     { name = "exec_cmd", args = cmd }, { name = "submap", args = "reset" },
   }, "leader:" .. key)
