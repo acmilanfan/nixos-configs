@@ -82,6 +82,7 @@ grep -qx 'on' "$FIXTURE/waybar.log"
 reset
 mkdir -p "$FIXTURE/nobin"
 for cmd in pgrep pkill setsid hypr-waybar-toggle; do ln -s "$FIXTURE/$cmd" "$FIXTURE/nobin/$cmd"; done
+ln -s "$(command -v bash)" "$FIXTURE/nobin/bash"
 if PATH="$FIXTURE/nobin:/usr/bin:/bin" run start 2>/dev/null; then
     echo "Start must fail without quickshell" >&2
     exit 1
