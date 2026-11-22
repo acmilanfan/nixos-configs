@@ -40,8 +40,8 @@ PanelWindow {
         left: 3
         right: 3
     }
-    implicitHeight: 24
-    exclusiveZone: 27
+    implicitHeight: 28
+    exclusiveZone: 31
     color: "transparent"
     WlrLayershell.namespace: "quickshell-shell"
 
@@ -61,7 +61,7 @@ PanelWindow {
         Item {
             Layout.fillWidth: true
             Layout.preferredWidth: 0
-            implicitHeight: 24
+            implicitHeight: 28
 
             Rectangle {
                 width: leftRow.implicitWidth + 10
@@ -100,8 +100,8 @@ PanelWindow {
                                     && ws.toplevels.values.length > 0
 
                                 visible: active || occupied
-                                width: 16
-                                height: 16
+                                width: 19
+                                height: 19
                                 radius: 4
                                 color: active ? bar.accent
                                     : (hover.hovered ? "#242436" : "transparent")
@@ -111,7 +111,7 @@ PanelWindow {
                                     text: pill.modelData
                                     color: pill.active ? bar.background : bar.foreground
                                     font.family: "JetBrainsMono Nerd Font"
-                                    font.pixelSize: 9
+                                    font.pixelSize: 10
                                 }
 
                                 HoverHandler { id: hover }
@@ -184,7 +184,7 @@ PanelWindow {
         Item {
             Layout.fillWidth: true
             Layout.preferredWidth: 0
-            implicitHeight: 24
+            implicitHeight: 28
 
             Rectangle {
                 anchors.right: parent.right

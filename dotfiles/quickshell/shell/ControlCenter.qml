@@ -70,7 +70,7 @@ PanelWindow {
         right: page === "control"
     }
     margins {
-        top: 29
+        top: 33
         left: 3
         right: 3
     }
