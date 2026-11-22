@@ -15,6 +15,10 @@ else
 fi
 
 watts=$(awk -v u="$micro" 'BEGIN { printf "%.1f", u / 1000000 }')
+if awk -v w="$watts" 'BEGIN { exit !(w < 0.1) }'; then
+  echo '{"text": "󱐋 AC", "class": "none", "tooltip": "On AC power"}'
+  exit 0
+fi
 class=low
 awk -v w="$watts" 'BEGIN { exit !(w > 30) }' && class=high
 awk -v w="$watts" 'BEGIN { exit !(w > 15 && w <= 30) }' && class=medium

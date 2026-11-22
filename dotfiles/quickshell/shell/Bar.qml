@@ -11,7 +11,8 @@ PanelWindow {
     id: bar
 
     property bool dual: true
-    signal toggleControlCenter()
+    signal openControlCenter()
+    signal openQuickMenu()
 
     readonly property string screenName: screen ? screen.name : ""
     readonly property bool bottom: screenName === "eDP-2"
@@ -35,12 +36,12 @@ PanelWindow {
         right: true
     }
     margins {
-        top: 3
-        left: 3
-        right: 3
+        top: 2
+        left: 2
+        right: 2
     }
-    implicitHeight: 22
-    exclusiveZone: 25
+    implicitHeight: 18
+    exclusiveZone: 20
     color: "transparent"
     WlrLayershell.namespace: "quickshell-shell"
 
@@ -55,110 +56,112 @@ PanelWindow {
 
     RowLayout {
         anchors.fill: parent
-        spacing: 6
+        spacing: 4
 
-        Rectangle {
-            Layout.fillHeight: true
-            implicitHeight: 22
-            implicitWidth: leftRow.implicitWidth + 12
-            radius: 7
-            color: bar.background
-            border.width: 1
-            border.color: bar.border
+        Item {
+            Layout.fillWidth: true
+            Layout.preferredWidth: 0
+            implicitHeight: 18
 
-            RowLayout {
-                id: leftRow
-                anchors.fill: parent
-                anchors.leftMargin: 6
-                anchors.rightMargin: 6
-                spacing: 7
+            Rectangle {
+                width: leftRow.implicitWidth + 10
+                height: parent.height
+                radius: 6
+                color: bar.background
+                border.width: 1
+                border.color: bar.border
 
-                Row {
-                    spacing: 2
+                RowLayout {
+                    id: leftRow
+                    anchors.fill: parent
+                    anchors.leftMargin: 5
+                    anchors.rightMargin: 5
+                    spacing: 6
 
-                    Repeater {
-                        model: bar.bank
+                    Row {
+                        spacing: 2
 
-                        delegate: Rectangle {
-                            id: pill
-                            required property int modelData
+                        Repeater {
+                            model: bar.bank
 
-                            readonly property bool active: bar.activeWorkspaceId === modelData
-                            readonly property var ws: {
-                                const values = Hyprland.workspaces.values
-                                for (let i = 0; i < values.length; i++)
-                                    if (values[i].id === modelData)
-                                        return values[i]
-                                return null
-                            }
-                            readonly property bool occupied: ws !== null
-                                && ws.toplevels.values.length > 0
+                            delegate: Rectangle {
+                                id: pill
+                                required property int modelData
 
-                            visible: active || occupied
-                            width: 17
-                            height: 17
-                            radius: 5
-                            color: active ? bar.accent
-                                : (hover.hovered ? "#242436" : "transparent")
+                                readonly property bool active: bar.activeWorkspaceId === modelData
+                                readonly property var ws: {
+                                    const values = Hyprland.workspaces.values
+                                    for (let i = 0; i < values.length; i++)
+                                        if (values[i].id === modelData)
+                                            return values[i]
+                                    return null
+                                }
+                                readonly property bool occupied: ws !== null
+                                    && ws.toplevels.values.length > 0
 
-                            Text {
-                                anchors.centerIn: parent
-                                text: pill.modelData
-                                color: pill.active ? bar.background : bar.foreground
-                                font.family: "JetBrainsMono Nerd Font"
-                                font.pixelSize: 9
-                            }
+                                visible: active || occupied
+                                width: 14
+                                height: 14
+                                radius: 4
+                                color: active ? bar.accent
+                                    : (hover.hovered ? "#242436" : "transparent")
 
-                            HoverHandler { id: hover }
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: pill.modelData
+                                    color: pill.active ? bar.background : bar.foreground
+                                    font.family: "JetBrainsMono Nerd Font"
+                                    font.pixelSize: 8
+                                }
 
-                            MouseArea {
-                                anchors.fill: parent
-                                onClicked: Hyprland.dispatch("workspace " + pill.modelData)
+                                HoverHandler { id: hover }
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    onClicked: Hyprland.dispatch("workspace " + pill.modelData)
+                                }
                             }
                         }
                     }
-                }
 
-                ScriptLabel {
-                    visible: bar.monitor && bar.monitor.focused
-                    command: "hyprctl -j activewindow | jq -r '(.title // \"\")[0:42]'"
-                    interval: 2
-                }
-
-                ScriptLabel {
-                    command: "hypr-idle-inhibit status >/dev/null 2>&1 && echo '󰅶' || echo '󰒲'"
-                    interval: 2
-                    leftCommand: "hypr-idle-inhibit toggle"
-                }
-
-                Item {
-                    implicitWidth: touch.implicitWidth
-                    implicitHeight: 16
-
-                    Text {
-                        id: touch
-                        anchors.centerIn: parent
-                        text: "󰀻"
-                        color: bar.foreground
-                        font.family: "JetBrainsMono Nerd Font"
-                        font.pixelSize: 10
+                    ScriptLabel {
+                        visible: bar.monitor && bar.monitor.focused
+                        command: "hyprctl -j activewindow | jq -r '(.title // \"\")[0:38]'"
+                        interval: 2
                     }
 
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: Quickshell.execDetached(["hypr-touch-menu"])
+                    ScriptLabel {
+                        command: "hypr-idle-inhibit status >/dev/null 2>&1 && echo '󰅶' || echo '󰒲'"
+                        interval: 2
+                        leftCommand: "hypr-idle-inhibit toggle"
+                    }
+
+                    Item {
+                        implicitWidth: touch.implicitWidth
+                        implicitHeight: 14
+
+                        Text {
+                            id: touch
+                            anchors.centerIn: parent
+                            text: "󰀻"
+                            color: bar.foreground
+                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: 9
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            onClicked: bar.openQuickMenu()
+                        }
                     }
                 }
             }
         }
 
-        Item { Layout.fillWidth: true }
-
         Rectangle {
-            Layout.fillHeight: true
-            implicitHeight: 22
-            implicitWidth: clockLabel.implicitWidth + 14
-            radius: 7
+            width: clockLabel.implicitWidth + 12
+            height: 18
+            radius: 6
             color: bar.background
             border.width: 1
             border.color: bar.border
@@ -169,115 +172,119 @@ PanelWindow {
                 text: Qt.formatDateTime(clock.date, "HH:mm")
                 color: bar.foreground
                 font.family: "JetBrainsMono Nerd Font"
-                font.pixelSize: 10
+                font.pixelSize: 9
             }
 
             MouseArea {
                 anchors.fill: parent
-                onClicked: bar.toggleControlCenter()
+                onClicked: bar.openControlCenter()
             }
         }
 
-        Item { Layout.fillWidth: true }
+        Item {
+            Layout.fillWidth: true
+            Layout.preferredWidth: 0
+            implicitHeight: 18
 
-        Rectangle {
-            Layout.fillHeight: true
-            implicitHeight: 22
-            implicitWidth: rightRow.implicitWidth + 12
-            radius: 7
-            color: bar.background
-            border.width: 1
-            border.color: bar.border
+            Rectangle {
+                anchors.right: parent.right
+                width: rightRow.implicitWidth + 10
+                height: parent.height
+                radius: 6
+                color: bar.background
+                border.width: 1
+                border.color: bar.border
 
-            RowLayout {
-                id: rightRow
-                anchors.fill: parent
-                anchors.leftMargin: 6
-                anchors.rightMargin: 6
-                spacing: 7
-
-                ScriptLabel {
-                    visible: text !== ""
-                    command: "hypr-kanata-status | jq -r '.text // \"\"'"
-                    interval: 5
-                    leftCommand: "hypr-kanata-menu"
-                }
-
-                ScriptLabel {
-                    command: "hypr-layout-icon"
-                    interval: 2
-                    leftCommand: "hypr-cycle-layout"
-                }
-
-                ScriptLabel {
-                    command: "hypr-power-watts | jq -r '.text // \"\"'"
-                    interval: 30
-                }
-
-                ScriptLabel {
-                    visible: text !== ""
-                    command: "hypr-timer output | jq -r 'if .class == \"finished\" then \"\" else (.text // \"\") end'"
-                    interval: 1
-                    leftCommand: "hypr-timer stop"
-                    rightCommand: "hypr-timer reset"
-                    middleCommand: "hypr-timer start 25"
-                }
-
-                ScriptLabel {
-                    visible: text !== ""
-                    command: "hypr-ai-agents | jq -r '.text // \"\"'"
-                    interval: 10
-                    leftCommand: "hypr-ai-agents --menu"
-                }
-
-                Text {
-                    readonly property var sink: Pipewire.defaultAudioSink
-                    text: !sink || !sink.audio ? "--"
-                        : (sink.audio.muted ? "muted"
-                            : Math.round(sink.audio.volume * 100) + "%")
-                    color: bar.muted
-                    font.family: "JetBrainsMono Nerd Font"
-                    font.pixelSize: 10
-                }
-
-                ScriptLabel {
-                    visible: text !== ""
-                    command: "upower -i /org/freedesktop/UPower/devices/DisplayDevice 2>/dev/null | awk '/state:/{s=$2} /percentage:/{p=$2} END{if (s==\"charging\"||s==\"discharging\") printf \"%s\", p}'"
-                    interval: 30
-                }
-
-                ScriptLabel {
-                    command: "nmcli -t -f TYPE,STATE device 2>/dev/null | awk -F: '$2==\"connected\"{print ($1==\"wifi\"?\"󰤢\":\"󰈀\"); f=1; exit} END{if(!f) print \"󰤠\"}'"
-                    interval: 5
-                }
-
-                ScriptLabel {
-                    command: "top -bn1 | awk '/Cpu\\(s\\)/ {printf \"%d%%\", 100-$8}'"
-                    interval: 2
-                }
-
-                ScriptLabel {
-                    command: "free -m | awk '/Mem:/ {printf \"%d%%\", $3/$2*100}'"
-                    interval: 30
-                }
-
-                Row {
+                RowLayout {
+                    id: rightRow
+                    anchors.fill: parent
+                    anchors.leftMargin: 5
+                    anchors.rightMargin: 5
                     spacing: 6
 
-                    Repeater {
-                        model: SystemTray.items
+                    ScriptLabel {
+                        visible: text !== ""
+                        command: "hypr-kanata-status | jq -r '.text // \"\"'"
+                        interval: 5
+                        leftCommand: "hypr-kanata-menu"
+                    }
 
-                        delegate: Image {
-                            required property var modelData
-                            source: modelData.icon
-                            sourceSize.width: 14
-                            sourceSize.height: 14
-                            width: 14
-                            height: 14
+                    ScriptLabel {
+                        command: "hypr-layout-icon"
+                        interval: 2
+                        leftCommand: "hypr-cycle-layout"
+                    }
 
-                            MouseArea {
-                                anchors.fill: parent
-                                onClicked: (mouse) => modelData.display(bar, mouse.x, mouse.y)
+                    ScriptLabel {
+                        command: "hypr-power-watts | jq -r '.text // \"\"'"
+                        interval: 30
+                    }
+
+                    ScriptLabel {
+                        visible: text !== ""
+                        command: "hypr-timer output | jq -r 'if .class == \"finished\" then \"\" else (.text // \"\") end'"
+                        interval: 1
+                        leftCommand: "hypr-timer stop"
+                        rightCommand: "hypr-timer reset"
+                        middleCommand: "hypr-timer start 25"
+                    }
+
+                    ScriptLabel {
+                        visible: text !== ""
+                        command: "hypr-ai-agents | jq -r '.text // \"\"'"
+                        interval: 10
+                        leftCommand: "hypr-ai-agents --menu"
+                    }
+
+                    Text {
+                        readonly property var sink: Pipewire.defaultAudioSink
+                        text: !sink || !sink.audio ? "--"
+                            : (sink.audio.muted ? "muted"
+                                : Math.round(sink.audio.volume * 100) + "%")
+                        color: bar.muted
+                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: 9
+                    }
+
+                    ScriptLabel {
+                        visible: text !== ""
+                        command: "upower -i /org/freedesktop/UPower/devices/DisplayDevice 2>/dev/null | awk '/state:/{s=$2} /percentage:/{p=$2} END{if (s==\"charging\"||s==\"discharging\") printf \"%s\", p}'"
+                        interval: 30
+                    }
+
+                    ScriptLabel {
+                        command: "nmcli -t -f TYPE,STATE device 2>/dev/null | awk -F: '$2==\"connected\"{print ($1==\"wifi\"?\"󰤢\":\"󰈀\"); f=1; exit} END{if(!f) print \"󰤠\"}'"
+                        interval: 5
+                    }
+
+                    ScriptLabel {
+                        command: "top -bn1 | awk '/Cpu\\(s\\)/ {printf \"%d%%\", 100-$8}'"
+                        interval: 2
+                    }
+
+                    ScriptLabel {
+                        command: "free -m | awk '/Mem:/ {printf \"%d%%\", $3/$2*100}'"
+                        interval: 30
+                    }
+
+                    Row {
+                        spacing: 5
+
+                        Repeater {
+                            model: SystemTray.items
+
+                            delegate: Image {
+                                required property var modelData
+                                source: modelData.icon
+                                sourceSize.width: 12
+                                sourceSize.height: 12
+                                width: 12
+                                height: 12
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    onClicked: (mouse) => modelData.display(bar, mouse.x, mouse.y)
+                                }
                             }
                         }
                     }

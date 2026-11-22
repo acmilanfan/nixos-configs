@@ -5,16 +5,24 @@ import Quickshell.Io
 ShellRoot {
     id: root
 
-    // The bottom panel is only meaningful in dual-screen mode. Unknown or
-    // missing state (yb-mode absent) counts as dual so other hosts are fine.
     property bool dual: true
-    property bool controlCenterOpen: false
+    property string popover: ""
+    property var popoverScreen: null
 
     FileView {
         path: Quickshell.env("XDG_RUNTIME_DIR") + "/yb-mode/mode"
         watchChanges: true
         onFileChanged: reload()
         onTextChanged: root.dual = text().trim() === "" || text().trim() === "dual"
+    }
+
+    function open(page, screen) {
+        if (root.popover === page && root.popoverScreen === screen) {
+            root.popover = ""
+            return
+        }
+        root.popoverScreen = screen
+        root.popover = page
     }
 
     Variants {
@@ -24,12 +32,14 @@ ShellRoot {
             required property var modelData
             screen: modelData
             dual: root.dual
-            onToggleControlCenter: root.controlCenterOpen = !root.controlCenterOpen
+            onOpenControlCenter: root.open("control", modelData)
+            onOpenQuickMenu: root.open("quick", modelData)
         }
     }
 
     ControlCenter {
-        open: root.controlCenterOpen
-        onCloseRequested: root.controlCenterOpen = false
+        page: root.popover
+        targetScreen: root.popoverScreen
+        onCloseRequested: root.popover = ""
     }
 }

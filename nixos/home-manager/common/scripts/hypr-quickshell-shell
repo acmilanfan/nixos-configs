@@ -46,6 +46,8 @@ case "${1:-status}" in
     start_shell
     hypr-waybar-toggle off
     ;;
+  bars-on) hypr-waybar-toggle on ;;
+  bars-off) hypr-waybar-toggle off ;;
   toggle)
     if shell_running; then
       stop_shell
