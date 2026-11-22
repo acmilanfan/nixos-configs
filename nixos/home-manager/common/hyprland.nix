@@ -352,8 +352,6 @@ in
     (writeShellScriptBin "hypr-layout-status" (lib.readFile ./scripts/hypr-layout-status))
     (writeShellScriptBin "hypr-power-watts" (lib.readFile ./scripts/hypr-power-watts))
     (writeShellScriptBin "hypr-focus-window" (lib.readFile ./scripts/hypr-focus-window))
-    (writeShellScriptBin "hypr-firefox-tabs" (lib.readFile ./scripts/hypr-firefox-tabs))
-    (writeShellScriptBin "hypr-window-adapt" (lib.readFile ./scripts/hypr-window-adapt))
     (writeShellScriptBin "hypr-timer" (lib.readFile ./scripts/hypr-timer))
     (writeShellScriptBin "hypr-commands" (lib.readFile ./scripts/hypr-commands))
     (writeShellScriptBin "hypr-ai-agents" (lib.readFile ./scripts/hypr-ai-agents))

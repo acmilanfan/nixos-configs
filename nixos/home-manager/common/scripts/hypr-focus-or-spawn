@@ -14,9 +14,11 @@ address=$(jq -r --arg class "$class" --arg title "$title" '
   | first | .address // empty' <<< "$clients") || exit 1
 
 if [[ -n "$address" ]]; then
-  workspace=$(hyprctl -j activeworkspace | jq -r '.id') || exit 1
+  # Special workspaces have negative ids; their names are the stable selector.
+  workspace=$(hyprctl -j activeworkspace | jq -r '.name // (.id | tostring)') || exit 1
+  selector=$(jq -rn --arg w "$workspace" '$w | @json') || exit 1
   hyprctl dispatch "hl.dsp.focus({window = 'address:$address'})"
-  hyprctl dispatch "hl.dsp.window.move({workspace = '$workspace'})"
+  hyprctl dispatch "hl.dsp.window.move({workspace = $selector})"
   hyprctl dispatch "hl.dsp.window.float({action = 'enable'})"
   hyprctl dispatch "hl.dsp.window.center()"
 else

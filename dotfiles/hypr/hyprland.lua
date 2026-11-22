@@ -361,10 +361,26 @@ hl.bind(mod .. " + mouse:272", hl.dsp.window.drag(), { mouse = true })
 hl.bind(mod .. " + mouse:273", hl.dsp.window.resize(), { mouse = true })
 
 -- Floating: resize in place. Tiled: reorder. (NanoWM-compatible shift+hjkl.)
-hl.bind(mod .. " + SHIFT + H", hl.dsp.exec_cmd("hypr-window-adapt h"))
-hl.bind(mod .. " + SHIFT + L", hl.dsp.exec_cmd("hypr-window-adapt l"))
-hl.bind(mod .. " + SHIFT + K", hl.dsp.exec_cmd("hypr-window-adapt k"))
-hl.bind(mod .. " + SHIFT + J", hl.dsp.exec_cmd("hypr-window-adapt j"))
+local adapt_steps = {
+  h = { x = -40, y = 0 },
+  l = { x = 40, y = 0 },
+  k = { x = 0, y = -40 },
+  j = { x = 0, y = 40 },
+}
+local function adapt_window(key)
+  local w = hl.get_active_window()
+  if w and w.floating then
+    local step = adapt_steps[key]
+    hl.dispatch(hl.dsp.window.resize({ x = step.x, y = step.y, relative = true }))
+  elseif key == "l" or key == "j" then
+    hl.dispatch(hl.dsp.window.swap({ next = true }))
+  else
+    hl.dispatch(hl.dsp.window.swap({ prev = true }))
+  end
+end
+for _, key in ipairs({ "h", "l", "k", "j" }) do
+  hl.bind(mod .. " + SHIFT + " .. key:upper(), function() adapt_window(key) end)
+end
 
 -- Floating move (10px steps, repeating)
 hl.bind(mod .. " + SHIFT + CTRL + J", hl.dsp.window.move({ x = 0, y = 10, relative = true }), { repeating = true })
@@ -468,7 +484,15 @@ end)
 -- while Firefox is focused; elsewhere the key passes through untouched.
 local firefox = "firefox"
 local function firefox_tabs(action)
-  hl.dispatch(hl.dsp.exec_cmd("hypr-firefox-tabs " .. action))
+  local mods, key = "CTRL", "Tab"
+  if action == "prev" then
+    mods = "CTRL SHIFT"
+  elseif action == "toggle" then
+    mods, key = "CTRL ALT", "z"
+  end
+  -- send_shortcut writes to the seat directly, so the synthetic chord cannot
+  -- re-trigger this bind or any other keybind.
+  hl.dispatch(hl.dsp.send_shortcut({ mods = mods, key = key, window = "activewindow" }))
 end
 
 hl.bind("CTRL + ALT + Z", function()
@@ -492,7 +516,7 @@ hl.define_submap("firefox-tabs", function()
   hl.bind("return", leave)
   hl.bind("escape", leave)
   hl.bind("CTRL + ALT + Z", leave)
-  hl.bind("catchall", hl.dsp.submap("reset"), { non_consuming = true })
+  hl.bind("catchall", hl.dsp.submap("reset"), { non_consuming = true, ignore_mods = true })
 end)
 
 hl.on("window.active", function(w)

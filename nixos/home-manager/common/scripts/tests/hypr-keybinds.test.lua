@@ -59,15 +59,29 @@ end
 check(":alt + shift + space", "window.float", { action = "toggle" })
 check(":alt + shift + 0", "window.move", { workspace = "10" })
 check(":alt + shift + minus", "exec_cmd", "hyprctl -q keyword cursor:zoom_factor 1")
-check(":alt + shift + h", "exec_cmd", "hypr-window-adapt h")
-check(":alt + shift + l", "exec_cmd", "hypr-window-adapt l")
-check(":alt + shift + j", "exec_cmd", "hypr-window-adapt j")
-check(":alt + shift + k", "exec_cmd", "hypr-window-adapt k")
 check(":alt + ctrl + h", "layout", "orientationright")
 check(":alt + ctrl + l", "layout", "orientationleft")
 check(":alt + ctrl + j", "layout", "orientationright")
 check(":alt + ctrl + k", "layout", "orientationleft")
 assert(flags(":alt + h").repeating and flags(":alt + l").repeating)
+local function invoke_window(key, window)
+  calls = {}
+  state.window = window
+  local action = get(key)
+  assert(type(action) == "function", key .. " should be a function")
+  action()
+  return calls
+end
+for key, step in pairs({ h = { -40, 0 }, l = { 40, 0 }, k = { 0, -40 }, j = { 0, 40 } }) do
+  equal(invoke_window(":alt + shift + " .. key, { floating = true }), {
+    { name = "window.resize", args = { x = step[1], y = step[2], relative = true } },
+  }, "floating " .. key)
+end
+for key, nxt in pairs({ h = false, k = false, l = true, j = true }) do
+  equal(invoke_window(":alt + shift + " .. key, { floating = false }), {
+    { name = "window.swap", args = nxt and { next = true } or { prev = true } },
+  }, "tiled " .. key)
+end
 check(":alt + p", "exec_cmd", "hypr-commands")
 check(":alt + slash", "exec_cmd", "hypr-commands")
 check(":alt + i", "exec_cmd", "hypr-focus-window")
@@ -115,7 +129,7 @@ local function firefox_toggle(window)
 end
 local ff_calls, ff_result = firefox_toggle({ class = "firefox" })
 equal(ff_calls, {
-  { name = "exec_cmd", args = "hypr-firefox-tabs toggle" },
+  { name = "send_shortcut", args = { mods = "CTRL ALT", key = "z", window = "activewindow" } },
   { name = "submap", args = "firefox-tabs" },
 }, "firefox toggle")
 assert(ff_result == nil)
@@ -124,21 +138,25 @@ equal(other_calls, {}, "non-firefox pass-through")
 equal(other_result, { ok = false }, "non-firefox result")
 
 for _, key in ipairs({ "j", "down" }) do
-  equal(invoke("firefox-tabs:" .. key), { { name = "exec_cmd", args = "hypr-firefox-tabs next" } }, "firefox-tabs:" .. key)
+  equal(invoke("firefox-tabs:" .. key), {
+    { name = "send_shortcut", args = { mods = "CTRL", key = "Tab", window = "activewindow" } },
+  }, "firefox-tabs:" .. key)
   assert(flags("firefox-tabs:" .. key).repeating)
 end
 for _, key in ipairs({ "k", "up" }) do
-  equal(invoke("firefox-tabs:" .. key), { { name = "exec_cmd", args = "hypr-firefox-tabs prev" } }, "firefox-tabs:" .. key)
+  equal(invoke("firefox-tabs:" .. key), {
+    { name = "send_shortcut", args = { mods = "CTRL SHIFT", key = "Tab", window = "activewindow" } },
+  }, "firefox-tabs:" .. key)
   assert(flags("firefox-tabs:" .. key).repeating)
 end
 for _, key in ipairs({ "return", "escape", "ctrl + alt + z" }) do
   equal(invoke("firefox-tabs:" .. key), {
-    { name = "exec_cmd", args = "hypr-firefox-tabs toggle" },
+    { name = "send_shortcut", args = { mods = "CTRL ALT", key = "z", window = "activewindow" } },
     { name = "submap", args = "reset" },
   }, "firefox-tabs:" .. key)
 end
 check("firefox-tabs:catchall", "submap", "reset")
-assert(flags("firefox-tabs:catchall").non_consuming)
+assert(flags("firefox-tabs:catchall").non_consuming and flags("firefox-tabs:catchall").ignore_mods)
 
 local function focus_away(window, submap)
   calls = {}

@@ -13,7 +13,7 @@ cat > "$FIXTURE/hyprctl" <<'EOF'
 #!/usr/bin/env bash
 case "$*" in
     '-j clients'|'clients -j') cat "$FIXTURE/clients.json" ;;
-    '-j activeworkspace'|'activeworkspace -j') printf '{"id":7}\n' ;;
+    '-j activeworkspace'|'activeworkspace -j') cat "$FIXTURE/workspace.json" ;;
     dispatch\ *) shift; printf '%s\n' "$*" >> "$FIXTURE/dispatch" ;;
     *) exit 2 ;;
 esac
@@ -21,6 +21,7 @@ EOF
 chmod +x "$FIXTURE/hyprctl"
 
 clients() { printf '%s\n' "$1" > "$FIXTURE/clients.json"; }
+workspace() { printf '%s\n' "$1" > "$FIXTURE/workspace.json"; }
 run() { rm -f "$FIXTURE/dispatch" "$FIXTURE/spawned"; bash "$helper" "$@"; }
 dispatches() { cat "$FIXTURE/dispatch" 2>/dev/null || true; }
 no_dispatch() {
@@ -36,9 +37,10 @@ spawned_once() {
 }
 
 # A match focuses the exact address and reuses the window in order.
+workspace '{"id":7,"name":"7"}'
 clients '[{"class":"orgindex","title":"ORGINDEX-AGENDA","address":"0xabc","mapped":true}]'
 run orgindex AGENDA true
-[[ $(dispatches) == $'hl.dsp.focus({window = \'address:0xabc\'})\nhl.dsp.window.move({workspace = \'7\'})\nhl.dsp.window.float({action = \'enable\'})\nhl.dsp.window.center()' ]]
+[[ $(dispatches) == $'hl.dsp.focus({window = \'address:0xabc\'})\nhl.dsp.window.move({workspace = \"7\"})\nhl.dsp.window.float({action = \'enable\'})\nhl.dsp.window.center()' ]]
 [[ ! -e "$FIXTURE/spawned" ]]
 
 # Titles are matched case-insensitively even with quotes, tabs, and newlines.
@@ -46,6 +48,15 @@ clients '[{"class":"orgindex","title":"he said \"AGENDA\"\tnow\nAGENDA","address
 run orgindex agenda true
 [[ $(head -n 1 "$FIXTURE/dispatch") == "hl.dsp.focus({window = 'address:0xdef'})" ]]
 [[ $(grep -c . "$FIXTURE/dispatch") == 4 ]]
+
+# Special workspaces move by name, since their numeric id is negative.
+workspace '{"id":-99,"name":"special:scratch"}'
+clients '[{"class":"orgindex","title":"ORGINDEX-AGENDA","address":"0xabc","mapped":true}]'
+run orgindex AGENDA true
+[[ $(sed -n 2p "$FIXTURE/dispatch") == 'hl.dsp.window.move({workspace = "special:scratch"})' ]]
+workspace '{"id":-99,"name":"special:it'"'"'s"}'
+run orgindex AGENDA true
+[[ $(sed -n 2p "$FIXTURE/dispatch") == 'hl.dsp.window.move({workspace = "special:it'"'"'s"})' ]]
 
 # A different class, no clients, or an unmapped match spawns instead.
 clients '[{"class":"yazi","title":"ORGINDEX-AGENDA","address":"0xbad","mapped":true}]'
