@@ -30,6 +30,7 @@
     ./vicinae.nix
   ]
   ++ lib.optionals (osClass == "nixos") [
+    ./ci-tools.nix
     ./awesome.nix
     ./dconf.nix
     ./default-apps.nix
