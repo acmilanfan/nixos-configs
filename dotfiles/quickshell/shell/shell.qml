@@ -13,7 +13,7 @@ ShellRoot {
         path: Quickshell.env("XDG_RUNTIME_DIR") + "/yb-mode/mode"
         watchChanges: true
         onFileChanged: reload()
-        onTextChanged: root.dual = text.trim() === "" || text.trim() === "dual"
+        onTextChanged: root.dual = text().trim() === "" || text().trim() === "dual"
     }
 
     Variants {
