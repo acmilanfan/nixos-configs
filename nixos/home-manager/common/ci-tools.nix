@@ -30,7 +30,7 @@ let
   };
 in
 {
-  home.packages = [ ciStatus ];
+  home.packages = [ ciStatus ciNotify ];
 
   systemd.user.services.ci-notify = {
     Unit.Description = "Weekenduo CI journal notifications";
