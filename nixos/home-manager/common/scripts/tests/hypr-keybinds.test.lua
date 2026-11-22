@@ -57,7 +57,7 @@ assert(get(":alt + ctrl + a").args:find("moveworkspacetomonitor", 1, true))
 check(":alt + space", "exec_cmd", "hypr-touch-menu")
 check(":alt + n", "exec_cmd", "swaync-client -t -sw")
 check(":super + t", "exec_cmd", "yb-touchpad window")
-check(":super + m", "exec_cmd", "hypr-touchpad-mode")
+check(":super + m", "exec_cmd", "yb-mode cycle")
 assert(not binds[":alt + tab"] and not binds[":super + space"])
 for n = 1, 10 do
   local key = n % 10
