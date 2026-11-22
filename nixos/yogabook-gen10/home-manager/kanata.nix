@@ -42,8 +42,13 @@
     fi
   '';
 
-  # Auto-reload kanata on home-manager switch
+  # Auto-reload kanata on home-manager switch. The activation service runs
+  # without the user manager's environment, so point systemctl at the live
+  # user bus; otherwise the restart is silently skipped and the old process
+  # keeps the previous config loaded.
   home.activation.reloadKanata = lib.hm.dag.entryAfter [ "writeBoundary" "seedKanataActiveConfig" ] ''
+    export XDG_RUNTIME_DIR="''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+    export DBUS_SESSION_BUS_ADDRESS="''${DBUS_SESSION_BUS_ADDRESS:-unix:path=$XDG_RUNTIME_DIR/bus}"
     if systemctl --user is-active kanata &>/dev/null; then
       run systemctl --user restart kanata
     fi

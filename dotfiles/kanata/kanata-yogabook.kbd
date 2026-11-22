@@ -3,6 +3,10 @@
   (defcfg
     process-unmapped-keys yes
     concurrent-tap-hold yes
+    ;; Wayland clients generate their own key repeat; forwarding the kernel's
+    ;; repeat events as well can duplicate characters while kanata holds a key
+    ;; for a tap-hold decision.
+    allow-hardware-repeat no
     linux-dev-names-include (
       "Yoga Book 9 14 Bluetooth KB Keyboard"
     )
@@ -28,12 +32,24 @@
   (a ;)    esc      50 all-released ()
   ;; Colon combo
   (o p)    S-;      50 all-released ()
-  ;; Clipboard combos (Ctrl-based on Linux)
-  (c v)    (multi lctl v)    50 all-released ()
-  (x c)    (multi lctl c)    50 all-released ()
-  (z x)    (multi lctl x)    50 all-released ()
+  ;; Clipboard combos (dedicated HID keys, terminal-safe; see @copy/@paste)
+  (c v)    @paste   50 all-released ()
+  (x c)    @copy    50 all-released ()
+  (z x)    @cut     50 all-released ()
   ;; Language switch (matches Hyprland grp:rctrl_rshift_toggle + Sweep RS(RCTRL))
   (y u)    @lang             50 all-released ()
+)
+
+;; Dedicated clipboard/edit keycodes, matching the Ferris Sweep's ZMK config
+;; (K_COPY/K_PASTE/K_CUT/K_UNDO/K_REDO). Linux maps these to XKB
+;; XF86Copy/XF86Paste/XF86Cut/Undo/Redo, which terminals do not treat as
+;; Ctrl+C/Ctrl+V/Ctrl+Z. Do not replace these with Ctrl-based shortcuts.
+(deflocalkeys-linux
+  kcopy  133  ;; KEY_COPY  -> XKB XF86Copy
+  kpaste 135  ;; KEY_PASTE -> XKB XF86Paste
+  kcut   137  ;; KEY_CUT   -> XKB XF86Cut
+  kundo  131  ;; KEY_UNDO  -> XKB Undo
+  kredo  129  ;; KEY_AGAIN -> XKB Redo (ZMK K_REDO)
 )
 
 (defsrc
@@ -109,6 +125,9 @@
 )
 
 (defvar
+  ;; The tap/hold decision must stay well below Hyprland's repeat_delay for
+  ;; the "kanata" device (400ms in dotfiles/hypr/hyprland.lua). Otherwise the
+  ;; client auto-repeats the key kanata is still holding: duplicate letters.
   tap-time 200
   hold-time 200
 )
@@ -158,16 +177,19 @@
   mb-r mouseright
   mb-m mousemid
 
-  ;; Linux shortcuts (Ctrl-based instead of Cmd-based)
-  redo (multi lctl lsft z)
-  paste (multi lctl v)
-  copy (multi lctl c)
-  cut (multi lctl x)
-  undo (multi lctl z)
+  ;; Linux clipboard shortcuts: the dedicated HID keys (same as ZMK's
+  ;; K_COPY/K_PASTE/K_CUT/K_UNDO/K_REDO on the Sweep). Ctrl+C/V/Z are never
+  ;; used: in a terminal they mean SIGINT / quoted-insert / SIGTSTP.
+  redo kredo
+  paste kpaste
+  copy kcopy
+  cut kcut
+  undo kundo
 
-  ;; Screenshot aliases (Linux: use grim or hyprshot instead of macOS shortcuts)
-  scr (multi lsft lctl s)
-  scrm (multi lsft lctl lalt s)
+  ;; Screenshot aliases (Hyprland binds: Print = region to clipboard,
+  ;; S-Print = gnome-screenshot UI, C-Print = satty)
+  scr prtsc
+  scrm S-prtsc
 
   ;; Language switch (matches Hyprland kb_options = grp:rctrl_rshift_toggle)
   lang (multi rsft rctl)
