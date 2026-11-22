@@ -65,10 +65,12 @@ PanelWindow {
         Rectangle {
             Layout.fillHeight: true
             implicitHeight: 24
+            implicitWidth: leftRow.implicitWidth + 16
             radius: 8
             color: bar.background
 
             RowLayout {
+                id: leftRow
                 anchors.fill: parent
                 anchors.leftMargin: 8
                 anchors.rightMargin: 8
@@ -178,10 +180,12 @@ PanelWindow {
         Rectangle {
             Layout.fillHeight: true
             implicitHeight: 24
+            implicitWidth: rightRow.implicitWidth + 16
             radius: 8
             color: bar.background
 
             RowLayout {
+                id: rightRow
                 anchors.fill: parent
                 anchors.leftMargin: 8
                 anchors.rightMargin: 8
