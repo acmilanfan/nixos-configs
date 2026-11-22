@@ -4,11 +4,15 @@ font-style = "Medium"
 font-style-bold = "Bold"
 font-style-italic = "Medium Italic"
 font-style-bold-italic = "Bold Italic"
-font-size = 16
 font-thicken = true
 
 # Window decorations & Titlebar (hides title, proxy icon, and buttons)
 macos-titlebar-style = hidden
+
+# Keep the app title instead of shell-integration overwriting it with the cwd.
+# tmux and other programs may still update it.
+title = Ghostty
+shell-integration-features = cursor,no-sudo,no-title,no-ssh-env,no-ssh-terminfo,path
 
 # Window padding (matches Alacritty flush layout)
 window-padding-x = 0
