@@ -227,7 +227,7 @@ PanelWindow {
 
                 Text {
                     text: UPower.displayDevice.ready
-                        ? Math.round(UPower.displayDevice.percentage) + "%"
+                        ? Math.round(UPower.displayDevice.percentage * 100) + "%"
                         : "--"
                     color: bar.muted
                     font.family: "JetBrainsMono Nerd Font"
