@@ -172,7 +172,7 @@ PanelWindow {
                 text: Qt.formatDateTime(clock.date, "HH:mm")
                 color: bar.foreground
                 font.family: "JetBrainsMono Nerd Font"
-                font.pixelSize: 9
+                font.pixelSize: 12
             }
 
             MouseArea {
@@ -243,7 +243,7 @@ PanelWindow {
                                 : Math.round(sink.audio.volume * 100) + "%")
                         color: bar.muted
                         font.family: "JetBrainsMono Nerd Font"
-                        font.pixelSize: 9
+                        font.pixelSize: 11
                     }
 
                     ScriptLabel {
