@@ -154,10 +154,11 @@
     mlft (movemouse-accel-left 1 1000 1 20)
     mrgt (movemouse-accel-right 1 1000 1 20)
     ;; Scroll: swapped for macOS natural scrolling
-    ms-u (mwheel-down 50 120)
-    ms-d (mwheel-up 50 120)
-    ms-l (mwheel-left 50 120)
-    ms-r (mwheel-right 50 120)
+    ;; macOS distance is in scroll units; 120 is the Linux notch.
+    ms-u (mwheel-down 50 1)
+    ms-d (mwheel-up 50 1)
+    ms-l (mwheel-left 50 1)
+    ms-r (mwheel-right 50 1)
     mb-l mouseleft
     mb-r mouseright
     mb-m mousemid

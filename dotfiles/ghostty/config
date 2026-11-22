@@ -35,6 +35,11 @@ quit-after-last-window-closed = true
 # macOS behavior (Kanata home-row mod compatibility)
 macos-option-as-alt = true
 
+# Kanata sends one scroll unit per tick; Ghostty's default discrete multiplier
+# of 3 turns that into 3-row jumps. One row per tick is smoother when the
+# keyboard emits a tick every 16 ms.
+mouse-scroll-multiplier = discrete:1
+
 # Cursor (fixed colors; adaptive cell-foreground is invisible when the cell fg
 # equals the bg, e.g. nightfox Whitespace fg == CursorLine bg == #29394f)
 cursor-style = block

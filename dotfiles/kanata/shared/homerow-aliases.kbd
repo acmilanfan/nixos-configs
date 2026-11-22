@@ -42,10 +42,10 @@
     mlf (movemouse-accel-left 1 1000 1 20)
     mrt (movemouse-accel-right 1 1000 1 20)
 
-    ;; Mouse scroll
-    whu (mwheel-up 50 120)
-    whd (mwheel-down 50 120)
-    whl (mwheel-left 50 120)
-    whr (mwheel-right 50 120)
+    ;; Mouse scroll (macOS distance is in scroll units; 120 is the Linux notch)
+    whu (mwheel-up 50 1)
+    whd (mwheel-down 50 1)
+    whl (mwheel-left 50 1)
+    whr (mwheel-right 50 1)
   )
 )

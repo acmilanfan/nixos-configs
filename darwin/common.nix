@@ -252,6 +252,7 @@ let
       "Hammerspoon"
       "Vicinae"
       "Scroll Reverser"
+      "Mos"
       "MiddleClick"
       "AutoRaise"
       "Syncthing"
@@ -583,6 +584,7 @@ in
       "nextcloud"
       "dimentium/autoraise/autoraiseapp"
       "scroll-reverser"
+      "mos"
       "hammerspoon"
       "balenaetcher"
       "middleclick"
@@ -1105,6 +1107,17 @@ PY
         ReverseTrackpad = true;
         InvertScrollingOn = true;
         ShowDiscreteScrollOptions = true;
+      };
+      # Mos only smooths; Scroll Reverser owns direction (including the
+      # mouse/trackpad split). Keep Mos's reverse switches off so the two
+      # don't double-invert.
+      "com.caldis.Mos" = {
+        smooth = true;
+        smoothVertical = true;
+        smoothHorizontal = true;
+        reverse = false;
+        reverseVertical = false;
+        reverseHorizontal = false;
       };
       "com.sbmpost.AutoRaise" = {
         autoFocusDelay = 55;
