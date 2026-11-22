@@ -111,7 +111,7 @@ PanelWindow {
                                     text: pill.modelData
                                     color: pill.active ? bar.background : bar.foreground
                                     font.family: "JetBrainsMono Nerd Font"
-                                    font.pixelSize: 10
+                                    font.pixelSize: 11
                                 }
 
                                 HoverHandler { id: hover }
@@ -146,7 +146,7 @@ PanelWindow {
                             text: "󰀻"
                             color: bar.foreground
                             font.family: "JetBrainsMono Nerd Font"
-                            font.pixelSize: 9
+                            font.pixelSize: 11
                         }
 
                         MouseArea {
