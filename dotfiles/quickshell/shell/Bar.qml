@@ -36,12 +36,12 @@ PanelWindow {
         right: true
     }
     margins {
-        top: 2
-        left: 2
-        right: 2
+        top: 3
+        left: 3
+        right: 3
     }
-    implicitHeight: 18
-    exclusiveZone: 20
+    implicitHeight: 22
+    exclusiveZone: 25
     color: "transparent"
     WlrLayershell.namespace: "quickshell-shell"
 
@@ -61,7 +61,7 @@ PanelWindow {
         Item {
             Layout.fillWidth: true
             Layout.preferredWidth: 0
-            implicitHeight: 18
+            implicitHeight: 22
 
             Rectangle {
                 width: leftRow.implicitWidth + 10
@@ -100,8 +100,8 @@ PanelWindow {
                                     && ws.toplevels.values.length > 0
 
                                 visible: active || occupied
-                                width: 14
-                                height: 14
+                                width: 16
+                                height: 16
                                 radius: 4
                                 color: active ? bar.accent
                                     : (hover.hovered ? "#242436" : "transparent")
@@ -111,7 +111,7 @@ PanelWindow {
                                     text: pill.modelData
                                     color: pill.active ? bar.background : bar.foreground
                                     font.family: "JetBrainsMono Nerd Font"
-                                    font.pixelSize: 8
+                                    font.pixelSize: 9
                                 }
 
                                 HoverHandler { id: hover }
@@ -160,7 +160,7 @@ PanelWindow {
 
         Rectangle {
             width: clockLabel.implicitWidth + 12
-            height: 18
+            height: 22
             radius: 6
             color: bar.background
             border.width: 1
@@ -184,7 +184,7 @@ PanelWindow {
         Item {
             Layout.fillWidth: true
             Layout.preferredWidth: 0
-            implicitHeight: 18
+            implicitHeight: 22
 
             Rectangle {
                 anchors.right: parent.right

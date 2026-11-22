@@ -13,6 +13,7 @@ Item {
     property string leftCommand: ""
     property string rightCommand: ""
     property string middleCommand: ""
+    property color textColor: "#c6d0f5"
 
     implicitWidth: label.implicitWidth
     implicitHeight: 18
@@ -21,7 +22,7 @@ Item {
         id: label
         anchors.centerIn: parent
         text: root.text
-        color: "#c6d0f5"
+        color: root.textColor
         font.family: "JetBrainsMono Nerd Font"
         font.pixelSize: 11
     }
