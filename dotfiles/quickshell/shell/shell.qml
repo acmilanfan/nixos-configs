@@ -5,24 +5,15 @@ import Quickshell.Io
 ShellRoot {
     id: root
 
-    // The bottom panel is only meaningful in dual-screen mode. Unknown output
-    // (yb-mode absent) counts as dual so non-Yoga hosts are unaffected.
+    // The bottom panel is only meaningful in dual-screen mode. Unknown or
+    // missing state (yb-mode absent) counts as dual so other hosts are fine.
     property bool dual: true
 
-    Process {
-        id: mode
-        command: ["sh", "-c", "yb-mode status 2>/dev/null | sed -n 's/.*mode=\\([^ ]*\\).*/\\1/p'"]
-        stdout: StdioCollector {
-            onStreamFinished: root.dual = this.text.trim() === "" || this.text.trim() === "dual"
-        }
-    }
-
-    Timer {
-        interval: 2000
-        running: true
-        repeat: true
-        triggeredOnStart: true
-        onTriggered: mode.running = true
+    FileView {
+        path: Quickshell.env("XDG_RUNTIME_DIR") + "/yb-mode/mode"
+        watchChanges: true
+        onFileChanged: reload()
+        onTextChanged: root.dual = text.trim() === "" || text.trim() === "dual"
     }
 
     Variants {
