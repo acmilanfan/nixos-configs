@@ -40,4 +40,12 @@ check 'Previous Master Orientation' 'hl.dsp.layout("orientationprev")'
 check 'Quickshell pilot: Toggle' 'toggle'
 check 'Not a command' ''
 check '' ''
+
+# Without the Yoga-only helper, the pilot entry must be absent.
+mv "$FIXTURE/hypr-quickshell-pilot" "$FIXTURE/pilot-helper"
+: > "$FIXTURE/dispatch"
+CHOICE='' bash "$script"
+! grep -Fq 'Quickshell pilot' "$FIXTURE/rows"
+mv "$FIXTURE/pilot-helper" "$FIXTURE/hypr-quickshell-pilot"
+
 echo 'hypr-commands: all cases passed'

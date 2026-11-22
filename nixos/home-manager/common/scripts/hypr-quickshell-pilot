@@ -4,38 +4,70 @@ set -euo pipefail
 # Usage: hypr-quickshell-pilot start|stop|toggle|status
 waybar_config="$HOME/.config/waybar/config-hypr-bottom"
 waybar_style="$HOME/.config/waybar/style-hypr.css"
-waybar_pattern='waybar -c .*config-hypr-bottom'
-quickshell_pattern='quickshell -c pilot'
+waybar_pattern='^([^ ]*/)?waybar -c .*config-hypr-bottom'
+quickshell_pattern='^([^ ]*/)?quickshell -c pilot'
 
-quickshell_running() { pgrep -f "$quickshell_pattern" >/dev/null; }
-waybar_running() { pgrep -f "$waybar_pattern" >/dev/null; }
+quickshell_running() { pgrep -f "$quickshell_pattern" >/dev/null 2>&1; }
+waybar_running() { pgrep -f "$waybar_pattern" >/dev/null 2>&1; }
+
+yoga_mode() {
+  local out
+  out=$(yb-mode status 2>/dev/null) || { echo unknown; return; }
+  sed -n 's/.*mode=\([^ ]*\).*/\1/p' <<< "$out" | head -n 1
+}
+
+in_laptop_mode() {
+  case "$(yoga_mode)" in
+    laptop | virtual-laptop) return 0 ;;
+    *) return 1 ;;
+  esac
+}
 
 stop_waybar() { pkill -f "$waybar_pattern" 2>/dev/null || true; }
 start_waybar() {
+  waybar_running && return 0
   setsid waybar -c "$waybar_config" -s "$waybar_style" >/dev/null 2>&1 &
 }
 stop_quickshell() { pkill -f "$quickshell_pattern" 2>/dev/null || true; }
+
+wait_for() {
+  local _
+  for _ in $(seq 150); do "$1" && return 0; sleep 0.02; done
+  return 1
+}
+
 start_quickshell() {
+  command -v quickshell >/dev/null 2>&1 ||
+    { echo "quickshell is not installed" >&2; return 1; }
+  [[ -f "$HOME/.config/quickshell/pilot/shell.qml" ]] ||
+    { echo "missing ~/.config/quickshell/pilot/shell.qml" >&2; return 1; }
+  [[ -n "${WAYLAND_DISPLAY:-}" ]] ||
+    { echo "WAYLAND_DISPLAY is not set" >&2; return 1; }
+  in_laptop_mode &&
+    { echo "switch the Yoga Book to dual-screen mode first" >&2; return 1; }
   quickshell_running && return 0
+
   setsid quickshell -c pilot >/dev/null 2>&1 &
+  wait_for quickshell_running ||
+    { stop_quickshell; echo "quickshell failed to start" >&2; return 1; }
 }
 
 case "${1:-status}" in
   start)
-    stop_waybar
     start_quickshell
+    stop_waybar
     ;;
   stop)
     stop_quickshell
-    start_waybar
+    in_laptop_mode || start_waybar
     ;;
   toggle)
     if quickshell_running; then
       stop_quickshell
-      start_waybar
+      in_laptop_mode || start_waybar
     else
-      stop_waybar
       start_quickshell
+      stop_waybar
     fi
     ;;
   status)

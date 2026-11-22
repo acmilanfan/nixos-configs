@@ -11,7 +11,6 @@ LABELS=(
   "Toggle Monocle/Tile"
   "Toggle Pseudo-Tile"
   "Previous Master Orientation"
-  "Quickshell pilot: Toggle"
   "Timer: Start 25m"
   "Timer: Start 5m"
   "Timer: Stop"
@@ -26,6 +25,11 @@ LABELS=(
   "Battery Saver: Toggle"
   "Animations: Toggle"
 )
+
+# The pilot helper exists only on the Yoga Book; hide the entry elsewhere.
+if command -v hypr-quickshell-pilot >/dev/null 2>&1; then
+  LABELS+=("Quickshell pilot: Toggle")
+fi
 
 # Show menu (newline separated for vicinae dmenu) and get choice
 CHOICE=$(printf "%s\n" "${LABELS[@]}" | vicinae dmenu -W 600 -p "Search Commands...")
