@@ -21,12 +21,7 @@ PanelWindow {
     readonly property var monitor: Hyprland.monitorFor(screen)
     readonly property int activeWorkspaceId: monitor && monitor.activeWorkspace
         ? monitor.activeWorkspace.id : -1
-    readonly property string title: {
-        if (!monitor || !monitor.focused || !Hyprland.activeToplevel)
-            return ""
-        const value = Hyprland.activeToplevel.title || ""
-        return value.length > 50 ? value.substring(0, 50) + "…" : value
-    }
+
 
     readonly property color background: "#101010"
     readonly property color foreground: "#c6d0f5"
@@ -121,12 +116,10 @@ PanelWindow {
                     }
                 }
 
-                Text {
-                    text: bar.title
-                    color: bar.foreground
-                    elide: Text.ElideRight
-                    font.family: "JetBrainsMono Nerd Font"
-                    font.pixelSize: 11
+                ScriptLabel {
+                    visible: bar.monitor && bar.monitor.focused
+                    command: "hyprctl -j activewindow | jq -r '(.title // \"\")[0:50]'"
+                    interval: 2
                 }
 
                 ScriptLabel {
