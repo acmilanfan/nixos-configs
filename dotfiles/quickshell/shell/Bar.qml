@@ -40,8 +40,8 @@ PanelWindow {
         left: 3
         right: 3
     }
-    implicitHeight: 22
-    exclusiveZone: 25
+    implicitHeight: 24
+    exclusiveZone: 27
     color: "transparent"
     WlrLayershell.namespace: "quickshell-shell"
 
@@ -61,7 +61,7 @@ PanelWindow {
         Item {
             Layout.fillWidth: true
             Layout.preferredWidth: 0
-            implicitHeight: 22
+            implicitHeight: 24
 
             Rectangle {
                 width: leftRow.implicitWidth + 10
@@ -160,7 +160,7 @@ PanelWindow {
 
         Rectangle {
             width: clockLabel.implicitWidth + 12
-            height: 22
+            height: 24
             radius: 6
             color: bar.background
             border.width: 1
@@ -184,7 +184,7 @@ PanelWindow {
         Item {
             Layout.fillWidth: true
             Layout.preferredWidth: 0
-            implicitHeight: 22
+            implicitHeight: 24
 
             Rectangle {
                 anchors.right: parent.right

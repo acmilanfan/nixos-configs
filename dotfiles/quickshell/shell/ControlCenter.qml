@@ -3,12 +3,15 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Services.Pipewire
+import Quickshell.Networking
+import Quickshell.Bluetooth
 
 PanelWindow {
     id: cc
 
     property string page: ""
     property var targetScreen: null
+    property string detail: ""
     signal closeRequested()
 
     readonly property color bg: "#1a1b26"
@@ -19,6 +22,46 @@ PanelWindow {
     readonly property color dim: "#7f849c"
     readonly property color accent: "#7b5cff"
 
+    readonly property var wifiDevice: {
+        const devices = Networking.devices ? Networking.devices.values : []
+        for (let i = 0; i < devices.length; i++)
+            if (devices[i].type === DeviceType.Wifi)
+                return devices[i]
+        return null
+    }
+    readonly property var wifiNetworks: {
+        if (!wifiDevice || !wifiDevice.networks)
+            return []
+        const values = wifiDevice.networks.values.filter(n => String(n.name || "").length > 0)
+        values.sort((a, b) => (b.connected - a.connected) || (b.known - a.known)
+            || (b.signalStrength - a.signalStrength))
+        return values
+    }
+    readonly property var activeWifi: {
+        const values = wifiNetworks
+        for (let i = 0; i < values.length; i++)
+            if (values[i].connected)
+                return values[i]
+        return null
+    }
+    readonly property var adapter: Bluetooth.defaultAdapter
+    readonly property var btDevices: {
+        if (!Bluetooth.devices)
+            return []
+        const values = Bluetooth.devices.values.slice()
+        values.sort((a, b) => (b.connected - a.connected) || (b.paired - a.paired)
+            || String(a.name || "").localeCompare(String(b.name || "")))
+        return values
+    }
+
+    onDetailChanged: if (wifiDevice) wifiDevice.scannerEnabled = detail === "wifi"
+    onVisibleChanged: {
+        if (!visible)
+            detail = ""
+        else
+            focusScope.forceActiveFocus()
+    }
+
     visible: page !== ""
     screen: targetScreen
     anchors {
@@ -27,33 +70,38 @@ PanelWindow {
         right: page === "control"
     }
     margins {
-        top: 27
+        top: 29
         left: 3
         right: 3
     }
-    implicitWidth: 360
+    implicitWidth: 380
     implicitHeight: content.implicitHeight + 28
     exclusiveZone: 0
     color: "transparent"
     WlrLayershell.namespace: "quickshell-control-center"
     WlrLayershell.keyboardFocus: cc.visible ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
 
-    onVisibleChanged: if (visible) focusScope.forceActiveFocus()
-
     PwObjectTracker {
         objects: Pipewire.defaultAudioSink ? [Pipewire.defaultAudioSink] : []
+    }
+
+    Timer {
+        interval: 8000
+        running: cc.detail === "bt" && cc.adapter && cc.adapter.discovering
+        onTriggered: if (cc.adapter) cc.adapter.discovering = false
     }
 
     component Tile: Rectangle {
         id: tile
         property string glyph: ""
         property string label: ""
-        property string subCommand: ""
+        property string sublabel: ""
         property string command: ""
+        property string openDetail: ""
         property bool active: false
 
         Layout.fillWidth: true
-        implicitHeight: 54
+        implicitHeight: 58
         radius: 8
         activeFocusOnTab: true
         color: tile.active ? "#2a2350" : (hover.hovered ? cc.cardHover : cc.card)
@@ -64,6 +112,10 @@ PanelWindow {
         Keys.onSpacePressed: run()
 
         function run() {
+            if (tile.openDetail) {
+                cc.detail = tile.openDetail
+                return
+            }
             if (tile.command)
                 Quickshell.execDetached(["sh", "-c", tile.command])
         }
@@ -101,12 +153,14 @@ PanelWindow {
                     font.bold: true
                 }
 
-                ScriptLabel {
-                    visible: tile.subCommand !== ""
+                Text {
+                    text: tile.sublabel
+                    visible: text.length > 0
+                    color: cc.dim
+                    elide: Text.ElideRight
                     Layout.fillWidth: true
-                    command: tile.subCommand
-                    interval: 5
-                    textColor: cc.dim
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 8
                 }
             }
         }
@@ -157,11 +211,67 @@ PanelWindow {
         }
     }
 
+    component NetRow: Rectangle {
+        id: row
+        property string label: ""
+        property string sublabel: ""
+        property bool connected: false
+        property string action: ""
+
+        Layout.fillWidth: true
+        implicitHeight: 34
+        radius: 7
+        activeFocusOnTab: true
+        color: row.activeFocus || area.hovered ? cc.cardHover : cc.card
+        border.width: 1
+        border.color: row.activeFocus ? cc.accent : cc.border
+        Keys.onReturnPressed: run()
+        Keys.onEnterPressed: run()
+        Keys.onSpacePressed: run()
+
+        function run() {
+            if (row.action)
+                Quickshell.execDetached(["sh", "-c", row.action])
+        }
+
+        RowLayout {
+            anchors.fill: parent
+            anchors.leftMargin: 9
+            anchors.rightMargin: 9
+            spacing: 8
+
+            Text {
+                Layout.fillWidth: true
+                text: row.label
+                color: row.connected ? cc.accent : cc.fg
+                elide: Text.ElideRight
+                font.family: "JetBrainsMono Nerd Font"
+                font.pixelSize: 9
+                font.bold: row.connected
+            }
+
+            Text {
+                text: row.sublabel
+                color: cc.dim
+                font.family: "JetBrainsMono Nerd Font"
+                font.pixelSize: 8
+            }
+        }
+
+        HoverHandler { id: area }
+
+        MouseArea {
+            anchors.fill: parent
+            onClicked: row.run()
+        }
+    }
+
     component VolumeRow: Rectangle {
         id: volume
         readonly property var sink: Pipewire.defaultAudioSink
 
-        implicitHeight: 40
+        Layout.fillWidth: true
+        implicitHeight: 44
         radius: 8
         color: cc.card
         border.width: 1
@@ -253,7 +363,12 @@ PanelWindow {
         id: focusScope
         anchors.fill: parent
         focus: true
-        Keys.onEscapePressed: cc.closeRequested()
+        Keys.onEscapePressed: {
+            if (cc.detail.length > 0)
+                cc.detail = ""
+            else
+                cc.closeRequested()
+        }
 
         Rectangle {
             anchors.fill: parent
@@ -263,185 +378,283 @@ PanelWindow {
             border.color: cc.border
 
             ColumnLayout {
-            id: content
-            anchors.fill: parent
-            anchors.margins: 14
-            spacing: 9
-
-            RowLayout {
-                Layout.fillWidth: true
-
-                Text {
-                    text: cc.page === "quick" ? "Quick Menu" : "Control Center"
-                    color: cc.fg
-                    font.family: "JetBrainsMono Nerd Font"
-                    font.pixelSize: 11
-                    font.bold: true
-                }
-
-                Item { Layout.fillWidth: true }
-
-                Text {
-                    text: "✕"
-                    color: cc.dim
-                    font.pixelSize: 12
-
-                    MouseArea {
-                        anchors.fill: parent
-                        anchors.margins: -8
-                        onClicked: cc.closeRequested()
-                    }
-                }
-            }
-
-            GridLayout {
-                visible: cc.page === "control"
-                Layout.fillWidth: true
-                columns: 2
-                columnSpacing: 8
-                rowSpacing: 8
-
-                Tile {
-                    glyph: "󰤢"
-                    label: "Wi-Fi"
-                    subCommand: "nmcli -t -f ACTIVE,SSID dev wifi 2>/dev/null | awk -F: '$1==\"yes\"{print $2; f=1} END{if(!f) print \"Off\"}'"
-                    command: "nmcli radio wifi toggle"
-                }
-                Tile {
-                    glyph: "󰂯"
-                    label: "Bluetooth"
-                    subCommand: "bluetoothctl show 2>/dev/null | awk '/Powered: yes/{print \"On\"; f=1} END{if(!f) print \"Off\"}'"
-                    command: "bluetoothctl power toggle"
-                }
-            }
-
-            VolumeRow { visible: cc.page === "control"; Layout.fillWidth: true }
-
-            Rectangle {
-                visible: cc.page === "control"
-                Layout.fillWidth: true
-                implicitHeight: 44
-                radius: 8
-                color: cc.card
-                border.width: 1
-                border.color: cc.border
+                id: content
+                anchors.fill: parent
+                anchors.margins: 14
+                spacing: 9
 
                 RowLayout {
-                    anchors.fill: parent
-                    anchors.leftMargin: 9
-                    anchors.rightMargin: 9
-                    spacing: 6
+                    Layout.fillWidth: true
 
                     Text {
-                        text: "Kanata"
+                        visible: cc.detail.length > 0
+                        text: "‹"
+                        color: cc.dim
+                        font.pixelSize: 15
+
+                        MouseArea {
+                            anchors.fill: parent
+                            anchors.margins: -8
+                            onClicked: cc.detail = ""
+                        }
+                    }
+
+                    Text {
+                        text: cc.detail === "wifi" ? "Wi-Fi"
+                            : cc.detail === "bt" ? "Bluetooth"
+                            : cc.page === "quick" ? "Quick Menu" : "Control Center"
                         color: cc.fg
                         font.family: "JetBrainsMono Nerd Font"
-                        font.pixelSize: 10
+                        font.pixelSize: 11
                         font.bold: true
                     }
 
-                    ScriptLabel {
-                        Layout.fillWidth: true
-                        command: "hypr-kanata-status | jq -r '.text // \"absent\"'"
-                        interval: 5
-                        textColor: cc.dim
-                    }
-
-                    Mini { label: "HR"; command: "$HOME/.config/kanata/switch-kanata.sh homerow" }
-                    Mini { label: "off"; command: "$HOME/.config/kanata/switch-kanata.sh disabled" }
-                    Mini { label: "↻"; command: "$HOME/.config/kanata/reload-kanata.sh restart" }
-                }
-            }
-
-            GridLayout {
-                visible: cc.page === "control"
-                Layout.fillWidth: true
-                columns: 2
-                columnSpacing: 8
-                rowSpacing: 8
-
-                Tile { glyph: "󰌾"; label: "Lock"; command: "hyprlock-session start" }
-                Tile { glyph: "󰐥"; label: "Power"; command: "wlogout" }
-            }
-
-            GridLayout {
-                visible: cc.page === "quick"
-                Layout.fillWidth: true
-                columns: 2
-                columnSpacing: 8
-                rowSpacing: 8
-
-                Tile { glyph: "󰀻"; label: "Apps"; command: "nwg-drawer" }
-                Tile { glyph: "󰒓"; label: "Profiles"; command: "hypr-profile" }
-                Tile { glyph: "󰌌"; label: "Keyboard"; command: "hypr-toggle-kb" }
-                Tile { glyph: "󰑓"; label: "Rotate"; command: "hypr-iio-toggle" }
-            }
-
-            Rectangle {
-                visible: cc.page === "quick"
-                Layout.fillWidth: true
-                implicitHeight: 44
-                radius: 8
-                color: cc.card
-                border.width: 1
-                border.color: cc.border
-
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.leftMargin: 9
-                    anchors.rightMargin: 9
-                    spacing: 8
+                    Item { Layout.fillWidth: true }
 
                     Text {
-                        Layout.fillWidth: true
-                        text: "Brightness"
-                        color: cc.fg
-                        font.family: "JetBrainsMono Nerd Font"
-                        font.pixelSize: 10
+                        text: "✕"
+                        color: cc.dim
+                        font.pixelSize: 12
+
+                        MouseArea {
+                            anchors.fill: parent
+                            anchors.margins: -8
+                            onClicked: cc.closeRequested()
+                        }
                     }
-                    Mini { label: "−"; command: "brightness-ctl down 5" }
-                    Mini { label: "+"; command: "brightness-ctl up 5" }
                 }
-            }
 
-            Rectangle {
-                visible: cc.page === "quick"
-                Layout.fillWidth: true
-                implicitHeight: 44
-                radius: 8
-                color: cc.card
-                border.width: 1
-                border.color: cc.border
+                // --- Wi-Fi detail ---
+                ColumnLayout {
+                    visible: cc.detail === "wifi"
+                    Layout.fillWidth: true
+                    spacing: 6
 
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.leftMargin: 9
-                    anchors.rightMargin: 9
-                    spacing: 8
-
-                    Text {
+                    RowLayout {
                         Layout.fillWidth: true
-                        text: "Volume"
-                        color: cc.fg
-                        font.family: "JetBrainsMono Nerd Font"
-                        font.pixelSize: 10
+                        Text {
+                            Layout.fillWidth: true
+                            text: Networking.wifiEnabled
+                                ? (cc.activeWifi ? cc.activeWifi.name : "Not connected")
+                                : "Off"
+                            color: cc.fg
+                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: 10
+                        }
+                        Mini {
+                            label: Networking.wifiEnabled ? "off" : "on"
+                            command: "nmcli radio wifi " + (Networking.wifiEnabled ? "off" : "on")
+                        }
+                        Mini { label: "scan"; command: "nmcli dev wifi rescan" }
                     }
-                    Mini { label: "−"; command: "change-volume -5" }
-                    Mini { label: "+"; command: "change-volume +5" }
+
+                    Repeater {
+                        model: cc.wifiNetworks.slice(0, 7)
+                        delegate: NetRow {
+                            required property var modelData
+                            label: modelData.name
+                            sublabel: modelData.connected ? "connected"
+                                : (modelData.known ? "saved" : Math.round(modelData.signalStrength * 100) + "%")
+                            connected: modelData.connected
+                            action: modelData.connected
+                                ? "nmcli connection down id " + JSON.stringify(modelData.name)
+                                : "nmcli connection up id " + JSON.stringify(modelData.name)
+                        }
+                    }
                 }
-            }
 
-            GridLayout {
-                visible: cc.page === "quick"
-                Layout.fillWidth: true
-                columns: 2
-                columnSpacing: 8
-                rowSpacing: 8
+                // --- Bluetooth detail ---
+                ColumnLayout {
+                    visible: cc.detail === "bt"
+                    Layout.fillWidth: true
+                    spacing: 6
 
-                Tile { glyph: "󰌾"; label: "Lock"; command: "hyprlock-session start" }
-                Tile { glyph: "󰐥"; label: "Power"; command: "wlogout" }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Text {
+                            Layout.fillWidth: true
+                            text: cc.adapter && cc.adapter.enabled ? "On" : "Off"
+                            color: cc.fg
+                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: 10
+                        }
+                        Mini {
+                            label: cc.adapter && cc.adapter.enabled ? "off" : "on"
+                            command: "bluetoothctl power " + (cc.adapter && cc.adapter.enabled ? "off" : "on")
+                        }
+                        Mini { label: "scan"; command: "bluetoothctl --timeout 8 scan on" }
+                    }
+
+                    Repeater {
+                        model: cc.btDevices.slice(0, 7)
+                        delegate: NetRow {
+                            required property var modelData
+                            label: modelData.name && modelData.name.length > 0
+                                ? modelData.name : modelData.address
+                            sublabel: modelData.connected ? "connected"
+                                : (modelData.paired ? "saved" : "")
+                            connected: modelData.connected
+                            action: "bluetoothctl " + (modelData.connected ? "disconnect " : "connect ")
+                                + modelData.address
+                        }
+                    }
+                }
+
+                // --- Home tiles ---
+                GridLayout {
+                    visible: cc.page === "control" && cc.detail === ""
+                    Layout.fillWidth: true
+                    columns: 2
+                    columnSpacing: 8
+                    rowSpacing: 8
+
+                    Tile {
+                        glyph: "󰤢"
+                        label: "Wi-Fi"
+                        sublabel: Networking.wifiEnabled
+                            ? (cc.activeWifi ? cc.activeWifi.name : "Not connected") : "Off"
+                        active: Networking.wifiEnabled
+                        openDetail: "wifi"
+                    }
+                    Tile {
+                        glyph: "󰂯"
+                        label: "Bluetooth"
+                        sublabel: cc.adapter && cc.adapter.enabled
+                            ? (cc.btDevices.filter(d => d.connected).length + " connected") : "Off"
+                        active: cc.adapter && cc.adapter.enabled
+                        openDetail: "bt"
+                    }
+                }
+
+                VolumeRow {
+                    visible: cc.page === "control" && cc.detail === ""
+                    Layout.fillWidth: true
+                }
+
+                Rectangle {
+                    visible: cc.page === "control" && cc.detail === ""
+                    Layout.fillWidth: true
+                    implicitHeight: 44
+                    radius: 8
+                    color: cc.card
+                    border.width: 1
+                    border.color: cc.border
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: 9
+                        anchors.rightMargin: 9
+                        spacing: 6
+
+                        Text {
+                            text: "Kanata"
+                            color: cc.fg
+                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: 10
+                            font.bold: true
+                        }
+                        ScriptLabel {
+                            Layout.fillWidth: true
+                            command: "hypr-kanata-status | jq -r '.text // \"absent\"'"
+                            interval: 5
+                            textColor: cc.dim
+                        }
+                        Mini { label: "HR"; command: "$HOME/.config/kanata/switch-kanata.sh homerow" }
+                        Mini { label: "off"; command: "$HOME/.config/kanata/switch-kanata.sh disabled" }
+                        Mini { label: "↻"; command: "$HOME/.config/kanata/reload-kanata.sh restart" }
+                    }
+                }
+
+                GridLayout {
+                    visible: cc.page === "control" && cc.detail === ""
+                    Layout.fillWidth: true
+                    columns: 2
+                    columnSpacing: 8
+                    rowSpacing: 8
+
+                    Tile { glyph: "󰌾"; label: "Lock"; command: "hyprlock-session start" }
+                    Tile { glyph: "󰐥"; label: "Power"; command: "wlogout" }
+                }
+
+                // --- Quick Menu ---
+                GridLayout {
+                    visible: cc.page === "quick"
+                    Layout.fillWidth: true
+                    columns: 2
+                    columnSpacing: 8
+                    rowSpacing: 8
+
+                    Tile { glyph: "󰀻"; label: "Apps"; command: "nwg-drawer" }
+                    Tile { glyph: "󰒓"; label: "Profiles"; command: "hypr-profile" }
+                    Tile { glyph: "󰌌"; label: "Keyboard"; command: "hypr-toggle-kb" }
+                    Tile { glyph: "󰑓"; label: "Rotate"; command: "hypr-iio-toggle" }
+                }
+
+                Rectangle {
+                    visible: cc.page === "quick"
+                    Layout.fillWidth: true
+                    implicitHeight: 44
+                    radius: 8
+                    color: cc.card
+                    border.width: 1
+                    border.color: cc.border
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: 9
+                        anchors.rightMargin: 9
+                        spacing: 8
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: "Brightness"
+                            color: cc.fg
+                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: 10
+                        }
+                        Mini { label: "−"; command: "brightness-ctl down 5" }
+                        Mini { label: "+"; command: "brightness-ctl up 5" }
+                    }
+                }
+
+                Rectangle {
+                    visible: cc.page === "quick"
+                    Layout.fillWidth: true
+                    implicitHeight: 44
+                    radius: 8
+                    color: cc.card
+                    border.width: 1
+                    border.color: cc.border
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: 9
+                        anchors.rightMargin: 9
+                        spacing: 8
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: "Volume"
+                            color: cc.fg
+                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: 10
+                        }
+                        Mini { label: "−"; command: "change-volume -5" }
+                        Mini { label: "+"; command: "change-volume +5" }
+                    }
+                }
+
+                GridLayout {
+                    visible: cc.page === "quick"
+                    Layout.fillWidth: true
+                    columns: 2
+                    columnSpacing: 8
+                    rowSpacing: 8
+
+                    Tile { glyph: "󰌾"; label: "Lock"; command: "hyprlock-session start" }
+                    Tile { glyph: "󰐥"; label: "Power"; command: "wlogout" }
+                }
             }
         }
     }
 }
-    }
