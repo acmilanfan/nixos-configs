@@ -24,7 +24,7 @@ Item {
         text: root.text
         color: root.textColor
         font.family: "JetBrainsMono Nerd Font"
-        font.pixelSize: 12
+        font.pixelSize: 14
     }
 
     Process {
