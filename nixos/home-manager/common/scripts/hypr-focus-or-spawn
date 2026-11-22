@@ -1,32 +1,24 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
 # Usage: hypr-focus-or-spawn <class> <title_regex> <command...>
-CLASS=$1
-TITLE=$2
+class=$1
+title=$2
 shift 2
-CMD="$*"
 
-LOG_FILE="${XDG_RUNTIME_DIR:-$HOME/.cache}/hypr-focus-debug.log"
-mkdir -p "$(dirname "$LOG_FILE")"
-echo "--- $(date) ---" >> "$LOG_FILE"
-echo "Args: CLASS='$CLASS' TITLE='$TITLE' CMD='$CMD'" >> "$LOG_FILE"
+# Pass inputs to jq as data; never splice them into the program.
+clients=$(hyprctl -j clients) || exit 1
+address=$(jq -r --arg class "$class" --arg title "$title" '
+  [ .[] | select(.mapped == true and .class == $class
+      and ((.title // "") | test($title; "i"))) ]
+  | first | .address // empty' <<< "$clients") || exit 1
 
-# Escape title for jq
-ESCAPED_TITLE=$(echo "$TITLE" | sed 's/"/\\"/g')
-
-# Find window
-WINDOW=$(hyprctl clients -j | jq -r ".[] | select(.class == \"$CLASS\" and .mapped == true and (.title != null) and (.title | ascii_downcase | test(\"$ESCAPED_TITLE\" | ascii_downcase))) | .address" | head -n 1)
-
-if [ -n "$WINDOW" ] && [ "$WINDOW" != "null" ]; then
-    echo "Action: Bringing window $WINDOW to current workspace" >> "$LOG_FILE"
-
-    CUR_WS=$(hyprctl activeworkspace -j | jq -r ".id")
-
-    hyprctl dispatch "hl.dsp.focus({window = 'address:$WINDOW'})"
-    hyprctl dispatch "hl.dsp.window.move({workspace = '$CUR_WS'})"
-    hyprctl dispatch "hl.dsp.window.float()"
-    hyprctl dispatch "hl.dsp.window.center()"
+if [[ -n "$address" ]]; then
+  workspace=$(hyprctl -j activeworkspace | jq -r '.id') || exit 1
+  hyprctl dispatch "hl.dsp.focus({window = 'address:$address'})"
+  hyprctl dispatch "hl.dsp.window.move({workspace = '$workspace'})"
+  hyprctl dispatch "hl.dsp.window.float()"
+  hyprctl dispatch "hl.dsp.window.center()"
 else
-    echo "Action: Spawning new instance" >> "$LOG_FILE"
-    setsid /bin/sh -c "$CMD" &>/dev/null & disown
+  setsid sh -c "$*" >/dev/null 2>&1 &
 fi

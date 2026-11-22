@@ -250,6 +250,10 @@ hl.bind(mod .. " + SHIFT + Z", function()
   hl.dispatch(hl.dsp.exec_cmd([[hypr-focus-or-spawn firefox weekenduo "firefox --new-window 'https://weekenduo.app'"]]))
 end)
 
+-- Yazi file manager: reuse its floating window, or spawn it in a terminal.
+hl.bind(mod .. " + Y", hl.dsp.exec_cmd(
+  [[hypr-focus-or-spawn yazi YAZI "alacritty --class yazi --title YAZI -e yazi"]]))
+
 -- Window management
 hl.bind(mod .. " + SHIFT + Q", hl.dsp.window.close())
 hl.bind(mod .. " + F", hl.dsp.window.fullscreen())

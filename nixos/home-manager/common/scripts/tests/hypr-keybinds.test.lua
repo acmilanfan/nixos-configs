@@ -10,10 +10,10 @@ end
 
 hl = setmetatable({
   dsp = dispatcher(""),
-  bind = function(key, action)
+  bind = function(key, action, flags)
     key = scope .. ":" .. key:lower()
     binds[key] = binds[key] or {}
-    table.insert(binds[key], action)
+    table.insert(binds[key], { action = action, flags = flags or {} })
   end,
   define_submap = function(name, fn)
     local previous = scope
@@ -31,7 +31,12 @@ dofile("dotfiles/hypr/touch-gestures.lua")
 local function get(key)
   local list = binds[key] or {}
   assert(#list == 1, key .. ": expected one bind, got " .. #list)
-  return list[1]
+  return list[1].action
+end
+local function flags(key)
+  local list = binds[key] or {}
+  assert(#list == 1, key .. ": expected one bind, got " .. #list)
+  return list[1].flags
 end
 local function equal(actual, expected, key)
   assert(vim.deep_equal(actual, expected), key .. ": got " .. vim.inspect(actual))
@@ -53,6 +58,8 @@ check(":alt + p", "exec_cmd", "hypr-commands")
 check(":alt + slash", "exec_cmd", "hypr-commands")
 check(":alt + i", "exec_cmd", "hypr-focus-window")
 check(":alt + a", "exec_cmd", "hypr-ai-agents --menu")
+check(":alt + y", "exec_cmd",
+  [[hypr-focus-or-spawn yazi YAZI "alacritty --class yazi --title YAZI -e yazi"]])
 assert(get(":alt + ctrl + a").args:find("moveworkspacetomonitor", 1, true))
 check(":alt + space", "exec_cmd", "hypr-touch-menu")
 check(":alt + n", "exec_cmd", "swaync-client -t -sw")
