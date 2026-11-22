@@ -4,7 +4,6 @@ import Quickshell
 import Quickshell.Wayland
 import Quickshell.Hyprland
 import Quickshell.Io
-import Quickshell.Services.UPower
 import Quickshell.Services.Pipewire
 import Quickshell.Services.SystemTray
 
@@ -12,6 +11,7 @@ PanelWindow {
     id: bar
 
     property bool dual: true
+    signal toggleControlCenter()
 
     readonly property string screenName: screen ? screen.name : ""
     readonly property bool bottom: screenName === "eDP-2"
@@ -22,10 +22,10 @@ PanelWindow {
     readonly property int activeWorkspaceId: monitor && monitor.activeWorkspace
         ? monitor.activeWorkspace.id : -1
 
-
-    readonly property color background: "#101010"
+    readonly property color background: "#14141c"
+    readonly property color border: "#252536"
     readonly property color foreground: "#c6d0f5"
-    readonly property color muted: "#babbf1"
+    readonly property color muted: "#7f849c"
     readonly property color accent: "#7b5cff"
 
     visible: !bottom || dual
@@ -35,12 +35,12 @@ PanelWindow {
         right: true
     }
     margins {
-        top: 4
-        left: 4
-        right: 4
+        top: 3
+        left: 3
+        right: 3
     }
-    implicitHeight: 26
-    exclusiveZone: 30
+    implicitHeight: 22
+    exclusiveZone: 25
     color: "transparent"
     WlrLayershell.namespace: "quickshell-shell"
 
@@ -55,24 +55,26 @@ PanelWindow {
 
     RowLayout {
         anchors.fill: parent
-        spacing: 8
+        spacing: 6
 
         Rectangle {
             Layout.fillHeight: true
-            implicitHeight: 24
-            implicitWidth: leftRow.implicitWidth + 16
-            radius: 8
+            implicitHeight: 22
+            implicitWidth: leftRow.implicitWidth + 12
+            radius: 7
             color: bar.background
+            border.width: 1
+            border.color: bar.border
 
             RowLayout {
                 id: leftRow
                 anchors.fill: parent
-                anchors.leftMargin: 8
-                anchors.rightMargin: 8
-                spacing: 10
+                anchors.leftMargin: 6
+                anchors.rightMargin: 6
+                spacing: 7
 
                 Row {
-                    spacing: 3
+                    spacing: 2
 
                     Repeater {
                         model: bar.bank
@@ -92,21 +94,22 @@ PanelWindow {
                             readonly property bool occupied: ws !== null
                                 && ws.toplevels.values.length > 0
 
-                            width: 18
-                            height: 18
+                            visible: active || occupied
+                            width: 17
+                            height: 17
                             radius: 5
-                            color: active ? bar.accent : "transparent"
-                            border.width: occupied && !active ? 1 : 0
-                            border.color: bar.muted
+                            color: active ? bar.accent
+                                : (hover.hovered ? "#242436" : "transparent")
 
                             Text {
                                 anchors.centerIn: parent
                                 text: pill.modelData
-                                color: pill.active ? bar.background
-                                    : (pill.occupied ? bar.foreground : bar.muted)
+                                color: pill.active ? bar.background : bar.foreground
                                 font.family: "JetBrainsMono Nerd Font"
-                                font.pixelSize: 10
+                                font.pixelSize: 9
                             }
+
+                            HoverHandler { id: hover }
 
                             MouseArea {
                                 anchors.fill: parent
@@ -118,7 +121,7 @@ PanelWindow {
 
                 ScriptLabel {
                     visible: bar.monitor && bar.monitor.focused
-                    command: "hyprctl -j activewindow | jq -r '(.title // \"\")[0:50]'"
+                    command: "hyprctl -j activewindow | jq -r '(.title // \"\")[0:42]'"
                     interval: 2
                 }
 
@@ -130,7 +133,7 @@ PanelWindow {
 
                 Item {
                     implicitWidth: touch.implicitWidth
-                    implicitHeight: 18
+                    implicitHeight: 16
 
                     Text {
                         id: touch
@@ -138,7 +141,7 @@ PanelWindow {
                         text: "󰀻"
                         color: bar.foreground
                         font.family: "JetBrainsMono Nerd Font"
-                        font.pixelSize: 11
+                        font.pixelSize: 10
                     }
 
                     MouseArea {
@@ -153,18 +156,25 @@ PanelWindow {
 
         Rectangle {
             Layout.fillHeight: true
-            implicitHeight: 24
-            implicitWidth: clockLabel.implicitWidth + 16
-            radius: 8
+            implicitHeight: 22
+            implicitWidth: clockLabel.implicitWidth + 14
+            radius: 7
             color: bar.background
+            border.width: 1
+            border.color: bar.border
 
             Text {
                 id: clockLabel
                 anchors.centerIn: parent
-                text: Qt.formatDateTime(clock.date, "yyyy-MM-dd HH:mm")
+                text: Qt.formatDateTime(clock.date, "HH:mm")
                 color: bar.foreground
                 font.family: "JetBrainsMono Nerd Font"
-                font.pixelSize: 11
+                font.pixelSize: 10
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                onClicked: bar.toggleControlCenter()
             }
         }
 
@@ -172,28 +182,31 @@ PanelWindow {
 
         Rectangle {
             Layout.fillHeight: true
-            implicitHeight: 24
-            implicitWidth: rightRow.implicitWidth + 16
-            radius: 8
+            implicitHeight: 22
+            implicitWidth: rightRow.implicitWidth + 12
+            radius: 7
             color: bar.background
+            border.width: 1
+            border.color: bar.border
 
             RowLayout {
                 id: rightRow
                 anchors.fill: parent
-                anchors.leftMargin: 8
-                anchors.rightMargin: 8
-                spacing: 9
+                anchors.leftMargin: 6
+                anchors.rightMargin: 6
+                spacing: 7
 
                 ScriptLabel {
+                    visible: text !== ""
                     command: "hypr-kanata-status | jq -r '.text // \"\"'"
                     interval: 5
-                    leftCommand: "$HOME/.config/kanata/switch-kanata.sh homerow"
-                    rightCommand: "$HOME/.config/kanata/switch-kanata.sh disabled"
+                    leftCommand: "hypr-kanata-menu"
                 }
 
                 ScriptLabel {
-                    command: "hypr-layout-status | jq -r '.text // \"\"'"
+                    command: "hypr-layout-icon"
                     interval: 2
+                    leftCommand: "hypr-cycle-layout"
                 }
 
                 ScriptLabel {
@@ -202,7 +215,8 @@ PanelWindow {
                 }
 
                 ScriptLabel {
-                    command: "hypr-timer output | jq -r '.text // \"\"'"
+                    visible: text !== ""
+                    command: "hypr-timer output | jq -r 'if .class == \"finished\" then \"\" else (.text // \"\") end'"
                     interval: 1
                     leftCommand: "hypr-timer stop"
                     rightCommand: "hypr-timer reset"
@@ -210,6 +224,7 @@ PanelWindow {
                 }
 
                 ScriptLabel {
+                    visible: text !== ""
                     command: "hypr-ai-agents | jq -r '.text // \"\"'"
                     interval: 10
                     leftCommand: "hypr-ai-agents --menu"
@@ -222,16 +237,13 @@ PanelWindow {
                             : Math.round(sink.audio.volume * 100) + "%")
                     color: bar.muted
                     font.family: "JetBrainsMono Nerd Font"
-                    font.pixelSize: 11
+                    font.pixelSize: 10
                 }
 
-                Text {
-                    text: UPower.displayDevice.ready
-                        ? Math.round(UPower.displayDevice.percentage * 100) + "%"
-                        : "--"
-                    color: bar.muted
-                    font.family: "JetBrainsMono Nerd Font"
-                    font.pixelSize: 11
+                ScriptLabel {
+                    visible: text !== ""
+                    command: "upower -i /org/freedesktop/UPower/devices/DisplayDevice 2>/dev/null | awk '/state:/{s=$2} /percentage:/{p=$2} END{if (s==\"charging\"||s==\"discharging\") printf \"%s\", p}'"
+                    interval: 30
                 }
 
                 ScriptLabel {
@@ -250,7 +262,7 @@ PanelWindow {
                 }
 
                 Row {
-                    spacing: 8
+                    spacing: 6
 
                     Repeater {
                         model: SystemTray.items
@@ -258,10 +270,10 @@ PanelWindow {
                         delegate: Image {
                             required property var modelData
                             source: modelData.icon
-                            sourceSize.width: 16
-                            sourceSize.height: 16
-                            width: 16
-                            height: 16
+                            sourceSize.width: 14
+                            sourceSize.height: 14
+                            width: 14
+                            height: 14
 
                             MouseArea {
                                 anchors.fill: parent

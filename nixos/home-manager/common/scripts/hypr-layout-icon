@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+full=$(hyprctl -j activewindow | jq -r '.fullscreen // 0')
+if [ "$full" != "0" ]; then
+  printf '󰊓\n'
+  exit 0
+fi
+
+case "$(hyprctl -j activeworkspace | jq -r '.layout')" in
+  dwindle) printf '󰘸\n' ;;
+  scrolling) printf '󰒋\n' ;;
+  *) printf '󰕮\n' ;;
+esac

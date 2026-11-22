@@ -1,24 +1,21 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
-# Battery path
-BAT_PATH="/sys/class/power_supply/BAT0"
-[ ! -d "$BAT_PATH" ] && BAT_PATH="/sys/class/power_supply/BAT1"
+BAT_PATH="${HYPR_BAT_PATH:-/sys/class/power_supply/BAT0}"
+[ -d "$BAT_PATH" ] || BAT_PATH="/sys/class/power_supply/BAT1"
+[ -d "$BAT_PATH" ] || { echo '{"text": "󱐋 --W", "class": "none"}'; exit 0; }
 
-if [ -d "$BAT_PATH" ]; then
-    current=$(cat "$BAT_PATH/current_now")
-    voltage=$(cat "$BAT_PATH/voltage_now")
-
-    # Calculate watts (micro-units to standard)
-    watts=$(echo "scale=2; ($current * $voltage) / 1000000000000" | bc -l)
-
-    status_class="low"
-    if (( $(echo "$watts > 30" | bc -l) )); then
-        status_class="high"
-    elif (( $(echo "$watts > 15" | bc -l) )); then
-        status_class="medium"
-    fi
-
-    printf '{"text": "󱐋 %.1fW", "class": "%s", "tooltip": "Usage: %.2f Watts"}\n' "$watts" "$status_class" "$watts"
+if [ -r "$BAT_PATH/power_now" ]; then
+  micro=$(cat "$BAT_PATH/power_now")
+elif [ -r "$BAT_PATH/current_now" ] && [ -r "$BAT_PATH/voltage_now" ]; then
+  micro=$(( $(cat "$BAT_PATH/current_now") * $(cat "$BAT_PATH/voltage_now") / 1000000 ))
 else
-    echo '{"text": "󱐋 --W", "class": "none"}'
+  echo '{"text": "󱐋 --W", "class": "none"}'
+  exit 0
 fi
+
+watts=$(awk -v u="$micro" 'BEGIN { printf "%.1f", u / 1000000 }')
+class=low
+awk -v w="$watts" 'BEGIN { exit !(w > 30) }' && class=high
+awk -v w="$watts" 'BEGIN { exit !(w > 15 && w <= 30) }' && class=medium
+printf '{"text": "󱐋 %sW", "class": "%s", "tooltip": "Usage: %s Watts"}\n' "$watts" "$class" "$watts"

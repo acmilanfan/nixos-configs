@@ -20,6 +20,7 @@ in
     "quickshell/shell/shell.qml".source = ../../../dotfiles/quickshell/shell/shell.qml;
     "quickshell/shell/Bar.qml".source = ../../../dotfiles/quickshell/shell/Bar.qml;
     "quickshell/shell/ScriptLabel.qml".source = ../../../dotfiles/quickshell/shell/ScriptLabel.qml;
+    "quickshell/shell/ControlCenter.qml".source = ../../../dotfiles/quickshell/shell/ControlCenter.qml;
   };
 
 }

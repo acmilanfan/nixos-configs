@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+kanata_dir="$HOME/.config/kanata"
+choice=$(printf '%s\n' "Home Row" "Disabled" "Reload" |
+  vicinae dmenu -p "Kanata:" -W 360) || exit 0
+[[ -n "$choice" ]] || exit 0
+
+case "$choice" in
+  "Home Row") "$kanata_dir/switch-kanata.sh" homerow ;;
+  Disabled) "$kanata_dir/switch-kanata.sh" disabled ;;
+  Reload) "$kanata_dir/reload-kanata.sh" restart ;;
+esac

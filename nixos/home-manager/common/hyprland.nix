@@ -350,6 +350,8 @@ in
     (writeShellScriptBin "hypr-powersave-mode" (lib.readFile ./scripts/hypr-powersave-mode))
     (writeShellScriptBin "hypr-animations-toggle" (lib.readFile ./scripts/hypr-animations-toggle))
     (writeShellScriptBin "hypr-layout-status" (lib.readFile ./scripts/hypr-layout-status))
+    (writeShellScriptBin "hypr-layout-icon" (lib.readFile ./scripts/hypr-layout-icon))
+    (writeShellScriptBin "hypr-kanata-menu" (lib.readFile ./scripts/hypr-kanata-menu))
     (writeShellScriptBin "hypr-power-watts" (lib.readFile ./scripts/hypr-power-watts))
     (writeShellScriptBin "hypr-focus-window" (lib.readFile ./scripts/hypr-focus-window))
     (writeShellScriptBin "hypr-timer" (lib.readFile ./scripts/hypr-timer))
