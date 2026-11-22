@@ -1,5 +1,7 @@
 -- Run with nvim --headless -u NONE -l <this file> from the repo root.
 local binds, calls, scope = {}, {}, ""
+local state = { window = nil, submap = "" }
+local handlers = {}
 local function noop() end
 local function dispatcher(path)
   return setmetatable({}, {
@@ -23,6 +25,9 @@ hl = setmetatable({
   end,
   dispatch = function(action) table.insert(calls, action) end,
   exec_cmd = function(cmd) table.insert(calls, { name = "exec_cmd", args = cmd }) end,
+  get_active_window = function() return state.window end,
+  get_current_submap = function() return state.submap end,
+  on = function(name, fn) handlers[name] = fn end,
 }, { __index = function() return noop end })
 
 dofile("dotfiles/hypr/hyprland.lua")
@@ -98,4 +103,51 @@ for key, cmd in pairs({t = "alacritty", b = "firefox", r = "hyprctl reload", k =
   }, "leader:" .. key)
 end
 equal(invoke("leader:v")[1], { name = "submap", args = "vim-mode" }, "leader:v")
+
+-- Firefox tab mode
+assert(flags(":ctrl + alt + z").auto_consuming)
+assert(type(get(":ctrl + alt + z")) == "function")
+local function firefox_toggle(window)
+  calls = {}
+  state.window = window
+  local result = get(":ctrl + alt + z")()
+  return calls, result
+end
+local ff_calls, ff_result = firefox_toggle({ class = "firefox" })
+equal(ff_calls, {
+  { name = "exec_cmd", args = "hypr-firefox-tabs toggle" },
+  { name = "submap", args = "firefox-tabs" },
+}, "firefox toggle")
+assert(ff_result == nil)
+local other_calls, other_result = firefox_toggle({ class = "Alacritty" })
+equal(other_calls, {}, "non-firefox pass-through")
+equal(other_result, { ok = false }, "non-firefox result")
+
+for _, key in ipairs({ "j", "down" }) do
+  equal(invoke("firefox-tabs:" .. key), { { name = "exec_cmd", args = "hypr-firefox-tabs next" } }, "firefox-tabs:" .. key)
+  assert(flags("firefox-tabs:" .. key).repeating)
+end
+for _, key in ipairs({ "k", "up" }) do
+  equal(invoke("firefox-tabs:" .. key), { { name = "exec_cmd", args = "hypr-firefox-tabs prev" } }, "firefox-tabs:" .. key)
+  assert(flags("firefox-tabs:" .. key).repeating)
+end
+for _, key in ipairs({ "return", "escape", "ctrl + alt + z" }) do
+  equal(invoke("firefox-tabs:" .. key), {
+    { name = "exec_cmd", args = "hypr-firefox-tabs toggle" },
+    { name = "submap", args = "reset" },
+  }, "firefox-tabs:" .. key)
+end
+check("firefox-tabs:catchall", "submap", "reset")
+assert(flags("firefox-tabs:catchall").non_consuming)
+
+local function focus_away(window, submap)
+  calls = {}
+  state.submap = submap
+  handlers["window.active"](window)
+  return calls
+end
+equal(focus_away({ class = "Alacritty" }, "firefox-tabs"), { { name = "submap", args = "reset" } }, "focus away")
+equal(focus_away({ class = "firefox" }, "firefox-tabs"), {}, "firefox keeps mode")
+equal(focus_away({ class = "Alacritty" }, "vim-mode"), {}, "leave other submap")
+
 print("hypr-keybinds: all cases passed")

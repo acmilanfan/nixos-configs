@@ -463,6 +463,45 @@ hl.define_submap("leader-controls", function()
   hl.bind("q", hl.dsp.submap("reset"))
 end)
 
+-- --- FIREFOX TAB MODE ---
+-- Ctrl+Alt+Z is Firefox's own sidebar toggle on Linux. Enter the mode only
+-- while Firefox is focused; elsewhere the key passes through untouched.
+local firefox = "firefox"
+local function firefox_tabs(action)
+  hl.dispatch(hl.dsp.exec_cmd("hypr-firefox-tabs " .. action))
+end
+
+hl.bind("CTRL + ALT + Z", function()
+  local w = hl.get_active_window()
+  if not w or w.class ~= firefox then return { ok = false } end
+  firefox_tabs("toggle")
+  hl.dispatch(hl.dsp.submap("firefox-tabs"))
+end, { auto_consuming = true })
+
+hl.define_submap("firefox-tabs", function()
+  for _, key in ipairs({ "j", "down" }) do
+    hl.bind(key, function() firefox_tabs("next") end, { repeating = true })
+  end
+  for _, key in ipairs({ "k", "up" }) do
+    hl.bind(key, function() firefox_tabs("prev") end, { repeating = true })
+  end
+  local function leave()
+    firefox_tabs("toggle")
+    hl.dispatch(hl.dsp.submap("reset"))
+  end
+  hl.bind("return", leave)
+  hl.bind("escape", leave)
+  hl.bind("CTRL + ALT + Z", leave)
+  hl.bind("catchall", hl.dsp.submap("reset"), { non_consuming = true })
+end)
+
+hl.on("window.active", function(w)
+  if hl.get_current_submap() ~= "firefox-tabs" then return end
+  if not w or w.class ~= firefox then
+    hl.dispatch(hl.dsp.submap("reset"))
+  end
+end)
+
 -- --- VIM-MODE SUBMAP ---
 hl.define_submap("vim-mode", function()
   hl.bind("h", hl.dsp.exec_cmd("wtype -P Left"), { repeating = true })
