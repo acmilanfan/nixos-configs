@@ -101,8 +101,8 @@ PanelWindow {
                                     && ws.toplevels.values.length > 0
 
                                 visible: active || occupied
-                                width: 19
-                                height: 19
+                                width: 22
+                                height: 24
                                 radius: 4
                                 color: active ? bar.accent
                                     : (hover.hovered ? "#242436" : "transparent")
@@ -119,7 +119,9 @@ PanelWindow {
 
                                 MouseArea {
                                     anchors.fill: parent
-                                    onClicked: Hyprland.dispatch("workspace " + pill.modelData)
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.focus({workspace = \u0027" + pill.modelData + "\u0027})"])
                                 }
                             }
                         }

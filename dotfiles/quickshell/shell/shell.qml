@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import Quickshell.Hyprland
 
 ShellRoot {
     id: root
@@ -59,6 +60,11 @@ ShellRoot {
 
         function close(): string {
             root.popover = ""
+            return "ok"
+        }
+
+        function workspace(id: string): string {
+            Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.focus({workspace = \u0027" + id + "\u0027})"])
             return "ok"
         }
     }
