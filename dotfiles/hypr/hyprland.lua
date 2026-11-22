@@ -82,7 +82,7 @@ hl.config({
   cursor = {
     inactive_timeout = 5,
     hide_on_key_press = true,
-    no_hardware_cursors = true,
+    no_hardware_cursors = 0,
   },
 
   -- misc = {
