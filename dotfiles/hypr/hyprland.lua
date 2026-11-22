@@ -325,8 +325,8 @@ hl.bind(mod .. " + J", hl.dsp.window.cycle_next())
 hl.bind(mod .. " + K", hl.dsp.window.cycle_next({ next = false }))
 
 -- Change layout orientation / stack
-hl.bind(mod .. " + SHIFT + L", hl.dsp.layout("orientationleft"))
-hl.bind(mod .. " + SHIFT + H", hl.dsp.layout("orientationright"))
+hl.bind(mod .. " + CTRL + L", hl.dsp.layout("orientationleft"))
+hl.bind(mod .. " + CTRL + H", hl.dsp.layout("orientationright"))
 hl.bind(mod .. " + CTRL + Return", hl.dsp.layout("swapwithmaster master"))
 hl.bind(mod .. " + CTRL + Space", function()
   hl.dispatch(hl.dsp.window.float({ action = "toggle" }))
@@ -360,9 +360,11 @@ hl.bind(mod .. " + CTRL + J", hl.dsp.layout("orientationright"))
 hl.bind(mod .. " + mouse:272", hl.dsp.window.drag(), { mouse = true })
 hl.bind(mod .. " + mouse:273", hl.dsp.window.resize(), { mouse = true })
 
--- Move window
-hl.bind(mod .. " + SHIFT + J", hl.dsp.window.swap({ next = true }))
-hl.bind(mod .. " + SHIFT + K", hl.dsp.window.swap({ prev = true }))
+-- Floating: resize in place. Tiled: reorder. (NanoWM-compatible shift+hjkl.)
+hl.bind(mod .. " + SHIFT + H", hl.dsp.exec_cmd("hypr-window-adapt h"))
+hl.bind(mod .. " + SHIFT + L", hl.dsp.exec_cmd("hypr-window-adapt l"))
+hl.bind(mod .. " + SHIFT + K", hl.dsp.exec_cmd("hypr-window-adapt k"))
+hl.bind(mod .. " + SHIFT + J", hl.dsp.exec_cmd("hypr-window-adapt j"))
 
 -- Floating move (10px steps, repeating)
 hl.bind(mod .. " + SHIFT + CTRL + J", hl.dsp.window.move({ x = 0, y = 10, relative = true }), { repeating = true })

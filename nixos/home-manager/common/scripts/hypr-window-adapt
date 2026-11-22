@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Usage: hypr-window-adapt h|l|j|k
+case "${1:-}" in
+  h) dx=-40 dy=0 swap='{prev = true}' ;;
+  l) dx=40 dy=0 swap='{next = true}' ;;
+  k) dx=0 dy=-40 swap='{prev = true}' ;;
+  j) dx=0 dy=40 swap='{next = true}' ;;
+  *)
+    echo "usage: ${0##*/} h|l|j|k" >&2
+    exit 2
+    ;;
+esac
+
+# The Lua resize binding is not incremental on Hyprland 0.55.4.
+floating=$(hyprctl -j activewindow | jq -r '.floating // false')
+if [[ "$floating" == true ]]; then
+  hyprctl dispatch resizeactive "$dx" "$dy"
+else
+  hyprctl dispatch "hl.dsp.window.swap($swap)"
+fi
