@@ -19,6 +19,7 @@ let
         python3
         supabase-cli
         go-mockery
+        glab
       ]);
     runScript = "zsh";
   };

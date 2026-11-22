@@ -16,6 +16,7 @@ pkgs.mkShell {
     supabase-cli
     go-mockery
     golangci-lint
+    glab
     docker
     colima
   ];
