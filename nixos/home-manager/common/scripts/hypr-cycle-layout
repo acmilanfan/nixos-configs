@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
 CURRENT=$(hyprctl -j activeworkspace | jq -r '.layout')
 
-if [ "$CURRENT" = "dwindle" ]; then
-  hyprctl eval "hl.dispatch(hl.dsp.layout('swapwithmaster master'))"
-  hyprctl eval "hl.config({general={layout='master'}})"
-else
-  hyprctl eval "hl.config({general={layout='dwindle'}})"
-fi
+case "$CURRENT" in
+  master) NEXT=dwindle ;;
+  dwindle) NEXT=scrolling ;;
+  *) NEXT=master ;;
+esac
+
+hyprctl eval "hl.config({general={layout='$NEXT'}})"

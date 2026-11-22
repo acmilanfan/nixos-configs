@@ -104,6 +104,12 @@ hl.config({
     new_status = "master",
   },
 
+  scrolling = {
+    column_width = 0.7,
+    explicit_column_widths = "0.5, 0.7, 1.0",
+    focus_fit_method = 1,
+  },
+
   decoration = {
     rounding = 6,
     blur = {
@@ -349,6 +355,9 @@ local function adjust_mfact(delta)
   hl.config({ master = { mfact = _mfact }, general = { layout = "dwindle" } })
   hl.config({ general = { layout = "master" } })
 end
+
+-- Cycle the scrolling layout column through 50/70/100%; no-op elsewhere.
+hl.bind(mod .. " + R", hl.dsp.layout("colresize +conf"))
 
 -- Resize binds (master layout)
 hl.bind(mod .. " + H", function() adjust_mfact(-0.02) end, { repeating = true })

@@ -59,6 +59,7 @@ end
 check(":alt + shift + space", "window.float", { action = "toggle" })
 check(":alt + shift + 0", "window.move", { workspace = "10" })
 check(":alt + shift + minus", "exec_cmd", "hyprctl -q keyword cursor:zoom_factor 1")
+check(":alt + r", "layout", "colresize +conf")
 check(":alt + ctrl + h", "layout", "orientationright")
 check(":alt + ctrl + l", "layout", "orientationleft")
 check(":alt + ctrl + j", "layout", "orientationright")
