@@ -36,6 +36,9 @@ PanelWindow {
     exclusiveZone: 0
     color: "transparent"
     WlrLayershell.namespace: "quickshell-control-center"
+    WlrLayershell.keyboardFocus: cc.visible ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
+
+    onVisibleChanged: if (visible) focusScope.forceActiveFocus()
 
     PwObjectTracker {
         objects: Pipewire.defaultAudioSink ? [Pipewire.defaultAudioSink] : []
@@ -52,9 +55,18 @@ PanelWindow {
         Layout.fillWidth: true
         implicitHeight: 54
         radius: 8
+        activeFocusOnTab: true
         color: tile.active ? "#2a2350" : (hover.hovered ? cc.cardHover : cc.card)
         border.width: 1
-        border.color: tile.active ? cc.accent : cc.border
+        border.color: tile.active || tile.activeFocus ? cc.accent : cc.border
+        Keys.onReturnPressed: run()
+        Keys.onEnterPressed: run()
+        Keys.onSpacePressed: run()
+
+        function run() {
+            if (tile.command)
+                Quickshell.execDetached(["sh", "-c", tile.command])
+        }
 
         RowLayout {
             anchors.fill: parent
@@ -103,11 +115,7 @@ PanelWindow {
 
         MouseArea {
             anchors.fill: parent
-            onClicked: {
-                if (tile.command)
-                    Quickshell.execDetached(["sh", "-c", tile.command])
-                cc.closeRequested()
-            }
+            onClicked: tile.run()
         }
     }
 
@@ -119,9 +127,18 @@ PanelWindow {
         implicitWidth: Math.max(26, labelText.implicitWidth + 12)
         implicitHeight: 22
         radius: 6
+        activeFocusOnTab: true
         color: hover.hovered ? cc.cardHover : cc.card
         border.width: 1
-        border.color: cc.border
+        border.color: mini.activeFocus ? cc.accent : cc.border
+        Keys.onReturnPressed: run()
+        Keys.onEnterPressed: run()
+        Keys.onSpacePressed: run()
+
+        function run() {
+            if (mini.command)
+                Quickshell.execDetached(["sh", "-c", mini.command])
+        }
 
         Text {
             id: labelText
@@ -136,10 +153,7 @@ PanelWindow {
 
         MouseArea {
             anchors.fill: parent
-            onClicked: {
-                if (mini.command)
-                    Quickshell.execDetached(["sh", "-c", mini.command])
-            }
+            onClicked: mini.run()
         }
     }
 
@@ -235,14 +249,20 @@ PanelWindow {
         }
     }
 
-    Rectangle {
+    FocusScope {
+        id: focusScope
         anchors.fill: parent
-        radius: 11
-        color: cc.bg
-        border.width: 1
-        border.color: cc.border
+        focus: true
+        Keys.onEscapePressed: cc.closeRequested()
 
-        ColumnLayout {
+        Rectangle {
+            anchors.fill: parent
+            radius: 11
+            color: cc.bg
+            border.width: 1
+            border.color: cc.border
+
+            ColumnLayout {
             id: content
             anchors.fill: parent
             anchors.margins: 14
@@ -424,3 +444,4 @@ PanelWindow {
         }
     }
 }
+    }
