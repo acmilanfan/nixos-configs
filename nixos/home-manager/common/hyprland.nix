@@ -342,7 +342,6 @@ in
     (writeShellScriptBin "hypr-profile" (lib.readFile ./scripts/hypr-profile))
     (writeShellScriptBin "hypr-profile-tablet" (lib.readFile ./scripts/hypr-profile-tablet))
     (writeShellScriptBin "hypr-toggle-kb" (lib.readFile ./scripts/hypr-toggle-kb))
-    (writeShellScriptBin "hypr-touchpad-mode" (lib.readFile ./scripts/hypr-touchpad-mode))
     (writeShellScriptBin "hypr-send-to-other-monitor" (
       lib.readFile ./scripts/hypr-send-to-other-monitor
     ))

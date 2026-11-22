@@ -248,14 +248,8 @@ fn handle_trigger(x: f64, y: f64, state: &mut RdState) {
         );
         return;
     };
-    let (w, h, tx, ty) = if touchpad_mode() {
-        let ((w, h), (cx, cy)) = mode_spawn_geom(m);
-        eprintln!("yb-touchpad: touchpad-mode on: bottom-third pad {w}x{h} at ({cx},{cy})");
-        (w, h, cx as f64, cy as f64)
-    } else {
-        let (w, h) = DEFAULT_SIZE;
-        (w, h, x, y)
-    };
+    let (w, h) = DEFAULT_SIZE;
+    let (tx, ty) = (x, y);
     let cx = tx.clamp(
         m.x as f64 + w as f64 / 2.0,
         (m.x + m.width) as f64 - w as f64 / 2.0,
@@ -278,32 +272,6 @@ fn handle_trigger(x: f64, y: f64, state: &mut RdState) {
             eprintln!("yb-touchpad: no pre-tap cursor sample, skipping restore");
         }
     }
-}
-
-/// Touchpad-mode flag (toggled by the hypr-touchpad-mode script): when the
-/// flag file exists, triple-tap opens the pad covering the bottom half of
-/// the monitor. Same path resolution as the shell script ($XDG_RUNTIME_DIR,
-/// else /run/user/<uid> — the daemon runs under systemd user, so the env
-/// var is set; the fallback keeps manual runs working).
-fn touchpad_mode() -> bool {
-    let dir = std::env::var_os("XDG_RUNTIME_DIR")
-        .map(std::path::PathBuf::from)
-        .unwrap_or_else(|| {
-            let uid = unsafe { libc::getuid() };
-            std::path::PathBuf::from(format!("/run/user/{uid}"))
-        });
-    dir.join("yb-touchpad-mode").exists()
-}
-
-/// Window size+center for touchpad-mode: the pad is one-third the monitor
-/// width (ample palm space on both sides) by one-third the height, centered
-/// horizontally, bottom-pinned (top stays free). Height floor keeps tiny
-/// screens usable. Pure for tests.
-fn mode_spawn_geom(mon: coord::Rect) -> ((i32, i32), (i32, i32)) {
-    let w = mon.width / 3;
-    let h = (mon.height / 3).max(200);
-    let center = (mon.x + mon.width / 2, mon.y + mon.height - h / 2);
-    ((w, h), center)
 }
 
 /// The kernel's cached ABS_X/ABS_Y snapshot (EVIOCGABS). This panel (patched
@@ -1160,32 +1128,6 @@ mod tests {
         // empty desktop: abort path
         assert!(pick_target(&clients, 2000.0, 2000.0).is_none());
         assert!(pick_target(&[], 10.0, 10.0).is_none());
-    }
-
-    // --- touchpad-mode spawn geometry ---------------------------------------
-
-    #[test]
-    fn mode_spawn_geom_covers_bottom_third() {
-        let mon = coord::Rect { x: 1440, y: 0, width: 1440, height: 900 };
-        let ((w, h), (cx, cy)) = mode_spawn_geom(mon);
-        assert_eq!((w, h), (480, 300)); // one-third width
-        assert_eq!((cx, cy), (2160, 750)); // bottom-pinned: 900-150
-    }
-
-    #[test]
-    fn mode_spawn_geom_offset_monitor() {
-        let mon = coord::Rect { x: 0, y: 1130, width: 1800, height: 1125 };
-        let ((w, h), (cx, cy)) = mode_spawn_geom(mon);
-        assert_eq!((w, h), (600, 375)); // 1800/3, 1125/3 exact
-        assert_eq!((cx, cy), (900, 2068)); // bottom-pinned: 1130+1125-187
-    }
-
-    #[test]
-    fn mode_spawn_geom_tiny_screen_mins() {
-        let mon = coord::Rect { x: 0, y: 0, width: 400, height: 300 };
-        let ((w, h), (cx, cy)) = mode_spawn_geom(mon);
-        assert_eq!((w, h), (133, 200)); // 400/3, height floor
-        assert_eq!((cx, cy), (200, 200));
     }
 
     #[test]
