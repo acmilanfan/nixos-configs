@@ -141,7 +141,7 @@ hl.config({
 hl.on("hyprland.start", function()
   hl.exec_cmd("swww init")
   hl.exec_cmd("swww img ~/.config/hypr/wallpapers/default.jpg")
-  hl.exec_cmd("hypr-waybar-toggle on")
+  hl.exec_cmd("sh -c 'command -v hypr-quickshell-shell >/dev/null && hypr-quickshell-shell start || hypr-waybar-toggle on'")
   hl.exec_cmd("nm-applet")
   hl.exec_cmd("hyprctl setcursor breeze_cursors 28")
   hl.exec_cmd("hypr-profile restore")

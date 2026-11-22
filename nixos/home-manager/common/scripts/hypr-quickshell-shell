@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Usage: hypr-quickshell-shell start|stop|toggle|status
+waybar_pattern='^([^ ]*/)?waybar -c .*config-hypr'
+shell_pattern='^([^ ]*/)?quickshell -c shell'
+
+shell_running() { pgrep -f "$shell_pattern" >/dev/null 2>&1; }
+stop_shell() { pkill -f "$shell_pattern" 2>/dev/null || true; }
+
+start_shell() {
+  command -v quickshell >/dev/null 2>&1 ||
+    { echo "quickshell is not installed" >&2; return 1; }
+  [[ -f "$HOME/.config/quickshell/shell/shell.qml" ]] ||
+    { echo "missing ~/.config/quickshell/shell/shell.qml" >&2; return 1; }
+  [[ -n "${WAYLAND_DISPLAY:-}" ]] ||
+    { echo "WAYLAND_DISPLAY is not set" >&2; return 1; }
+  shell_running && return 0
+
+  setsid quickshell -c shell >/dev/null 2>&1 &
+  for _ in $(seq 150); do
+    shell_running && return 0
+    sleep 0.02
+  done
+  stop_shell
+  echo "quickshell shell failed to start" >&2
+  return 1
+}
+
+case "${1:-status}" in
+  start)
+    start_shell
+    hypr-waybar-toggle off
+    ;;
+  stop)
+    stop_shell
+    hypr-waybar-toggle on
+    ;;
+  restart)
+    stop_shell
+    start_shell
+    hypr-waybar-toggle off
+    ;;
+  toggle)
+    if shell_running; then
+      stop_shell
+      hypr-waybar-toggle on
+    else
+      start_shell
+      hypr-waybar-toggle off
+    fi
+    ;;
+  status)
+    if shell_running; then
+      echo "quickshell shell: running"
+    else
+      echo "quickshell shell: stopped"
+    fi
+    ;;
+  *)
+    echo "usage: ${0##*/} start|stop|toggle|status" >&2
+    exit 2
+    ;;
+esac

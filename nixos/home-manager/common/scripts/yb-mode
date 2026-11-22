@@ -155,11 +155,6 @@ hide_bottom_bar() {
     pkill -f 'waybar -c .*config-hypr-bottom' 2>/dev/null || true
 }
 
-# The Quickshell pilot is a dual-screen-only trial; mode changes turn it off.
-stop_pilot() {
-    pkill -f '^([^ ]*/)?quickshell -c pilot' 2>/dev/null || true
-}
-
 show_bottom_bar() {
     if ! bottom_bar_running; then
         nohup waybar -c "$HOME/.config/waybar/config-hypr-bottom" \
@@ -266,7 +261,6 @@ apply_dual() {
     set_workspace_rules_dual
     stop_wvkbd
     close_pad
-    stop_pilot
     unblack_bottom
     show_bottom_bar
     unlock_rotation
@@ -277,7 +271,6 @@ apply_laptop() {
     set_workspace_rules_top
     black_bottom
     hide_bottom_bar
-    stop_pilot
     stop_wvkbd
     close_pad
     lock_rotation
@@ -289,7 +282,6 @@ apply_virtual_laptop() {
     set_workspace_rules_top
     black_bottom
     hide_bottom_bar
-    stop_pilot
     close_pad
     lock_rotation
     move_workspaces_to_top

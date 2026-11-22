@@ -1,7 +1,7 @@
 { pkgs, lib, ... }:
 let
-  quickshellPilot = pkgs.writeShellScriptBin "hypr-quickshell-pilot"
-    (lib.readFile ../../home-manager/common/scripts/hypr-quickshell-pilot);
+  quickshellShell = pkgs.writeShellScriptBin "hypr-quickshell-shell"
+    (lib.readFile ../../home-manager/common/scripts/hypr-quickshell-shell);
 in
 {
 
@@ -13,10 +13,13 @@ in
 
   home.packages = [
     pkgs.quickshell
-    quickshellPilot
+    quickshellShell
   ];
 
-  xdg.configFile."quickshell/pilot/shell.qml".source =
-    ../../../dotfiles/quickshell/pilot/shell.qml;
+  xdg.configFile = {
+    "quickshell/shell/shell.qml".source = ../../../dotfiles/quickshell/shell/shell.qml;
+    "quickshell/shell/Bar.qml".source = ../../../dotfiles/quickshell/shell/Bar.qml;
+    "quickshell/shell/ScriptLabel.qml".source = ../../../dotfiles/quickshell/shell/ScriptLabel.qml;
+  };
 
 }

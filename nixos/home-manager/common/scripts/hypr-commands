@@ -26,9 +26,8 @@ LABELS=(
   "Animations: Toggle"
 )
 
-# The pilot helper exists only on the Yoga Book; hide the entry elsewhere.
-if command -v hypr-quickshell-pilot >/dev/null 2>&1; then
-  LABELS+=("Quickshell pilot: Toggle")
+if command -v hypr-quickshell-shell >/dev/null 2>&1; then
+  LABELS+=("Quickshell shell: Restart")
 fi
 
 # Show menu (newline separated for vicinae dmenu) and get choice
@@ -39,7 +38,7 @@ case "$CHOICE" in
   "Toggle Monocle/Tile") hypr-cycle-layout ;;
   "Toggle Pseudo-Tile") hyprctl dispatch 'hl.dsp.window.pseudo()' ;;
   "Previous Master Orientation") hyprctl dispatch 'hl.dsp.layout("orientationprev")' ;;
-  "Quickshell pilot: Toggle") hypr-quickshell-pilot toggle ;;
+  "Quickshell shell: Restart") hypr-quickshell-shell restart ;;
   "Timer: Start 25m") hypr-timer start 25 ;;
   "Timer: Start 5m") hypr-timer start 5 ;;
   "Timer: Stop") hypr-timer stop ;;

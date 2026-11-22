@@ -6,9 +6,13 @@ scratch="$HOME/ai/artifacts/nixos-configs/hyprland-mac-keybinds"
 mkdir -p "$scratch"
 export FIXTURE
 FIXTURE=$(mktemp -d "$scratch/commands.XXXXXX")
-trap 'rm -f "$FIXTURE/"{hyprctl,vicinae,hypr-quickshell-pilot,rows,dispatch}; rmdir "$FIXTURE"' EXIT
+trap 'rm -rf "$FIXTURE"' EXIT
 export PATH="$FIXTURE:$PATH"
 
+cat > "$FIXTURE/hypr-quickshell-shell" <<'EOF'
+#!/usr/bin/env bash
+printf 'shell %s\n' "$*" >> "$FIXTURE/dispatch"
+EOF
 cat > "$FIXTURE/vicinae" <<'EOF'
 #!/usr/bin/env bash
 cat > "$FIXTURE/rows"
@@ -19,11 +23,7 @@ cat > "$FIXTURE/hyprctl" <<'EOF'
 [[ "$1" == dispatch ]] || exit 2
 printf '%s\n' "$2" >> "$FIXTURE/dispatch"
 EOF
-cat > "$FIXTURE/hypr-quickshell-pilot" <<'EOF'
-#!/usr/bin/env bash
-printf '%s\n' "$*" >> "$FIXTURE/dispatch"
-EOF
-chmod +x "$FIXTURE/"{hyprctl,vicinae,hypr-quickshell-pilot}
+chmod +x "$FIXTURE/"{hyprctl,vicinae,hypr-quickshell-shell}
 
 check() {
     local choice=$1 expected=$2
@@ -37,15 +37,8 @@ check() {
 }
 check 'Toggle Pseudo-Tile' 'hl.dsp.window.pseudo()'
 check 'Previous Master Orientation' 'hl.dsp.layout("orientationprev")'
-check 'Quickshell pilot: Toggle' 'toggle'
+check 'Quickshell shell: Restart' 'shell restart'
 check 'Not a command' ''
 check '' ''
-
-# Without the Yoga-only helper, the pilot entry must be absent.
-mv "$FIXTURE/hypr-quickshell-pilot" "$FIXTURE/pilot-helper"
-: > "$FIXTURE/dispatch"
-CHOICE='' bash "$script"
-! grep -Fq 'Quickshell pilot' "$FIXTURE/rows"
-mv "$FIXTURE/pilot-helper" "$FIXTURE/hypr-quickshell-pilot"
 
 echo 'hypr-commands: all cases passed'
