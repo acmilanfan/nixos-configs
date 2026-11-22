@@ -20,7 +20,6 @@ kill_waybar() {
 
 # Function to start waybar
 start_waybar() {
-    systemctl --user stop quickshell-shell.service 2>/dev/null || true
     pkill -f '^([^ ]*/)?quickshell -c shell' 2>/dev/null || true
     kill_waybar
     nohup waybar -c ~/.config/waybar/config-hypr-top -s ~/.config/waybar/style-hypr.css >/dev/null 2>&1 &
