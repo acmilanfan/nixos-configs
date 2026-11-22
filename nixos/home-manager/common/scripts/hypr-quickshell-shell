@@ -87,6 +87,8 @@ case "${1:-status}" in
       exit 1
     fi
     ;;
+  control) quickshell ipc --pid "$(pgrep -f "$shell_pattern" | head -1)" call shell control ;;
+  quick) quickshell ipc --pid "$(pgrep -f "$shell_pattern" | head -1)" call shell quick ;;
   bars-on) hypr-waybar-toggle on ;;
   bars-off) hypr-waybar-toggle off ;;
   status)
