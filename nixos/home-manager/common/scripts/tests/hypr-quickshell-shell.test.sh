@@ -31,6 +31,17 @@ cat > "$FIXTURE/setsid" <<'EOF'
 #!/usr/bin/env bash
 exec "$@"
 EOF
+cat > "$FIXTURE/systemctl" <<'EOF'
+#!/usr/bin/env bash
+case "$*" in
+    "--user is-enabled"*) [[ -e "$FIXTURE/service.enabled" ]] ;;
+    "--user is-active"*) [[ -e "$FIXTURE/shell.running" ]] ;;
+    "--user start"*) printf 'start\n' >> "$FIXTURE/systemctl.log"; touch "$FIXTURE/shell.running" ;;
+    "--user stop"*) printf 'stop\n' >> "$FIXTURE/systemctl.log"; rm -f "$FIXTURE/shell.running" ;;
+    "--user restart"*) printf 'restart\n' >> "$FIXTURE/systemctl.log"; touch "$FIXTURE/shell.running" ;;
+    *) exit 1 ;;
+esac
+EOF
 cat > "$FIXTURE/quickshell" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "$FIXTURE/quickshell.log"
@@ -40,7 +51,7 @@ cat > "$FIXTURE/hypr-waybar-toggle" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "$FIXTURE/waybar.log"
 EOF
-chmod +x "$FIXTURE"/{pgrep,pkill,setsid,quickshell,hypr-waybar-toggle}
+chmod +x "$FIXTURE"/{pgrep,pkill,setsid,quickshell,hypr-waybar-toggle,systemctl}
 
 reset() { rm -f "$FIXTURE"/*.running "$FIXTURE"/*.log; }
 run() { bash "$helper" "$@"; }
@@ -94,6 +105,18 @@ if env -u WAYLAND_DISPLAY bash "$helper" start 2>/dev/null; then
     exit 1
 fi
 grep -qx 'on' "$FIXTURE/waybar.log"
+
+# With the systemd unit enabled, the helper delegates to it.
+reset
+touch "$FIXTURE/service.enabled"
+run start
+grep -qx 'start' "$FIXTURE/systemctl.log"
+[[ ! -e "$FIXTURE/quickshell.log" ]]
+run status | grep -qx 'quickshell shell: running'
+run stop
+grep -qx 'stop' "$FIXTURE/systemctl.log"
+[[ ! -e "$FIXTURE/shell.running" ]]
+rm -f "$FIXTURE/service.enabled"
 
 if run bogus 2>/dev/null; then
     echo "Unknown action should fail" >&2

@@ -1,64 +1,94 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Usage: hypr-quickshell-shell start|stop|toggle|status
+# Usage: hypr-quickshell-shell start|stop|toggle|restart|status
+#        hypr-quickshell-shell bars-on|bars-off
+unit=quickshell-shell.service
 waybar_pattern='^([^ ]*/)?waybar -c .*config-hypr'
 shell_pattern='^([^ ]*/)?quickshell -c shell'
 
-shell_running() { pgrep -f "$shell_pattern" >/dev/null 2>&1; }
-stop_shell() { pkill -f "$shell_pattern" 2>/dev/null || true; }
+service_enabled() { systemctl --user is-enabled --quiet "$unit" 2>/dev/null; }
+service_active() { systemctl --user is-active --quiet "$unit" 2>/dev/null; }
+shell_running() { service_active || pgrep -f "$shell_pattern" >/dev/null 2>&1; }
+stop_quickshell() { pkill -f "$shell_pattern" 2>/dev/null || true; }
 
-start_shell() {
+start_direct() {
   command -v quickshell >/dev/null 2>&1 ||
     { echo "quickshell is not installed" >&2; return 1; }
   [[ -f "$HOME/.config/quickshell/shell/shell.qml" ]] ||
     { echo "missing ~/.config/quickshell/shell/shell.qml" >&2; return 1; }
   [[ -n "${WAYLAND_DISPLAY:-}" ]] ||
     { echo "WAYLAND_DISPLAY is not set" >&2; return 1; }
-  shell_running && return 0
+  pgrep -f "$shell_pattern" >/dev/null 2>&1 && return 0
 
   setsid quickshell -c shell >/dev/null 2>&1 &
-  # First launch after a rebuild can be slow; give it ten seconds.
+}
+
+start_shell() {
+  if service_enabled; then
+    systemctl --user start "$unit" 2>/dev/null || return 1
+  else
+    start_direct || return 1
+  fi
+
   for _ in $(seq 500); do
     shell_running && return 0
     sleep 0.02
   done
-  stop_shell
-  echo "quickshell shell failed to start" >&2
   return 1
+}
+
+stop_shell() {
+  if service_enabled; then
+    systemctl --user stop "$unit" 2>/dev/null || true
+  else
+    stop_quickshell
+  fi
 }
 
 case "${1:-status}" in
   start)
     if start_shell; then
-      hypr-waybar-toggle off
+      service_enabled || hypr-waybar-toggle off
     else
       hypr-waybar-toggle on
       exit 1
     fi
     ;;
   stop)
-    stop_shell
-    hypr-waybar-toggle on
+    if service_enabled; then
+      systemctl --user stop "$unit" 2>/dev/null || true
+    else
+      stop_quickshell
+      hypr-waybar-toggle on
+    fi
     ;;
   restart)
-    stop_shell
-    start_shell
-    hypr-waybar-toggle off
+    if service_enabled; then
+      systemctl --user restart "$unit" 2>/dev/null || systemctl --user start "$unit"
+    else
+      stop_quickshell
+      start_shell
+      hypr-waybar-toggle off
+    fi
     ;;
-  bars-on) hypr-waybar-toggle on ;;
-  bars-off) hypr-waybar-toggle off ;;
   toggle)
     if shell_running; then
-      stop_shell
-      hypr-waybar-toggle on
+      if service_enabled; then
+        systemctl --user stop "$unit" 2>/dev/null || true
+      else
+        stop_quickshell
+        hypr-waybar-toggle on
+      fi
     elif start_shell; then
-      hypr-waybar-toggle off
+      service_enabled || hypr-waybar-toggle off
     else
       hypr-waybar-toggle on
       exit 1
     fi
     ;;
+  bars-on) hypr-waybar-toggle on ;;
+  bars-off) hypr-waybar-toggle off ;;
   status)
     if shell_running; then
       echo "quickshell shell: running"
@@ -67,7 +97,7 @@ case "${1:-status}" in
     fi
     ;;
   *)
-    echo "usage: ${0##*/} start|stop|toggle|status" >&2
+    echo "usage: ${0##*/} start|stop|toggle|restart|status" >&2
     exit 2
     ;;
 esac

@@ -16,10 +16,16 @@ fi
 
 echo "🔄 Reloading desktop components..."
 
-# 1. Restart Waybar (all instances)
-# pkill -USR2 sometimes kills waybar if there are config issues,
-# so a full restart is more reliable for nixos-rebuild.
-hypr-waybar-toggle restart
+# 1. Restart the bar. The Quickshell service is enabled only on the Yoga
+# Book; restarting it reloads the new QML without bringing Waybar back.
+if systemctl --user is-enabled --quiet quickshell-shell.service 2>/dev/null; then
+    systemctl --user restart quickshell-shell.service || \
+        systemctl --user start quickshell-shell.service
+else
+    # pkill -USR2 sometimes kills waybar if there are config issues, so a full
+    # restart is more reliable for nixos-rebuild.
+    hypr-waybar-toggle restart
+fi
 
 # 2. Reload SwayNC
 if command -v swaync-client >/dev/null; then
