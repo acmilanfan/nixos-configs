@@ -64,15 +64,17 @@ PanelWindow {
 
     visible: page !== ""
     screen: targetScreen
+    readonly property int leftMargin: cc.page === "control" && cc.screen
+        ? Math.max(3, Math.round((cc.screen.width - cc.implicitWidth) / 2))
+        : 3
+
     anchors {
         top: true
-        left: page === "quick"
-        right: page === "control"
+        left: true
     }
     margins {
-        top: 34
-        left: 3
-        right: 3
+        top: 32
+        left: cc.leftMargin
     }
     implicitWidth: 460
     implicitHeight: content.implicitHeight + 28
