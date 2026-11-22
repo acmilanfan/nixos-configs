@@ -38,7 +38,7 @@ spawned_once() {
 # A match focuses the exact address and reuses the window in order.
 clients '[{"class":"orgindex","title":"ORGINDEX-AGENDA","address":"0xabc","mapped":true}]'
 run orgindex AGENDA true
-[[ $(dispatches) == $'hl.dsp.focus({window = \'address:0xabc\'})\nhl.dsp.window.move({workspace = \'7\'})\nhl.dsp.window.float()\nhl.dsp.window.center()' ]]
+[[ $(dispatches) == $'hl.dsp.focus({window = \'address:0xabc\'})\nhl.dsp.window.move({workspace = \'7\'})\nhl.dsp.window.float({action = \'enable\'})\nhl.dsp.window.center()' ]]
 [[ ! -e "$FIXTURE/spawned" ]]
 
 # Titles are matched case-insensitively even with quotes, tabs, and newlines.

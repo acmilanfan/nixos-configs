@@ -17,7 +17,7 @@ if [[ -n "$address" ]]; then
   workspace=$(hyprctl -j activeworkspace | jq -r '.id') || exit 1
   hyprctl dispatch "hl.dsp.focus({window = 'address:$address'})"
   hyprctl dispatch "hl.dsp.window.move({workspace = '$workspace'})"
-  hyprctl dispatch "hl.dsp.window.float()"
+  hyprctl dispatch "hl.dsp.window.float({action = 'enable'})"
   hyprctl dispatch "hl.dsp.window.center()"
 else
   setsid sh -c "$*" >/dev/null 2>&1 &
