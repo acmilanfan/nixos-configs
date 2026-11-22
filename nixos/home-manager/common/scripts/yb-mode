@@ -155,7 +155,13 @@ hide_bottom_bar() {
     pkill -f 'waybar -c .*config-hypr-bottom' 2>/dev/null || true
 }
 
+quickshell_shell_running() {
+    pgrep -f '^([^ ]*/)?quickshell -c shell' >/dev/null 2>&1
+}
+
 show_bottom_bar() {
+    # The Quickshell shell owns the bottom panel when it is running.
+    quickshell_shell_running && return 0
     if ! bottom_bar_running; then
         nohup waybar -c "$HOME/.config/waybar/config-hypr-bottom" \
             -s "$HOME/.config/waybar/style-hypr.css" >/dev/null 2>&1 &

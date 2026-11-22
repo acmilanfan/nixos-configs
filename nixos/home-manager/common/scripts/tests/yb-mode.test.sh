@@ -93,6 +93,9 @@ SH
 cat > "$SHIM/pgrep" <<'SH'
 #!/usr/bin/env bash
 printf 'pgrep %s\n' "$*" >> "$LOG"
+if [[ "$1" == -f && "$2" == *quickshell* && -n "${YB_TEST_QS:-}" ]]; then
+  exit 0
+fi
 exit 1
 SH
 
@@ -218,6 +221,10 @@ check_contains "dual releases rotation" 'systemctl --user start hypr-iio-rotate.
 check_contains "dual removes black layer" 'pkill -f swaybg -o eDP-2'
 check_contains "dual restores bottom bar" 'config-hypr-bottom'
 check_not_contains "dual does not launch wvkbd" 'wvkbd-mobintl -H'
+
+: > "$LOG"
+YB_TEST_QS=1 "$YB_MODE" dual >/dev/null
+check_not_contains "dual leaves the bottom bar to the Quickshell shell" 'config-hypr-bottom'
 
 # --- SUPER+M cycle ---------------------------------------------------------
 set_signal 0
