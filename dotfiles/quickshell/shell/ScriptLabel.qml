@@ -14,6 +14,7 @@ Item {
     property string rightCommand: ""
     property string middleCommand: ""
     property color textColor: "#c6d0f5"
+    signal clicked()
 
     implicitWidth: label.implicitWidth
     implicitHeight: 18
@@ -52,6 +53,8 @@ Item {
                 : root.middleCommand
             if (cmd)
                 Quickshell.execDetached(["sh", "-c", cmd])
+            else
+                root.clicked()
         }
     }
 }

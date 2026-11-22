@@ -34,10 +34,16 @@ ShellRoot {
             dual: root.dual
             onOpenControlCenter: root.open("control", modelData)
             onOpenQuickMenu: root.open("quick", modelData)
+            onOpenKanata: {
+                root.popoverScreen = modelData
+                root.popover = "control"
+                controlCenter.detail = "kanata"
+            }
         }
     }
 
     ControlCenter {
+        id: controlCenter
         page: root.popover
         targetScreen: root.popoverScreen
         onCloseRequested: root.popover = ""

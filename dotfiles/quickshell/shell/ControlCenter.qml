@@ -70,11 +70,11 @@ PanelWindow {
         right: page === "control"
     }
     margins {
-        top: 33
+        top: 27
         left: 3
         right: 3
     }
-    implicitWidth: 380
+    implicitWidth: 420
     implicitHeight: content.implicitHeight + 28
     exclusiveZone: 0
     color: "transparent"
@@ -160,7 +160,7 @@ PanelWindow {
                     elide: Text.ElideRight
                     Layout.fillWidth: true
                     font.family: "JetBrainsMono Nerd Font"
-                    font.pixelSize: 8
+                    font.pixelSize: 9
                 }
             }
         }
@@ -200,7 +200,7 @@ PanelWindow {
             text: mini.label
             color: cc.fg
             font.family: "JetBrainsMono Nerd Font"
-            font.pixelSize: 9
+            font.pixelSize: 10
         }
 
         HoverHandler { id: hover }
@@ -254,7 +254,7 @@ PanelWindow {
                 text: row.sublabel
                 color: cc.dim
                 font.family: "JetBrainsMono Nerd Font"
-                font.pixelSize: 8
+                font.pixelSize: 9
             }
         }
 
@@ -405,7 +405,7 @@ PanelWindow {
                             : cc.page === "quick" ? "Quick Menu" : "Control Center"
                         color: cc.fg
                         font.family: "JetBrainsMono Nerd Font"
-                        font.pixelSize: 11
+                        font.pixelSize: 13
                         font.bold: true
                     }
 
@@ -497,6 +497,40 @@ PanelWindow {
                             action: "bluetoothctl " + (modelData.connected ? "disconnect " : "connect ")
                                 + modelData.address
                         }
+                    }
+                }
+
+                // --- Kanata detail ---
+                ColumnLayout {
+                    visible: cc.detail === "kanata"
+                    Layout.fillWidth: true
+                    spacing: 7
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Text {
+                            Layout.fillWidth: true
+                            text: "Mode"
+                            color: cc.fg
+                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: 11
+                        }
+                        ScriptLabel {
+                            command: "hypr-kanata-status | jq -r '.text // \"absent\"'"
+                            interval: 3
+                            textColor: cc.accent
+                        }
+                    }
+
+                    GridLayout {
+                        Layout.fillWidth: true
+                        columns: 2
+                        columnSpacing: 8
+                        rowSpacing: 8
+
+                        Tile { glyph: "󰌌"; label: "Home Row"; command: "$HOME/.config/kanata/switch-kanata.sh homerow" }
+                        Tile { glyph: "󰈐"; label: "Disabled"; command: "$HOME/.config/kanata/switch-kanata.sh disabled" }
+                        Tile { glyph: "󰑓"; label: "Reload"; command: "$HOME/.config/kanata/reload-kanata.sh restart" }
                     }
                 }
 

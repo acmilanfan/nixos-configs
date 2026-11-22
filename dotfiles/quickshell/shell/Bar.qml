@@ -13,6 +13,7 @@ PanelWindow {
     property bool dual: true
     signal openControlCenter()
     signal openQuickMenu()
+    signal openKanata()
 
     readonly property string screenName: screen ? screen.name : ""
     readonly property bool bottom: screenName === "eDP-2"
@@ -206,7 +207,7 @@ PanelWindow {
                         visible: text !== ""
                         command: "hypr-kanata-status | jq -r '.text // \"\"'"
                         interval: 5
-                        leftCommand: "hypr-kanata-menu"
+                        onClicked: bar.openKanata()
                     }
 
                     ScriptLabel {
@@ -218,6 +219,7 @@ PanelWindow {
                     ScriptLabel {
                         command: "hypr-power-watts | jq -r '.text // \"\"'"
                         interval: 30
+                        onClicked: bar.openControlCenter()
                     }
 
                     ScriptLabel {
@@ -238,33 +240,42 @@ PanelWindow {
 
                     Text {
                         readonly property var sink: Pipewire.defaultAudioSink
-                        text: !sink || !sink.audio ? "--"
-                            : (sink.audio.muted ? "muted"
-                                : Math.round(sink.audio.volume * 100) + "%")
+                        text: !sink || !sink.audio ? "󰕾 --"
+                            : (sink.audio.muted ? "󰝟 muted"
+                                : "󰕾 " + Math.round(sink.audio.volume * 100) + "%")
                         color: bar.muted
                         font.family: "JetBrainsMono Nerd Font"
                         font.pixelSize: 15
+
+                        MouseArea {
+                            anchors.fill: parent
+                            onClicked: bar.openControlCenter()
+                        }
                     }
 
                     ScriptLabel {
                         visible: text !== ""
-                        command: "upower -i /org/freedesktop/UPower/devices/DisplayDevice 2>/dev/null | awk '/state:/{s=$2} /percentage:/{p=$2} END{if (s==\"charging\"||s==\"discharging\") printf \"%s\", p}'"
+                        command: "upower -i /org/freedesktop/UPower/devices/DisplayDevice 2>/dev/null | awk '/state:/{s=$2} /percentage:/{p=$2} END{if (s==\"charging\"||s==\"discharging\") printf \"󰁹 %s\", p}'"
                         interval: 30
+                        onClicked: bar.openControlCenter()
                     }
 
                     ScriptLabel {
                         command: "nmcli -t -f TYPE,STATE device 2>/dev/null | awk -F: '$2==\"connected\"{print ($1==\"wifi\"?\"󰤢\":\"󰈀\"); f=1; exit} END{if(!f) print \"󰤠\"}'"
                         interval: 5
+                        onClicked: bar.openControlCenter()
                     }
 
                     ScriptLabel {
-                        command: "top -bn1 | awk '/Cpu\\(s\\)/ {printf \"%d%%\", 100-$8}'"
+                        command: "top -bn1 | awk '/Cpu\\(s\\)/ {printf \"󰻠 %d%%\", 100-$8}'"
                         interval: 2
+                        onClicked: bar.openControlCenter()
                     }
 
                     ScriptLabel {
-                        command: "free -m | awk '/Mem:/ {printf \"%d%%\", $3/$2*100}'"
+                        command: "free -m | awk '/Mem:/ {printf \"󰍛 %d%%\", $3/$2*100}'"
                         interval: 30
+                        onClicked: bar.openControlCenter()
                     }
 
                     Row {
