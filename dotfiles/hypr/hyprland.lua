@@ -436,11 +436,22 @@ end
 
 hl.bind(mod .. " + slash", hl.dsp.exec_cmd("hypr-commands"))
 
+-- --- KEY HINTS ---
+local function hint(text)
+  hl.dispatch(hl.dsp.exec_cmd('notify-send -t 5000 -a Hyprland "Keys" "' .. text .. '"'))
+end
+
 -- --- LEADER KEY SUBMAP ---
-hl.bind(mod .. " + comma", hl.dsp.submap("leader"))
+hl.bind(mod .. " + comma", function()
+  hint("t terminal | b browser | c controls | v vim | k agents | r reload | Alt+T timer")
+  hl.dispatch(hl.dsp.submap("leader"))
+end)
 
 hl.define_submap("leader", function()
-  hl.bind("c", hl.dsp.submap("leader-controls"))
+  hl.bind("c", function()
+    hint("w Wi-Fi | b Bluetooth | m Audio | q back")
+    hl.dispatch(hl.dsp.submap("leader-controls"))
+  end)
   hl.bind("t", function()
     hl.dispatch(hl.dsp.exec_cmd(terminal))
     hl.dispatch(hl.dsp.submap("reset"))
@@ -463,6 +474,40 @@ hl.define_submap("leader", function()
   end)
   hl.bind("escape", hl.dsp.submap("reset"))
   hl.bind("q", hl.dsp.submap("reset"))
+end)
+
+-- --- TIMER SUBMAP ---
+hl.bind(mod .. " + T", function()
+  hint("1 5m | 2 10m | 3 1h | 4 2h | n custom | r remaining | c cancel")
+  hl.dispatch(hl.dsp.submap("timer"))
+end)
+
+hl.define_submap("timer", function()
+  local function start(minutes)
+    return function()
+      hl.dispatch(hl.dsp.exec_cmd("hypr-timer start " .. minutes))
+      hl.dispatch(hl.dsp.submap("reset"))
+    end
+  end
+  hl.bind("1", start(5))
+  hl.bind("2", start(10))
+  hl.bind("3", start(60))
+  hl.bind("4", start(120))
+  hl.bind("n", function()
+    hl.dispatch(hl.dsp.exec_cmd("hypr-timer prompt"))
+    hl.dispatch(hl.dsp.submap("reset"))
+  end)
+  hl.bind("r", function()
+    hl.dispatch(hl.dsp.exec_cmd("hypr-timer notify"))
+    hl.dispatch(hl.dsp.submap("reset"))
+  end)
+  hl.bind("c", function()
+    hl.dispatch(hl.dsp.exec_cmd("hypr-timer stop"))
+    hl.dispatch(hl.dsp.submap("reset"))
+  end)
+  hl.bind("escape", hl.dsp.submap("reset"))
+  hl.bind("q", hl.dsp.submap("reset"))
+  hl.bind("catchall", hl.dsp.submap("reset"), { non_consuming = true, ignore_mods = true })
 end)
 
 hl.define_submap("leader-controls", function()

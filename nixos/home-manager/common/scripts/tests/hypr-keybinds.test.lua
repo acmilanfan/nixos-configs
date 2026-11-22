@@ -100,8 +100,40 @@ for n = 1, 10 do
   check(":alt + ctrl + " .. key, "focus", { workspace = tostring(n + 10) })
 end
 
-check(":alt + comma", "submap", "leader")
-check("leader:c", "submap", "leader-controls")
+local leader_entry = invoke(":alt + comma")
+assert(leader_entry[1].name == "exec_cmd" and leader_entry[1].args:find("notify%-send"))
+equal(leader_entry[2], { name = "submap", args = "leader" }, ":alt + comma")
+local controls_entry = invoke("leader:c")
+assert(controls_entry[1].name == "exec_cmd" and controls_entry[1].args:find("notify%-send"))
+equal(controls_entry[2], { name = "submap", args = "leader-controls" }, "leader:c")
+
+-- Timer mode
+local timer_entry = invoke(":alt + t")
+assert(timer_entry[1].name == "exec_cmd" and timer_entry[1].args:find("notify%-send"))
+equal(timer_entry[2], { name = "submap", args = "timer" }, ":alt + t")
+for key, minutes in pairs({ ["1"] = 5, ["2"] = 10, ["3"] = 60, ["4"] = 120 }) do
+  equal(invoke("timer:" .. key), {
+    { name = "exec_cmd", args = "hypr-timer start " .. minutes },
+    { name = "submap", args = "reset" },
+  }, "timer:" .. key)
+end
+equal(invoke("timer:n"), {
+  { name = "exec_cmd", args = "hypr-timer prompt" },
+  { name = "submap", args = "reset" },
+}, "timer:n")
+equal(invoke("timer:r"), {
+  { name = "exec_cmd", args = "hypr-timer notify" },
+  { name = "submap", args = "reset" },
+}, "timer:r")
+equal(invoke("timer:c"), {
+  { name = "exec_cmd", args = "hypr-timer stop" },
+  { name = "submap", args = "reset" },
+}, "timer:c")
+for _, key in ipairs({ "escape", "q" }) do
+  check("timer:" .. key, "submap", "reset")
+end
+check("timer:catchall", "submap", "reset")
+assert(flags("timer:catchall").non_consuming and flags("timer:catchall").ignore_mods)
 for key, original in pairs({ w = ":alt + ctrl + b", b = ":alt + shift + b", m = ":alt + shift + i" }) do
   equal(invoke("leader-controls:" .. key), {
     { name = "submap", args = "reset" }, get(original),

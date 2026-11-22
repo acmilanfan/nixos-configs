@@ -50,8 +50,31 @@ get_output() {
     printf '{"text": "󰔟 %02d:%02d", "class": "running", "tooltip": "Remaining: %02d:%02d"}\n' "$mins" "$secs" "$mins" "$secs"
 }
 
+prompt_timer() {
+    local value
+    command -v vicinae >/dev/null 2>&1 || return 1
+    value=$(vicinae dmenu -p "Timer minutes:") || return 0
+    [[ "$value" =~ ^[0-9]+$ ]] || return 0
+    (( 10#$value > 0 )) || return 0
+    start_timer "$((10#$value))"
+}
+
+notify_timer() {
+    local out text tooltip
+    out=$(get_output)
+    text=$(jq -r '.text // ""' <<< "$out")
+    if [ -z "$text" ]; then
+        notify-send -t 2000 "Timer" "No timer running"
+    else
+        tooltip=$(jq -r '.tooltip // .text' <<< "$out")
+        notify-send -t 3000 "Timer" "$tooltip"
+    fi
+}
+
 case "$1" in
     start) start_timer "$2" ;;
+    prompt) prompt_timer ;;
+    notify) notify_timer ;;
     stop)  stop_timer ;;
     reset) reset_timer ;;
     output) get_output ;;
