@@ -18,7 +18,8 @@ start_shell() {
   shell_running && return 0
 
   setsid quickshell -c shell >/dev/null 2>&1 &
-  for _ in $(seq 150); do
+  # First launch after a rebuild can be slow; give it ten seconds.
+  for _ in $(seq 500); do
     shell_running && return 0
     sleep 0.02
   done
@@ -29,8 +30,12 @@ start_shell() {
 
 case "${1:-status}" in
   start)
-    start_shell
-    hypr-waybar-toggle off
+    if start_shell; then
+      hypr-waybar-toggle off
+    else
+      hypr-waybar-toggle on
+      exit 1
+    fi
     ;;
   stop)
     stop_shell
@@ -45,9 +50,11 @@ case "${1:-status}" in
     if shell_running; then
       stop_shell
       hypr-waybar-toggle on
-    else
-      start_shell
+    elif start_shell; then
       hypr-waybar-toggle off
+    else
+      hypr-waybar-toggle on
+      exit 1
     fi
     ;;
   status)

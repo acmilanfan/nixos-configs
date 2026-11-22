@@ -86,12 +86,13 @@ if PATH="$FIXTURE/nobin:/usr/bin:/bin" run start 2>/dev/null; then
     echo "Start must fail without quickshell" >&2
     exit 1
 fi
-[[ ! -e "$FIXTURE/waybar.log" && ! -e "$FIXTURE/quickshell.log" ]]
+grep -qx 'on' "$FIXTURE/waybar.log"
+[[ ! -e "$FIXTURE/quickshell.log" ]]
 if env -u WAYLAND_DISPLAY bash "$helper" start 2>/dev/null; then
     echo "Start must fail without Wayland" >&2
     exit 1
 fi
-[[ ! -e "$FIXTURE/waybar.log" ]]
+grep -qx 'on' "$FIXTURE/waybar.log"
 
 if run bogus 2>/dev/null; then
     echo "Unknown action should fail" >&2
