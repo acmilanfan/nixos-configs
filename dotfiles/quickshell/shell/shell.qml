@@ -36,6 +36,10 @@ ShellRoot {
             onOpenControlCenter: root.open("control", modelData)
             onOpenQuickMenu: root.open("quick", modelData)
             onOpenKanata: {
+                if (root.popover === "control" && controlCenter.detail === "kanata") {
+                    root.popover = ""
+                    return
+                }
                 root.popoverScreen = modelData
                 root.popover = "control"
                 controlCenter.detail = "kanata"
