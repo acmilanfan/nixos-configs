@@ -217,7 +217,7 @@ in
           WorkingDirectory = ciHome;
           RunAtLoad = true;
           KeepAlive = true;
-          ProcessType = "Background";
+          ProcessType = "Standard";
           ThrottleInterval = 10;
           StandardOutPath = "${ciHome}/Library/Logs/gitlab-runner.log";
           StandardErrorPath = "${ciHome}/Library/Logs/gitlab-runner.error.log";
