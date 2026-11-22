@@ -70,11 +70,11 @@ PanelWindow {
         right: page === "control"
     }
     margins {
-        top: 27
+        top: 34
         left: 3
         right: 3
     }
-    implicitWidth: 420
+    implicitWidth: 460
     implicitHeight: content.implicitHeight + 28
     exclusiveZone: 0
     color: "transparent"
@@ -101,7 +101,7 @@ PanelWindow {
         property bool active: false
 
         Layout.fillWidth: true
-        implicitHeight: 58
+        implicitHeight: 64
         radius: 8
         activeFocusOnTab: true
         color: tile.active ? "#2a2350" : (hover.hovered ? cc.cardHover : cc.card)
@@ -127,8 +127,8 @@ PanelWindow {
             spacing: 8
 
             Rectangle {
-                implicitWidth: 26
-                implicitHeight: 26
+                implicitWidth: 30
+                implicitHeight: 30
                 radius: 7
                 color: Qt.rgba(1, 1, 1, 0.04)
 
@@ -137,7 +137,7 @@ PanelWindow {
                     text: tile.glyph
                     color: tile.active ? cc.accent : cc.fg
                     font.family: "JetBrainsMono Nerd Font"
-                    font.pixelSize: 14
+                    font.pixelSize: 16
                 }
             }
 
@@ -149,7 +149,7 @@ PanelWindow {
                     text: tile.label
                     color: tile.active ? cc.accent : cc.fg
                     font.family: "JetBrainsMono Nerd Font"
-                    font.pixelSize: 10
+                    font.pixelSize: 13
                     font.bold: true
                 }
 
@@ -178,8 +178,8 @@ PanelWindow {
         property string label: ""
         property string command: ""
 
-        implicitWidth: Math.max(26, labelText.implicitWidth + 12)
-        implicitHeight: 22
+        implicitWidth: Math.max(28, labelText.implicitWidth + 14)
+        implicitHeight: 24
         radius: 6
         activeFocusOnTab: true
         color: hover.hovered ? cc.cardHover : cc.card
@@ -200,7 +200,7 @@ PanelWindow {
             text: mini.label
             color: cc.fg
             font.family: "JetBrainsMono Nerd Font"
-            font.pixelSize: 10
+            font.pixelSize: 11
         }
 
         HoverHandler { id: hover }
@@ -219,7 +219,7 @@ PanelWindow {
         property string action: ""
 
         Layout.fillWidth: true
-        implicitHeight: 34
+        implicitHeight: 38
         radius: 7
         activeFocusOnTab: true
         color: row.activeFocus || area.hovered ? cc.cardHover : cc.card
@@ -246,7 +246,7 @@ PanelWindow {
                 color: row.connected ? cc.accent : cc.fg
                 elide: Text.ElideRight
                 font.family: "JetBrainsMono Nerd Font"
-                font.pixelSize: 9
+                font.pixelSize: 11
                 font.bold: row.connected
             }
 
@@ -254,7 +254,7 @@ PanelWindow {
                 text: row.sublabel
                 color: cc.dim
                 font.family: "JetBrainsMono Nerd Font"
-                font.pixelSize: 9
+                font.pixelSize: 10
             }
         }
 
@@ -271,7 +271,7 @@ PanelWindow {
         readonly property var sink: Pipewire.defaultAudioSink
 
         Layout.fillWidth: true
-        implicitHeight: 44
+        implicitHeight: 48
         radius: 8
         color: cc.card
         border.width: 1
@@ -292,7 +292,7 @@ PanelWindow {
                 }
                 color: cc.fg
                 font.family: "JetBrainsMono Nerd Font"
-                font.pixelSize: 13
+                font.pixelSize: 15
 
                 MouseArea {
                     anchors.fill: parent
@@ -380,7 +380,7 @@ PanelWindow {
             ColumnLayout {
                 id: content
                 anchors.fill: parent
-                anchors.margins: 14
+                anchors.margins: 16
                 spacing: 9
 
                 RowLayout {
@@ -405,7 +405,7 @@ PanelWindow {
                             : cc.page === "quick" ? "Quick Menu" : "Control Center"
                         color: cc.fg
                         font.family: "JetBrainsMono Nerd Font"
-                        font.pixelSize: 13
+                        font.pixelSize: 15
                         font.bold: true
                     }
 

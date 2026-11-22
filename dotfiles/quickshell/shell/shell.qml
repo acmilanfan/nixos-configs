@@ -42,6 +42,27 @@ ShellRoot {
         }
     }
 
+    IpcHandler {
+        target: "shell"
+
+        function control(): string {
+            root.popoverScreen = Quickshell.screens[0]
+            root.popover = "control"
+            return "ok"
+        }
+
+        function quick(): string {
+            root.popoverScreen = Quickshell.screens[0]
+            root.popover = "quick"
+            return "ok"
+        }
+
+        function close(): string {
+            root.popover = ""
+            return "ok"
+        }
+    }
+
     ControlCenter {
         id: controlCenter
         page: root.popover
