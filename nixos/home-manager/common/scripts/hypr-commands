@@ -11,6 +11,7 @@ LABELS=(
   "Toggle Monocle/Tile"
   "Toggle Pseudo-Tile"
   "Previous Master Orientation"
+  "Quickshell pilot: Toggle"
   "Timer: Start 25m"
   "Timer: Start 5m"
   "Timer: Stop"
@@ -34,6 +35,7 @@ case "$CHOICE" in
   "Toggle Monocle/Tile") hypr-cycle-layout ;;
   "Toggle Pseudo-Tile") hyprctl dispatch 'hl.dsp.window.pseudo()' ;;
   "Previous Master Orientation") hyprctl dispatch 'hl.dsp.layout("orientationprev")' ;;
+  "Quickshell pilot: Toggle") hypr-quickshell-pilot toggle ;;
   "Timer: Start 25m") hypr-timer start 25 ;;
   "Timer: Start 5m") hypr-timer start 5 ;;
   "Timer: Stop") hypr-timer stop ;;
