@@ -65,7 +65,7 @@ PanelWindow {
     visible: page !== ""
     screen: targetScreen
     readonly property int leftMargin: cc.page === "control" && cc.screen
-        ? Math.max(3, Math.round((cc.screen.width - cc.implicitWidth) / 2))
+        ? Math.max(3, cc.screen.width - cc.implicitWidth - 3)
         : 3
 
     anchors {
@@ -73,7 +73,7 @@ PanelWindow {
         left: true
     }
     margins {
-        top: 32
+        top: 1
         left: cc.leftMargin
     }
     implicitWidth: 460
