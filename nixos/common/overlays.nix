@@ -34,6 +34,17 @@ final: prev: {
       old.installCheckPhase;
   });
 
+  # macOS 26+ bash links CoreFoundation through its bundled gettext, and the
+  # preferred-language lookup is not fork-safe: forked shells intermittently
+  # die with SIGSEGV (NixOS/nixpkgs#570561). gitlab-runner's tests spawn many
+  # short-lived shells, so run its checks under the C locale, which skips the
+  # CoreFoundation lookup. Drop once nixpkgs#588798 lands.
+  gitlab-runner = if !final.stdenv.hostPlatform.isDarwin then prev.gitlab-runner else prev.gitlab-runner.overrideAttrs (old: {
+    preCheck = (old.preCheck or "") + ''
+      export LC_ALL=C
+    '';
+  });
+
   syncmon = final.callPackage ./pkgs/syncmon.nix { };
 
   tg2kobo = final.callPackage ./pkgs/tg2kobo.nix { };
