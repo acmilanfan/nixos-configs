@@ -1,4 +1,4 @@
-"""The shared Ghostty config must stay platform-correct and title-stable."""
+"""The shared Ghostty config must stay platform-correct and let programs own the title."""
 import json
 import shutil
 import subprocess
@@ -57,11 +57,13 @@ class GhosttyConfig(unittest.TestCase):
         self.assertIn("font-size = 16", text)
         validate(text)
 
-    def test_title_is_stable(self):
+    def test_title_is_not_forced(self):
         for host in ("yogabook-gen10", "mac-home"):
             with self.subTest(host=host):
                 text = config_text(host)
-                self.assertIn("title = Ghostty", text)
+                # A forced `title` makes Ghostty ignore the OSC titles NanoWM uses to
+                # identify ORGINDEX/SCRATCHPAD/YAZI windows.
+                self.assertNotIn("\ntitle = ", text)
                 self.assertIn("no-title", text)
 
     def test_other_linux_hosts_use_13(self):

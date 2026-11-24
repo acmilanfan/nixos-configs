@@ -9,9 +9,10 @@ font-thicken = true
 # Window decorations & Titlebar (hides title, proxy icon, and buttons)
 macos-titlebar-style = hidden
 
-# Keep the app title instead of shell-integration overwriting it with the cwd.
-# tmux and other programs may still update it.
-title = Ghostty
+# Keep the default title instead of shell-integration overwriting it with the cwd.
+# Do not set `title`: that forces one title for every window and makes Ghostty ignore
+# the OSC title escapes NanoWM uses to find ORGINDEX/SCRATCHPAD/YAZI popups. `no-title`
+# alone stops shell integration from replacing the title with the cwd.
 shell-integration-features = cursor,no-sudo,no-title,no-ssh-env,no-ssh-terminfo,path
 
 # Window padding (matches Alacritty flush layout)
