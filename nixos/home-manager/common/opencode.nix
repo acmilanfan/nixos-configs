@@ -31,7 +31,7 @@ let
   # All company URLs/keys are referenced via {env:VAR} — opencode substitutes
   # these from the shell environment at runtime, so no literal company value
   # ever lands in /nix/store or the committed repo. The env vars themselves
-  # are set from `secrets.*` in neovim.nix.
+  # come from ai-env.sh, which reads them from sops (sops.nix).
   # -------------------------------------------------------------------------
 
   remoteProviders = {
