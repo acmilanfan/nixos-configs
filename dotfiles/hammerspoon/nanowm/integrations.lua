@@ -378,7 +378,7 @@ function M.setupSystemWatcher()
             -- Force clock update immediately on wake
             hs.task.new("/bin/zsh", nil, { "-c", "sketchybar --trigger clock_tick" }):start()
 
-            -- Debounce and Trigger Kanata Reload
+            -- Debounce and check Kanata after wake
             if wakeReloadRunning then return end
             if pendingWakeReload then
                 pendingWakeReload:stop()
@@ -388,10 +388,14 @@ function M.setupSystemWatcher()
                 pendingWakeReload = nil
                 if wakeReloadRunning then return end
                 wakeReloadRunning = true
-                print("[NanoWM] Forcing Kanata reload after wake...")
-                M.reloadKanata(true)
-                -- Reset the flag after 10 seconds. This ensures only ONE reload
-                -- per wake/unlock cycle, even if unlocking is slow.
+                print("[NanoWM] Checking Kanata health after wake...")
+                -- Do not force a restart: starting kanata while the DriverKit
+                -- stack is re-initializing can leave it running but deaf
+                -- (2026-11-25). A healthy instance keeps its input pipe across
+                -- wakes and recovers the output backend itself.
+                M.reloadKanata(false)
+                -- Reset the flag after 10 seconds. This ensures only ONE health
+                -- check per wake/unlock cycle, even if unlocking is slow.
                 hs.timer.doAfter(10.0, function() wakeReloadRunning = false end)
             end)
 
