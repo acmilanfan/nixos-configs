@@ -8,7 +8,9 @@ export PATH="/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/opt/homebrew/bin:$PAT
 
 # Root operations go through kanata-ctl, the one command sudoers allows
 # NOPASSWD (darwin/common.nix). -n: fail instead of prompting (GUI callers).
-KANATA_CTL="sudo -n /run/current-system/sw/bin/kanata-ctl"
+# Overridable for tests; this script runs as the user, not root.
+KANATA_CTL="${KANATA_CTL:-sudo -n /run/current-system/sw/bin/kanata-ctl}"
+HID_SETTLE_SECONDS="${HID_SETTLE_SECONDS:-2}"
 
 # Colors
 GREEN='\033[0;32m'
@@ -106,23 +108,13 @@ if [ "$RELOAD_REQUIRED" = true ]; then
         open "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent" 2>/dev/null || true
     fi
 
-    # Ensure VirtualHIDDevice is healthy before restarting kanata.
-    # After deep standby (hibernation), the virtual keyboard device can vanish from ioreg
-    # even while the daemon process is still listed as running. Also, after killing the
-    # daemon above (TCC deny case), we may need to wait for it to re-register.
-    VIRTUALHID_OK=false
-    for i in 1 2 3 4 5; do
-        if ioreg -rn "Karabiner VirtualHIDKeyboard" >/dev/null 2>&1; then
-            VIRTUALHID_OK=true
-            break
-        fi
-        sleep 1
-    done
-
-    if [ "$VIRTUALHID_OK" = false ]; then
-        print_warning "Karabiner VirtualHIDKeyboard not found in ioreg — attempting to restart VirtualHIDDevice-Daemon..."
-        $KANATA_CTL ensure-hid || true
-        sleep 2
+    # Ensure the virtual keyboard exists before restarting kanata. After deep
+    # standby the device can vanish while the daemon still looks alive. The
+    # helper checks with hidutil (ioreg -n exits 0 even when it matches
+    # nothing) and prints "restarted" only when it had to kick the daemon.
+    if [ "$($KANATA_CTL ensure-hid)" = "restarted" ]; then
+        print_warning "Karabiner VirtualHIDDevice-Daemon restarted; waiting for the virtual keyboard..."
+        sleep "$HID_SETTLE_SECONDS"
         print_status "VirtualHIDDevice-Daemon restarted."
     fi
 

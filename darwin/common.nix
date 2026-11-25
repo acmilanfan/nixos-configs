@@ -364,59 +364,9 @@ let
   # sudoers allows just this command NOPASSWD, instead of blanket
   # launchctl/chmod/pkill/killall/sysctl/pmset/log rules that let any
   # process running as the user become root. Callers: `sudo -n kanata-ctl ...`.
-  kanataCtl = pkgs.writeShellScriptBin "kanata-ctl" ''
-    export PATH=/usr/bin:/bin:/usr/sbin:/sbin
-    KARABINER_BIN="/Library/Application Support/org.pqrs/Karabiner-Elements/bin"
-    VHID=system/org.pqrs.service.daemon.Karabiner-VirtualHIDDevice-Daemon
-
-    # karabiner_grabber/Karabiner-Core-Service open HID keyboards exclusively;
-    # without Input Monitoring TCC that blocks ALL keyboard input. They respawn
-    # via Karabiner's XPC, so killing them isn't enough: make them unexecutable.
-    neutralize() {
-      for b in karabiner_grabber karabiner_console_user_server karabiner_session_monitor; do
-        [ -e "$KARABINER_BIN/$b" ] && chmod -x "$KARABINER_BIN/$b"
-      done
-      launchctl bootout system/org.pqrs.service.daemon.Karabiner-Core-Service 2>/dev/null
-      launchctl bootout system/org.pqrs.service.daemon.karabiner_grabber 2>/dev/null
-      pkill -9 -x Karabiner-Core-Service 2>/dev/null
-      pkill -9 -f karabiner_grabber 2>/dev/null
-      pkill -9 -f karabiner_console_user_server 2>/dev/null
-      true
-    }
-
-    # Kill the VirtualHID daemon and its dext (releases a stale exclusive HID
-    # lock), then start it again so kanata has a virtual keyboard to emit to.
-    reset_hid() {
-      pkill -9 -f Karabiner-VirtualHIDDevice-Daemon 2>/dev/null
-      pkill -9 -f org.pqrs.Karabiner-DriverKit-VirtualHIDDevice 2>/dev/null
-      sleep 2
-      launchctl kickstart -k "$VHID" 2>/dev/null
-      true
-    }
-
-    case "''${1:-}" in
-      neutralize) neutralize ;;
-      reset-hid) reset_hid ;;
-      ensure-hid)
-        ioreg -rn "Karabiner VirtualHIDKeyboard" >/dev/null 2>&1 \
-          || launchctl kickstart -k "$VHID" 2>/dev/null || true ;;
-      restart) launchctl kickstart -k system/local.kanata ;;
-      kill) pkill -9 -x kanata-nix; true ;;  # KeepAlive restarts it
-      rescue)
-        neutralize
-        pkill -9 -x kanata-nix
-        reset_hid
-        sleep 2
-        launchctl kickstart -k system/local.kanata ;;
-      tcc-denied)
-        log show --last 5m --style compact \
-          --predicate 'eventMessage CONTAINS "TCC deny IOHIDDeviceOpen" AND process == "karabiner_grabber"' \
-          2>/dev/null | grep -q "TCC deny" ;;
-      *)
-        echo "usage: kanata-ctl neutralize|reset-hid|ensure-hid|restart|kill|rescue|tcc-denied" >&2
-        exit 2 ;;
-    esac
-  '';
+  kanataCtl = pkgs.writeShellScriptBin "kanata-ctl" (
+    builtins.readFile ./scripts/kanata-ctl.sh
+  );
 in
 {
   # Use the builder's own nixpkgs pin (linux-builder/flake.lock), not the main
