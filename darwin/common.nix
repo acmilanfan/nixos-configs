@@ -145,14 +145,33 @@ let
       run)
         shift
         [ "$#" -ge 1 ] || usage
+        # Each run registers its pid; the last one to finish stops the
+        # builder, and only if a run started it. With a single "stop if I
+        # started it", an overlapping run (sup-vm-hyprland during a build)
+        # had the VM stopped under it.
+        RUNS="$HOME/.cache/linux-builder/runs"
+        mkdir -p "$RUNS"
+        : > "$RUNS/$$"
+        finish() {
+          rm -f "$RUNS/$$"
+          for f in "$RUNS"/*; do
+            case "''${f##*/}" in
+              started-by-run) ;;
+              *[!0-9]*) rm -f "$f" ;;
+              *) kill -0 "''${f##*/}" 2>/dev/null && return 0 || rm -f "$f" ;;
+            esac
+          done
+          if [ -e "$RUNS/started-by-run" ]; then
+            rm -f "$RUNS/started-by-run"
+            "$SELF" stop
+          fi
+        }
+        trap finish EXIT
+        running || : > "$RUNS/started-by-run"
+        # Waits for sshd either way; a builder started elsewhere stays up.
+        "$SELF" start >&2
         export PATH=$CALLER_PATH
         # Stdout stays the command's own, e.g. for $(... --print-out-paths).
-        if running; then
-          "$SELF" start >&2 # already started elsewhere: wait for sshd, leave it up
-          exec "$@"
-        fi
-        "$SELF" start >&2
-        trap '"$SELF" stop' EXIT
         "$@"
         ;;
       *) usage ;;
