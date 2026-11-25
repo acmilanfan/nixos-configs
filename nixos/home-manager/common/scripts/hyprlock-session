@@ -91,7 +91,9 @@ reap_stale() {
 # Start hyprlock in the background and wait until the compositor reports the
 # lock. Callers (before_sleep_cmd in particular) return only when it is safe.
 launch() {
-  "$BIN" &
+  # Close the start-lock fd for hyprlock: an inherited copy would hold the
+  # flock for as long as hyprlock runs, so `restart` could never get it.
+  "$BIN" 9>&- &
   if wait_locked; then
     return 0
   fi
