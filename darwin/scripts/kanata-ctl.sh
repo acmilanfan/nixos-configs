@@ -49,6 +49,40 @@ ensure_hid() {
     echo restarted
 }
 
+# True when the kanata process still owns a live IOHIDLibUserClient on the
+# keyboard. The enumeration client (IOHIDParamUserClient) is not enough: on a
+# DarkWake the input grab can silently vanish while the output sink stays
+# healthy (upstream #2094).
+input_grab_present() {
+    local pid=$1
+    LC_ALL=C ioreg -c IOHIDLibUserClient -l -w0 2>/dev/null \
+        | LC_ALL=C awk -v pid="$pid" '
+            /^ *[|+ ]*\+-o IOHIDLibUserClient  <class/ { inlib = 1; creator = 0; opened = 0; next }
+            /^ *[|+ ]*\+-o / { inlib = 0 }
+            inlib && /"IOUserClientCreator" = "pid / { if (index($0, "pid " pid ", kanata-nix")) creator = 1 }
+            inlib && /"ClientOpened"[[:space:]]*=[[:space:]]*Yes/ { opened = 1 }
+            inlib && creator && opened { found = 1 }
+            END { exit found ? 0 : 1 }
+        '
+}
+
+# Verify the process not only exists but still delivers input. Native
+# recovery releases the grab for a few seconds after a sink loss, so wait
+# before declaring failure; the caller then restarts kanata.
+health() {
+    local i=0 pid
+    while [ "$i" -lt 10 ]; do
+        pid=$(pgrep -x kanata-nix | head -1)
+        if [ -n "$pid" ] && input_grab_present "$pid"; then
+            return 0
+        fi
+        sleep 0.5
+        i=$((i + 1))
+    done
+    echo "kanata-ctl: kanata input grab not present" >&2
+    return 1
+}
+
 # Unload the daemon and wait for the old process to exit. launchctl kickstart -k
 # starts the replacement immediately, before the old instance releases the
 # seized keyboard; that race left kanata running but deaf (2026-11-25).
@@ -94,6 +128,7 @@ main() {
         neutralize) neutralize ;;
         reset-hid) reset_hid ;;
         ensure-hid) ensure_hid ;;
+        health) health ;;
         restart) restart_kanata ;;
         kill) pkill -9 -x kanata-nix; true ;; # KeepAlive restarts it
         rescue)
@@ -112,7 +147,7 @@ main() {
                 2>/dev/null | grep -q "TCC deny"
             ;;
         *)
-            echo "usage: kanata-ctl neutralize|reset-hid|ensure-hid|restart|kill|rescue|tcc-denied" >&2
+            echo "usage: kanata-ctl neutralize|reset-hid|ensure-hid|health|restart|kill|rescue|tcc-denied" >&2
             exit 2
             ;;
     esac

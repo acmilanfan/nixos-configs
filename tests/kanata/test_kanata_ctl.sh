@@ -42,11 +42,15 @@ pgrep() {
     printf 'pgrep %s\n' "$*" >> "$CALLS"
     if [ "$PHASE" = stop ]; then
         STOP_CHECKS=$((STOP_CHECKS + 1))
-        [ "$STOP_CHECKS" -le 2 ]
-    else
-        [ "$RUNNING" = 1 ]
+        [ "$STOP_CHECKS" -le 2 ] || return 1
+        printf '%s\n' "${PGREP_PID:-75297}"
+        return 0
     fi
+    [ "$RUNNING" = 1 ] || return 1
+    printf '%s\n' "${PGREP_PID:-75297}"
+    return 0
 }
+ioreg() { cat "${IOREG_FIXTURE:-/dev/null}"; }
 pkill() { printf 'pkill %s\n' "$*" >> "$CALLS"; }
 sleep() { printf 'sleep %s\n' "$*" >> "$CALLS"; }
 
@@ -71,6 +75,49 @@ HIDUTIL_OUTPUT="Karabiner DriverKit VirtualHIDKeyboard 1.8.0"
 out=$(ensure_hid)
 [ -z "$out" ] || fail "ensure_hid should be quiet when present (got '$out')"
 ! grep -q kickstart "$CALLS" || fail "ensure_hid kickstarted despite a present device"
+
+# health proves the input grab is really attached. A param/enumeration client
+# is not enough: after a DarkWake the grab can vanish while the process and
+# output sink stay alive (upstream #2094).
+cat > "$FIXTURE/lib-ok.txt" <<'EOF'
+    | |   +-o IOHIDLibUserClient  <class IOHIDLibUserClient, id 0x1, active>
+    | |       "IOUserClientCreator" = "pid 75297, kanata-nix"
+    | |       "DebugState" = {"ClientOpened"=Yes}
+EOF
+cat > "$FIXTURE/param-only.txt" <<'EOF'
+    | |   +-o IOHIDParamUserClient  <class IOHIDParamUserClient, id 0x1, active>
+    | |   |   "IOUserClientCreator" = "pid 75297, kanata-nix"
+    | |   |   "DebugState" = {"ClientOpened"=Yes}
+EOF
+cat > "$FIXTURE/lib-other.txt" <<'EOF'
+    | |   +-o IOHIDLibUserClient  <class IOHIDLibUserClient, id 0x1, active>
+    | |       "IOUserClientCreator" = "pid 99999, other"
+    | |       "DebugState" = {"ClientOpened"=Yes}
+EOF
+
+: > "$CALLS"
+RUNNING=1
+PHASE=start
+IOREG_FIXTURE="$FIXTURE/lib-ok.txt"
+health || fail "health should pass with a kanata-owned IOHIDLibUserClient"
+
+: > "$CALLS"
+IOREG_FIXTURE="$FIXTURE/param-only.txt"
+if health 2> "$FIXTURE/health.err"; then
+    fail "health should fail when only the enumeration client remains"
+fi
+grep -q 'input grab not present' "$FIXTURE/health.err" || fail "no health failure message"
+grep -q '^sleep 0.5$' "$CALLS" || fail "health did not wait for native recovery"
+
+: > "$CALLS"
+IOREG_FIXTURE="$FIXTURE/lib-other.txt"
+if health 2>/dev/null; then
+    fail "health should ignore a client owned by another process"
+fi
+
+: > "$CALLS"
+IOREG_FIXTURE="$FIXTURE/lib-ok.txt"
+main health || fail "main health dispatch failed"
 
 # restart stops the old instance, waits for it to release the keyboard,
 # settles, and only then starts the replacement.

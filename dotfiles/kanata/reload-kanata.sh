@@ -11,6 +11,8 @@ export PATH="/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/opt/homebrew/bin:$PAT
 # Overridable for tests; this script runs as the user, not root.
 KANATA_CTL="${KANATA_CTL:-sudo -n /run/current-system/sw/bin/kanata-ctl}"
 HID_SETTLE_SECONDS="${HID_SETTLE_SECONDS:-2}"
+PGREP="${PGREP:-pgrep}"
+KANATA_ERROR_LOG="${KANATA_ERROR_LOG:-/var/log/kanata.error.log}"
 
 # Colors
 GREEN='\033[0;32m'
@@ -34,16 +36,26 @@ fi
 
 # 1. Check if Main instance is running
 if [ "$RELOAD_REQUIRED" = false ]; then
-    if ! pgrep -f "^/usr/local/bin/kanata-nix.*--port 5829" >/dev/null; then
+    if ! $PGREP -f "^/usr/local/bin/kanata-nix.*--port 5829" >/dev/null; then
         RELOAD_REQUIRED=true
         REASON="Main Kanata instance is not running"
+    fi
+fi
+
+# 1b. A DarkWake can silently drop kanata's input grab while the process and
+#     output sink stay healthy (upstream #2094). health() waits for native
+#     recovery before failing, so a transient sink recovery is not restarted.
+if [ "$RELOAD_REQUIRED" = false ]; then
+    if ! $KANATA_CTL health >/dev/null 2>&1; then
+        RELOAD_REQUIRED=true
+        REASON="Kanata input grab is missing (upstream #2094)"
     fi
 fi
 
 # 2. Check if Karabiner Core is running (it shouldn't be, it steals HID access)
 # NOTE: We do NOT check for VirtualHIDDevice-Daemon as it is required for Kanata.
 if [ "$RELOAD_REQUIRED" = false ]; then
-    if pgrep -x "Karabiner-Core-Service" >/dev/null || pgrep -x "karabiner_grabber" >/dev/null; then
+    if $PGREP -x "Karabiner-Core-Service" >/dev/null || $PGREP -x "karabiner_grabber" >/dev/null; then
         RELOAD_REQUIRED=true
         REASON="Karabiner grabber/service is active and might have stolen HID access"
     fi
@@ -68,8 +80,8 @@ fi
 #    When /usr/local/bin/kanata-nix is replaced, the hash changes and permission is revoked.
 #    Kanata then fails to create event taps and logs errors.
 if [ "$RELOAD_REQUIRED" = false ]; then
-    if [ -f /var/log/kanata.error.log ]; then
-        if tail -100 /var/log/kanata.error.log 2>/dev/null | grep -qi "permission denied\|event.tap\|not permitted\|CGEventTap\|input monitoring\|accessibility\|failed to create\|cannot create" 2>/dev/null; then
+    if [ -f "$KANATA_ERROR_LOG" ]; then
+        if tail -100 "$KANATA_ERROR_LOG" 2>/dev/null | grep -qi "permission denied\|event.tap\|not permitted\|CGEventTap\|input monitoring\|accessibility\|failed to create\|cannot create" 2>/dev/null; then
             RELOAD_REQUIRED=true
             REASON="Input Monitoring permission may be lost (permission errors in log)"
         fi
