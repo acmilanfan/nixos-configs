@@ -17,11 +17,14 @@
 
   # oMLX: raise the Metal wired limit so it can serve large contexts instead of
   # being capped at Apple's default. Sized for this Mac's 48GB; mac-work (18GB)
-  # keeps the default. Re-applied at boot too, since org.nixos.activate-system
-  # re-runs activation with RunAtLoad (sysctl values don't survive a reboot).
+  # keeps the default. sysctl values don't survive a reboot, so the boot-setup
+  # daemon (common.nix) sets it again at boot.
   system.activationScripts.postActivation.text = lib.mkAfter ''
     echo "Raising Metal wired limit for oMLX..."
     sysctl iogpu.wired_limit_mb=46000 2>/dev/null || true
+  '';
+  launchd.daemons.boot-setup.script = lib.mkAfter ''
+    sysctl iogpu.wired_limit_mb=46000 || true
   '';
 
   # Lets `nix build` produce aarch64-linux derivations (e.g. the vm-hyprland

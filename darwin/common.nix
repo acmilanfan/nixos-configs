@@ -229,9 +229,9 @@ let
 
     # 1. Karabiner VirtualHIDDevice driver: keeping karabiner_grabber unable to
     # run and the VirtualHID daemon up needs root, so it's done by
-    # `kanata-ctl neutralize` / `ensure-hid` in postActivation (which also runs
-    # as root at every boot via org.nixos.activate-system). This script runs as
-    # the user and needs no sudo.
+    # `kanata-ctl neutralize` / `ensure-hid` in postActivation and, at boot, in
+    # the local.boot-setup daemon. This script runs as the user and needs no
+    # sudo.
 
     # 2. Start GUI Utilities
     # 3. Ensure apps are running
@@ -408,6 +408,36 @@ in
       # planted symlink. Read by the permission check in reload-kanata.sh.
       StandardOutPath = "/var/log/kanata.log";
       StandardErrorPath = "/var/log/kanata.error.log";
+    };
+  };
+
+  # Root setup that must be redone after a reboot. nix-darwin's own boot job
+  # (org.nixos.activate-system) only relinks /run/current-system and runs the
+  # checks/etc/keyboard steps, not postActivation. Hosts append their own
+  # lines (mac-home: the Metal wired limit). It runs once per boot: /var/run
+  # is cleared at boot, and the marker keeps the load during `sup` (which
+  # runs these steps in postActivation anyway) from racing them.
+  launchd.daemons.boot-setup = {
+    script = lib.mkBefore ''
+      marker=/var/run/nix-boot-setup.done
+      [ -e "$marker" ] && exit 0
+      : > "$marker"
+      echo "--- boot-setup ($(date)) ---"
+
+      ${kanataCtl}/bin/kanata-ctl neutralize
+      # Give Karabiner's VirtualHID daemon time to register its keyboard
+      # before treating it as missing; ensure-hid restarts it otherwise.
+      for _ in $(seq 60); do
+        hidutil list 2>/dev/null | grep -qi 'Karabiner.*VirtualHIDKeyboard' && break
+        sleep 1
+      done
+      ${kanataCtl}/bin/kanata-ctl ensure-hid
+    '';
+    serviceConfig = {
+      Label = "local.boot-setup";
+      RunAtLoad = true;
+      StandardOutPath = "/var/log/boot-setup.log";
+      StandardErrorPath = "/var/log/boot-setup.log";
     };
   };
 
@@ -594,15 +624,21 @@ in
       "/Users/${user}/Library/Logs"
   '';
 
+  # Everything below that writes into the user's home runs as the user
+  # (asUser), never as root: anything running as the user can plant symlinks
+  # or hard links there, and a root write, chmod or chown through one hands a
+  # system file to the user (e.g. a hard link to /etc/sudoers in ~/.gnupg).
   system.activationScripts.postActivation.text = ''
+    asUser() { /usr/bin/sudo -H -u ${user} "$@"; }
+
     # oMLX tuning (see nixos/home-manager/common/opencode.nix: serve-omlx).
     # Set prefill_priority=speed so the adaptive prefill throttle doesn't
     # needlessly slow/stop big-context prefills (it assumes ~9 MB/token;
     # measured footprint growth is ~0.24 MB/token). Idempotent. The Metal
     # wired limit is per Mac (RAM-dependent): see mac-home.nix.
     echo "Configuring oMLX (prefill speed priority)..."
-    sudo -u ${user} mkdir -p "/Users/${user}/.omlx" 2>/dev/null || true
-    ${pkgs.python3}/bin/python3 - "/Users/${user}/.omlx/settings.json" <<'PY'
+    asUser mkdir -p "/Users/${user}/.omlx" 2>/dev/null || true
+    asUser ${pkgs.python3}/bin/python3 - "/Users/${user}/.omlx/settings.json" <<'PY' || true
 import json, os, sys
 path = sys.argv[1]
 data = {}
@@ -614,41 +650,41 @@ if os.path.exists(path):
 data.setdefault("scheduler", {})["prefill_priority"] = "speed"
 json.dump(data, open(path, "w"), indent=2)
 PY
-    chown ${user}:staff "/Users/${user}/.omlx/settings.json" 2>/dev/null || true
 
     # Setup Kanata configuration
     echo "Setting up Kanata configuration..."
-    mkdir -p "/Users/${user}/.config/kanata"
-    if [ ! -L "/Users/${user}/.config/kanata/active_config.kbd" ] && [ ! -f "/Users/${user}/.config/kanata/active_config.kbd" ]; then
-      echo "Initializing active_config.kbd symlink..."
-      ln -sf "/Users/${user}/.config/kanata/kanata-homerow.kbd" "/Users/${user}/.config/kanata/active_config.kbd"
-    fi
-    chown -R ${user}:staff "/Users/${user}/.config/kanata"
+    asUser /bin/bash -c '
+      dir="$HOME/.config/kanata"
+      mkdir -p "$dir"
+      if [ ! -L "$dir/active_config.kbd" ] && [ ! -f "$dir/active_config.kbd" ]; then
+        echo "Initializing active_config.kbd symlink..."
+        ln -sf "$dir/kanata-homerow.kbd" "$dir/active_config.kbd"
+      fi
+    '
 
     # Keep karabiner_grabber unable to run and the VirtualHID daemon (kanata's
-    # output device) up. Runs as root here and at every boot.
+    # output device) up. Runs as root here and at every boot (local.boot-setup).
     echo "Neutralizing Karabiner grabber, ensuring VirtualHID daemon..."
     ${kanataCtl}/bin/kanata-ctl neutralize
     ${kanataCtl}/bin/kanata-ctl ensure-hid
 
     # Setup password-store symlink (pass expects ~/.password-store)
     echo "Setting up password-store symlink..."
-    if [ ! -e "/Users/${user}/.password-store" ]; then
-      ln -sfn "/Users/${user}/configs/secrets/passwords" "/Users/${user}/.password-store"
+    if [ ! -e "/Users/${user}/.password-store" ] && [ ! -L "/Users/${user}/.password-store" ]; then
+      asUser ln -sfn "/Users/${user}/configs/secrets/passwords" "/Users/${user}/.password-store"
     fi
 
     # Configure gpg-agent to use pinentry-mac for GUI passphrase prompts
     echo "Configuring gpg-agent..."
-    mkdir -p "/Users/${user}/.gnupg"
-    chmod 700 "/Users/${user}/.gnupg"
-    GPGAGENT_CONF="/Users/${user}/.gnupg/gpg-agent.conf"
-    PINENTRY_PATH="/etc/profiles/per-user/${user}/bin/pinentry-mac"
-    # Always keep pinentry-program up to date (strip stale line, append fresh)
-    touch "$GPGAGENT_CONF"
-    grep -v "pinentry-program" "$GPGAGENT_CONF" > "$GPGAGENT_CONF.tmp" 2>/dev/null || true
-    echo "pinentry-program $PINENTRY_PATH" >> "$GPGAGENT_CONF.tmp"
-    mv "$GPGAGENT_CONF.tmp" "$GPGAGENT_CONF"
-    chown -R ${user} "/Users/${user}/.gnupg"
+    asUser /bin/bash -c '
+      mkdir -p "$HOME/.gnupg"
+      chmod 700 "$HOME/.gnupg"
+      conf="$HOME/.gnupg/gpg-agent.conf"
+      # Always keep pinentry-program up to date (strip stale line, append fresh)
+      touch "$conf"
+      { grep -v "pinentry-program" "$conf"; echo "pinentry-program $1"; } > "$conf.tmp"
+      mv "$conf.tmp" "$conf"
+    ' _ "/etc/profiles/per-user/${user}/bin/pinentry-mac" || true
 
     # Setup firefoxpwa
     echo "Linking firefoxpwa native messaging host..."
@@ -851,10 +887,9 @@ PY
     done
 
     # Screenshot destination: `screencapture` silently writes to the Desktop when
-    # the configured folder is missing, so create and own it here.
+    # the configured folder is missing, so create it here (as the user).
     echo "Preparing screenshot directory..."
-    mkdir -p "/Users/${user}/Documents/Screenshots"
-    chown ${user}:staff "/Users/${user}/Documents/Screenshots"
+    asUser mkdir -p "/Users/${user}/Documents/Screenshots" || true
   '';
 
   # Create /etc/zshrc that loads the nix-darwin environment.
