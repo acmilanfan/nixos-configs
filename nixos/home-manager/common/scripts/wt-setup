@@ -8,6 +8,8 @@
 #    .env, .env.*, .envrc and .claude/settings.local.json (so per-project
 #    agent permissions carry over). Existing real files are never replaced.
 # 2. Writes a `use_tech` .envrc (tech-envrc) if there still is none.
+#    The files from 1 and 2 are added to the repo's info/exclude, so the
+#    worktree stays clean for wt-prune.
 # 3. Runs a setup script, if one exists, from the worktree root:
 #      <worktree>/.wt-setup                 committed to the repo, or
 #      ~/.config/wt-setup/<repo-name>       personal, for repos you don't own
@@ -101,6 +103,33 @@ case "$wt" in
     command -v tech-envrc >/dev/null && tech-envrc "$wt"
     ;;
 esac
+
+# Keep the files made above out of `git status`: otherwise the worktree never
+# looks clean, so wt-prune keeps it and `git add -A` would pick them up. Only
+# our own files are excluded (links into the main checkout, a `use_tech`
+# .envrc); a real .env written in the worktree still counts as a change, so
+# `git worktree remove` won't delete it. info/exclude is shared by all of the
+# repo's worktrees, and these paths are untracked local files in the main
+# checkout too.
+exclude="$common/info/exclude"
+exclude_own() {
+  local rel="$1" path="$wt/$1"
+  if [ -L "$path" ]; then
+    [ "$(readlink "$path")" = "$root/$rel" ] || return 0
+  elif [ "$rel" = .envrc ] && [ -f "$path" ]; then
+    [ "$(cat "$path")" = use_tech ] || return 0
+  else
+    return 0
+  fi
+  git -C "$wt" ls-files --error-unmatch -- "$rel" >/dev/null 2>&1 && return 0
+  # already ignored (also makes re-runs idempotent)
+  git -C "$wt" check-ignore -q -- "$rel" && return 0
+  mkdir -p "$(dirname "$exclude")"
+  printf '/%s\n' "$rel" >> "$exclude"
+}
+for f in "$wt"/.env "$wt"/.env.* "$wt"/.envrc "$wt"/.claude/settings.local.json; do
+  exclude_own "${f#"$wt"/}"
+done
 
 script="$(find_script)"
 [ -n "$script" ] || exit 0
