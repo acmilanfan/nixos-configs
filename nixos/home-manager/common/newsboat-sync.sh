@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Synced-cache wrapper for newsboat.
 #
 # The authoritative cache lives locally and is never touched by the cloud

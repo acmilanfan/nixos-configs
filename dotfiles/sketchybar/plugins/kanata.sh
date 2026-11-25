@@ -23,37 +23,30 @@ update() {
     fi
 
     local icon="󰌌"
-    local label="Unknown"
     local color=0xffc0caf5 # WHITE
 
     case "$target" in
         *kanata-default.kbd)
-            label="Standard"
             icon="󰌌"
             color=0xff9ece6a # Green
             ;;
         *kanata-homerow.kbd | *kanata.kbd)
-            label="Homerow"
             icon="󰓁"
             color=0xff7b5cff # Purple
             ;;
         *kanata-split.kbd | *kanata-split-fixed.kbd)
-            label="Split"
             icon="󰗵"
             color=0xffe0af68 # Yellow
             ;;
         *kanata-angle.kbd)
-            label="Angle"
             icon="󰓁"
             color=0xff7dcfff # Cyan
             ;;
         *kanata-disabled.kbd)
-            label="Disabled"
             icon="󰅛"
             color=0xfff7768e # Red
             ;;
         *kanata-training.kbd | *kanata-training-iso.kbd)
-            label="Training"
             icon="󰮡"
             color=0xffff9e64 # Orange
             ;;

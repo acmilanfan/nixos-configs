@@ -27,5 +27,5 @@ fi
 CPU_DISPLAY=$(printf "%.0f" "$CPU_LOAD")
 
 # Push value to graph (0.0 to 1.0 scale) and update label
-sketchybar --push cpu_graph $(echo "scale=2; $CPU_LOAD / 100" | bc) \
+sketchybar --push cpu_graph "$(echo "scale=2; $CPU_LOAD / 100" | bc)" \
            --set cpu_graph label="${CPU_DISPLAY}%" icon.color="$COLOR"

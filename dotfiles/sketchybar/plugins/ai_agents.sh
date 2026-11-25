@@ -47,7 +47,7 @@ update_aggregate() {
   fi
 }
 
-while IFS='|' read -r pane_id status type project cwd title; do
+while IFS='|' read -r pane_id status type project _ title; do
   [ -z "$pane_id" ] && continue
   SLOT=$((SLOT + 1))
   [ "$SLOT" -gt "$MAX_SLOTS" ] && break

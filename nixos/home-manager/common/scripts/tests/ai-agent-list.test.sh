@@ -101,7 +101,7 @@ case_recent_first() {
   fixture recent
   hook_pane %11 opencode idle
   hook_pane %2 claude running
-  hook_pane %3 gemini done
+  hook_pane %3 gemini "done"
   agent_ps ttys011
   agent_ps ttys002
   agent_ps ttys003
@@ -193,7 +193,7 @@ case_stale_env_cleanup() {
 case_title_and_cleanup() {
   echo "== title parsing survives the extra format field =="
   fixture title
-  hook_pane %2 opencode done
+  hook_pane %2 opencode "done"
   agent_ps ttys002
   pane_row %2 /dev/ttys002 /p/two 42 "OC | fix the thing"
   run_list

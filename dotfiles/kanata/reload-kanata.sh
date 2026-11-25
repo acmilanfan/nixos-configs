@@ -25,10 +25,8 @@ print_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
 RELOAD_REQUIRED=false
 REASON=""
-FORCE=false
 
 if [[ "$*" == *"--force"* ]]; then
-    FORCE=true
     RELOAD_REQUIRED=true
     REASON="Manual force reload requested"
 fi

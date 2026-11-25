@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Root helper for kanata/Karabiner operations, installed as kanata-ctl by
 # darwin/common.nix. sudoers allows only this path, so keep every root action
 # behind a fixed subcommand and never honor environment-provided command paths.
