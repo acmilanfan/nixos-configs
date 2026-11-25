@@ -27,7 +27,13 @@
       # Help enable the IR emitter if the camera has one and it's not active by default
       services.linux-enable-ir-emitter.enable = true;
 
-      # Manually configure PAM rules since we aren't using fufexan's PAM module
+      # services.howdy.enable turns on nixpkgs' own PAM integration, which
+      # adds howdy as `required` to every PAM service (polkit, su, sshd, ...):
+      # those then need a face match as well as a password, and fail outright
+      # over SSH or with the lid closed. Disable it and add howdy only to the
+      # services below, as `sufficient` (the password still works).
+      security.pam.howdy.enable = false;
+
       security.pam.services = let
         howdyRule = {
           order = 10; # Low order to run before pam_unix
