@@ -1125,6 +1125,17 @@ function M.setup()
             -- Only a frontmost app hands focus on: a background app quitting or hiding moves no
             -- focus, and re-picking then yanked focus out of whatever the user was typing in.
             -- The next app's activation can arrive before this event, hence the prev check.
+            --
+            -- Names are not processes: `open -n -a Firefox` (Alt+B) starts a helper Firefox that
+            -- hands its new window to the running one and exits a second later. Its termination
+            -- matched the frontmost Firefox by name, so the close-triggered resolve focused the
+            -- tag's previous window, taking focus from the new one ~2 s after it opened. A quit
+            -- app is never frontmost afterwards, so a frontmost app of the same name means
+            -- another process of it went away, and focus did not move.
+            local front = hs.application.frontmostApplication()
+            if event == hs.application.watcher.terminated and front and front:name() == appName then
+                return
+            end
             local now = hs.timer.secondsSinceEpoch()
             local wasFront = _frontApp == appName
                 or (_lastActivation.prev == appName and now - _lastActivation.t < FALLTHROUGH_WIN)
