@@ -17,10 +17,13 @@ let
   # Secret files instead of {env:...} for MCP headers: opencode reads them when
   # it loads the config, so a long-lived server picks up a rendered or rotated
   # secret on its next reload without a restart. The files are sops-nix 0400
-  # outputs and contain no trailing newline.
-  planeKeyFile = config.sops.secrets."plane/apiKey".path;
-  githubMcpKeyFile = config.sops.secrets.${if isWork then "github/token" else "github/personal_token"}.path;
-  context7KeyFile = config.sops.secrets."context7/apiKey".path;
+  # outputs and contain no trailing newline. null when the secret is not
+  # declared (customSops.enable = false, e.g. vm-hyprland): the server that
+  # needs it is then left out.
+  secretFile = key: config.sops.secrets.${key}.path or null;
+  planeKeyFile = secretFile "plane/apiKey";
+  githubMcpKeyFile = secretFile (if isWork then "github/token" else "github/personal_token");
+  context7KeyFile = secretFile "context7/apiKey";
 
   # -------------------------------------------------------------------------
   # Providers
@@ -318,6 +321,8 @@ let
         type = "local";
         command = [ "${pkgs.mcp-nixos}/bin/mcp-nixos" ];
       };
+    }
+    // lib.optionalAttrs (githubMcpKeyFile != null) {
       github = {
         type = "remote";
         url = "https://api.githubcopilot.com/mcp/";
@@ -325,6 +330,8 @@ let
           Authorization = "Bearer {file:${githubMcpKeyFile}}";
         };
       };
+    }
+    // lib.optionalAttrs (context7KeyFile != null) {
       context7 = {
         type = "remote";
         url = "https://mcp.context7.com/mcp";
@@ -334,7 +341,7 @@ let
         };
       };
     }
-    // lib.optionalAttrs (planeSlug != "") {
+    // lib.optionalAttrs (planeSlug != "" && planeKeyFile != null) {
       # Personal Plane workspace (app.plane.so) over Plane's hosted PAT
       # endpoint: no local runtime, one credential for MCP and the CLI.
       plane = {
