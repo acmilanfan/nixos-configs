@@ -301,9 +301,12 @@ in
       # in postActivation, so create the owned directories before it runs.
       system.activationScripts.postActivation.text = lib.mkBefore ''
         /usr/bin/install -d -m 0700 -o root -g wheel /var/lib/sops-nix
-        umask 077
-        ${pkgs.ssh-to-age}/bin/ssh-to-age -private-key \
-          -i /etc/ssh/ssh_host_ed25519_key > /var/lib/sops-nix/age.key
+        # Subshell: a bare umask would leak into the rest of postActivation.
+        (
+          umask 077
+          ${pkgs.ssh-to-age}/bin/ssh-to-age -private-key \
+            -i /etc/ssh/ssh_host_ed25519_key > /var/lib/sops-nix/age.key
+        )
         /bin/chmod 600 /var/lib/sops-nix/age.key
 
         /usr/bin/install -d -m 0700 -o ${ciUser} -g staff \
