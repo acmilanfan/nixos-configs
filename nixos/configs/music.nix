@@ -1,4 +1,4 @@
-{ pkgs, musnix, username, ... }: {
+{ pkgs, username, ... }: {
 
   environment.systemPackages = with pkgs; [
     pavucontrol

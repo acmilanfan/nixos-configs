@@ -1,4 +1,4 @@
-{ config, pkgs, lib, ... }: {
+{ pkgs, lib, ... }: {
 
   # Unfree is allowed globally (nixpkgsConfig in flake.nix); an HM-level
   # allowUnfreePredicate here was never applied (HM used the flake's pkgs).

@@ -153,10 +153,10 @@ in
       inc-rename-nvim
       fidget-nvim
       gitsigns-nvim
-      (go-nvim.overrideAttrs (old: {
+      (go-nvim.overrideAttrs (_old: {
         doCheck = false;
       }))
-      (customPlugins.telescope-orgmode.overrideAttrs (old: {
+      (customPlugins.telescope-orgmode.overrideAttrs (_old: {
         doCheck = false;
       }))
       todo-comments-nvim

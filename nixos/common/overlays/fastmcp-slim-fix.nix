@@ -1,6 +1,6 @@
-final: prev: {
+_final: prev: {
   pythonPackagesExtensions = prev.pythonPackagesExtensions ++ [
-    (pyFinal: pyPrev: {
+    (_pyFinal: pyPrev: {
       fastmcp-slim = pyPrev.fastmcp-slim.overridePythonAttrs (old: {
         sourceRoot = "${old.src.name}";
       });

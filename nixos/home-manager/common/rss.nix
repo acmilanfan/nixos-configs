@@ -1,4 +1,4 @@
-{ config, pkgs, lib, ... }:
+{ pkgs, lib, ... }:
 let
   youtubeNotify = pkgs.writeShellScript "newsboat-youtube-notify" ''
     /usr/bin/osascript - "$1" <<'APPLESCRIPT'

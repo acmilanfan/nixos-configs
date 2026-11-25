@@ -152,7 +152,6 @@
     inputs@{
       self,
       nixpkgs,
-      unstable-nixpkgs,
       musnix,
       home-manager,
       nixos-hardware,

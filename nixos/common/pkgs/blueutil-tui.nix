@@ -1,4 +1,4 @@
-{ pkgs, lib, src, python3Packages }:
+{ lib, src, python3Packages }:
 
 python3Packages.buildPythonApplication rec {
   pname = "blueutil-tui";

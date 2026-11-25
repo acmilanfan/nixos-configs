@@ -9,7 +9,7 @@ final: prev: {
   # the gftools → jetbrains-mono → fonts build chain. Darwin only: on Linux
   # the override would just turn every python3 dependant into a local build.
   python3 = if !final.stdenv.hostPlatform.isDarwin then prev.python3 else prev.python3.override {
-    packageOverrides = pyFinal: pyPrev: {
+    packageOverrides = _pyFinal: pyPrev: {
       ffmpeg-python = pyPrev.ffmpeg-python.overrideAttrs (_: {
         doCheck = false;
         doInstallCheck = false;

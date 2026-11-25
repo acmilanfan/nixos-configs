@@ -1,6 +1,6 @@
 {
   pkgs ? import <nixpkgs> {
-    overlays = [ (self: super: { jdk = super.jetbrains.jdk; }) ];
+    overlays = [ (_self: super: { jdk = super.jetbrains.jdk; }) ];
   },
 }:
 

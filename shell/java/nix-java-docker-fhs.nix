@@ -1,5 +1,5 @@
 { pkgs ? import <nixpkgs> {
-  overlays = [ (self: super: { jdk = super.jetbrains.jdk; }) ];
+  overlays = [ (_self: super: { jdk = super.jetbrains.jdk; }) ];
 } }:
 
 # Manual FHS shell (old behavior), available as `nix develop .#fhs`.
