@@ -563,6 +563,7 @@ ${builtins.toJSON antigravitySettings}
 EOF
     )
 
+    AGY_WRITE_SETTINGS=1
     ${lib.optionalString (mcpCredentialsGeneration != null) ''
       # launchctl bootstrap returns before decryption finishes. Existing secret
       # files may belong to the previous generation, so wait for this source's
@@ -577,58 +578,62 @@ EOF
           sleep 0.5
         done
         if [ "$SOPS_MCP_READY" -ne 1 ]; then
+          # Skip only the settings write: an `exit` here would end the whole
+          # Home Manager activation and skip every later step.
           echo "SOPS did not publish the current MCP credential generation; leaving Antigravity settings unchanged." >&2
-          exit 1
+          AGY_WRITE_SETTINGS=0
         fi
       fi
     ''}
 
-    # GitHub MCP auth header from the sops secret. The file-existence wait also
-    # covers custom secret configurations without the generation marker.
-    GITHUB_TOKEN_FILE="${githubTokenFile}"
-    if [ -n "$GITHUB_TOKEN_FILE" ]; then
-      for _ in $(seq 40); do [ -e "$GITHUB_TOKEN_FILE" ] && break; sleep 0.5; done
-      if [ -s "$GITHUB_TOKEN_FILE" ]; then
-        NEW_AGY_SETTINGS=$(printf '%s' "$NEW_AGY_SETTINGS" | ${pkgs.jq}/bin/jq -c --rawfile t "$GITHUB_TOKEN_FILE" \
-          '.mcpServers.github.headers.Authorization = "Bearer " + ($t | rtrimstr("\n"))')
+    if [ "$AGY_WRITE_SETTINGS" -eq 1 ]; then
+      # GitHub MCP auth header from the sops secret. The file-existence wait also
+      # covers custom secret configurations without the generation marker.
+      GITHUB_TOKEN_FILE="${githubTokenFile}"
+      if [ -n "$GITHUB_TOKEN_FILE" ]; then
+        for _ in $(seq 40); do [ -e "$GITHUB_TOKEN_FILE" ] && break; sleep 0.5; done
+        if [ -s "$GITHUB_TOKEN_FILE" ]; then
+          NEW_AGY_SETTINGS=$(printf '%s' "$NEW_AGY_SETTINGS" | ${pkgs.jq}/bin/jq -c --rawfile t "$GITHUB_TOKEN_FILE" \
+            '.mcpServers.github.headers.Authorization = "Bearer " + ($t | rtrimstr("\n"))')
+        fi
       fi
-    fi
 
-    # Context7 follows the same runtime-only secret handling as GitHub.
-    CONTEXT7_KEY_FILE="${context7KeyFile}"
-    if [ -n "$CONTEXT7_KEY_FILE" ]; then
-      for _ in $(seq 40); do [ -e "$CONTEXT7_KEY_FILE" ] && break; sleep 0.5; done
-      if [ -s "$CONTEXT7_KEY_FILE" ]; then
-        NEW_AGY_SETTINGS=$(printf '%s' "$NEW_AGY_SETTINGS" | ${pkgs.jq}/bin/jq -c --rawfile t "$CONTEXT7_KEY_FILE" \
-          '.mcpServers.context7.headers.Authorization = "Bearer " + ($t | rtrimstr("\n"))')
+      # Context7 follows the same runtime-only secret handling as GitHub.
+      CONTEXT7_KEY_FILE="${context7KeyFile}"
+      if [ -n "$CONTEXT7_KEY_FILE" ]; then
+        for _ in $(seq 40); do [ -e "$CONTEXT7_KEY_FILE" ] && break; sleep 0.5; done
+        if [ -s "$CONTEXT7_KEY_FILE" ]; then
+          NEW_AGY_SETTINGS=$(printf '%s' "$NEW_AGY_SETTINGS" | ${pkgs.jq}/bin/jq -c --rawfile t "$CONTEXT7_KEY_FILE" \
+            '.mcpServers.context7.headers.Authorization = "Bearer " + ($t | rtrimstr("\n"))')
+        fi
       fi
-    fi
 
-    if [ -L "$AGY_SETTINGS" ]; then
-      run rm "$AGY_SETTINGS"
-    elif [ -f "$AGY_SETTINGS" ]; then
-      OLD_AGY_SETTINGS=$(cat "$AGY_SETTINGS")
-      # Auth headers are left out of the comparison so the drift diff never
-      # prints credentials (and rotated credentials aren't reported as drift).
-      OLD_AGY_NORM=$(printf '%s' "$OLD_AGY_SETTINGS" | ${pkgs.jq}/bin/jq -S 'del(.mcpServers.github.headers, .mcpServers.context7.headers)')
-      NEW_AGY_NORM=$(printf '%s' "$NEW_AGY_SETTINGS" | ${pkgs.jq}/bin/jq -S 'del(.mcpServers.github.headers, .mcpServers.context7.headers)')
-      if [ "$OLD_AGY_NORM" != "$NEW_AGY_NORM" ]; then
-        echo ""
-        echo "==> ~/.gemini/antigravity-cli/settings.json has drifted from the Nix-managed config (nixos/home-manager/common/ai-agents.nix)."
-        echo "    Diff (live vs. nix-managed), about to be overwritten by the nix-managed version:"
-        diff <(printf '%s\n' "$OLD_AGY_NORM") <(printf '%s\n' "$NEW_AGY_NORM") || true
-        AGY_BACKUP="$AGY_DIR/settings.json.drift.$(date +%s).json"
-        [[ -v DRY_RUN ]] || (umask 077; printf '%s' "$OLD_AGY_SETTINGS" > "$AGY_BACKUP")
-        echo "    Live version backed up to: $AGY_BACKUP"
-        echo "    If any of these should persist, add them to antigravitySettings in"
-        echo "    nixos/home-manager/common/ai-agents.nix."
-        echo ""
+      if [ -L "$AGY_SETTINGS" ]; then
+        run rm "$AGY_SETTINGS"
+      elif [ -f "$AGY_SETTINGS" ]; then
+        OLD_AGY_SETTINGS=$(cat "$AGY_SETTINGS")
+        # Auth headers are left out of the comparison so the drift diff never
+        # prints credentials (and rotated credentials aren't reported as drift).
+        OLD_AGY_NORM=$(printf '%s' "$OLD_AGY_SETTINGS" | ${pkgs.jq}/bin/jq -S 'del(.mcpServers.github.headers, .mcpServers.context7.headers)')
+        NEW_AGY_NORM=$(printf '%s' "$NEW_AGY_SETTINGS" | ${pkgs.jq}/bin/jq -S 'del(.mcpServers.github.headers, .mcpServers.context7.headers)')
+        if [ "$OLD_AGY_NORM" != "$NEW_AGY_NORM" ]; then
+          echo ""
+          echo "==> ~/.gemini/antigravity-cli/settings.json has drifted from the Nix-managed config (nixos/home-manager/common/ai-agents.nix)."
+          echo "    Diff (live vs. nix-managed), about to be overwritten by the nix-managed version:"
+          diff <(printf '%s\n' "$OLD_AGY_NORM") <(printf '%s\n' "$NEW_AGY_NORM") || true
+          AGY_BACKUP="$AGY_DIR/settings.json.drift.$(date +%s).json"
+          [[ -v DRY_RUN ]] || (umask 077; printf '%s' "$OLD_AGY_SETTINGS" > "$AGY_BACKUP")
+          echo "    Live version backed up to: $AGY_BACKUP"
+          echo "    If any of these should persist, add them to antigravitySettings in"
+          echo "    nixos/home-manager/common/ai-agents.nix."
+          echo ""
+        fi
+        ls -1t "$AGY_DIR"/settings.json.drift.*.json 2>/dev/null | tail -n +6 | while read -r f; do run rm -f "$f"; done || true
       fi
-      ls -1t "$AGY_DIR"/settings.json.drift.*.json 2>/dev/null | tail -n +6 | while read -r f; do run rm -f "$f"; done || true
-    fi
 
-    [[ -v DRY_RUN ]] || (umask 077; printf '%s' "$NEW_AGY_SETTINGS" > "$AGY_SETTINGS")
-    run chmod 600 "$AGY_SETTINGS"
+      [[ -v DRY_RUN ]] || (umask 077; printf '%s' "$NEW_AGY_SETTINGS" > "$AGY_SETTINGS")
+      run chmod 600 "$AGY_SETTINGS"
+    fi
 
     # 2. Antigravity Global Hooks Setup (~/.gemini/config/hooks.json)
     AGY_CONFIG_DIR="$HOME/.gemini/config"
