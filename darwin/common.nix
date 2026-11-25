@@ -445,44 +445,6 @@ in
     };
   };
 
-  # Vicinae's TypeScript extension manager runs from
-  # $TMPDIR/vicinae/extension-manager.js, which macOS's periodic temp cleanup
-  # purges ~3 days after the file's mtime (idle file, written once at app
-  # start). When that happens the next extension worker fails with
-  # "Cannot find module .../extension-manager.js", which kills the manager
-  # process, and vicinae never restarts it (upstream: ExtensionManager::finished
-  # only logs) - all extensions stay broken until the app is restarted.
-  #
-  # runtimeDir() is hardcoded to temp_directory_path()/vicinae with no env
-  # override (checked v0.28.1 + main), and moving TMPDIR would break the
-  # CLI<->app socket agreement, so instead:
-  #   - refresh the file's atime+mtime every 6h so it never looks idle, and
-  #   - if it was purged anyway while Vicinae is running, restart the app so
-  #     startup redeploys the manager bundle.
-  launchd.agents.vicinae-em-keepalive = {
-    command = toString (pkgs.writeShellScript "vicinae-em-keepalive" ''
-      f="''${TMPDIR:-/tmp}/vicinae/extension-manager.js"
-      if [ -s "$f" ]; then
-        touch "$f"
-        echo "$(date) refreshed $f"
-      elif pgrep -x Vicinae >/dev/null; then
-        echo "$(date) $f missing while Vicinae is running; restarting Vicinae"
-        osascript -e 'quit app "Vicinae"' >/dev/null 2>&1 || pkill -x Vicinae || true
-        sleep 3
-        pgrep -x Vicinae >/dev/null || open -a Vicinae
-      else
-        echo "$(date) $f missing (Vicinae not running); nothing to do"
-      fi
-    '');
-    serviceConfig = {
-      Label = "local.vicinae-em-keepalive";
-      RunAtLoad = true;
-      StartInterval = 21600; # 6 hours
-      StandardOutPath = "/Users/${user}/Library/Logs/vicinae-em-keepalive.log";
-      StandardErrorPath = "/Users/${user}/Library/Logs/vicinae-em-keepalive.err.log";
-    };
-  };
-
   # Pin every tap for both Macs (including their Rosetta prefixes). The
   # homebrew-core tap makes nix-homebrew disable the live Homebrew API.
   nix-homebrew = {
@@ -776,6 +738,13 @@ PY
     launchctl bootout "gui/$USER_ID/local.darwin-startup" 2>/dev/null || true
     launchctl bootstrap "gui/$USER_ID" /Library/LaunchAgents/local.darwin-startup.plist \
       || launchctl asuser "$USER_ID" sudo -u ${user} --set-home /bin/sh -c '/usr/local/bin/darwin-startup >> "$HOME/Library/Logs/darwin-startup.log" 2>&1'
+
+    # vicinae-em-keepalive moved to a Home Manager agent (vicinae.nix). The
+    # old nix-darwin one was loaded twice (system domain as root, and gui);
+    # nix-darwin deletes its plist but would leave the gui copy loaded until
+    # logout. Booting out a label that isn't loaded is a no-op.
+    launchctl bootout "system/local.vicinae-em-keepalive" 2>/dev/null || true
+    launchctl bootout "gui/$USER_ID/local.vicinae-em-keepalive" 2>/dev/null || true
 
     # Bootstrap a persistent local code-signing identity for kanata-nix so
     # Input Monitoring / Accessibility TCC grants survive future binary

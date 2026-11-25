@@ -1,4 +1,5 @@
 {
+  config,
   pkgs,
   lib,
   inputs,
@@ -316,6 +317,58 @@ lib.mkMerge [
     # instead (exported via `launchctl setenv` in darwin-startup).
     home.file.".config/vicinae/nix.json".source =
       (pkgs.formats.json { }).generate "vicinae-nix-settings" vicinaeSettings;
+
+    # Vicinae's TypeScript extension manager runs from
+    # $TMPDIR/vicinae/extension-manager.js, which macOS's periodic temp cleanup
+    # purges ~3 days after the file's mtime (idle file, written once at app
+    # start). When that happens the next extension worker fails with
+    # "Cannot find module .../extension-manager.js", which kills the manager
+    # process, and vicinae never restarts it (upstream: ExtensionManager::finished
+    # only logs) - all extensions stay broken until the app is restarted.
+    #
+    # runtimeDir() is hardcoded to temp_directory_path()/vicinae with no env
+    # override (checked v0.28.1 + main), and moving TMPDIR would break the
+    # CLI<->app socket agreement, so instead:
+    #   - refresh the file's atime+mtime every 6h so it never looks idle, and
+    #   - if it was purged anyway while Vicinae is running, restart the app so
+    #     startup redeploys the manager bundle.
+    #
+    # A Home Manager agent, not a nix-darwin one: nix-darwin reloads changed
+    # /Library/LaunchAgents plists with a root `launchctl load`, which loaded a
+    # second copy into the system domain. Running as root without the user's
+    # TMPDIR, it never found the file and restarted Vicinae every 6h, while the
+    # gui copy kept pointing at a garbage-collected script. The temp dir comes
+    # from getconf (the same per-user dir the app gets as TMPDIR), so it does
+    # not depend on launchd passing TMPDIR to the job.
+    launchd.agents.vicinae-em-keepalive = {
+      enable = true;
+      config = {
+        Label = "vicinae-em-keepalive";
+        ProgramArguments = [
+          (toString (pkgs.writeShellScript "vicinae-em-keepalive" ''
+            tmp=$(/usr/bin/getconf DARWIN_USER_TEMP_DIR 2>/dev/null) || tmp=""
+            tmp=''${tmp:-''${TMPDIR:-/tmp}}
+            f="''${tmp%/}/vicinae/extension-manager.js"
+            if [ -s "$f" ]; then
+              touch "$f"
+              echo "$(date) refreshed $f"
+            elif pgrep -x Vicinae >/dev/null; then
+              echo "$(date) $f missing while Vicinae is running; restarting Vicinae"
+              osascript -e 'quit app "Vicinae"' >/dev/null 2>&1 || pkill -x Vicinae || true
+              sleep 3
+              pgrep -x Vicinae >/dev/null || open -a Vicinae
+            else
+              echo "$(date) $f missing (Vicinae not running); nothing to do"
+            fi
+          ''))
+        ];
+        RunAtLoad = true;
+        StartInterval = 21600; # 6 hours
+        ProcessType = "Background";
+        StandardOutPath = "${config.home.homeDirectory}/Library/Logs/vicinae-em-keepalive.log";
+        StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/vicinae-em-keepalive.err.log";
+      };
+    };
 
     # Same deployment layout the module uses on Linux (~/.local/share/vicinae,
     # which the macOS app reads too). Plus script commands (~/.local/share/vicinae/scripts):
