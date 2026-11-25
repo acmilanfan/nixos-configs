@@ -1433,7 +1433,7 @@ EOF
       run rm "$OPENCODE_SETTINGS"
     elif [ -f "$OPENCODE_SETTINGS" ]; then
       OLD_OC_SETTINGS=$(cat "$OPENCODE_SETTINGS")
-      OLD_OC_NORM=$(printf '%s' "$OLD_OC_SETTINGS" | ${pkgs.jq}/bin/jq -S .)
+      OLD_OC_NORM=$(printf '%s' "$OLD_OC_SETTINGS" | ${pkgs.jq}/bin/jq -S . 2>/dev/null) || OLD_OC_NORM="(not valid JSON)"
       NEW_OC_NORM=$(printf '%s' "$NEW_OC_SETTINGS" | ${pkgs.jq}/bin/jq -S .)
       if [ "$OLD_OC_NORM" != "$NEW_OC_NORM" ]; then
         echo ""
@@ -1702,11 +1702,35 @@ EOF
         # Regenerate from scratch each run: the converter decides, across the
         # full set of source agents, which basenames collide across plugins
         # and need a plugin-name prefix, so stale flat-named output from a
-        # previous (colliding) run doesn't linger alongside the fix.
-        run rm -f "$HOME/.config/opencode/agent"/*.md
+        # previous (colliding) run doesn't linger alongside the fix. Only the
+        # last run's output (named in AGENT_STATE) is removed, so agents
+        # written by hand in the folder stay, and only once the new set
+        # converted: if the converter fails, the previous agents are kept.
+        AGENT_DIR="$HOME/.config/opencode/agent"
+        AGENT_STATE="$HOME/.config/opencode/.nix-work-agents"
         agent_files=("${workAssetsDir}"/plugins/*/agents/*.md)
         if [ -e "''${agent_files[0]}" ]; then
-          run ${agentConverter} "$HOME/.config/opencode/agent" "''${agent_files[@]}" || true
+          AGENT_STAGE=$(mktemp -d)
+          if ${agentConverter} "$AGENT_STAGE" "''${agent_files[@]}" \
+            && staged=("$AGENT_STAGE"/*.md) && [ -e "''${staged[0]}" ]; then
+            if [ -f "$AGENT_STATE" ]; then
+              while IFS= read -r f; do
+                case "$f" in ""|*/*|.*) continue ;; esac
+                run rm -f "$AGENT_DIR/$f"
+              done < "$AGENT_STATE"
+            else
+              # First run with a state file: everything here came from the
+              # old rm-all-and-regenerate step, except the kibana links.
+              for f in "$AGENT_DIR"/*.md; do
+                [ -L "$f" ] || run rm -f "$f"
+              done
+            fi
+            run cp "$AGENT_STAGE"/*.md "$AGENT_DIR"/
+            [[ -v DRY_RUN ]] || (cd "$AGENT_STAGE" && ls -1 -- *.md) > "$AGENT_STATE"
+          else
+            echo "opencode: converting the work agents failed; kept the previous ones" >&2
+          fi
+          rm -rf "$AGENT_STAGE"
         fi
       ''}
 

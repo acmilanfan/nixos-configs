@@ -440,7 +440,7 @@ EOF
       run rm "$CLAUDE_SETTINGS"
     elif [ -f "$CLAUDE_SETTINGS" ]; then
       OLD_SETTINGS=$(cat "$CLAUDE_SETTINGS")
-      OLD_NORM=$(printf '%s' "$OLD_SETTINGS" | ${pkgs.jq}/bin/jq -S .)
+      OLD_NORM=$(printf '%s' "$OLD_SETTINGS" | ${pkgs.jq}/bin/jq -S . 2>/dev/null) || OLD_NORM="(not valid JSON)"
       NEW_NORM=$(printf '%s' "$NEW_SETTINGS" | ${pkgs.jq}/bin/jq -S .)
       if [ "$OLD_NORM" != "$NEW_NORM" ]; then
         echo ""
@@ -533,7 +533,10 @@ EOF
       if [ "$want" != "$have" ]; then
         echo "Updating Claude Code MCP server: $name"
         [ -z "$have" ] || claude_mcp remove -s user "$name" || true
-        claude_mcp add-json -s user "$name" "$want"
+        # A failure only warns: the entry then differs from the Nix config, so
+        # the next activation retries it.
+        claude_mcp add-json -s user "$name" "$want" \
+          || echo "Claude Code: adding MCP server $name failed; retried on the next activation" >&2
       fi
     done
 
@@ -614,7 +617,7 @@ EOF
         OLD_AGY_SETTINGS=$(cat "$AGY_SETTINGS")
         # Auth headers are left out of the comparison so the drift diff never
         # prints credentials (and rotated credentials aren't reported as drift).
-        OLD_AGY_NORM=$(printf '%s' "$OLD_AGY_SETTINGS" | ${pkgs.jq}/bin/jq -S 'del(.mcpServers.github.headers, .mcpServers.context7.headers)')
+        OLD_AGY_NORM=$(printf '%s' "$OLD_AGY_SETTINGS" | ${pkgs.jq}/bin/jq -S 'del(.mcpServers.github.headers, .mcpServers.context7.headers)' 2>/dev/null) || OLD_AGY_NORM="(not valid JSON)"
         NEW_AGY_NORM=$(printf '%s' "$NEW_AGY_SETTINGS" | ${pkgs.jq}/bin/jq -S 'del(.mcpServers.github.headers, .mcpServers.context7.headers)')
         if [ "$OLD_AGY_NORM" != "$NEW_AGY_NORM" ]; then
           echo ""
@@ -649,7 +652,7 @@ EOF
       run rm "$AGY_HOOKS"
     elif [ -f "$AGY_HOOKS" ]; then
       OLD_AGY_HOOKS=$(cat "$AGY_HOOKS")
-      OLD_HOOKS_NORM=$(printf '%s' "$OLD_AGY_HOOKS" | ${pkgs.jq}/bin/jq -S .)
+      OLD_HOOKS_NORM=$(printf '%s' "$OLD_AGY_HOOKS" | ${pkgs.jq}/bin/jq -S . 2>/dev/null) || OLD_HOOKS_NORM="(not valid JSON)"
       NEW_HOOKS_NORM=$(printf '%s' "$NEW_AGY_HOOKS" | ${pkgs.jq}/bin/jq -S .)
       if [ "$OLD_HOOKS_NORM" != "$NEW_HOOKS_NORM" ]; then
         echo ""
