@@ -54,7 +54,10 @@ let
     dir="${kibanaPluginDir}"
     envs=$(${pkgs.jq}/bin/jq -r --arg s "$1" '
       .mcpServers[$s].env // error("no server \($s) in .mcp.json")
-      | to_entries[] | select(.key != "ELASTIC_API_KEY") | @sh "export \(.key)=\(.value)"
+      | to_entries[] | select(.key != "ELASTIC_API_KEY")
+      # The name goes into eval unquoted: only accept a plain variable name.
+      | if .key | test("^[A-Za-z_][A-Za-z0-9_]*$") then @sh "export \(.key)=\(.value)"
+        else error("invalid env name \(.key | @json)") end
     ' "$dir/.mcp.json") || { echo "kibana-mcp: cannot read $1 from $dir/.mcp.json" >&2; exit 1; }
     eval "$envs"
     exec ${pkgs.nodejs_22}/bin/node "$dir/mcp-server/dist/server.js"
