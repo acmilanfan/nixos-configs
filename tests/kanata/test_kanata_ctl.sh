@@ -172,6 +172,21 @@ start_line=$(grep -n '^launchctl bootstrap' "$CALLS" | cut -d: -f1 || true)
     && [ "$reset_line" -lt "$start_line" ] \
     || fail "rescue ran in the wrong order"
 
+# kill SIGKILLs a hung kanata first, then restarts it in order instead of
+# leaving the respawn to KeepAlive.
+: > "$CALLS"
+RUNNING=1
+PHASE=start
+STOP_CHECKS=0
+main kill || fail "kill failed"
+kill_line=$(grep -n '^pkill -9 -x kanata-nix$' "$CALLS" | cut -d: -f1 || true)
+boot_line=$(grep -n '^launchctl bootout' "$CALLS" | cut -d: -f1 || true)
+start_line=$(grep -n '^launchctl bootstrap' "$CALLS" | cut -d: -f1 || true)
+[ -n "$kill_line" ] && [ -n "$boot_line" ] && [ -n "$start_line" ] \
+    || fail "kill did not SIGKILL and restart kanata"
+[ "$kill_line" -lt "$boot_line" ] && [ "$boot_line" -lt "$start_line" ] \
+    || fail "kill ran in the wrong order"
+
 # The installed entrypoint still dispatches (and does not run from a source).
 if bash "$SCRIPT" > /dev/null 2> "$FIXTURE/usage"; then
     fail "kanata-ctl without arguments should exit non-zero"

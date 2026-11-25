@@ -130,7 +130,13 @@ main() {
         ensure-hid) ensure_hid ;;
         health) health ;;
         restart) restart_kanata ;;
-        kill) pkill -9 -x kanata-nix; true ;; # KeepAlive restarts it
+        # Emergency: SIGKILL first so a hung kanata lets go of the keyboard at
+        # once, then the ordered restart. Leaving the respawn to KeepAlive
+        # races the release of the seized keyboard (see stop_kanata).
+        kill)
+            pkill -9 -x "$KANATA_PROC" 2>/dev/null
+            restart_kanata
+            ;;
         rescue)
             neutralize
             stop_kanata

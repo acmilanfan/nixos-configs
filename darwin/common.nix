@@ -405,7 +405,7 @@ in
       RunAtLoad = true;
       ProcessType = "Interactive";
       # Not /tmp: a root daemon writing a predictable /tmp path follows a
-      # planted symlink. Read by the permission check in reload-kanata.sh.
+      # planted symlink. Trimmed daily by local.root-log-trim.
       StandardOutPath = "/var/log/kanata.log";
       StandardErrorPath = "/var/log/kanata.error.log";
     };
@@ -438,6 +438,31 @@ in
       RunAtLoad = true;
       StandardOutPath = "/var/log/boot-setup.log";
       StandardErrorPath = "/var/log/boot-setup.log";
+    };
+  };
+
+  # Cap the logs of the root daemons above. kanata's grows ~0.7MB a day,
+  # mostly "virtual_hid_keyboard_ready true" from Karabiner's driver library
+  # (printed past kanata's logger, so --quiet doesn't stop it). newsyslog
+  # can't rotate them: launchd holds the files open, so kanata would keep
+  # writing to the renamed one. launchd opens them O_APPEND, so trimming in
+  # place works: the next write lands at the new end.
+  launchd.daemons.root-log-trim = {
+    script = ''
+      for f in /var/log/kanata.log /var/log/kanata.error.log /var/log/boot-setup.log; do
+        [ -f "$f" ] && [ ! -L "$f" ] || continue
+        [ "$(stat -f %z "$f")" -gt 10485760 ] || continue
+        tail -c 2097152 "$f" > "$f.trim" && cat "$f.trim" > "$f"
+        rm -f "$f.trim"
+      done
+    '';
+    serviceConfig = {
+      Label = "local.root-log-trim";
+      # launchd runs a slot missed during sleep at the next wake
+      StartCalendarInterval = [ { Hour = 4; Minute = 30; } ];
+      RunAtLoad = true;
+      ProcessType = "Background";
+      LowPriorityIO = true;
     };
   };
 
@@ -814,7 +839,6 @@ PY
       echo "> Created and trusted $KANATA_CODESIGN_IDENTITY for local code signing."
     fi
 
-    pkill -9 kanata || true
     # Setup kanata stable path for Input Monitoring permissions
     # Binary update is opt-in to avoid unnecessary rebuild churn.
     # Signed with the persistent "kanata-local-codesign" identity (System keychain) so the
@@ -833,17 +857,21 @@ PY
     KANATA_GC_ROOT="/nix/var/nix/gcroots/kanata-nix"
     KANATA_LOCAL_BIN="/usr/local/bin/kanata-nix"
     KANATA_WAS_MISSING=0
+    KANATA_RESTART=0
     [ -f "$KANATA_LOCAL_BIN" ] || KANATA_WAS_MISSING=1
     if [ -f "$KANATA_UPDATE_FLAG" ] || [ "$KANATA_WAS_MISSING" = 1 ] || [ ! -e "$KANATA_GC_ROOT" ] || ! "$KANATA_LOCAL_BIN" --version >/dev/null 2>&1; then
       echo "Copying kanata-nix binary and pinning its runtime closure..."
       # Pin before copying so the copy can never outlive its dylibs.
       ln -sfn "${unstable.kanata}" "$KANATA_GC_ROOT"
-      cp -f ${unstable.kanata}/bin/kanata "$KANATA_LOCAL_BIN"
-      chmod 755 "$KANATA_LOCAL_BIN"
-      codesign --force -s "kanata-local-codesign" -i "local.kanata.kanata-nix" "$KANATA_LOCAL_BIN" 2>/dev/null || true
-      rm -f "$KANATA_UPDATE_FLAG"
-      # Re-run the daemon with the copy that was just installed.
-      launchctl kickstart -k system/local.kanata 2>/dev/null || true
+      # Sign a new file and rename it into place: kanata may be running, and
+      # overwriting a running Mach-O in place gets it killed for an invalid
+      # code signature.
+      cp -f ${unstable.kanata}/bin/kanata "$KANATA_LOCAL_BIN.new"
+      chmod 755 "$KANATA_LOCAL_BIN.new"
+      codesign --force -s "kanata-local-codesign" -i "local.kanata.kanata-nix" "$KANATA_LOCAL_BIN.new" 2>/dev/null || true
+      mv -f "$KANATA_LOCAL_BIN.new" "$KANATA_LOCAL_BIN"
+      asUser rm -f "$KANATA_UPDATE_FLAG"
+      KANATA_RESTART=1
       if [ "$KANATA_WAS_MISSING" = 1 ]; then
         echo "> Grant Input Monitoring permission to /usr/local/bin/kanata-nix in System Settings"
       fi
@@ -859,6 +887,29 @@ PY
         echo "> To update: touch ~/.config/kanata/update-kanata && darwin-rebuild switch"
       fi
     fi
+
+    # Restart kanata only for a new binary or a changed config: a restart
+    # drops remapping for a moment, and kanata reads its config only at start.
+    # The config is every .kbd in ~/.config/kanata (includes) plus which one
+    # is active, read as the user. (A changed daemon plist is reloaded by
+    # nix-darwin itself.)
+    KANATA_STATE=/var/db/nix-kanata-config.sha256
+    KANATA_SUM=$(asUser /bin/bash -c '
+      cd "$HOME/.config/kanata" 2>/dev/null || exit 0
+      readlink active_config.kbd
+      for f in *.kbd; do
+        if [ -f "$f" ]; then echo "$f"; cat "$f"; fi
+      done
+      exit 0
+    ' | shasum -a 256 | cut -d" " -f1) || KANATA_SUM=unknown
+    if [ "$KANATA_SUM" != "$(cat "$KANATA_STATE" 2>/dev/null)" ]; then
+      KANATA_RESTART=1
+    fi
+    if [ "$KANATA_RESTART" = 1 ]; then
+      echo "Restarting kanata (new binary or config)..."
+      ${kanataCtl}/bin/kanata-ctl restart || true
+    fi
+    echo "$KANATA_SUM" > "$KANATA_STATE"
 
     # Power management (balanced: powernap off, wake-on-LAN off, TCPKeepAlive off).
     # Leave disablesleep untouched: `no-sleep on|off` manages that separately.

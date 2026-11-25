@@ -28,11 +28,13 @@ end)
 
 -- Emergency kanata restart (Cmd+Alt+Ctrl+K).
 -- Works even when kanata is unresponsive because Hammerspoon's event tap
--- is independent of kanata. Launchd KeepAlive restarts kanata within ~1s.
--- kanata-ctl kills `kanata-nix` (the daemon's real name; `pkill -x kanata`
--- never matched it) and is the one command sudoers allows NOPASSWD.
+-- is independent of kanata. `kanata-ctl kill` SIGKILLs `kanata-nix` (the
+-- daemon's real name; `pkill -x kanata` never matched it), waits for it to
+-- release the keyboard and starts it again (~2s), so it runs as a task rather
+-- than blocking Hammerspoon. kanata-ctl is the one command sudoers allows
+-- NOPASSWD.
 hs.hotkey.bind({ "cmd", "alt", "ctrl" }, "k", function()
-    hs.execute("sudo -n /run/current-system/sw/bin/kanata-ctl kill 2>/dev/null; true")
+    hs.task.new("/usr/bin/sudo", nil, { "-n", "/run/current-system/sw/bin/kanata-ctl", "kill" }):start()
     hs.alert("Kanata restarting...")
 end)
 
