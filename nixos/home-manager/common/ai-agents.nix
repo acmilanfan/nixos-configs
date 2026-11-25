@@ -50,11 +50,18 @@ let
         ];
       }
     ];
-    # Synchronous on purpose: the snapshot must land before the agent starts
-    # editing. Its stdout would be added to the prompt, hence >/dev/null.
+    # Running from the prompt on, not from the first tool call: otherwise the
+    # pane stays done/idle while the model thinks, and pr-watch types into a
+    # busy session. The checkpoint is synchronous on purpose: the snapshot
+    # must land before the agent starts editing. Its stdout would be added to
+    # the prompt, hence >/dev/null.
     UserPromptSubmit = [
       {
         hooks = [
+          {
+            type = "command";
+            command = "agent-state --agent ${agent} --state running &";
+          }
           {
             type = "command";
             command = "agent-checkpoint hook ${agent} pre >/dev/null 2>&1 || true";
@@ -63,6 +70,20 @@ let
       }
     ];
     PreToolUse = [
+      {
+        hooks = [
+          {
+            type = "command";
+            command = "agent-state --agent ${agent} --state running &";
+          }
+        ];
+      }
+    ];
+    # PreToolUse fires before the permission prompt, and no hook fires when a
+    # prompt is approved, so the pane shows needs-input while an approved tool
+    # runs. This sets it back as soon as that tool finishes, instead of at the
+    # next tool call or the end of the turn.
+    PostToolUse = [
       {
         hooks = [
           {
