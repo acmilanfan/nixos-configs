@@ -20,7 +20,9 @@
 # is taken, the agent defaults to none, models to none, and the client is not
 # switched. Only the worktree path goes to stdout; the rest goes to stderr.
 # The tmux session is named after the worktree directory, dots replaced by _.
-# An existing worktree for the same branch at that path is reused.
+# An existing worktree for the same branch at that path is reused. A branch
+# that exists only as origin/<branch> (as last fetched) is checked out
+# tracking it.
 set -euo pipefail
 
 # the header comment above, wherever the packaging puts it
@@ -107,6 +109,12 @@ elif git -C "$git_root" show-ref --verify --quiet "refs/heads/$branch"; then
   [ -z "$base" ] || echo "wt-new: $branch already exists, ignoring --base $base" >&2
   git -C "$git_root" worktree add "$worktree_path" "$branch" >&2
   echo "Created: $worktree_path" >&2
+elif git -C "$git_root" show-ref --verify --quiet "refs/remotes/origin/$branch"; then
+  # Only on origin (a colleague's PR, or deleted locally): track it rather
+  # than start a same-named branch from HEAD that diverges from it.
+  [ -z "$base" ] || echo "wt-new: origin/$branch exists, ignoring --base $base" >&2
+  git -C "$git_root" worktree add --track -b "$branch" "$worktree_path" "origin/$branch" >&2
+  echo "Created: $worktree_path (tracking origin/$branch)" >&2
 else
   git -C "$git_root" worktree add "$worktree_path" -b "$branch" ${base:+"$base"} >&2
   echo "Created: $worktree_path" >&2

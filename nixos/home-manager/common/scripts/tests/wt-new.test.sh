@@ -121,6 +121,25 @@ run "$REPO" wt-new -b kept
 check "exits 0" test "$RUN_EXIT" -eq 0
 check "worktree is on the existing branch" test "$(branch_of "$WORK/existing/repo-kept")" = kept
 
+echo "== branch only on origin is tracked, not recreated from HEAD =="
+fixture remote
+UPSTREAM="$WORK/remote/upstream"
+git clone -q --bare "$REPO" "$UPSTREAM"
+git -C "$REPO" remote add origin "$UPSTREAM"
+git -C "$REPO" switch -q -c theirs
+echo theirs > "$REPO/theirs.txt"
+git -C "$REPO" add theirs.txt
+git -C "$REPO" commit -qm theirs
+git -C "$REPO" push -q origin theirs
+git -C "$REPO" switch -q main
+git -C "$REPO" branch -q -D theirs
+git -C "$REPO" fetch -q origin
+run "$REPO" wt-new -b theirs
+check "exits 0" test "$RUN_EXIT" -eq 0
+check "worktree has origin's commit" test -f "$WORK/remote/repo-theirs/theirs.txt"
+check "branch tracks origin/theirs" \
+  test "$(git -C "$WORK/remote/repo-theirs" rev-parse --abbrev-ref '@{upstream}')" = origin/theirs
+
 echo "== task names the branch and becomes claude's prompt =="
 fixture task
 run "$REPO" wt-new --agent claude "CFE-1 fix the 'thing' now"
