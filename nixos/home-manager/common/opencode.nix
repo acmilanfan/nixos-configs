@@ -1231,11 +1231,45 @@ print("model_settings: default=%s" % want)
     UNMAPPED = set()
 
 
+    def lenient_frontmatter(raw):
+        # Claude Code accepts frontmatter that strict YAML rejects, typically
+        # an unquoted description containing ": ". Fall back to one
+        # "key: value" per top-level line (indented lines continue the
+        # previous value), parsing each value as YAML when that works and
+        # keeping the raw string otherwise.
+        fm = {}
+        key = None
+        for line in raw.splitlines():
+            if key and line[:1] in (" ", "\t"):
+                fm[key] += "\n" + line
+                continue
+            if ":" not in line or line.lstrip().startswith("#"):
+                key = None
+                continue
+            key, value = line.split(":", 1)
+            key = key.strip()
+            fm[key] = value.strip()
+        for k, v in fm.items():
+            try:
+                parsed = yaml.safe_load(v)
+            except yaml.YAMLError:
+                continue
+            if parsed is None or isinstance(parsed, (str, int, float, list)):
+                fm[k] = parsed
+        return fm
+
+
     def parse_frontmatter(text):
         if not text.startswith("---\n"):
             raise ValueError("no frontmatter")
         end = text.index("\n---", 4)
-        fm = yaml.safe_load(text[4:end])
+        raw = text[4:end]
+        try:
+            fm = yaml.safe_load(raw)
+        except yaml.YAMLError:
+            fm = lenient_frontmatter(raw)
+        if not isinstance(fm, dict):
+            raise ValueError("frontmatter is not a mapping")
         body = text[end + 4:].lstrip("\n")
         return fm, body
 
@@ -1254,7 +1288,12 @@ print("model_settings: default=%s" % want)
         allowed = set()
         for name in names:
             # Scoped forms like Skill(foo) / Agent(bar) map like the bare tool.
-            mapped = TOOL_MAP.get(name.split("(", 1)[0])
+            bare = name.split("(", 1)[0]
+            # Claude-only loader for deferred tool schemas; opencode has
+            # no counterpart and nothing to deny.
+            if bare == "ToolSearch":
+                continue
+            mapped = TOOL_MAP.get(bare)
             if mapped is None:
                 UNMAPPED.add(name)
                 continue
@@ -1284,7 +1323,7 @@ print("model_settings: default=%s" % want)
 
         with open(dst, "w") as f:
             f.write("---\n")
-            f.write(yaml.safe_dump(out_fm, sort_keys=False))
+            f.write(yaml.safe_dump(out_fm, sort_keys=False, allow_unicode=True))
             f.write("---\n\n")
             f.write(body)
 
