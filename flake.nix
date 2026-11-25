@@ -384,5 +384,33 @@
           youtube-org = (pkgsFor system).youtube-org;
           vm-hyprland-image = self.nixosConfigurations.vm-hyprland.config.system.build.images.qemu-efi;
         });
+
+      # The stubbed shell test suites of the scripts used on macOS, so that
+      # `nix flake check` runs them. The Hyprland/Yoga Book suites under
+      # nixos/home-manager/common/scripts/tests need Linux and are not wired up.
+      checks.${macSystem}.script-tests =
+        let pkgs = pkgsFor macSystem;
+        in pkgs.runCommand "script-tests" {
+          nativeBuildInputs = with pkgs; [ bash git jq ];
+        } ''
+          export HOME="$TMPDIR/home"
+          mkdir -p "$HOME"
+          cp -R ${self} src
+          chmod -R u+w src
+          cd src
+          for t in \
+            tests/kanata/test_kanata_ctl.sh \
+            tests/kanata/test_reload_kanata.sh \
+            nixos/home-manager/common/scripts/tests/wt-new.test.sh \
+            nixos/home-manager/common/scripts/tests/wt-setup.test.sh \
+            nixos/home-manager/common/scripts/tests/worktree-remove.test.sh \
+            nixos/home-manager/common/scripts/tests/pr-watch.test.sh \
+            nixos/home-manager/common/scripts/tests/ai-agent-list.test.sh
+          do
+            echo "== $t"
+            bash "$t"
+          done
+          touch "$out"
+        '';
     };
 }

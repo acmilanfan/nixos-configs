@@ -112,6 +112,7 @@ controls display idle sleep separately and does not provide closed-lid mode.
 ## Development Conventions
 
 - **Modularity:** Configuration is split into small single-purpose modules (e.g. `networking.nix`, `fonts.nix`, `services.nix`) under `nixos/common/` and `nixos/home-manager/common/`.
+- **Tests:** on a Mac, `nix flake check` builds `checks.aarch64-darwin.script-tests`, which runs the stubbed shell suites of the macOS-side scripts (kanata-ctl, reload-kanata, wt-new, wt-setup, worktree-remove, pr-watch, ai-agent-list). Add a new suite of that kind to the list in `flake.nix`. The Hyprland/Yoga Book suites under `nixos/home-manager/common/scripts/tests/` are run by hand on Linux.
 - **Shared Darwin Config:** `darwin/common.nix` contains system-level defaults, Homebrew integration, and the kanata/startup launchd services. The per-Mac files (`darwin/mac-*.nix`) set up the `nix.linux-builder` VM.
 - **Home Manager:** Used for both Linux and macOS user environments. `nixos/common/home-darwin.nix` holds the shared macOS settings and imports `nixos/home-manager/common/`.
 - **Package channels:** Home Manager gets both `pkgs` (stable `nixos-26.05`) and `unstable` (`nixos-unstable`) through `extraSpecialArgs`.
