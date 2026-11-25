@@ -31,6 +31,15 @@ let
   # secrets.nix; its presence enables the Plane MCP server and CLI env vars.
   planeSlug = (secrets.plane or { }).workspaceSlug or "";
 
+  # ai-env.sh line that sets shell variable `var` from the sops secret `key`
+  # when it is sourced. Reading the file, rather than pasting the value into
+  # the template, leaves a value containing $, ` or quotes uninterpreted.
+  # `read` is a builtin in zsh and bash, so the many shells that source this
+  # fork nothing; it returns non-zero at the missing trailing newline but has
+  # set the variable by then.
+  readSecret = var: key:
+    ''${var}=""; IFS= read -r ${var} 2>/dev/null < ${lib.escapeShellArg config.sops.secrets.${key}.path} || true'';
+
   cfg = config.customSops;
 in
 {
@@ -151,13 +160,13 @@ in
         "ai-env.sh" = {
           mode = "0600";
           content = ''
-            export AI_PROXY_CLAUDE="${config.sops.placeholder."aiProxy/claude"}"
-            export AI_PROXY_OPENAI="${config.sops.placeholder."aiProxy/openai"}"
-            export AI_PROXY_MISTRAL_COMPLETION="${config.sops.placeholder."aiProxy/mistralCompletion"}"
-            export AI_PROXY_API_KEY="${config.sops.placeholder."aiProxy/apiKey"}"
+            ${readSecret "AI_PROXY_CLAUDE" "aiProxy/claude"}; export AI_PROXY_CLAUDE
+            ${readSecret "AI_PROXY_OPENAI" "aiProxy/openai"}; export AI_PROXY_OPENAI
+            ${readSecret "AI_PROXY_MISTRAL_COMPLETION" "aiProxy/mistralCompletion"}; export AI_PROXY_MISTRAL_COMPLETION
+            ${readSecret "AI_PROXY_API_KEY" "aiProxy/apiKey"}; export AI_PROXY_API_KEY
             # Empty selfHosted* (hosts that never had the key) fall back to the
             # Claude endpoint / shared proxy key, as the old Nix-side default did.
-            SELF_HOSTED_BASE_URL="${config.sops.placeholder."aiProxy/selfHosted"}"
+            ${readSecret "SELF_HOSTED_BASE_URL" "aiProxy/selfHosted"}
             # Prefix/suffix expansion, not ''${var//a/b}: zsh keeps the
             # backslashes of escaped slashes in the replacement.
             if [ -z "$SELF_HOSTED_BASE_URL" ]; then
@@ -166,24 +175,24 @@ in
                 *) SELF_HOSTED_BASE_URL="$AI_PROXY_CLAUDE" ;;
               esac
             fi
-            SELF_HOSTED_API_KEY="${config.sops.placeholder."aiProxy/selfHostedKey"}"
+            ${readSecret "SELF_HOSTED_API_KEY" "aiProxy/selfHostedKey"}
             [ -n "$SELF_HOSTED_API_KEY" ] || SELF_HOSTED_API_KEY="$AI_PROXY_API_KEY"
             export SELF_HOSTED_BASE_URL SELF_HOSTED_API_KEY
-            export CONTEXT7_API_KEY="${config.sops.placeholder."context7/apiKey"}"
+            ${readSecret "CONTEXT7_API_KEY" "context7/apiKey"}; export CONTEXT7_API_KEY
             ${lib.optionalString (planeSlug != "") ''
-              export PLANE_API_KEY="${config.sops.placeholder."plane/apiKey"}"
+              ${readSecret "PLANE_API_KEY" "plane/apiKey"}; export PLANE_API_KEY
               export PLANE_WORKSPACE_SLUG="${planeSlug}"
             ''}
-            export GITHUB_PERSONAL_ACCESS_TOKEN="${config.sops.placeholder.${githubMcpTokenKey}}"
-            export SONAR_API_KEY="${config.sops.placeholder."sonar/apiKey"}"
-            export SONAR_URL="${config.sops.placeholder."sonar/url"}"
-            export RAG_MCP_URL="${config.sops.placeholder."mcp/ragUrl"}"
-            export SCORECARD_MCP_URL="${config.sops.placeholder."mcp/scorecardUrl"}"
-            export OBS_PASSWORD="${config.sops.placeholder."obsWebsocketPassword"}"
+            ${readSecret "GITHUB_PERSONAL_ACCESS_TOKEN" githubMcpTokenKey}; export GITHUB_PERSONAL_ACCESS_TOKEN
+            ${readSecret "SONAR_API_KEY" "sonar/apiKey"}; export SONAR_API_KEY
+            ${readSecret "SONAR_URL" "sonar/url"}; export SONAR_URL
+            ${readSecret "RAG_MCP_URL" "mcp/ragUrl"}; export RAG_MCP_URL
+            ${readSecret "SCORECARD_MCP_URL" "mcp/scorecardUrl"}; export SCORECARD_MCP_URL
+            ${readSecret "OBS_PASSWORD" "obsWebsocketPassword"}; export OBS_PASSWORD
             # Work MCP credentials (work-mcp.nix). An empty value stays unset, so
             # the server reports a missing variable instead of failing auth.
             ${lib.concatStrings (lib.mapAttrsToList (key: env: ''
-              _v='${config.sops.placeholder.${key}}'; [ -z "$_v" ] || export ${env}="$_v"
+              ${readSecret "_v" key}; [ -z "$_v" ] || export ${env}="$_v"
             '') workMcp.credentials)}unset _v
           '';
         };
