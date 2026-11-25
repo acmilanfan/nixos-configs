@@ -441,6 +441,42 @@ in
     };
   };
 
+  # When Karabiner's virtual keyboard briefly disconnects, kanata releases the
+  # keyboard and grabs it again a few seconds later. Keys released in between
+  # go straight to macOS, so kanata never sees them come up: a tap-hold key
+  # (space -> fn layer) stays "held" after the re-grab until it is pressed
+  # again (kanata 1.12, upstream jtroo/kanata#2224). A restart clears that
+  # state, at the cost of ~2s more without remapping after each drop.
+  # Only fresh lines count: the daily trim truncates the log, and tail -F then
+  # replays it from the start.
+  launchd.daemons.kanata-regrab-watch = {
+    script = ''
+      last=0
+      /usr/bin/tail -n 0 -F /var/log/kanata.log 2>/dev/null | while IFS= read -r line; do
+        case "$line" in
+          *"re-grabbing input devices"*) ;;
+          *) continue ;;
+        esac
+        now=$(date +%s)
+        # kanata prefixes its lines with the local time, HH:MM:SS.ffff
+        at=$(date -j -f %H:%M:%S "''${line%%.*}" +%s 2>/dev/null) || continue
+        [ $((now - at)) -ge 0 ] && [ $((now - at)) -lt 60 ] || continue
+        [ $((now - last)) -ge 60 ] || continue
+        last=$now
+        echo "$(date) kanata re-grabbed after losing its output; restarting it to clear held keys"
+        ${kanataCtl}/bin/kanata-ctl restart || true
+      done
+    '';
+    serviceConfig = {
+      Label = "local.kanata-regrab-watch";
+      RunAtLoad = true;
+      KeepAlive = true;
+      ProcessType = "Background";
+      StandardOutPath = "/var/log/kanata-regrab-watch.log";
+      StandardErrorPath = "/var/log/kanata-regrab-watch.log";
+    };
+  };
+
   # Cap the logs of the root daemons above. kanata's grows ~0.7MB a day,
   # mostly "virtual_hid_keyboard_ready true" from Karabiner's driver library
   # (printed past kanata's logger, so --quiet doesn't stop it). newsyslog
@@ -449,7 +485,7 @@ in
   # place works: the next write lands at the new end.
   launchd.daemons.root-log-trim = {
     script = ''
-      for f in /var/log/kanata.log /var/log/kanata.error.log /var/log/boot-setup.log; do
+      for f in /var/log/kanata.log /var/log/kanata.error.log /var/log/boot-setup.log /var/log/kanata-regrab-watch.log; do
         [ -f "$f" ] && [ ! -L "$f" ] || continue
         [ "$(stat -f %z "$f")" -gt 10485760 ] || continue
         tail -c 2097152 "$f" > "$f.trim" && cat "$f.trim" > "$f"
@@ -890,14 +926,14 @@ PY
 
     # Restart kanata only for a new binary or a changed config: a restart
     # drops remapping for a moment, and kanata reads its config only at start.
-    # The config is every .kbd in ~/.config/kanata (includes) plus which one
-    # is active, read as the user. (A changed daemon plist is reloaded by
-    # nix-darwin itself.)
+    # The config is every .kbd in ~/.config/kanata and its shared/ includes,
+    # plus which one is active, read as the user. (A changed daemon plist is
+    # reloaded by nix-darwin itself.)
     KANATA_STATE=/var/db/nix-kanata-config.sha256
     KANATA_SUM=$(asUser /bin/bash -c '
       cd "$HOME/.config/kanata" 2>/dev/null || exit 0
       readlink active_config.kbd
-      for f in *.kbd; do
+      for f in *.kbd shared/*.kbd; do
         if [ -f "$f" ]; then echo "$f"; cat "$f"; fi
       done
       exit 0
