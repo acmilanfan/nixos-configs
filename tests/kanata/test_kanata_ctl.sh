@@ -60,6 +60,7 @@ STOP_CHECKS=0
 
 # shellcheck source=/dev/null
 source "$SCRIPT"
+KANATA_LOCK="$FIXTURE/kanata-ctl.lock"
 
 # ensure_hid repairs a missing virtual keyboard and reports the restart.
 : > "$CALLS"
@@ -186,6 +187,34 @@ start_line=$(grep -n '^launchctl bootstrap' "$CALLS" | cut -d: -f1 || true)
     || fail "kill did not SIGKILL and restart kanata"
 [ "$kill_line" -lt "$boot_line" ] && [ "$boot_line" -lt "$start_line" ] \
     || fail "kill ran in the wrong order"
+
+# Restarts are serialised: while another live process holds the lock, a
+# restart waits and finally gives up without touching the daemon.
+: > "$CALLS"
+RUNNING=1
+PHASE=start
+STOP_CHECKS=0
+/bin/sleep 30 &
+holder=$!
+mkdir "$KANATA_LOCK" && echo "$holder" > "$KANATA_LOCK/pid"
+if main restart 2> "$FIXTURE/err"; then
+    fail "restart ran while another restart held the lock"
+fi
+grep -q 'another restart is still running' "$FIXTURE/err" || fail "no lock-wait message"
+! grep -q '^launchctl' "$CALLS" || fail "restart touched the daemon without the lock"
+[ "$(grep -c '^sleep 0.1$' "$CALLS")" -ge 100 ] || fail "restart did not wait for the lock"
+kill "$holder" 2>/dev/null
+wait "$holder" 2>/dev/null || true
+
+# A lock left by a dead process is taken over, and released afterwards.
+: > "$CALLS"
+RUNNING=1
+PHASE=start
+STOP_CHECKS=0
+main restart || fail "restart did not take over a stale lock"
+grep -qx 'launchctl bootstrap system /Library/LaunchDaemons/local.kanata.plist' "$CALLS" \
+    || fail "restart with a stale lock did not start kanata"
+[ ! -e "$KANATA_LOCK" ] || fail "lock not released after restart"
 
 # The installed entrypoint still dispatches (and does not run from a source).
 if bash "$SCRIPT" > /dev/null 2> "$FIXTURE/usage"; then

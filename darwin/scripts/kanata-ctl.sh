@@ -8,6 +8,8 @@ VHID=system/org.pqrs.service.daemon.Karabiner-VirtualHIDDevice-Daemon
 KANATA_LABEL=system/local.kanata
 KANATA_PLIST=/Library/LaunchDaemons/local.kanata.plist
 KANATA_PROC=kanata-nix
+# Fixed, root-owned location (tests reassign it after sourcing).
+KANATA_LOCK=/var/run/kanata-ctl.lock
 
 # karabiner_grabber/Karabiner-Core-Service open HID keyboards exclusively;
 # without Input Monitoring TCC that blocks ALL keyboard input. They respawn
@@ -124,30 +126,58 @@ restart_kanata() {
     return 1
 }
 
+# Serialise restarts: the wake check (reload-kanata.sh) and the re-grab
+# watcher can restart kanata at the same moment, and two interleaved stop/start
+# sequences bring back the race stop_kanata avoids. mkdir is atomic; a lock
+# whose owner died is taken over. A second caller waits for the first one.
+with_lock() {
+    local i=0 owner rc
+    until mkdir "$KANATA_LOCK" 2>/dev/null; do
+        owner=$(cat "$KANATA_LOCK/pid" 2>/dev/null)
+        if [ -n "$owner" ] && ! kill -0 "$owner" 2>/dev/null; then
+            rm -rf "$KANATA_LOCK"
+            continue
+        fi
+        i=$((i + 1))
+        if [ "$i" -ge 300 ]; then
+            echo "kanata-ctl: another restart is still running" >&2
+            return 1
+        fi
+        sleep 0.1
+    done
+    echo $$ > "$KANATA_LOCK/pid"
+    "$@"
+    rc=$?
+    rm -rf "$KANATA_LOCK"
+    return "$rc"
+}
+
+rescue() {
+    neutralize
+    stop_kanata
+    reset_hid
+    sleep 1
+    start_kanata || {
+        echo "kanata-ctl: failed to start local.kanata after rescue" >&2
+        return 1
+    }
+}
+
 main() {
     case "${1:-}" in
         neutralize) neutralize ;;
         reset-hid) reset_hid ;;
         ensure-hid) ensure_hid ;;
         health) health ;;
-        restart) restart_kanata ;;
+        restart) with_lock restart_kanata ;;
         # Emergency: SIGKILL first so a hung kanata lets go of the keyboard at
         # once, then the ordered restart. Leaving the respawn to KeepAlive
         # races the release of the seized keyboard (see stop_kanata).
         kill)
             pkill -9 -x "$KANATA_PROC" 2>/dev/null
-            restart_kanata
+            with_lock restart_kanata
             ;;
-        rescue)
-            neutralize
-            stop_kanata
-            reset_hid
-            sleep 1
-            start_kanata || {
-                echo "kanata-ctl: failed to start local.kanata after rescue" >&2
-                return 1
-            }
-            ;;
+        rescue) with_lock rescue ;;
         tcc-denied)
             log show --last 5m --style compact \
                 --predicate 'eventMessage CONTAINS "TCC deny IOHIDDeviceOpen" AND process == "karabiner_grabber"' \
