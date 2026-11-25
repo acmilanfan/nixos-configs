@@ -135,12 +135,15 @@ read_pr() {
   gh pr view "$url" --json state,mergeable,headRefOid,statusCheckRollup,comments,reviews
 }
 
-# ids of comments/reviews by others; inline review comments come from the REST API
+# ids of comments/reviews by others; inline review comments come from the REST API.
+# Fails when that call does: a partial list would leave the missing comments out
+# of the seen set on the first cycle and announce them as new once it works.
 others_ids() {
+  local inline
+  inline="$(gh api "$api_path/comments" --paginate 2>/dev/null)" || return 1
   {
     jq -r --arg me "$me" '(.comments[], .reviews[]) | select(.author.login != $me) | .id' <<<"$1"
-    gh api "$api_path/comments" --paginate 2>/dev/null |
-      jq -r --arg me "$me" '.[] | select(.user.login != $me) | "rc\(.id)"' || true
+    jq -r --arg me "$me" '.[] | select(.user.login != $me) | "rc\(.id)"' <<<"$inline"
   } | sort -u
 }
 
@@ -223,8 +226,9 @@ while :; do
     reported_conflict=1
   fi
 
-  if whoami; then
-    ids="$(others_ids "$data")"
+  if whoami && ! ids="$(others_ids "$data")"; then
+    log "reading review comments failed, comments skipped this cycle"
+  elif [ -n "$me" ]; then
     if [ -z "${seen_comments_init:-}" ]; then
       # comments from before the watch started are not news
       seen_comments="$ids" seen_comments_init=1
