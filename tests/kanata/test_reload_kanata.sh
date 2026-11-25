@@ -37,7 +37,6 @@ case "$*" in
 esac
 SH
 chmod +x "$FIXTURE/pgrep"
-: > "$FIXTURE/kanata.error.log"
 
 run_reload() {
     : > "$CALLS"
@@ -49,7 +48,7 @@ run_reload() {
 run_check() {
     : > "$CALLS"
     KANATA_CTL="$FIXTURE/kanata-ctl" PGREP="$FIXTURE/pgrep" \
-        KANATA_ERROR_LOG="$FIXTURE/kanata.error.log" HID_SETTLE_SECONDS=0 \
+        HID_SETTLE_SECONDS=0 \
         bash "$SCRIPT" > "$FIXTURE/out" 2>&1
 }
 

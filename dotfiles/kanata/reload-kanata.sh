@@ -12,7 +12,6 @@ export PATH="/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/opt/homebrew/bin:$PAT
 KANATA_CTL="${KANATA_CTL:-sudo -n /run/current-system/sw/bin/kanata-ctl}"
 HID_SETTLE_SECONDS="${HID_SETTLE_SECONDS:-2}"
 PGREP="${PGREP:-pgrep}"
-KANATA_ERROR_LOG="${KANATA_ERROR_LOG:-/var/log/kanata.error.log}"
 
 # Colors
 GREEN='\033[0;32m'
@@ -75,19 +74,6 @@ if [ "$RELOAD_REQUIRED" = false ]; then
     fi
 fi
 
-# 4. Check if Kanata has lost Input Monitoring permission (TCC)
-#    macOS ties Input Monitoring permission to the binary's code signature hash.
-#    When /usr/local/bin/kanata-nix is replaced, the hash changes and permission is revoked.
-#    Kanata then fails to create event taps and logs errors.
-if [ "$RELOAD_REQUIRED" = false ]; then
-    if [ -f "$KANATA_ERROR_LOG" ]; then
-        if tail -100 "$KANATA_ERROR_LOG" 2>/dev/null | grep -qi "permission denied\|event.tap\|not permitted\|CGEventTap\|input monitoring\|accessibility\|failed to create\|cannot create" 2>/dev/null; then
-            RELOAD_REQUIRED=true
-            REASON="Input Monitoring permission may be lost (permission errors in log)"
-        fi
-    fi
-fi
-
 if [ "$RELOAD_REQUIRED" = true ]; then
     print_warning "Reloading Kanata: $REASON"
 
@@ -106,18 +92,6 @@ if [ "$RELOAD_REQUIRED" = true ]; then
         print_status "Killing VirtualHIDDevice-Daemon and dext to release HID devices..."
         $KANATA_CTL reset-hid || true
         sleep 2
-    fi
-
-    # If Kanata specifically lost its Input Monitoring permission, notify user
-    if [[ "$REASON" == *"Input Monitoring"* ]]; then
-        print_error "┌──────────────────────────────────────────────────────────────┐"
-        print_error "│  Kanata appears to have LOST Input Monitoring permission.    │"
-        print_error "│                                                              │"
-        print_error "│  Open: System Settings → Privacy & Security → Input Monitoring│"
-        print_error "│  Re-grant permission to /usr/local/bin/kanata-nix            │"
-        print_error "└──────────────────────────────────────────────────────────────┘"
-        osascript -e 'display notification "Kanata lost Input Monitoring permission. Open System Settings → Privacy & Security → Input Monitoring → re-grant /usr/local/bin/kanata-nix" with title "Kanata Permission Lost" sound name "Glass"' 2>/dev/null || true
-        open "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent" 2>/dev/null || true
     fi
 
     # Ensure the virtual keyboard exists before restarting kanata. After deep
