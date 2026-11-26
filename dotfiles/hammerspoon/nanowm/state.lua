@@ -575,6 +575,13 @@ end
 
 -- Window titles a browser shows before its content loads. Kept lowercase; getWindowKey compares
 -- against title:lower(). Not exhaustive by design -- extend if another browser is added.
+-- App-name suffixes stripped from memorised titles, after an ASCII hyphen, en or em dash.
+local TITLE_SUFFIX_APPS = {
+    "Mozilla Firefox", "Google Chrome", "Safari", "Arc", "Slack", "Discord", "Code",
+    "Visual Studio Code",
+}
+local TITLE_SUFFIX_SEPS = { " - ", " \226\128\147 ", " \226\128\148 " }
+
 local PLACEHOLDER_TITLES = {
     ["mozilla firefox"] = true,
     ["google chrome"]   = true,
@@ -610,16 +617,19 @@ function M.getWindowKey(win)
         return nil
     end
 
-    -- Normalize title by removing common app suffixes
+    -- Normalize title by removing common app suffixes. Compared as plain strings: Lua patterns
+    -- are byte-based, so the old " [-–—] App$" class matched one byte and never the 3-byte
+    -- en/em dash, leaving "Inbox — Mozilla Firefox" unnormalised.
     local normalizedTitle = title
-    normalizedTitle = string.gsub(normalizedTitle, " [-–—] Mozilla Firefox$", "")
-    normalizedTitle = string.gsub(normalizedTitle, " [-–—] Google Chrome$", "")
-    normalizedTitle = string.gsub(normalizedTitle, " [-–—] Safari$", "")
-    normalizedTitle = string.gsub(normalizedTitle, " [-–—] Arc$", "")
-    normalizedTitle = string.gsub(normalizedTitle, " [-–—] Slack$", "")
-    normalizedTitle = string.gsub(normalizedTitle, " [-–—] Discord$", "")
-    normalizedTitle = string.gsub(normalizedTitle, " [-–—] Code$", "")
-    normalizedTitle = string.gsub(normalizedTitle, " [-–—] Visual Studio Code$", "")
+    for _, suffixApp in ipairs(TITLE_SUFFIX_APPS) do
+        for _, sep in ipairs(TITLE_SUFFIX_SEPS) do
+            local suffix = sep .. suffixApp
+            if #normalizedTitle > #suffix and normalizedTitle:sub(-#suffix) == suffix then
+                normalizedTitle = normalizedTitle:sub(1, -#suffix - 1)
+                break
+            end
+        end
+    end
 
     local shortTitle = string.sub(normalizedTitle, 1, 60)
     return appName .. "::" .. shortTitle
