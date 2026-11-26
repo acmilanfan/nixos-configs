@@ -402,6 +402,95 @@ local function suite_park_cache()
 end
 
 -- =============================================================================
+-- Suite: focus after a close -- pure history bookkeeping
+-- =============================================================================
+
+-- Regression cover: closing Telegram's media viewer returned focus to whatever app had been
+-- used before Telegram (Ghostty/Firefox), not to the chat window it was opened from. macOS
+-- focuses that chat window before the destroy event arrives; _heldFocus treated the focus as
+-- an arbitrary replacement pick and demoted it below the tag's previous window, even though
+-- it was the window the user had been on just before the viewer opened.
+local function suite_close_focus()
+    local T = 1000
+
+    local function push(list, id, at, pushedAt, prevHead)
+        watchers._pushHistoryIn(list, id, pushedAt, prevHead, at)
+    end
+
+    local function drop(list, id)
+        for i = #list, 1, -1 do
+            if list[i] == id then table.remove(list, i) end
+        end
+    end
+
+    -- Viewer close with the pick's focus event arriving before the destroy event:
+    -- Ghostty -> Telegram main -> viewer -> (macOS) Telegram main, then the viewer dies.
+    do
+        local MAIN, VIEWER, GHOSTTY = 9201, 9202, 9203
+        local list, pushedAt, prevHead = {}, {}, {}
+        push(list, GHOSTTY, T - 30, pushedAt, prevHead)
+        push(list, MAIN,    T - 2,  pushedAt, prevHead)
+        push(list, VIEWER,  T - 1,  pushedAt, prevHead)
+        push(list, MAIN,    T - 0.1, pushedAt, prevHead)
+        check("viewer close: the viewer held focus",
+            watchers._heldFocusIn(list, VIEWER, T, pushedAt, prevHead) == true)
+        drop(list, VIEWER)
+        check("viewer close: focus returns to the window it was opened from",
+            list[1] == MAIN, "head=" .. tostring(list[1]))
+    end
+
+    -- Ordinary close where macOS picks an unrelated window: keep returning to the window the
+    -- user was on before the closed one, which is the behaviour the demotion was added for.
+    do
+        local CLOSED, PICK, OTHER = 9211, 9212, 9213
+        local list, pushedAt, prevHead = {}, {}, {}
+        push(list, OTHER,  T - 30, pushedAt, prevHead)
+        push(list, CLOSED, T - 2,  pushedAt, prevHead)
+        push(list, PICK,   T - 0.1, pushedAt, prevHead)
+        check("arbitrary pick: the closed window held focus",
+            watchers._heldFocusIn(list, CLOSED, T, pushedAt, prevHead) == true)
+        drop(list, CLOSED)
+        check("arbitrary pick is demoted below the previously used window",
+            list[1] == OTHER, "head=" .. tostring(list[1]))
+    end
+
+    -- Destroy event first: the closed window is still at the head, so the resolve re-picks the
+    -- window below it and the pick's suppressed focus event cannot interfere.
+    do
+        local CLOSED, OTHER = 9221, 9222
+        local list, pushedAt, prevHead = {}, {}, {}
+        push(list, OTHER,  T - 2, pushedAt, prevHead)
+        push(list, CLOSED, T - 1, pushedAt, prevHead)
+        check("destroy first: the closed window held focus",
+            watchers._heldFocusIn(list, CLOSED, T, pushedAt, prevHead) == true)
+        drop(list, CLOSED)
+        check("destroy first: focus returns to the previous window",
+            list[1] == OTHER, "head=" .. tostring(list[1]))
+    end
+
+    -- Closing an unfocused window moves no focus, so it must not schedule a re-pick.
+    do
+        local CLOSED, OTHER = 9231, 9232
+        local list, pushedAt, prevHead = {}, {}, {}
+        push(list, OTHER, T - 2, pushedAt, prevHead)
+        check("unfocused close does not count as a fallthrough",
+            watchers._heldFocusIn(list, CLOSED, T, pushedAt, prevHead) == false)
+    end
+
+    -- Re-pushing the head is a no-op and must not overwrite what the user was on before it.
+    do
+        local A, B = 9241, 9242
+        local list, pushedAt, prevHead = {}, {}, {}
+        push(list, B, T - 2, pushedAt, prevHead)
+        push(list, A, T - 1, pushedAt, prevHead)
+        local before = prevHead[A]
+        push(list, A, T, pushedAt, prevHead)
+        check("re-pushing the head keeps its previous history entry",
+            prevHead[A] == before, string.format("%s -> %s", tostring(before), tostring(prevHead[A])))
+    end
+end
+
+-- =============================================================================
 -- Suite: AX cost guards (P2/P3/P5)
 -- =============================================================================
 
@@ -502,6 +591,30 @@ local function suite_perf(done)
             finished = true
             done()
         end
+    end)
+end
+
+-- =============================================================================
+-- Suite: the launch clear timer is anchored
+-- =============================================================================
+
+-- Regression: launchTask marked state.launching for 2 s with an unanchored doAfter. When GC
+-- collected it before it fired, launching stayed true forever: windowFocused stopped recording
+-- tag history and the focus resolver rescheduled itself every 0.3 s.
+local function suite_launch_timer(done)
+    if state.launching then
+        -- A real launch is in flight; replacing its timer would disturb its state.
+        return done()
+    end
+    core.launchTask("/usr/bin/true", {})
+    collectgarbage("collect")
+    check("launchTask anchors its clear timer", state.launchTimer ~= nil,
+        "timer=" .. tostring(state.launchTimer))
+    hs.timer.doAfter(2.5, function()
+        collectgarbage("collect")
+        check("launching clears even after a GC", state.launching == false,
+            "launching=" .. tostring(state.launching))
+        done()
     end)
 end
 
@@ -637,7 +750,8 @@ function M.run()
 
     -- Synchronous suites first.
     for i, suite in ipairs({ suite_state, suite_classify, suite_floating_titles,
-                             suite_tag_memory, suite_grid, suite_geometry, suite_park_cache }) do
+                             suite_tag_memory, suite_grid, suite_geometry, suite_park_cache,
+                             suite_close_focus }) do
         M.progress = "sync suite " .. i
         local ok, err = pcall(suite)
         if not ok then fail("sync suite " .. i .. " crashed", tostring(err)) end
@@ -649,9 +763,12 @@ function M.run()
         M.progress = "ax done"
         guarded("suite_perf", suite_perf)(function()
             M.progress = "perf done"
-            guarded("suite_first_window_tiles", suite_first_window_tiles)(function()
-                M.progress = "tiling done"
-                finish(nil)
+            guarded("suite_launch_timer", suite_launch_timer)(function()
+                M.progress = "launch timer done"
+                guarded("suite_first_window_tiles", suite_first_window_tiles)(function()
+                    M.progress = "tiling done"
+                    finish(nil)
+                end)
             end)
         end)
     end)

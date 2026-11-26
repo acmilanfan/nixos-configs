@@ -482,6 +482,22 @@ local _lastActivation = { app = nil, prev = nil, t = 0 }
 -- fallback after a reload.
 local _focusHistory = {}
 local _pushedAt = {}  -- id -> when it last became the head of its tag's history
+local _prevHead = {}  -- id -> the head of its tag's history just before it was pushed
+
+-- Pure history insertion, exported for spec.lua. Recording what the user was on just before
+-- `id` is what lets a close tell macOS's natural successor (the window the closed one was
+-- opened from) apart from an arbitrary pick.
+local function pushHistoryIn(list, id, pushedAt, prevHead, now)
+    if list[1] == id then return end
+    prevHead[id] = list[1]
+    for i = #list, 1, -1 do
+        if list[i] == id then table.remove(list, i) end
+    end
+    table.insert(list, 1, id)
+    pushedAt[id] = now
+    if #list > HISTORY_MAX then list[#list] = nil end
+end
+M._pushHistoryIn = pushHistoryIn
 
 local function _pushHistory(tag, id)
     local list = _focusHistory[tag]
@@ -489,17 +505,12 @@ local function _pushHistory(tag, id)
         list = {}
         _focusHistory[tag] = list
     end
-    if list[1] == id then return end
-    for i = #list, 1, -1 do
-        if list[i] == id then table.remove(list, i) end
-    end
-    table.insert(list, 1, id)
-    _pushedAt[id] = hs.timer.secondsSinceEpoch()
-    if #list > HISTORY_MAX then list[#list] = nil end
+    pushHistoryIn(list, id, _pushedAt, _prevHead, hs.timer.secondsSinceEpoch())
 end
 
 local function _dropHistory(id)
     _pushedAt[id] = nil
+    _prevHead[id] = nil
     for _, list in pairs(_focusHistory) do
         for i = #list, 1, -1 do
             if list[i] == id then table.remove(list, i) end
@@ -507,21 +518,35 @@ local function _dropHistory(id)
     end
 end
 
--- Did the window `id` (being destroyed) hold focus on `tag`? Either it heads the history, or the
--- focus event for macOS's replacement pick arrived before the destroy event and pushed that
+-- Did the window `id` (being destroyed) hold focus on `list`? Either it heads the history, or
+-- the focus event for macOS's replacement pick arrived before the destroy event and pushed that
 -- pick on top of it a moment ago. In the second case the pick is demoted below the tag's
 -- previous window, so the close-triggered resolve re-picks from the user's own history.
-local function _heldFocus(tag, id, now)
-    local list = _focusHistory[tag]
+--
+-- `prevHead` maps a window id to the head of its tag's history just before it was pushed. When
+-- the demoted pick is that previous window, it is the window the user was on before the closed
+-- one came up (Telegram's media viewer handing back to its chat window), so it stays at the
+-- head. Without that check the resolve returned to whatever app was used before the viewer:
+-- the pick had already been re-pushed by macOS, so the old position below it looked foreign.
+-- Exported for spec.lua.
+local function heldFocusIn(list, id, now, pushedAt, prevHead)
     if not list then return false end
     if list[1] == id then return true end
-    if list[2] == id and now - (_pushedAt[list[1]] or 0) < FALLTHROUGH_WIN then
-        local pick = table.remove(list, 1)
-        -- After the closed window's successor; clamped, table.insert rejects gaps.
-        table.insert(list, math.min(3, #list + 1), pick)
+    if list[2] == id and now - (pushedAt[list[1]] or 0) < FALLTHROUGH_WIN then
+        local pick = list[1]
+        if prevHead[id] ~= pick then
+            table.remove(list, 1)
+            -- After the closed window's successor; clamped, table.insert rejects gaps.
+            table.insert(list, math.min(3, #list + 1), pick)
+        end
         return true
     end
     return false
+end
+M._heldFocusIn = heldFocusIn
+
+local function _heldFocus(tag, id, now)
+    return heldFocusIn(_focusHistory[tag], id, now, _pushedAt, _prevHead)
 end
 
 -- Most recently focused window that is still alive, still on `tag`, and not hidden/minimized.

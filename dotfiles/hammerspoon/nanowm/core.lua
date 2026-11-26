@@ -648,7 +648,12 @@ function M.launchTask(cmd, args, onExit)
     state.launching = true
     local task = hs.task.new(cmd, onExit, args)
     local started = task and task:start()
-    hs.timer.doAfter(2.0, function()
+    -- Anchored: hs.timer.doAfter's timer is not retained for us. Unreferenced, it was collected
+    -- before firing, leaving state.launching true forever: focus events were then dropped from
+    -- the tag history and the focus resolver rescheduled itself every 0.3 s.
+    if state.launchTimer then state.launchTimer:stop() end
+    state.launchTimer = hs.timer.doAfter(2.0, function()
+        state.launchTimer = nil
         state.launching = false
     end)
     return started
