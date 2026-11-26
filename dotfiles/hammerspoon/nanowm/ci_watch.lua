@@ -18,6 +18,21 @@ local function stopResource(name)
     if state[name] then state[name]:stop(); state[name]=nil end
 end
 
+-- SIGTERM first, then SIGKILL after a grace period. A helper that ignored SIGTERM held
+-- state.request forever (a timed-out request waits for the exit before launching a
+-- replacement), so CI status stopped updating until a reload, and a reload orphaned it. The
+-- escalation runs in a detached shell because Lua timers die with a reload, and it kills only
+-- while the PID is still Hammerspoon's child, so a reused PID is never hit.
+local KILL_GRACE = 3
+local function terminateTask(task)
+    local pid = task:isRunning() and task:pid() or nil
+    task:terminate() -- Only our own helper, never a CI/test owner PID.
+    if type(pid) ~= 'number' or pid <= 1 then return end
+    os.execute(string.format(
+        "(sleep %d; [ \"$(/bin/ps -o ppid= -p %d | /usr/bin/tr -d ' ')\" = %d ] && /bin/kill -KILL %d) </dev/null >/dev/null 2>&1 &",
+        KILL_GRACE, pid, hs.processInfo.processID, pid))
+end
+
 function M.stop()
     state.running=false
     state.generation=state.generation+1
@@ -29,7 +44,7 @@ function M.stop()
         if old.deadline then old.deadline:stop(); old.deadline=nil end
         if not old.terminated then
             old.terminated=true
-            old.task:terminate() -- Only our own helper, never a CI/test owner PID.
+            terminateTask(old.task)
         end
         -- Retain its slot until the exit callback, even across an immediate start.
     end
@@ -91,7 +106,7 @@ request = function()
         owned.timedOut=true
         owned.terminated=true
         advisory()
-        task:terminate()
+        terminateTask(task)
         -- Do not launch a replacement until the owned task actually exits.
     end)
 end
