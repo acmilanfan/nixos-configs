@@ -221,6 +221,83 @@ function M.visibleTagFrames()
     return visibleTags
 end
 
+-- PHASE 2 for one window: park `win` off-screen unless it already is. Separate so the spec can
+-- drive it with a stub window.
+local function parkHidden(win, screenFrames)
+    local id = win:id()
+    local ws = state.windowState[id] or {}
+
+    -- A window is parked only when it is flagged hidden AND it is actually off-screen.
+    --
+    -- The flag alone used to be enough, and isParked() still trusts it for reads,
+    -- because a genuine park is clamped by macOS to a ~40px on-screen corner that no
+    -- coordinate test could spot. But that authority goes stale when some other party
+    -- moves a hidden window back on-screen without a nanowm setFrame -- the canonical
+    -- case is exiting NATIVE full-screen, which macOS undoes with no frame event to us.
+    -- The window then sits on-screen while isHidden is still true, so every subsequent
+    -- tile trusts the stale flag and never re-parks it, leaving it bleeding full-size
+    -- onto whatever tag owns that screen. Re-park whenever the window is genuinely on
+    -- screen; a real park overlaps the screen by a hair (~0.003), so it is never
+    -- mistaken for one that needs it (no flicker on correctly-parked windows).
+    --
+    -- That check used to read every hidden window's frame on every tile (each focus
+    -- change), an AX read per window. Now only windows flagged `recheck` are read: set
+    -- by the watchers when a hidden window moves or goes native-fullscreen, and for all
+    -- hidden windows once a minute by _resync (exiting native fullscreen fires no event).
+    -- A window still in native fullscreen lives in its own Space and can't be parked;
+    -- it stays flagged so the tile after it leaves fullscreen re-parks it.
+    local f, needPark
+    if not ws.isHidden then
+        f, needPark = win:frame(), true
+    elseif ws.recheck then
+        f = win:frame()
+        if win:isFullScreen() then
+            needPark = false
+        else
+            ws.recheck = nil
+            needPark = core.overlapsScreen(win, f, screenFrames) >= 0.2
+        end
+    else
+        needPark = false
+    end
+
+    if needPark then
+        local idStr = tostring(id)
+
+        -- No coordinate test for "already parked": needPark already accounts for a stale
+        -- flag. The old `f.x < 90000` guard could never fail anyway (macOS clamps parked
+        -- windows to ~screenWidth-40). `f` is the frame read once above and reused for
+        -- both the overlap test and the park below, so a re-park is a single AX read.
+        if f.w > 0 and f.h > 0 then
+            -- Free tags keep windows where the user put them: remember the spot before
+            -- parking, so switching back restores it. It was only recorded when free mode
+            -- was turned on, so later arrangements snapped back on every return.
+            local winTag = state.tags[id]
+            if not ws.isHidden and winTag and state.isTagFree(winTag) and not core.isFloating(win) then
+                state.freeTagPositions[winTag] = state.freeTagPositions[winTag] or {}
+                state.freeTagPositions[winTag][id] = { x = f.x, y = f.y, w = f.w, h = f.h }
+            end
+            -- Remember where a floating window really was so PHASE 4 can restore its size.
+            -- Previously gated on `f.x < 10000`, which a clamped parked position (1472)
+            -- also satisfied — so a re-park could overwrite the cache with the parked
+            -- position and the float would come back jammed against the screen edge.
+            -- Only on the first park: a re-park (stale flag, recheck) finds the window where
+            -- something else put it, not where the user left it. Firefox pulls a parked
+            -- window fully on-screen when it activates it, flush with the screen's
+            -- bottom-right corner; caching that made the float reopen there for good.
+            if core.isFloating(win) and not ws.isHidden then
+                state.floatingCache[idStr] = { x = f.x, y = f.y, w = f.w, h = f.h }
+            end
+
+            f.x, f.y = parkPoint(win, f, screenFrames)
+            win:setFrame(f)
+        end
+        ws.isHidden = true
+        state.windowState[id] = ws
+    end
+end
+M._parkHidden = parkHidden
+
 -- =============================================================================
 -- Main Tile Function
 -- =============================================================================
@@ -268,76 +345,10 @@ function M.performTile()
         end
     end
 
-     -- PHASE 2: HIDE
-     for _, win in ipairs(toHide) do
-         local id = win:id()
-         local ws = state.windowState[id] or {}
-
-          -- A window is parked only when it is flagged hidden AND it is actually off-screen.
-          --
-          -- The flag alone used to be enough, and isParked() still trusts it for reads,
-          -- because a genuine park is clamped by macOS to a ~40px on-screen corner that no
-          -- coordinate test could spot. But that authority goes stale when some other party
-          -- moves a hidden window back on-screen without a nanowm setFrame -- the canonical
-          -- case is exiting NATIVE full-screen, which macOS undoes with no frame event to us.
-          -- The window then sits on-screen while isHidden is still true, so every subsequent
-          -- tile trusts the stale flag and never re-parks it, leaving it bleeding full-size
-          -- onto whatever tag owns that screen. Re-park whenever the window is genuinely on
-          -- screen; a real park overlaps the screen by a hair (~0.003), so it is never
-          -- mistaken for one that needs it (no flicker on correctly-parked windows).
-          --
-          -- That check used to read every hidden window's frame on every tile (each focus
-          -- change), an AX read per window. Now only windows flagged `recheck` are read: set
-          -- by the watchers when a hidden window moves or goes native-fullscreen, and for all
-          -- hidden windows once a minute by _resync (exiting native fullscreen fires no event).
-          -- A window still in native fullscreen lives in its own Space and can't be parked;
-          -- it stays flagged so the tile after it leaves fullscreen re-parks it.
-         local f, needPark
-         if not ws.isHidden then
-             f, needPark = win:frame(), true
-         elseif ws.recheck then
-             f = win:frame()
-             if win:isFullScreen() then
-                 needPark = false
-             else
-                 ws.recheck = nil
-                 needPark = core.overlapsScreen(win, f, screenFrames) >= 0.2
-             end
-         else
-             needPark = false
-         end
-
-         if needPark then
-             local idStr = tostring(id)
-
-              -- No coordinate test for "already parked": needPark already accounts for a stale
-              -- flag. The old `f.x < 90000` guard could never fail anyway (macOS clamps parked
-              -- windows to ~screenWidth-40). `f` is the frame read once above and reused for
-              -- both the overlap test and the park below, so a re-park is a single AX read.
-             if f.w > 0 and f.h > 0 then
-                  -- Free tags keep windows where the user put them: remember the spot before
-                  -- parking, so switching back restores it. It was only recorded when free mode
-                  -- was turned on, so later arrangements snapped back on every return.
-                 local winTag = state.tags[id]
-                 if not ws.isHidden and winTag and state.isTagFree(winTag) and not core.isFloating(win) then
-                     state.freeTagPositions[winTag] = state.freeTagPositions[winTag] or {}
-                     state.freeTagPositions[winTag][id] = { x = f.x, y = f.y, w = f.w, h = f.h }
-                 end
-                  -- Remember where a floating window really was so PHASE 4 can restore its size.
-                  -- Previously gated on `f.x < 10000`, which a clamped parked position (1472)
-                  -- also satisfied — so a re-park could overwrite the cache with the parked
-                  -- position and the float would come back jammed against the screen edge.
-                 if core.isFloating(win) then
-                     state.floatingCache[idStr] = { x = f.x, y = f.y, w = f.w, h = f.h }
-                 end
-
-                 f.x, f.y = parkPoint(win, f, screenFrames)
-                 win:setFrame(f)
-             end
-             ws.isHidden = true
-             state.windowState[id] = ws
-         end
-     end
+    -- PHASE 2: HIDE
+    for _, win in ipairs(toHide) do
+        parkHidden(win, screenFrames)
+    end
 
     -- PHASE 3: TILE BACKGROUND
     for tag, frame in pairs(visibleTags) do

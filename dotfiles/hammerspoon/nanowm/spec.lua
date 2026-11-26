@@ -341,6 +341,67 @@ local function suite_geometry()
 end
 
 -- =============================================================================
+-- Suite: parking keeps a float's remembered position (layout PHASE 2)
+-- =============================================================================
+
+-- Pure: a stub window through layout._parkHidden. A parked float that its app pulls back
+-- on-screen (Firefox does, flush with the bottom-right corner) gets re-parked, and that
+-- re-park must not replace the position the float is restored to.
+local function suite_park_cache()
+    local ID = 9101
+    local idStr = tostring(ID)
+    local saved = {
+        tag = state.tags[ID], override = state.floatingOverrides[ID],
+        ws = state.windowState[ID], cache = state.floatingCache[idStr],
+    }
+    local function restore()
+        state.tags[ID] = saved.tag
+        state.floatingOverrides[ID] = saved.override
+        state.windowState[ID] = saved.ws
+        state.floatingCache[idStr] = saved.cache
+    end
+
+    local ok, err = pcall(function()
+        local frames = {}
+        for _, s in ipairs(hs.screen.allScreens()) do frames[#frames + 1] = s:frame() end
+        local sf = state.getScreenForTag(state.currentTag):frame()
+        local f = { x = sf.x + 100, y = sf.y + 100, w = sf.w / 2, h = sf.h / 2 }
+        local win = {
+            id = function() return ID end,
+            frame = function() return { x = f.x, y = f.y, w = f.w, h = f.h } end,
+            setFrame = function(_, nf) f.x, f.y, f.w, f.h = nf.x, nf.y, nf.w, nf.h end,
+            isFullScreen = function() return false end,
+        }
+        state.tags[ID] = state.currentTag
+        state.floatingOverrides[ID] = true
+        state.windowState[ID] = { isHidden = false }
+        state.floatingCache[idStr] = nil
+
+        layout._parkHidden(win, frames)
+        local c = state.floatingCache[idStr]
+        check("first park remembers the float's position",
+            c and c.x == sf.x + 100 and c.y == sf.y + 100,
+            c and string.format("cache=%d,%d", c.x, c.y) or "no cache")
+        check("first park moves it off-screen", core.overlapsScreen(nil, f, frames) < 0.2,
+            string.format("frame=%d,%d", f.x, f.y))
+
+        -- The app drags it fully back on-screen, flush with the bottom-right corner.
+        f.x, f.y = sf.x + sf.w - f.w, sf.y + sf.h - f.h
+        state.windowState[ID].recheck = true
+        layout._parkHidden(win, frames)
+        c = state.floatingCache[idStr]
+        check("re-park keeps the remembered position",
+            c and c.x == sf.x + 100 and c.y == sf.y + 100,
+            c and string.format("cache=%d,%d", c.x, c.y) or "no cache")
+        check("re-park moves it off-screen again", core.overlapsScreen(nil, f, frames) < 0.2,
+            string.format("frame=%d,%d", f.x, f.y))
+    end)
+
+    restore()
+    if not ok then fail("park cache", "errored: " .. tostring(err)) end
+end
+
+-- =============================================================================
 -- Suite: AX cost guards (P2/P3/P5)
 -- =============================================================================
 
@@ -576,7 +637,7 @@ function M.run()
 
     -- Synchronous suites first.
     for i, suite in ipairs({ suite_state, suite_classify, suite_floating_titles,
-                             suite_tag_memory, suite_grid, suite_geometry }) do
+                             suite_tag_memory, suite_grid, suite_geometry, suite_park_cache }) do
         M.progress = "sync suite " .. i
         local ok, err = pcall(suite)
         if not ok then fail("sync suite " .. i .. " crashed", tostring(err)) end
