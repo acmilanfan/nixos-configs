@@ -12,6 +12,8 @@
 #     the caller gets a visible window to raise
 #   - a retry never moves a client when the source title matches no client, or
 #     when that client is already attached to the target session
+#   - --source-title can repeat: the client showing the earliest listed title
+#     is moved; titles no client shows (plain-shell windows) are skipped
 #   - the printed title is the target session's set-titles-string expanded for
 #     the pane, which is what the window manager matches
 #   - bad or unknown pane ids print nothing and do not touch tmux state
@@ -213,6 +215,30 @@ else
 fi
 hasnt "switch-client" && ok "retry with an attached source: no client switched" \
   || bad "retry with an attached source: no client switched" "$(tr '\n' ';' < "$LOG")"
+
+# --- retry: several source titles, the first tmux one wins -------------------
+# The caller lists every terminal it can see, best first; the first is often a
+# plain-shell window that no tmux client shows. It must be skipped, and an
+# earlier title must win over a more recently active client.
+fixture retry-multi
+printf 'focus-test\n' > "$FIXTURE_DIR/session"
+printf '2\n' > "$FIXTURE_DIR/window"
+printf '/dev/ttys047\n' > "$FIXTURE_DIR/session_clients"
+printf '/dev/ttys039 100\n/dev/ttys040 300\n/dev/ttys047 200\n' > "$FIXTURE_DIR/all_clients"
+printf '#{session_name}:#{window_index}\n' > "$FIXTURE_DIR/format"
+printf 'focus-test:2\n' > "$FIXTURE_DIR/title"
+printf '4242\n' > "$FIXTURE_DIR/pid"
+printf '/dev/ttys039|wd-backend:7\n/dev/ttys040|notes:1\n/dev/ttys047|focus-test:2\n' > "$FIXTURE_DIR/client_titles"
+run --source-title '~' --source-title wd-backend:7 --source-title notes:1 %55
+if [[ $RUN_EXIT -eq 0 && $RUN_OUT == $'title=focus-test:2\nclient=/dev/ttys039 4242\nclient=/dev/ttys047 4242' ]]; then
+  ok "retry with several titles: moves the first tmux one"
+else
+  bad "retry with several titles: moves the first tmux one" "exit=$RUN_EXIT out=[$RUN_OUT] err=[$RUN_ERR]"
+fi
+has "switch-client -c /dev/ttys039 -t focus-test" && ok "retry with several titles: switches that client" \
+  || bad "retry with several titles: switches that client" "$(tr '\n' ';' < "$LOG")"
+hasnt "switch-client -c /dev/ttys040" && ok "retry with several titles: leaves the later match alone" \
+  || bad "retry with several titles: leaves the later match alone" "$(tr '\n' ';' < "$LOG")"
 
 # --- no clients, unknown pane, bad pane --------------------------------------
 fixture nobody

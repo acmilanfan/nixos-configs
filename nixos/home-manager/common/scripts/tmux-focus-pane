@@ -2,13 +2,15 @@
 # Make a tmux pane visible in an attached terminal and print the outer terminal
 # title tmux gives that terminal, so a window manager can raise the right window.
 #
-# Usage: tmux-focus-pane [--source-title <title>] <pane-id>
+# Usage: tmux-focus-pane [--source-title <title>]... <pane-id>
 #   pane-id is %N only; it is checked so the value is safe inside a tmux format.
 #
 # --source-title is the retry path: nanowm/agents.lua calls it after no
 # terminal window carried the printed title. When a client is currently
 # showing that title, this moves that client to the pane's session so the
-# caller has a visible window to raise. A hidden surface (background Ghostty
+# caller has a visible window to raise. It can be repeated, best first (the
+# caller's own window, then other visible terminals): the first title that a
+# tmux client shows wins, so a plain-shell window ahead of it is skipped. A hidden surface (background Ghostty
 # tab/split) can be a session's only attached client; without this retry the
 # caller selects the window inside that client and no OS window ever shows the
 # title. Without a matching client, the normal path still applies.
@@ -28,12 +30,12 @@
 set -uo pipefail
 
 pane=""
-source_title=""
+source_titles=()
 while (( $# > 0 )); do
   case "$1" in
     --source-title)
       (( $# >= 2 )) || { printf 'tmux-focus-pane: --source-title needs a value\n' >&2; exit 1; }
-      source_title=$2
+      source_titles+=("$2")
       shift 2
       ;;
     -*)
@@ -68,11 +70,12 @@ window=$(tmux display -p -t "$pane" '#{window_index}' 2>/dev/null)
 # client the caller can actually see.
 mapfile -t clients < <(tmux list-clients -t "$session" -F '#{client_tty}' 2>/dev/null)
 
-if [[ -n $source_title ]]; then
-  # Pick the client currently showing the caller's window title. Its own
+if (( ${#source_titles[@]} > 0 )); then
+  # Pick the client showing the earliest of the caller's titles. Its own
   # session's set-titles-string is expanded for it, so this stays correct if
-  # the format ever varies. Most recent wins when several clients share it.
+  # the format ever varies. Most recent wins when several clients share one.
   best=""
+  best_rank=${#source_titles[@]}
   best_activity=-1
   while read -r tty activity; do
     [[ -n $tty ]] || continue
@@ -80,9 +83,14 @@ if [[ -n $source_title ]]; then
     fmt=$(tmux show -Av -t "$tty" set-titles-string 2>/dev/null)
     [[ -n $fmt ]] || continue
     title=$(tmux display -p -t "$tty" "$fmt" 2>/dev/null)
-    [[ $title == "$source_title" ]] || continue
-    if (( activity > best_activity )); then
+    rank=-1
+    for i in "${!source_titles[@]}"; do
+      if [[ $title == "${source_titles[$i]}" ]]; then rank=$i; break; fi
+    done
+    (( rank >= 0 )) || continue
+    if (( rank < best_rank || (rank == best_rank && activity > best_activity) )); then
       best=$tty
+      best_rank=$rank
       best_activity=$activity
     fi
   done < <(tmux list-clients -F '#{client_tty} #{client_activity}' 2>/dev/null)

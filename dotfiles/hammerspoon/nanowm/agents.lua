@@ -186,18 +186,27 @@ local function isTerminalWindow(win)
     return app ~= nil and TERMINALS[app:name() or ""] == true
 end
 
--- The title of a terminal the user can see, for the --source-title retry: the window they
--- invoked us from when it is a terminal, otherwise a terminal shown on a visible tag (the
--- tag's last-focused one first). Without the second part, a switch started from a browser
--- or the sketchybar popup had no client to move and fell back to raising whichever terminal
--- window was focused last, often the wrong one. The chooser is frontmost once it is open,
--- so showMenu captures this before showing it.
-local function frontTerminalTitle()
-    local win = hs.window.focusedWindow()
-    if isTerminalWindow(win) then return win:title() end
-
+-- Titles of terminal windows, best first, for the --source-title retry: the window the user
+-- invoked us from, then terminals on visible tags (each tag's last-focused one first), then
+-- terminals on hidden tags. tmux-focus-pane moves the first one that is actually a tmux client.
+-- A single title was not enough: with several Ghostty windows it was often a plain shell, so
+-- nothing moved and the fallback raised whichever Ghostty window was focused last. The chooser
+-- is frontmost once it is open, so showMenu captures this before showing it.
+local function terminalTitles()
     local state = require("nanowm.state")
     local core = require("nanowm.core")
+    local titles, seen = {}, {}
+    local function add(w)
+        local t = w and w:title()
+        if t and t ~= "" and not seen[t] then
+            seen[t] = true
+            titles[#titles + 1] = t
+        end
+    end
+
+    local focused = hs.window.focusedWindow()
+    if isTerminalWindow(focused) then add(focused) end
+
     local tags = {}
     if state.special.active then tags[#tags + 1] = state.special.tag end
     tags[#tags + 1] = state.currentTag
@@ -205,18 +214,23 @@ local function frontTerminalTitle()
         if tag ~= state.currentTag and tag ~= state.special.tag then tags[#tags + 1] = tag end
     end
 
-    local wins = require("nanowm.watchers").getManagedWindows()
-    for _, tag in ipairs(tags) do
-        local first
-        for _, w in ipairs(wins) do
-            local id = w:id()
-            if id and state.tags[id] == tag and not core.isParked(w, id) and isTerminalWindow(w) then
-                if id == state.tagLastFocused[tag] then return w:title() end
-                first = first or w
-            end
-        end
-        if first then return first:title() end
+    local terms = {}
+    for _, w in ipairs(require("nanowm.watchers").getManagedWindows()) do
+        if isTerminalWindow(w) then terms[#terms + 1] = w end
     end
+    for _, tag in ipairs(tags) do
+        local last = state.tagLastFocused[tag]
+        for _, w in ipairs(terms) do
+            if w:id() == last and not core.isParked(w, w:id()) then add(w) end
+        end
+        for _, w in ipairs(terms) do
+            local id = w:id()
+            if id and state.tags[id] == tag and not core.isParked(w, id) then add(w) end
+        end
+    end
+    -- Hidden tags last: raising one switches to its tag, still better than a wrong window.
+    for _, w in ipairs(terms) do add(w) end
+    return #titles > 0 and titles or nil
 end
 
 -- Last resort when no window carries the expected title. With several windows
@@ -269,8 +283,10 @@ function M.focusAgent(paneId, sourceTitle)
     -- Everything here is async: the sketchybar agent-focus plugin invokes this via `hs -c`, and
     -- blocking the event loop while an IPC request is in flight is what produced the
     -- `hs.ipc: already recursing` floods.
-    if sourceTitle == nil then sourceTitle = frontTerminalTitle() end
-    if sourceTitle == "" then sourceTitle = nil end
+    -- sourceTitle: one title (a string, as from older callers) or a list, best first.
+    local sourceTitles = sourceTitle
+    if type(sourceTitles) == "string" then sourceTitles = sourceTitles ~= "" and { sourceTitles } or nil end
+    if type(sourceTitles) ~= "table" or #sourceTitles == 0 then sourceTitles = terminalTitles() end
     local tr = newTrace(paneId)
 
     local function apply(stdOut)
@@ -286,11 +302,17 @@ function M.focusAgent(paneId, sourceTitle)
         end
 
         focusByTitle(title, function()
-            if not sourceTitle then
+            if not sourceTitles then
                 fallback()
                 return
             end
-            -- No shell involved, so the title needs no quoting.
+            -- No shell involved, so the titles need no quoting.
+            local retryArgs = {}
+            for _, t in ipairs(sourceTitles) do
+                retryArgs[#retryArgs + 1] = "--source-title"
+                retryArgs[#retryArgs + 1] = t
+            end
+            retryArgs[#retryArgs + 1] = paneId
             focusPaneTask(function(exitCode, retryOut, retryErr)
                 mark(tr, "retry-focus-pane")
                 if exitCode ~= 0 then
@@ -309,7 +331,7 @@ function M.focusAgent(paneId, sourceTitle)
                 else
                     retryFallback()
                 end
-            end, { "--source-title", sourceTitle, paneId }):start()
+            end, retryArgs):start()
         end, tr, "title1")
     end
 
@@ -406,7 +428,7 @@ local STATUS_MAP = {
 function M.showMenu()
     -- The chooser is frontmost once shown, so capture the invoking window now.
     -- focusAgent uses its title to find (and if needed move) the visible client.
-    local sourceTitle = frontTerminalTitle()
+    local sourceTitle = terminalTitles()
     if chooser then chooser:delete() end
     chooser = hs.chooser.new(function(choice)
         if not choice then return end
