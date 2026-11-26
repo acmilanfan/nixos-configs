@@ -98,6 +98,10 @@ function M.isFloating(win)
     local result
     if config.floatingApps[appName] then
         result = true
+    elseif not require("nanowm.watchers").isTiledApp(appName) then
+        -- Float tier: an observed Dock app outside the tiled allowlist (see watchers.lua).
+        -- It still keeps its tag; actions.toggleFloat or a config.rules float = false tiles it.
+        result = true
     else
         -- Check title-based floating. Entries are either a bare string (any app) or
         -- { app = ..., title = ... }; the scoped form exists because a bare substring match

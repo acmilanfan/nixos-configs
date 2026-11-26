@@ -17,17 +17,27 @@ local M = {}
 -- Window Filter Setup
 -- =============================================================================
 
--- Only allow AX observers for apps we actually need to manage.
--- Every allowed app gets an AXObserver that can freeze the event loop, so this is an
--- allowlist, not a denylist. Add any app whose windows you want tiled.
+-- Which apps get an AXObserver, and how their windows are treated:
 --
--- A 44-entry `managedExcluded` denylist used to sit here, tested at five call sites. The
--- filter is built with hs.window.filter.new(false), so nothing is observed unless it appears
--- below -- and the two lists were entirely disjoint, making every `not managedExcluded[...]`
--- test a constant true. Removed as dead code, but the knowledge is worth keeping, because it
--- is the reason this is an allowlist in the first place:
+--   managedAllowed ... observed whatever their activation policy; windows are TILED by
+--                      default (config.floatingApps / floatingTitles / rules can float them).
+--   other Dock apps .. (hs.application kind() == 1) not in neverObserve: observed too, but
+--                      their windows FLOAT by default (core.isFloating). They still belong to
+--                      the tag they opened on, so they hide with it on a tag switch.
+--                      Alt+Shift+Space (actions.toggleFloat) tiles one into its tag's layout;
+--                      a config.rules entry { app = "...", float = false } tiles them always.
+--   everything else .. menu-bar agents (kind 0), background daemons (kind -1) and neverObserve:
+--                      never observed, so nanowm leaves their windows alone on every tag.
 --
---   NEVER add these -- they hang the AX layer, or have no manageable windows:
+-- Every observed app gets an AXObserver that can freeze the event loop. Restricting the
+-- float tier to Dock apps keeps the daemons and corporate agents below out (they are menu-bar
+-- or background processes), and neverObserve catches the ones that do show in the Dock.
+-- The AX circuit breaker (_axTrip) and wake suppression cover all observed apps alike.
+--
+-- A 44-entry `managedExcluded` denylist used to sit here, tested at five call sites, while
+-- the filter observed only the allowlist, so it was dead code. Its knowledge is kept here:
+--
+--   NEVER observe these -- they hang the AX layer, or have no manageable windows:
 --     corporate security / VPN / MDM . GlobalProtect, Falcon Notifications,
 --         Splashtop Streamer, jamfRemoteAssistConnectorUI, nbagent
 --     auth / security daemons ........ Single Sign-On, Keychain Circle Notification,
@@ -51,19 +61,56 @@ local managedAllowed = {
     Zed = true, ["Force Quit Applications"] = true,
 }
 
--- Allowlist mode: AXObservers are set up ONLY for apps we explicitly allow, so the
--- daemons and corporate agents listed above can never block the AX layer.
+-- Dock apps that must never be observed, even though kind() == 1 would admit them to the
+-- float tier. Names are app:name() values. Most of the list above is kind 0/-1 and excluded
+-- by policy already; repeating them costs nothing and survives an app gaining a Dock icon.
+local neverObserve = {
+    -- AX on Hammerspoon's own process from its main thread can deadlock the event loop.
+    Hammerspoon = true,
+    -- Launchers: transient panels with their own handling (_vicFilter below).
+    Vicinae = true, Raycast = true,
+    GlobalProtect = true, ["Falcon Notifications"] = true, ["Splashtop Streamer"] = true,
+    jamfRemoteAssistConnectorUI = true, nbagent = true,
+    ["Single Sign-On"] = true, ["Keychain Circle Notification"] = true,
+    universalAccessAuthWarn = true, coreautha = true, SecurityAgent = true, CoreAuthUI = true,
+    ["Slack Helper"] = true,
+    Dock = true, ["Control Center"] = true, ["Notification Center"] = true, Spotlight = true,
+    SystemUIServer = true, WindowManager = true, Wallpaper = true, loginwindow = true,
+    talagentd = true, Accessibility = true, ["AirPlay Screen Mirroring"] = true,
+    CoreLocationAgent = true, PowerChime = true, Shortcuts = true, ["Wi-Fi"] = true,
+    AutoRaise = true, Cursorcerer = true, MiddleClick = true, Warpd = true,
+}
+
+-- Built with new(false): nothing is observed unless _shouldAllow admits it.
 local filter = hs.window.filter.new(false)
 
 local function _shouldAllow(app)
     if not app then return false end
-    return managedAllowed[app:name() or ""] == true
+    local name = app:name() or ""
+    if managedAllowed[name] then return true end
+    if name == "" or neverObserve[name] then return false end
+    -- kind() reads NSRunningApplication's activation policy, not AX: cheap and safe.
+    return app:kind() == 1
+end
+
+-- Apps already passed to filter:allowApp, so re-checks on activation stay cheap.
+local _observed = {}
+local function _observe(app)
+    local name = app and app:name()
+    if not name or _observed[name] or not _shouldAllow(app) then return false end
+    _observed[name] = true
+    filter:allowApp(name)
+    return true
+end
+
+-- Tiled by default? false for the float tier (any observed app outside managedAllowed).
+-- Read by core.isFloating.
+function M.isTiledApp(appName)
+    return managedAllowed[appName or ""] == true
 end
 
 for _, app in ipairs(hs.application.runningApplications()) do
-    if _shouldAllow(app) then
-        filter:allowApp(app:name())
-    end
+    _observe(app)
 end
 
 -- Event-driven window tracking — no AX polling in the hot path.
@@ -185,7 +232,7 @@ local function _resync()
     for _, app in ipairs(hs.application.runningApplications()) do
         if app:kind() ~= -1 then
             local appName = app:name() or ""
-            if managedAllowed[appName] then
+            if _shouldAllow(app) then
                 local t0 = hs.timer.secondsSinceEpoch()
                 profiler.lastEvent = "resync:" .. appName
                 local appWins = app:allWindows()
@@ -305,12 +352,12 @@ function M.getTrackedWindow(id)
     return id and _trackedWins[id] or nil
 end
 
--- Scans allowlisted apps for unmanaged standard windows and adds them to _trackedWins,
+-- Scans observed apps for unmanaged standard windows and adds them to _trackedWins,
 -- catching windows the hs.window.filter AXObserver missed (e.g. a Firefox tab detached
 -- into a new window).
 --
 -- onlyApp: when supplied, scan just that application. windowFocused passes the focused
--- app — enumerating every allowlisted app on every focus event (so: every Alt+J/K and
+-- app — enumerating every observed app on every focus event (so: every Alt+J/K and
 -- every mouse click) was the hottest AX path in the config, despite the original comment
 -- here claiming it only scanned the focused app.
 --
@@ -326,7 +373,7 @@ function M.augmentAllWins(allWins, onlyApp)
     local appsToScan = {}
     if onlyApp then
         local appName = onlyApp:name() or ""
-        if managedAllowed[appName] and onlyApp:kind() ~= -1 then
+        if _shouldAllow(onlyApp) and onlyApp:kind() ~= -1 then
             appsToScan[1] = onlyApp
         end
     else
@@ -334,8 +381,7 @@ function M.augmentAllWins(allWins, onlyApp)
         if now - _lastFullAugment < FULL_AUGMENT_COOLDOWN then return end
         _lastFullAugment = now
         for _, app in ipairs(hs.application.runningApplications()) do
-            local appName = app:name() or ""
-            if managedAllowed[appName] and app:kind() ~= -1 then
+            if _shouldAllow(app) and app:kind() ~= -1 then
                 table.insert(appsToScan, app)
             end
         end
@@ -1093,11 +1139,17 @@ function M.setup()
                 _ffApp = app
                 _ffLookupAt = 0
             end
-            if _shouldAllow(app) then filter:allowApp(appName) end
-            if managedAllowed[appName] then
+            -- An app quit and relaunched is observed again (allowApp is idempotent).
+            _observed[appName] = nil
+            if _observe(app) then
                 hs.timer.doAfter(1.5, _resync)
             end
         elseif event == hs.application.watcher.activated then
+            -- Some apps only take a Dock icon (kind 1) after launch, e.g. once a window opens.
+            -- A first activation is when that shows; the check is a table lookup after that.
+            if _observe(app) then
+                hs.timer.doAfter(0.5, _resync)
+            end
             M.followActivatedApp(app, appName)
         elseif event == hs.application.watcher.terminated
             or event == hs.application.watcher.hidden then

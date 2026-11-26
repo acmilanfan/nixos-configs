@@ -23,7 +23,7 @@ function M.toggleFloat()
     local id = win:id()
     local idStr = tostring(id)
     local tag = state.tags[id]
-    -- Not managed by nanowm (an app outside the allowlist): there is no stack to move it
+    -- Not managed by nanowm (an app it does not observe): there is no stack to move it
     -- between, and the second toggle used to index state.stacks[nil] and throw.
     if tag == nil then return end
 
