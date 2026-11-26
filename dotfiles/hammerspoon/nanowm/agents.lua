@@ -181,14 +181,41 @@ local function parseFocusOutput(stdOut)
     return title, pids
 end
 
--- Title of the window the user invoked us from, but only when it is a terminal
--- we can raise. The chooser is frontmost once it is open, so showMenu captures
--- this before showing it.
+local function isTerminalWindow(win)
+    local app = win and win:application()
+    return app ~= nil and TERMINALS[app:name() or ""] == true
+end
+
+-- The title of a terminal the user can see, for the --source-title retry: the window they
+-- invoked us from when it is a terminal, otherwise a terminal shown on a visible tag (the
+-- tag's last-focused one first). Without the second part, a switch started from a browser
+-- or the sketchybar popup had no client to move and fell back to raising whichever terminal
+-- window was focused last, often the wrong one. The chooser is frontmost once it is open,
+-- so showMenu captures this before showing it.
 local function frontTerminalTitle()
     local win = hs.window.focusedWindow()
-    local app = win and win:application()
-    if app and TERMINALS[app:name()] then
-        return win:title()
+    if isTerminalWindow(win) then return win:title() end
+
+    local state = require("nanowm.state")
+    local core = require("nanowm.core")
+    local tags = {}
+    if state.special.active then tags[#tags + 1] = state.special.tag end
+    tags[#tags + 1] = state.currentTag
+    for tag in pairs(require("nanowm.layout").visibleTagFrames()) do
+        if tag ~= state.currentTag and tag ~= state.special.tag then tags[#tags + 1] = tag end
+    end
+
+    local wins = require("nanowm.watchers").getManagedWindows()
+    for _, tag in ipairs(tags) do
+        local first
+        for _, w in ipairs(wins) do
+            local id = w:id()
+            if id and state.tags[id] == tag and not core.isParked(w, id) and isTerminalWindow(w) then
+                if id == state.tagLastFocused[tag] then return w:title() end
+                first = first or w
+            end
+        end
+        if first then return first:title() end
     end
 end
 
