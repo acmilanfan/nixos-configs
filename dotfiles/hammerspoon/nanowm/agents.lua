@@ -45,8 +45,8 @@ local function findTerminalPid(pid, procs)
 end
 
 -- focusAgent timing: one console line per switch, marking when each stage finished
--- (ms since the request). Turn off with require("nanowm.agents").traceFocus = false.
-M.traceFocus = true
+-- (ms since the request). Off by default; turn on with require("nanowm.agents").traceFocus = true.
+M.traceFocus = false
 
 local function now() return hs.timer.absoluteTime() end
 
