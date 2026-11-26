@@ -44,12 +44,36 @@ local function findTerminalPid(pid, procs)
     return nil
 end
 
-local function focusWindowOnTag(win)
+-- focusAgent timing: one console line per switch, marking when each stage finished
+-- (ms since the request). Turn off with require("nanowm.agents").traceFocus = false.
+M.traceFocus = true
+
+local function now() return hs.timer.absoluteTime() end
+
+local function newTrace(paneId)
+    if not M.traceFocus then return nil end
+    return { pane = paneId, t0 = now(), parts = {} }
+end
+
+local function mark(tr, label)
+    if not tr or tr.done then return end
+    tr.parts[#tr.parts + 1] = string.format("%s@%.0f", label, (now() - tr.t0) / 1e6)
+end
+
+local function finishTrace(tr, outcome)
+    if not tr or tr.done then return end
+    mark(tr, outcome)
+    tr.done = true
+    print("[NanoWM] focusAgent " .. tr.pane .. " timing (ms): " .. table.concat(tr.parts, " "))
+end
+
+local function focusWindowOnTag(win, tr)
     local state = require("nanowm.state")
     local tags  = require("nanowm.tags")
 
     local tag = state.tags[win:id()]
     if tag and tag ~= state.currentTag then
+        local started = now()
         if tag == "special" then
             if not state.special.active then
                 tags.toggleSpecial()
@@ -57,9 +81,11 @@ local function focusWindowOnTag(win)
         else
             tags.gotoTag(tag)
         end
+        mark(tr, string.format("tag-switch(%.0fms)", (now() - started) / 1e6))
     end
     hs.timer.doAfter(0.05, function()
         win:focus()
+        finishTrace(tr, "focused")
     end)
 end
 
@@ -80,30 +106,44 @@ end
 
 -- Match the outer terminal title tmux gives the pane's clients (set-titles in
 -- tmux.nix, printed by tmux-focus-pane). The title arrives as an OSC sequence, so
--- poll briefly before giving up.
+-- poll briefly before giving up. tmux-focus-pane forces the redraw before it exits,
+-- and in timing logs every match landed on the first check; a miss means a hidden
+-- surface, so waiting longer only delays the retry.
 local TITLE_POLL_INTERVAL = 0.04
-local TITLE_POLL_TRIES = 15 -- ~0.6 s
+local TITLE_POLL_TRIES = 5 -- ~0.2 s
 
 -- Scans only running terminal apps: hs.window.allWindows() walks every app, corporate agents
 -- included, which is what the watchers allowlist exists to avoid, and this polls up to 15x.
-local function focusByTitle(title, onFail)
-    local watchers = require("nanowm.watchers")
-    local tries = 0
-    local function attempt()
-        -- AX is locked (breaker open / wake suppression): every call below would block.
-        if watchers.axBlocked() then return end
-        for _, app in ipairs(hs.application.runningApplications()) do
-            if TERMINALS[app:name() or ""] then
-                for _, win in ipairs(app:allWindows()) do
-                    if win:title() == title then
-                        focusWindowOnTag(win)
-                        return
-                    end
-                end
+local function findTerminalWindow(title)
+    for _, app in ipairs(hs.application.runningApplications()) do
+        if TERMINALS[app:name() or ""] then
+            for _, win in ipairs(app:allWindows()) do
+                if win:title() == title then return win end
             end
         end
+    end
+end
+
+local function focusByTitle(title, onFail, tr, label)
+    local watchers = require("nanowm.watchers")
+    local tries, scanNs = 0, 0
+    local function attempt()
+        -- AX is locked (breaker open / wake suppression): every call below would block.
+        if watchers.axBlocked() then
+            finishTrace(tr, label .. "-ax-blocked")
+            return
+        end
+        local started = now()
+        local win = findTerminalWindow(title)
+        scanNs = scanNs + (now() - started)
         tries = tries + 1
+        if win then
+            mark(tr, string.format("%s-hit(try %d, scans %.0fms)", label, tries, scanNs / 1e6))
+            focusWindowOnTag(win, tr)
+            return
+        end
         if tries >= TITLE_POLL_TRIES then
+            mark(tr, string.format("%s-miss(%d tries, scans %.0fms)", label, tries, scanNs / 1e6))
             onFail()
         else
             hs.timer.doAfter(TITLE_POLL_INTERVAL, attempt)
@@ -155,13 +195,24 @@ end
 -- Last resort when no window carries the expected title. With several windows
 -- of the same app this can raise the wrong one (all Ghostty windows share a
 -- process), which is why focusAgent normally matches by title instead.
-local function focusPidFallback(pids)
+local function focusPidFallback(pids, tr)
+    finishTrace(tr, "pid-fallback")
     local pid = pids and pids[1]
     if not pid then return end
     hs.task.new("/bin/ps", function(_, psOut)
         local termPid = findTerminalPid(pid, parseProcessTable(psOut))
         if termPid then focusByPid(termPid) end
     end, { "-eo", "pid,ppid,ucomm" }):start()
+end
+
+-- Run tmux-focus-pane without a login shell (~70 ms per call). Hammerspoon's PATH lacks
+-- the Home Manager profile, so env puts it first; the script finds tmux there too.
+local USER_PROFILE_BIN = "/etc/profiles/per-user/" .. (os.getenv("USER") or "") .. "/bin"
+local function focusPaneTask(callback, args)
+    local argv = { "PATH=" .. USER_PROFILE_BIN .. ":" .. (os.getenv("HOME") or "") .. "/.nix-profile/bin:/usr/bin:/bin",
+        "tmux-focus-pane" }
+    for _, a in ipairs(args) do argv[#argv + 1] = a end
+    return hs.task.new("/usr/bin/env", callback, argv)
 end
 
 function M.focusAgent(paneId, sourceTitle)
@@ -193,13 +244,14 @@ function M.focusAgent(paneId, sourceTitle)
     -- `hs.ipc: already recursing` floods.
     if sourceTitle == nil then sourceTitle = frontTerminalTitle() end
     if sourceTitle == "" then sourceTitle = nil end
+    local tr = newTrace(paneId)
 
     local function apply(stdOut)
         local title, pids = parseFocusOutput(stdOut)
         -- The script printed no title (set-titles off, another terminal app): fall back to the
         -- old app-level focus. Its process-table walk stays in Lua so TERMINALS remains the
         -- single definition instead of being duplicated into shell.
-        local function fallback() focusPidFallback(pids) end
+        local function fallback() focusPidFallback(pids, tr) end
 
         if not title then
             fallback()
@@ -211,9 +263,9 @@ function M.focusAgent(paneId, sourceTitle)
                 fallback()
                 return
             end
-            -- Positional arguments avoid shell-quoting the title: $1 is the pane,
-            -- $2 the title of the window the user invoked us from.
-            hs.task.new("/bin/zsh", function(exitCode, retryOut, retryErr)
+            -- No shell involved, so the title needs no quoting.
+            focusPaneTask(function(exitCode, retryOut, retryErr)
+                mark(tr, "retry-focus-pane")
                 if exitCode ~= 0 then
                     -- 2 = the retry found no client to move; keep the old fallback.
                     if exitCode ~= 2 then
@@ -224,17 +276,19 @@ function M.focusAgent(paneId, sourceTitle)
                 end
 
                 local retryTitle, retryPids = parseFocusOutput(retryOut)
-                local function retryFallback() focusPidFallback(retryPids or pids) end
+                local function retryFallback() focusPidFallback(retryPids or pids, tr) end
                 if retryTitle then
-                    focusByTitle(retryTitle, retryFallback)
+                    focusByTitle(retryTitle, retryFallback, tr, "title2")
                 else
                     retryFallback()
                 end
-            end, { "-lc", 'tmux-focus-pane --source-title "$2" "$1"', "tmux-focus-pane", paneId, sourceTitle }):start()
-        end)
+            end, { "--source-title", sourceTitle, paneId }):start()
+        end, tr, "title1")
     end
 
-    hs.task.new("/bin/zsh", function(exitCode, stdOut, stdErr)
+    focusPaneTask(function(exitCode, stdOut, stdErr)
+        mark(tr, "focus-pane")
+        if exitCode ~= 0 then finishTrace(tr, "exit-" .. tostring(exitCode)) end
         if exitCode == 1 then
             hs.alert.show("Could not locate tmux pane " .. tostring(paneId))
             return
@@ -247,7 +301,7 @@ function M.focusAgent(paneId, sourceTitle)
             return
         end
         apply(stdOut)
-    end, { "-lc", "tmux-focus-pane " .. paneId }):start()
+    end, { paneId }):start()
 end
 
 -- =============================================================================
@@ -344,9 +398,8 @@ function M.showMenu()
 
     -- ai-agent-list is the shared detection script (Nix-installed via
     -- home.packages), also used by the sketchybar popup and the tmux fzf
-    -- switcher. Using "-lc" (login shell) for consistency with
-    -- M.focusAgent's zsh invocation above and as a safety margin against
-    -- PATH resolution depending on profile sourcing in other environments.
+    -- switcher. It runs through a login shell ("-lc") so PATH comes from the
+    -- user's profile; unlike the focus path, the chooser is not latency-bound.
     hs.task.new("/bin/zsh", function(exitCode, stdOut, stdErr)
         if not chooser:isVisible() then return end
 

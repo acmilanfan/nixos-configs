@@ -23,6 +23,15 @@ let
       substituteInPlace scripts/agent-state.sh \
         --replace 'tmux display-message -d "$duration" "$message" || true' 'true' \
         --replace 'tmux display-message "$message" || true' 'true'
+      # The focus hook (pane-focus-in / after-select-window / after-select-pane)
+      # made each select wait ~100 ms for pane-focus-in.sh, which slowed every
+      # window switch and NanoWM's agent focus (tmux-focus-pane). Run it in the
+      # background; the script already ignores calls that no longer match the
+      # focused pane. The match change makes a config reload replace hooks that
+      # an older plugin store path registered, instead of keeping both.
+      substituteInPlace agent-indicator.tmux \
+        --replace-fail 'local hook_command="run-shell \"$hook_script' 'local hook_command="run-shell -b \"$hook_script' \
+        --replace-fail 'local match="''${3:-$CURRENT_DIR}"' 'local match="''${3:-/share/tmux-plugins/agent-indicator/}"'
     '';
   };
 
