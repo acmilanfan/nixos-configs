@@ -122,7 +122,20 @@ local function poll(s)
 
     if s.phase == "choosing" then
         local status = read(s.dir .. "/done")
-        if not status then return end
+        if not status then
+            -- The chooser window closed without its shell publishing `done` (Cmd+W or Ghostty
+            -- quitting can kill it before the EXIT trap runs). Waiting would hold the session
+            -- until the 30 min deadline, and Ctrl+Alt+Y would only say "already running".
+            -- Checked on the same once-a-second cadence as the dialog above; `done` is read
+            -- again because a normal exit writes it just before the window closes.
+            if now >= (s.nextPickerAt or 0) then
+                s.nextPickerAt = now + 1
+                if s.pickerAX and not s.pickerAX:isValid() and not read(s.dir .. "/done") then
+                    finish(s, "the chooser window closed; no file was selected")
+                end
+            end
+            return
+        end
         if not status:match("^0%s*$") then finish(s, "Yazi failed; no file was selected"); return end
         local selection = read(s.dir .. "/selection")
         if not selection or selection == "" then
