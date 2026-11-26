@@ -267,11 +267,14 @@ function M.registerWindow(win, attempt)
         for _, rule in ipairs(config.rules) do
             local appMatch = true
             local titleMatch = true
+            -- Plain comparisons, not Lua patterns: "-", ".", "(" and "%" in an app name or
+            -- title (e.g. "Microsoft Teams (work or school)") were pattern syntax, and an
+            -- unanchored app pattern let { app = "Code" } match "Visual Studio Code".
             if rule.app then
-                appMatch = string.match(appName:lower(), rule.app:lower()) ~= nil
+                appMatch = appName:lower() == rule.app:lower()
             end
             if rule.title then
-                titleMatch = string.match(title, rule.title:lower()) ~= nil
+                titleMatch = string.find(title, rule.title:lower(), 1, true) ~= nil
             end
             if appMatch and titleMatch then
                 ruleMatch = rule

@@ -237,7 +237,12 @@ local function _resync()
                 profiler.lastEvent = "resync:" .. appName
                 local appWins = app:allWindows()
                 local dt = hs.timer.secondsSinceEpoch() - t0
-                if dt >= AX_SLOW then _axTrip(dt, appName) end
+                if dt >= AX_SLOW then
+                    -- AX is locked: stop here rather than query the remaining apps under the
+                    -- held lock, and keep the existing tracked set (fresh is incomplete).
+                    _axTrip(dt, appName)
+                    return
+                end
                 if profiler.enabled and dt >= 0.10 then
                     profiler.log("resync allWindows() SLOW", dt, appName)
                 end
@@ -380,8 +385,11 @@ function M.augmentAllWins(allWins, onlyApp)
         local now = hs.timer.secondsSinceEpoch()
         if now - _lastFullAugment < FULL_AUGMENT_COOLDOWN then return end
         _lastFullAugment = now
+        -- Tiled apps only. This sweep runs on every tile (up to once a second); float-tier
+        -- windows are covered by windowCreated/windowFocused and the 60 s _resync, so
+        -- scanning every Dock app here would only widen the hot AX surface.
         for _, app in ipairs(hs.application.runningApplications()) do
-            if _shouldAllow(app) and app:kind() ~= -1 then
+            if managedAllowed[app:name() or ""] and app:kind() ~= -1 then
                 table.insert(appsToScan, app)
             end
         end

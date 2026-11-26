@@ -116,7 +116,9 @@ M.urgentApps = {
     ["Zoom"] = true,
 }
 
--- Window Rules Engine (Pattern matching)
+-- Window rules, first match wins. `app` is the exact app name and `title` a substring,
+-- both case-insensitive (plain text, not Lua patterns). `float = false` tiles a window that
+-- would otherwise float, e.g. one from a Dock app outside the tiled list in watchers.lua.
 M.rules = {
     -- Example: { app = "Firefox", title = "YouTube", tag = 4, float = false }
     -- { app = "System Settings", float = true }

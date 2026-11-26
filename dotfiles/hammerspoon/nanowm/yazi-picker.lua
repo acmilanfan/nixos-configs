@@ -87,15 +87,25 @@ local function poll(s)
         return
     end
     if s.phase == "creating" then return end
-    if not valid(s) then
-        finish(s, "the original Open dialog has closed")
-        return
+    -- Every check below is an AX call into the browser or Ghostty; under a held AX lock each
+    -- would block the main thread. Wait it out (the deadline above still applies).
+    if require("nanowm.watchers").axBlocked() then return end
+    -- "choosing" lasts as long as the user browses in Yazi (up to 30 min): check the dialog
+    -- once a second there instead of on every 0.1 s tick.
+    local now = hs.timer.secondsSinceEpoch()
+    if s.phase ~= "choosing" or now >= (s.nextValidAt or 0) then
+        if not valid(s) then
+            finish(s, "the original Open dialog has closed")
+            return
+        end
+        s.nextValidAt = now + 1
     end
 
     if s.phase == "capturing" then
         local ghostty = hs.application.get("Ghostty")
         for _, win in ipairs(ghostty and ghostty:allWindows() or {}) do
-            if win:title() == s.title then
+            -- id() can still be nil right after creation; floatCentered indexes state by it.
+            if win:title() == s.title and win:id() then
                 pickerWindow = win
                 s.pickerAX = hs.axuielement.windowElement(win)
                 core.floatCentered(win, 0.8)
@@ -179,7 +189,15 @@ function M.start()
     local s = { win = win, root = root, panel = panel, app = app,
         phase = "creating", deadline = hs.timer.secondsSinceEpoch() + 10 }
     active = s
-    s.timer = hs.timer.doEvery(0.1, function() poll(s) end)
+    -- An error in poll would stop a plain doEvery timer for good and leave `active` set, so
+    -- every later Ctrl+Alt+Y only said "already running" until a reload. End the session.
+    s.timer = hs.timer.doEvery(0.1, function()
+        local ok, err = pcall(poll, s)
+        if not ok then
+            print("[NanoWM] yazi-picker poll error: " .. tostring(err))
+            finish(s, "internal error; the dialog was not submitted")
+        end
+    end)
     s.task = hs.task.new("/usr/bin/mktemp", function(code, stdout)
         local dir = (stdout or ""):match("^([^\n]+)\n?$")
         if active ~= s then if code == 0 then clean(dir) end; return end

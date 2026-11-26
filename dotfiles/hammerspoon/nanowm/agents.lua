@@ -84,14 +84,22 @@ end
 local TITLE_POLL_INTERVAL = 0.04
 local TITLE_POLL_TRIES = 15 -- ~0.6 s
 
+-- Scans only running terminal apps: hs.window.allWindows() walks every app, corporate agents
+-- included, which is what the watchers allowlist exists to avoid, and this polls up to 15x.
 local function focusByTitle(title, onFail)
+    local watchers = require("nanowm.watchers")
     local tries = 0
     local function attempt()
-        for _, win in ipairs(hs.window.allWindows()) do
-            local app = win:application()
-            if app and TERMINALS[app:name()] and win:title() == title then
-                focusWindowOnTag(win)
-                return
+        -- AX is locked (breaker open / wake suppression): every call below would block.
+        if watchers.axBlocked() then return end
+        for _, app in ipairs(hs.application.runningApplications()) do
+            if TERMINALS[app:name() or ""] then
+                for _, win in ipairs(app:allWindows()) do
+                    if win:title() == title then
+                        focusWindowOnTag(win)
+                        return
+                    end
+                end
             end
         end
         tries = tries + 1

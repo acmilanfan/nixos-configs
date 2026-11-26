@@ -340,10 +340,53 @@ local function repairFrames(cache, sizeOnly)
     return out
 end
 
+-- App-name suffixes stripped from memorised titles, after an ASCII hyphen, en or em dash.
+local TITLE_SUFFIX_APPS = {
+    "Mozilla Firefox", "Google Chrome", "Safari", "Arc", "Slack", "Discord", "Code",
+    "Visual Studio Code",
+}
+local TITLE_SUFFIX_SEPS = { " - ", " \226\128\147 ", " \226\128\148 " }
+-- The separators the old pattern-based normalisation never matched (multi-byte dashes).
+local TITLE_SUFFIX_DASHES = { TITLE_SUFFIX_SEPS[2], TITLE_SUFFIX_SEPS[3] }
+
+-- Strips app-name suffixes, as plain strings: Lua patterns are byte-based, so the old
+-- " [-–—] App$" class matched one byte and never the 3-byte en/em dash, leaving
+-- "Inbox — Mozilla Firefox" unnormalised.
+local function stripTitleSuffix(title, seps)
+    for _, suffixApp in ipairs(TITLE_SUFFIX_APPS) do
+        for _, sep in ipairs(seps or TITLE_SUFFIX_SEPS) do
+            local suffix = sep .. suffixApp
+            if #title > #suffix and title:sub(-#suffix) == suffix then
+                title = title:sub(1, -#suffix - 1)
+                break
+            end
+        end
+    end
+    return title
+end
+
 local function repairTagMemory(mem)
     local out = {}
     for k, v in pairs(mem or {}) do
         if type(k) == "string" and (type(v) == "number" or v == "special") then out[k] = v end
+    end
+    -- Keys saved before the en/em-dash fix kept their suffix ("Firefox::Inbox — Mozilla
+    -- Firefox") and could never match again. Re-key them; an entry already saved under the
+    -- normalised key is newer and wins. Only the dash separators are re-stripped, so keys
+    -- that were already normalised are left exactly as getWindowKey produces them.
+    local moved = {}
+    for k, v in pairs(out) do
+        local appName, title = k:match("^(.-)::(.*)$")
+        if appName then
+            local fixed = stripTitleSuffix(title, TITLE_SUFFIX_DASHES)
+            if fixed ~= title then
+                moved[k] = { key = appName .. "::" .. string.sub(fixed, 1, 60), tag = v }
+            end
+        end
+    end
+    for old, m in pairs(moved) do
+        out[old] = nil
+        if out[m.key] == nil then out[m.key] = m.tag end
     end
     return out
 end
@@ -575,13 +618,6 @@ end
 
 -- Window titles a browser shows before its content loads. Kept lowercase; getWindowKey compares
 -- against title:lower(). Not exhaustive by design -- extend if another browser is added.
--- App-name suffixes stripped from memorised titles, after an ASCII hyphen, en or em dash.
-local TITLE_SUFFIX_APPS = {
-    "Mozilla Firefox", "Google Chrome", "Safari", "Arc", "Slack", "Discord", "Code",
-    "Visual Studio Code",
-}
-local TITLE_SUFFIX_SEPS = { " - ", " \226\128\147 ", " \226\128\148 " }
-
 local PLACEHOLDER_TITLES = {
     ["mozilla firefox"] = true,
     ["google chrome"]   = true,
@@ -617,19 +653,8 @@ function M.getWindowKey(win)
         return nil
     end
 
-    -- Normalize title by removing common app suffixes. Compared as plain strings: Lua patterns
-    -- are byte-based, so the old " [-–—] App$" class matched one byte and never the 3-byte
-    -- en/em dash, leaving "Inbox — Mozilla Firefox" unnormalised.
-    local normalizedTitle = title
-    for _, suffixApp in ipairs(TITLE_SUFFIX_APPS) do
-        for _, sep in ipairs(TITLE_SUFFIX_SEPS) do
-            local suffix = sep .. suffixApp
-            if #normalizedTitle > #suffix and normalizedTitle:sub(-#suffix) == suffix then
-                normalizedTitle = normalizedTitle:sub(1, -#suffix - 1)
-                break
-            end
-        end
-    end
+    -- Normalize title by removing common app suffixes.
+    local normalizedTitle = stripTitleSuffix(title)
 
     local shortTitle = string.sub(normalizedTitle, 1, 60)
     return appName .. "::" .. shortTitle
