@@ -113,18 +113,39 @@ scheduleNextTick()
 -- NanoWM - Tiling Window Manager
 -- =============================================================================
 
-local NanoWM
-local nmOk, nmResult = pcall(require, "nanowm")
-if nmOk then
-    NanoWM = nmResult
-    local initOk, initErr = pcall(function() NanoWM.init() end)
-    if not initOk then hs.notify.new({ title = "Hammerspoon", informativeText = "NanoWM.init: " .. tostring(initErr) }):send() end
-else
-    hs.notify.new({ title = "Hammerspoon", informativeText = "nanowm load failed: " .. tostring(nmResult) }):send()
+-- A failure here used to surface only as a notification, which macOS can drop, so the
+-- reloads after a rebuild sometimes left every NanoWM hotkey unbound with no trace of why.
+-- Print the traceback to the console and show an alert as well. Loading is retried once:
+-- those failures did not reproduce on a later load. init() is not retried, because a
+-- partial init has already bound hotkeys and watchers.
+local function reportNanoWM(what, err)
+    print("[NanoWM] " .. what .. ":\n" .. tostring(err))
+    hs.alert.show("NanoWM " .. what .. " (see the Hammerspoon console)", 6)
+    hs.notify.new({ title = "Hammerspoon", informativeText = "NanoWM " .. what .. ": " .. tostring(err) }):send()
 end
 
--- Export NanoWM globally for console access and compatibility
-_G.NanoWM = NanoWM
+local function startNanoWM(retry)
+    local ok, result = xpcall(require, debug.traceback, "nanowm")
+    if not ok then
+        -- Drop what did load, so the retry is a clean load rather than half old state.
+        for name in pairs(package.loaded) do
+            if name == "nanowm" or name:match("^nanowm%.") then package.loaded[name] = nil end
+        end
+        if retry then
+            print("[NanoWM] load failed, retrying in 2 s:\n" .. tostring(result))
+            hs.timer.doAfter(2, function() startNanoWM(false) end)
+        else
+            reportNanoWM("load failed", result)
+        end
+        return
+    end
+    -- Export NanoWM globally for console access and compatibility
+    _G.NanoWM = result
+    local initOk, initErr = xpcall(result.init, debug.traceback)
+    if not initOk then reportNanoWM("init failed", initErr) end
+end
+
+startNanoWM(true)
 
 -- =============================================================================
 -- AClock Toggle
