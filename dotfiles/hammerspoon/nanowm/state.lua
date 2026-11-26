@@ -408,6 +408,24 @@ local function bootSession()
     return _bootSession or nil
 end
 
+-- Boot time as epoch seconds, for files that carry no bootSession. Only compared against a file's
+-- modification time with a margin, so the clock-correction drift described above is harmless here.
+local function bootEpoch()
+    local p = io.popen("/usr/sbin/sysctl -n kern.boottime 2>/dev/null")
+    local out = p and p:read("*a") or ""
+    if p then p:close() end
+    return tonumber(out:match("sec%s*=%s*(%d+)"))
+end
+
+-- Was data saved at `savedAt` (epoch seconds, a file's modification time) from an earlier boot?
+-- Data written while this boot runs is always newer than the boot itself; the margin absorbs
+-- small clock corrections.
+local BOOT_MARGIN = 10
+local function savedBeforeBoot(savedAt)
+    local boot = savedAt and bootEpoch()
+    return boot ~= nil and savedAt < boot - BOOT_MARGIN
+end
+
 -- Per-window state (keyed by window id): meaningless once the ids were reassigned by a reboot.
 local ID_KEYED = {
     "tags", "stacks", "sticky", "floatingOverrides", "floatingCache", "sizeCache",
@@ -415,13 +433,21 @@ local ID_KEYED = {
     "freeTagPositions", "weekenduoWinId",
 }
 
-local function loadFromData(d)
+-- `savedAt`: modification time of the data's file, used when it carries no bootSession.
+local function loadFromData(d, savedAt)
     d = deepcopy(d)
     -- Saved before a reboot: drop per-window state so new windows don't inherit it. Per-tag
-    -- settings, tag memory and the active/current tags are kept. A file without bootSession
-    -- (written before this check existed, or with the old bootTime) is kept as is.
+    -- settings, tag memory and the active/current tags are kept. Data without bootSession
+    -- (written before this check existed, or with the old bootTime, or legacy hs.settings)
+    -- used to be kept as is even after a reboot; judge it by its file's age instead.
     local boot = bootSession()
-    if boot and d.bootSession and d.bootSession ~= boot then
+    local stale
+    if boot and d.bootSession then
+        stale = d.bootSession ~= boot
+    else
+        stale = savedBeforeBoot(savedAt)
+    end
+    if stale then
         print("[NanoWM] state was saved before a reboot; dropping per-window state")
         for _, k in ipairs(ID_KEYED) do d[k] = nil end
     end
@@ -477,7 +503,7 @@ function M.load()
         f:close()
         local ok, data = pcall(hs.json.decode, raw)
         if ok and type(data) == "table" then
-            loadFromData(data)
+            loadFromData(data, hs.fs.attributes(SAVE_FILE, "modification"))
             return
         end
         -- The file exists but is unreadable. This used to fall through to the hs.settings
@@ -497,7 +523,10 @@ function M.load()
     for _, field in ipairs(LEGACY_FIELDS) do
         legacy[field] = hs.settings.get("nanoWM_" .. field)
     end
-    loadFromData(legacy)
+    -- hs.settings lives in Hammerspoon's preferences file. Other settings also write it, so its
+    -- age only proves "before this boot" when it is older than the boot; newer is kept as is.
+    loadFromData(legacy, hs.fs.attributes(config.home()
+        .. "/Library/Preferences/org.hammerspoon.Hammerspoon.plist", "modification"))
     -- Write the JSON file now rather than on the debounce, and only then drop the legacy keys,
     -- so a failed write leaves the migration source in place for the next load.
     if M.save() then
