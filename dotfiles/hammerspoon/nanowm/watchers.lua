@@ -808,6 +808,8 @@ function M.followTabActivation(win)
     print(string.format("[NanoWM] Tab activated in %s window on tag %s (Vicinae panel), switching",
         appName, tostring(tag)))
 
+    -- Same race as followActivatedApp: gotoTag's delayed refocus must pick this window.
+    state.tagLastFocused[tag] = win:id()
     if tag == "special" then
         if not state.special.active then
             tags.toggleSpecial()

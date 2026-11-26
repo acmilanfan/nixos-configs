@@ -74,6 +74,10 @@ local function focusWindowOnTag(win, tr)
     local tag = state.tags[win:id()]
     if tag and tag ~= state.currentTag then
         local started = now()
+        -- gotoTag/toggleSpecial focus the tag's last-focused window 0.15 s after switching,
+        -- which landed after our focus below: with two terminals on the tag, the plain shell
+        -- focused there earlier won over the agent's window. Make the agent's the one they pick.
+        state.tagLastFocused[tag] = win:id()
         if tag == "special" then
             if not state.special.active then
                 tags.toggleSpecial()
