@@ -1,13 +1,34 @@
 #!/usr/bin/env bash
 
-# Resolve the live Hyprland instance if the inherited signature is stale
-# (start-hyprland relaunches after crashes keep old shells pointing at dead
-# instances); waybar's hyprland modules need the current signature.
-SIG_DIR="/run/user/$(id -u)/hypr"
-if [ -n "$HYPRLAND_INSTANCE_SIGNATURE" ] && [ ! -d "$SIG_DIR/$HYPRLAND_INSTANCE_SIGNATURE" ]; then
+# Resolve the live Hyprland instance if the inherited signature is stale or
+# missing (start-hyprland relaunches after crashes keep old shells pointing at
+# dead instances); waybar's hyprland modules need the current signature.
+SIG_DIR="${HYPR_SIG_DIR:-/run/user/$(id -u)/hypr}"
+if [ -z "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] || [ ! -d "$SIG_DIR/$HYPRLAND_INSTANCE_SIGNATURE" ]; then
     LIVE=$(ls -t "$SIG_DIR" 2>/dev/null | head -1)
     [ -n "$LIVE" ] && export HYPRLAND_INSTANCE_SIGNATURE="$LIVE"
 fi
+
+# Serialize starts: ExecStopPost and a manual `on` can otherwise race and kill
+# each other's freshly started bars.
+if command -v flock >/dev/null 2>&1; then
+    LOCK_FILE="${XDG_RUNTIME_DIR:-/tmp}/hypr-waybar-toggle.lock"
+    exec 9>"$LOCK_FILE" 2>/dev/null && flock -w 10 9 2>/dev/null || true
+fi
+
+# Spawn through Hyprland so the process lands in the session scope, not in the
+# caller's service cgroup (systemd would kill it when that unit stops). Fall
+# back to a direct spawn if Hyprland is unavailable; close the lock fd so a
+# fallback bar does not hold it.
+spawn_detached() {
+    local lua
+    lua="hl.exec_cmd([[$(printf '%q ' "$@")]])"
+    if command -v hyprctl >/dev/null 2>&1 &&
+        hyprctl eval "$lua" >/dev/null 2>&1; then
+        return 0
+    fi
+    nohup "$@" 9>&- >/dev/null 2>&1 &
+}
 
 # Function to kill waybar instances based on our specific configs
 kill_waybar() {
@@ -22,9 +43,9 @@ kill_waybar() {
 start_waybar() {
     pkill -f '^([^ ]*/)?quickshell -c shell' 2>/dev/null || true
     kill_waybar
-    nohup waybar -c ~/.config/waybar/config-hypr-top -s ~/.config/waybar/style-hypr.css >/dev/null 2>&1 &
-    nohup waybar -c ~/.config/waybar/config-hypr-bottom -s ~/.config/waybar/style-hypr.css >/dev/null 2>&1 &
-    nohup waybar -c ~/.config/waybar/config-hypr-external -s ~/.config/waybar/style-hypr.css >/dev/null 2>&1 &
+    spawn_detached waybar -c ~/.config/waybar/config-hypr-top -s ~/.config/waybar/style-hypr.css
+    spawn_detached waybar -c ~/.config/waybar/config-hypr-bottom -s ~/.config/waybar/style-hypr.css
+    spawn_detached waybar -c ~/.config/waybar/config-hypr-external -s ~/.config/waybar/style-hypr.css
 }
 
 case "$1" in
