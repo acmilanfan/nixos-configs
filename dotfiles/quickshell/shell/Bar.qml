@@ -14,6 +14,7 @@ PanelWindow {
     property bool enabled: true
     signal openControlCenter()
     signal openQuickMenu()
+    signal openTouchMenu()
     signal openKanata()
 
     readonly property string screenName: screen ? screen.name : ""
@@ -28,8 +29,8 @@ PanelWindow {
     readonly property int activeWorkspaceId: monitor && monitor.activeWorkspace
         ? monitor.activeWorkspace.id : -1
 
-    readonly property color background: "#14141c"
-    readonly property color border: "#252536"
+    readonly property color background: "#16161f"
+    readonly property color border: "#2a2a3c"
     readonly property color foreground: "#c6d0f5"
     readonly property color muted: "#7f849c"
     readonly property color accent: "#7b5cff"
@@ -71,7 +72,7 @@ PanelWindow {
             Rectangle {
                 width: leftRow.implicitWidth + 10
                 height: parent.height
-                radius: 6
+                radius: 8
                 color: bar.background
                 border.width: 1
                 border.color: bar.border
@@ -158,7 +159,7 @@ PanelWindow {
 
                         MouseArea {
                             anchors.fill: parent
-                            onClicked: bar.openQuickMenu()
+                            onClicked: bar.openTouchMenu()
                         }
                     }
                 }
@@ -197,7 +198,7 @@ PanelWindow {
                 anchors.right: parent.right
                 width: rightRow.implicitWidth + 10
                 height: parent.height
-                radius: 6
+                radius: 8
                 color: bar.background
                 border.width: 1
                 border.color: bar.border

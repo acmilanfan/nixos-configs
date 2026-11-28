@@ -110,6 +110,8 @@ reset
 touch "$FIXTURE/shell.running"
 run bars top
 grep -q 'call shell bars top' "$FIXTURE/quickshell.log"
+run touch
+grep -q 'call shell touch' "$FIXTURE/quickshell.log"
 
 # With the systemd unit enabled, the helper delegates to it.
 reset

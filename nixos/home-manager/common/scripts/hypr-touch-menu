@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+# Use the native Quickshell touch menu when the shell is installed.
+if command -v hypr-quickshell-shell >/dev/null 2>&1; then
+    exec hypr-quickshell-shell touch
+fi
+
 # Main menu items
 choice=$(echo -e "🚀 Apps\n💻 Profiles\n🔄 Auto-rotate: $(systemctl --user is-active hypr-iio-rotate.service >/dev/null && echo "ON" || echo "OFF")\n📊 Bars\n⌨️ Keyboard\n📶 Network\n Bluetooth\n💡 Brightness\n🔊 Volume\n🔒 Power" | \
     vicinae dmenu -p "Touch Menu: ")

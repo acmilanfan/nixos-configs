@@ -12,6 +12,9 @@ PanelWindow {
     property string page: ""
     property var targetScreen: null
     property string detail: ""
+    property bool tablet: false
+    property var pendingNetwork: null
+    property bool passwordPrompt: false
     signal closeRequested()
 
     readonly property color bg: "#1a1b26"
@@ -55,6 +58,7 @@ PanelWindow {
     }
 
     onDetailChanged: if (wifiDevice) wifiDevice.scannerEnabled = detail === "wifi"
+    onPasswordPromptChanged: if (passwordPrompt) passwordInput.forceActiveFocus()
     onVisibleChanged: {
         if (!visible)
             detail = ""
@@ -68,6 +72,28 @@ PanelWindow {
         ? Math.max(3, cc.screen.width - cc.implicitWidth - 3)
         : 3
 
+    function activateWifi(network) {
+        if (!network)
+            return
+        if (network.connected) {
+            if (wifiDevice)
+                wifiDevice.disconnect()
+        } else if (network.known || network.security === WifiSecurityType.Open) {
+            network.connect()
+        } else {
+            pendingNetwork = network
+            passwordPrompt = true
+        }
+    }
+
+    function connectPending() {
+        if (pendingNetwork && passwordInput.text.length > 0)
+            pendingNetwork.connectWithPsk(passwordInput.text)
+        passwordPrompt = false
+        pendingNetwork = null
+        passwordInput.text = ""
+    }
+
     anchors {
         top: true
         left: true
@@ -76,7 +102,7 @@ PanelWindow {
         top: 1
         left: cc.leftMargin
     }
-    implicitWidth: 460
+    implicitWidth: tablet ? 520 : 460
     implicitHeight: content.implicitHeight + 28
     exclusiveZone: 0
     color: "transparent"
@@ -103,7 +129,7 @@ PanelWindow {
         property bool active: false
 
         Layout.fillWidth: true
-        implicitHeight: 64
+        implicitHeight: cc.tablet ? 74 : 64
         radius: 8
         activeFocusOnTab: true
         color: tile.active ? "#2a2350" : (hover.hovered ? cc.cardHover : cc.card)
@@ -112,6 +138,16 @@ PanelWindow {
         Keys.onReturnPressed: run()
         Keys.onEnterPressed: run()
         Keys.onSpacePressed: run()
+        Keys.onRightPressed: moveFocus(true)
+        Keys.onDownPressed: moveFocus(true)
+        Keys.onLeftPressed: moveFocus(false)
+        Keys.onUpPressed: moveFocus(false)
+
+        function moveFocus(forward) {
+            const next = nextItemInFocusChain(forward)
+            if (next)
+                next.forceActiveFocus()
+        }
 
         function run() {
             if (tile.openDetail) {
@@ -190,6 +226,16 @@ PanelWindow {
         Keys.onReturnPressed: run()
         Keys.onEnterPressed: run()
         Keys.onSpacePressed: run()
+        Keys.onRightPressed: moveFocus(true)
+        Keys.onDownPressed: moveFocus(true)
+        Keys.onLeftPressed: moveFocus(false)
+        Keys.onUpPressed: moveFocus(false)
+
+        function moveFocus(forward) {
+            const next = nextItemInFocusChain(forward)
+            if (next)
+                next.forceActiveFocus()
+        }
 
         function run() {
             if (mini.command)
@@ -219,6 +265,7 @@ PanelWindow {
         property string sublabel: ""
         property bool connected: false
         property string action: ""
+        property var network: null
 
         Layout.fillWidth: true
         implicitHeight: 38
@@ -230,6 +277,16 @@ PanelWindow {
         Keys.onReturnPressed: run()
         Keys.onEnterPressed: run()
         Keys.onSpacePressed: run()
+        Keys.onRightPressed: moveFocus(true)
+        Keys.onDownPressed: moveFocus(true)
+        Keys.onLeftPressed: moveFocus(false)
+        Keys.onUpPressed: moveFocus(false)
+
+        function moveFocus(forward) {
+            const next = nextItemInFocusChain(forward)
+            if (next)
+                next.forceActiveFocus()
+        }
 
         function run() {
             if (row.action)
@@ -458,9 +515,87 @@ PanelWindow {
                             sublabel: modelData.connected ? "connected"
                                 : (modelData.known ? "saved" : Math.round(modelData.signalStrength * 100) + "%")
                             connected: modelData.connected
-                            action: modelData.connected
-                                ? "nmcli connection down id " + JSON.stringify(modelData.name)
-                                : "nmcli connection up id " + JSON.stringify(modelData.name)
+                            network: modelData
+                        }
+                    }
+
+                    Rectangle {
+                        visible: cc.passwordPrompt
+                        Layout.fillWidth: true
+                        implicitHeight: 38
+                        radius: 7
+                        color: cc.card
+                        border.width: 1
+                        border.color: cc.accent
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.leftMargin: 8
+                            anchors.rightMargin: 8
+                            spacing: 6
+
+                            Text {
+                                text: cc.pendingNetwork ? cc.pendingNetwork.name : ""
+                                color: cc.dim
+                                elide: Text.ElideRight
+                                Layout.maximumWidth: 110
+                                font.family: "JetBrainsMono Nerd Font"
+                                font.pixelSize: 9
+                            }
+
+                            TextInput {
+                                id: passwordInput
+                                Layout.fillWidth: true
+                                echoMode: TextInput.Password
+                                color: cc.fg
+                                selectionColor: cc.accent
+                                font.family: "JetBrainsMono Nerd Font"
+                                font.pixelSize: 10
+                                clip: true
+                                onAccepted: cc.connectPending()
+                            }
+
+                            Rectangle {
+                                implicitWidth: 60
+                                implicitHeight: 22
+                                radius: 6
+                                color: cc.accent
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: "connect"
+                                    color: cc.bg
+                                    font.family: "JetBrainsMono Nerd Font"
+                                    font.pixelSize: 9
+                                }
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    onClicked: cc.connectPending()
+                                }
+                            }
+
+                            Rectangle {
+                                implicitWidth: 24
+                                implicitHeight: 22
+                                radius: 6
+                                color: cc.cardHover
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: "✕"
+                                    color: cc.fg
+                                    font.pixelSize: 10
+                                }
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    onClicked: {
+                                        cc.passwordPrompt = false
+                                        cc.pendingNetwork = null
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -623,7 +758,6 @@ PanelWindow {
                     Tile { glyph: "󰀻"; label: "Apps"; command: "nwg-drawer" }
                     Tile { glyph: "󰒓"; label: "Profiles"; command: "hypr-profile" }
                     Tile { glyph: "󰌌"; label: "Keyboard"; command: "hypr-toggle-kb" }
-                    Tile { glyph: "󰀻"; label: "Touch menu"; command: "hypr-touch-menu" }
                     Tile { glyph: "󰑓"; label: "Rotate"; command: "hypr-iio-toggle" }
                 }
 
@@ -683,6 +817,98 @@ PanelWindow {
 
                 GridLayout {
                     visible: cc.page === "quick"
+                    Layout.fillWidth: true
+                    columns: 2
+                    columnSpacing: 8
+                    rowSpacing: 8
+
+                    Tile { glyph: "󰌾"; label: "Lock"; command: "hyprlock-session start" }
+                    Tile { glyph: "󰐥"; label: "Power"; command: "wlogout" }
+                }
+
+                // --- Native touch menu ---
+                GridLayout {
+                    visible: cc.page === "touch"
+                    Layout.fillWidth: true
+                    columns: 2
+                    columnSpacing: 8
+                    rowSpacing: 8
+
+                    Tile { glyph: "󰀻"; label: "Apps"; command: "nwg-drawer" }
+                    Tile { glyph: "󰒓"; label: "Profiles"; command: "hypr-profile" }
+                    Tile { glyph: "󰑓"; label: "Rotate"; command: "hypr-iio-toggle" }
+                    Tile { glyph: "󰌌"; label: "Keyboard"; command: "hypr-toggle-kb" }
+                    Tile {
+                        glyph: "󰤢"
+                        label: "Wi-Fi"
+                        sublabel: Networking.wifiEnabled
+                            ? (cc.activeWifi ? cc.activeWifi.name : "Not connected") : "Off"
+                        openDetail: "wifi"
+                    }
+                    Tile {
+                        glyph: "󰂯"
+                        label: "Bluetooth"
+                        sublabel: cc.adapter && cc.adapter.enabled ? "On" : "Off"
+                        openDetail: "bt"
+                    }
+                }
+
+                Rectangle {
+                    visible: cc.page === "touch"
+                    Layout.fillWidth: true
+                    implicitHeight: cc.tablet ? 52 : 44
+                    radius: 8
+                    color: cc.card
+                    border.width: 1
+                    border.color: cc.border
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: 10
+                        anchors.rightMargin: 10
+                        spacing: 8
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: "Brightness"
+                            color: cc.fg
+                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: 11
+                        }
+                        Mini { label: "−"; command: "brightness-ctl down 5" }
+                        Mini { label: "+"; command: "brightness-ctl up 5" }
+                    }
+                }
+
+                Rectangle {
+                    visible: cc.page === "touch"
+                    Layout.fillWidth: true
+                    implicitHeight: cc.tablet ? 52 : 44
+                    radius: 8
+                    color: cc.card
+                    border.width: 1
+                    border.color: cc.border
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: 10
+                        anchors.rightMargin: 10
+                        spacing: 8
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: "Volume"
+                            color: cc.fg
+                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: 11
+                        }
+                        Mini { label: "−"; command: "change-volume -5" }
+                        Mini { label: "+"; command: "change-volume +5" }
+                    }
+                }
+
+                GridLayout {
+                    visible: cc.page === "touch"
                     Layout.fillWidth: true
                     columns: 2
                     columnSpacing: 8

@@ -6,18 +6,37 @@ import Quickshell.Hyprland
 ShellRoot {
     id: root
 
+    property string yogaMode: "dual"
     property bool dual: true
-    property bool showTop: true
-    property bool showBottom: true
-    property bool showExternal: true
     property string popover: ""
     property var popoverScreen: null
+
+    readonly property bool tablet: yogaMode !== "dual"
 
     FileView {
         path: Quickshell.env("XDG_RUNTIME_DIR") + "/yb-mode/mode"
         watchChanges: true
         onFileChanged: reload()
-        onTextChanged: root.dual = text().trim() === "" || text().trim() === "dual"
+        onTextChanged: {
+            const mode = text().trim()
+            root.yogaMode = mode === "" ? "dual" : mode
+            root.dual = root.yogaMode === "dual"
+        }
+    }
+
+    FileView {
+        id: barsState
+        path: Quickshell.env("HOME") + "/.local/state/quickshell-bars.json"
+        watchChanges: true
+        onFileChanged: reload()
+        onAdapterUpdated: writeAdapter()
+
+        JsonAdapter {
+            id: bars
+            property bool top: true
+            property bool bottom: true
+            property bool external: true
+        }
     }
 
     function open(page, screen) {
@@ -36,11 +55,12 @@ ShellRoot {
             required property var modelData
             screen: modelData
             dual: root.dual
-            enabled: modelData.name === "eDP-1" ? root.showTop
-                : modelData.name === "eDP-2" ? root.showBottom
-                : root.showExternal
+            enabled: modelData.name === "eDP-1" ? bars.top
+                : modelData.name === "eDP-2" ? bars.bottom
+                : bars.external
             onOpenControlCenter: root.open("control", modelData)
             onOpenQuickMenu: root.open("quick", modelData)
+            onOpenTouchMenu: root.open("touch", modelData)
             onOpenKanata: {
                 if (root.popover === "control" && controlCenter.detail === "kanata") {
                     root.popover = ""
@@ -68,6 +88,12 @@ ShellRoot {
             return "ok"
         }
 
+        function touch(): string {
+            root.popoverScreen = Quickshell.screens[0]
+            root.popover = "touch"
+            return "ok"
+        }
+
         function close(): string {
             root.popover = ""
             return "ok"
@@ -80,28 +106,28 @@ ShellRoot {
 
         function bars(mode: string): string {
             if (mode === "all-on") {
-                root.showTop = true
-                root.showBottom = true
-                root.showExternal = true
+                bars.top = true
+                bars.bottom = true
+                bars.external = true
             } else if (mode === "all-off") {
-                root.showTop = false
-                root.showBottom = false
-                root.showExternal = false
+                bars.top = false
+                bars.bottom = false
+                bars.external = false
             } else if (mode === "top") {
-                root.showTop = !root.showTop
+                bars.top = !bars.top
             } else if (mode === "bottom") {
-                root.showBottom = !root.showBottom
+                bars.bottom = !bars.bottom
             } else if (mode === "external") {
-                root.showExternal = !root.showExternal
+                bars.external = !bars.external
             } else if (mode === "all") {
-                const show = !(root.showTop || root.showBottom || root.showExternal)
-                root.showTop = show
-                root.showBottom = show
-                root.showExternal = show
+                const show = !(bars.top || bars.bottom || bars.external)
+                bars.top = show
+                bars.bottom = show
+                bars.external = show
             } else if (mode === "both") {
-                const show = !(root.showTop && root.showBottom)
-                root.showTop = show
-                root.showBottom = show
+                const show = !(bars.top && bars.bottom)
+                bars.top = show
+                bars.bottom = show
             }
             return "ok"
         }
@@ -111,6 +137,7 @@ ShellRoot {
         id: controlCenter
         page: root.popover
         targetScreen: root.popoverScreen
+        tablet: root.tablet
         onCloseRequested: root.popover = ""
     }
 }
