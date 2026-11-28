@@ -11,6 +11,7 @@ PanelWindow {
     id: bar
 
     property bool dual: true
+    property bool enabled: true
     signal openControlCenter()
     signal openQuickMenu()
     signal openKanata()
@@ -30,7 +31,7 @@ PanelWindow {
     readonly property color muted: "#7f849c"
     readonly property color accent: "#7b5cff"
 
-    visible: !bottom || dual
+    visible: enabled && (!bottom || dual)
     anchors {
         top: true
         left: true

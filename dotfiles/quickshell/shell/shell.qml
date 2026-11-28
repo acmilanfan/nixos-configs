@@ -7,6 +7,9 @@ ShellRoot {
     id: root
 
     property bool dual: true
+    property bool showTop: true
+    property bool showBottom: true
+    property bool showExternal: true
     property string popover: ""
     property var popoverScreen: null
 
@@ -33,6 +36,9 @@ ShellRoot {
             required property var modelData
             screen: modelData
             dual: root.dual
+            enabled: modelData.name === "eDP-1" ? root.showTop
+                : modelData.name === "eDP-2" ? root.showBottom
+                : root.showExternal
             onOpenControlCenter: root.open("control", modelData)
             onOpenQuickMenu: root.open("quick", modelData)
             onOpenKanata: {
@@ -69,6 +75,29 @@ ShellRoot {
 
         function workspace(id: string): string {
             Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.focus({workspace = \u0027" + id + "\u0027})"])
+            return "ok"
+        }
+
+        function bars(mode: string): string {
+            if (mode === "all-on") {
+                root.showTop = true
+                root.showBottom = true
+                root.showExternal = true
+            } else if (mode === "all-off") {
+                root.showTop = false
+                root.showBottom = false
+                root.showExternal = false
+            } else if (mode === "top") {
+                root.showTop = !root.showTop
+            } else if (mode === "bottom") {
+                root.showBottom = !root.showBottom
+            } else if (mode === "external") {
+                root.showExternal = !root.showExternal
+            } else if (mode === "both") {
+                const show = !(root.showTop && root.showBottom)
+                root.showTop = show
+                root.showBottom = show
+            }
             return "ok"
         }
     }

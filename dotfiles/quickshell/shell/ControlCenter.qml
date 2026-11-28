@@ -623,6 +623,7 @@ PanelWindow {
                     Tile { glyph: "󰀻"; label: "Apps"; command: "nwg-drawer" }
                     Tile { glyph: "󰒓"; label: "Profiles"; command: "hypr-profile" }
                     Tile { glyph: "󰌌"; label: "Keyboard"; command: "hypr-toggle-kb" }
+                    Tile { glyph: "󰀻"; label: "Touch menu"; command: "hypr-touch-menu" }
                     Tile { glyph: "󰑓"; label: "Rotate"; command: "hypr-iio-toggle" }
                 }
 

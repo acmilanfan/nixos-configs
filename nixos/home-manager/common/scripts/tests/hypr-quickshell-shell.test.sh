@@ -106,6 +106,11 @@ if env -u WAYLAND_DISPLAY bash "$helper" start 2>/dev/null; then
 fi
 grep -qx 'on' "$FIXTURE/waybar.log"
 
+reset
+touch "$FIXTURE/shell.running"
+run bars top
+grep -q 'call shell bars top' "$FIXTURE/quickshell.log"
+
 # With the systemd unit enabled, the helper delegates to it.
 reset
 touch "$FIXTURE/service.enabled"

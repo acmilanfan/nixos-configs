@@ -88,6 +88,10 @@ case "${1:-status}" in
     fi
     ;;
   control) quickshell ipc --pid "$(pgrep -f "$shell_pattern" | head -1)" call shell control ;;
+  bars)
+    mode=${2:-both}
+    quickshell ipc --pid "$(pgrep -f "$shell_pattern" | head -1)" call shell bars "$mode"
+    ;;
   quick) quickshell ipc --pid "$(pgrep -f "$shell_pattern" | head -1)" call shell quick ;;
   bars-on) hypr-waybar-toggle on ;;
   bars-off) hypr-waybar-toggle off ;;

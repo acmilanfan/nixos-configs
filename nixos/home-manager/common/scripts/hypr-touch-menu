@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Main menu items
-choice=$(echo -e "🚀 Apps\n💻 Profiles\n🔄 Auto-rotate: $(systemctl --user is-active hypr-iio-rotate.service >/dev/null && echo "ON" || echo "OFF")\n📊 Waybar Toggle\n⌨️ Keyboard\n📶 Network\n Bluetooth\n💡 Brightness\n🔊 Volume\n🔒 Power" | \
+choice=$(echo -e "🚀 Apps\n💻 Profiles\n🔄 Auto-rotate: $(systemctl --user is-active hypr-iio-rotate.service >/dev/null && echo "ON" || echo "OFF")\n📊 Bars\n⌨️ Keyboard\n📶 Network\n Bluetooth\n💡 Brightness\n🔊 Volume\n🔒 Power" | \
     vicinae dmenu -p "Touch Menu: ")
 
 case "$choice" in
@@ -14,7 +14,7 @@ case "$choice" in
     "🔄 Auto-rotate"*)
         hypr-iio-toggle
         ;;
-    "📊 Waybar Toggle")
+    "📊 Bars")
         hypr-waybar-toggle
         ;;
     "⌨️ Keyboard")
