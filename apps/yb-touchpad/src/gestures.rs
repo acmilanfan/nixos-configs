@@ -323,10 +323,10 @@ pub fn action_for(event: &GestureEvent) -> &'static str {
             "hyprctl dispatch \"hl.dsp.workspace.toggle_special()\""
         }
         GestureEvent::EdgeSwipe { origin: Dir::Right, dir: Dir::Left } => {
-            "hyprctl dispatch workspace +1"
+            "hyprctl dispatch \"hl.dsp.focus({ workspace = '+1' })\""
         }
         GestureEvent::EdgeSwipe { origin: Dir::Left, dir: Dir::Right } => {
-            "hyprctl dispatch workspace -1"
+            "hyprctl dispatch \"hl.dsp.focus({ workspace = '-1' })\""
         }
         GestureEvent::EdgeSwipe { origin: Dir::Left, dir: Dir::Up } => "change-volume +4",
         GestureEvent::EdgeSwipe { origin: Dir::Left, dir: Dir::Down } => "change-volume -4",
@@ -883,11 +883,11 @@ mod tests {
         );
         assert_eq!(
             action_for(&E { origin: Right, dir: Left }),
-            "hyprctl dispatch workspace +1"
+            "hyprctl dispatch \"hl.dsp.focus({ workspace = '+1' })\""
         );
         assert_eq!(
             action_for(&E { origin: Left, dir: Right }),
-            "hyprctl dispatch workspace -1"
+            "hyprctl dispatch \"hl.dsp.focus({ workspace = '-1' })\""
         );
         assert_eq!(action_for(&E { origin: Left, dir: Up }), "change-volume +4");
         assert_eq!(action_for(&E { origin: Left, dir: Down }), "change-volume -4");

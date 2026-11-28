@@ -540,30 +540,21 @@ impl Drop for DragDriver {
     }
 }
 
-/// Absolute resize dispatch with a resizeactive fallback: the typed
-/// `hl.dsp.window.resize` is preferred; if the compositor errors, log the
-/// output once and fall back to the string form proven in the user config.
+/// Absolute resize dispatch through the 0.57 Lua API. The legacy
+/// `resizeactive` fallback is gone with 0.57's legacy dispatcher removal.
 fn dispatch_resize(w: i32, h: i32) {
     let lua = format!("hl.dsp.window.resize({{ x = {w}, y = {h} }})");
     match ipc::run_hyprctl(&["dispatch", &lua]) {
         Some(out) if out.contains("ok") => {}
-        other => {
-            eprintln!("yb-touchpad: window.resize failed ({other:?}); trying resizeactive");
-            let fb = format!(
-                "hl.dsp.exec_cmd(\"hyprctl dispatch resizeactive exact \\\"{w} {h}\\\"\")"
-            );
-            if !ipc::dispatch(&fb) {
-                eprintln!("yb-touchpad: resizeactive fallback failed too");
-            }
-        }
+        other => eprintln!("yb-touchpad: window.resize failed ({other:?})"),
     }
 }
 
 /// Follow-up motion for an active drag: only the primary finger (lowest live
 /// slot) drives the window; other fingers' motion is ignored. Silent unless
 /// a session is active and the slot is the primary with a known position.
-/// Move dispatches relative deltas; resize dispatches absolute sizes (with
-/// the resizeactive fallback inside `dispatch_resize`).
+/// Move dispatches relative deltas; resize dispatches absolute sizes inside
+/// `dispatch_resize`.
 fn drive_drag(slot: i32, feed: &EngineFeed, driver: &mut DragDriver) {
     if !driver.is_active() || feed.primary_slot() != Some(slot) {
         return;
