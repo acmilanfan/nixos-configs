@@ -1,7 +1,11 @@
-{ pkgs, ... }:
+{ pkgs, unstable, ... }:
 {
 
-  programs.hyprland.enable = true;
+  programs.hyprland = {
+    enable = true;
+    package = unstable.hyprland;
+    portalPackage = unstable.xdg-desktop-portal-hyprland;
+  };
 
   # programs.uwsm = {
   #   enable = true;
@@ -19,7 +23,8 @@
   services.dbus.enable = true;
   xdg.portal.enable = true;
 
-  xdg.portal.extraPortals = [ pkgs.xdg-desktop-portal-hyprland ];
+  # The Hyprland portal comes from programs.hyprland.portalPackage.
+  xdg.portal.extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
 
   # programs.hyprland = {
   #   enable = true;
@@ -27,7 +32,10 @@
   # };
   security.pam.services.hyprlock.enable = true;
 
-  programs.iio-hyprland.enable = true;
+  programs.iio-hyprland = {
+    enable = true;
+    package = unstable.iio-hyprland;
+  };
 
   services.gnome.gnome-keyring.enable = true;
 

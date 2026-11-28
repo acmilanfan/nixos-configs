@@ -274,17 +274,19 @@
           hostDir,
           modules ? [ ],
         }:
+        let
+          unstable = unstableFor system;
+        in
         inputs.nixpkgs.lib.nixosSystem {
           inherit system;
-          specialArgs = { inherit inputs; username = linuxUser; };
+          specialArgs = { inherit inputs unstable; username = linuxUser; };
           modules = [
             (hostDir + "/configuration.nix")
             home-manager.nixosModules.home-manager
             {
               home-manager.users.${linuxUser} = import (hostDir + "/home.nix");
               home-manager.extraSpecialArgs = {
-                unstable = unstableFor system;
-                inherit inputs secrets;
+                inherit unstable inputs secrets;
                 linuxSystem = system;
               };
             }
