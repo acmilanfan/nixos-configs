@@ -6,18 +6,20 @@ let
       [ "${pkgs.wvkbd-top}/bin/wvkbd-mobintl" ]
       (lib.readFile ../../home-manager/common/scripts/yb-mode)
   );
-  ybModePath = lib.makeBinPath [
-    pkgs.bash
-    pkgs.coreutils
-    config.wayland.windowManager.hyprland.finalPackage
-    pkgs.jq
-    pkgs.procps
-    pkgs.swaybg
-    pkgs.systemd
-    pkgs.waybar
-    pkgs.wvkbd
-    pkgs.yb-touchpad
-  ];
+  ybModePath =
+    lib.makeBinPath [
+      pkgs.bash
+      pkgs.coreutils
+      config.wayland.windowManager.hyprland.finalPackage
+      pkgs.jq
+      pkgs.procps
+      pkgs.swaybg
+      pkgs.systemd
+      pkgs.waybar
+      pkgs.wvkbd
+      pkgs.yb-touchpad
+    ]
+    + ":${config.home.profileDirectory}/bin:/run/current-system/sw/bin";
 in
 {
   home.packages = [ pkgs.yb-touchpad pkgs.swaybg ybMode ];
