@@ -237,7 +237,7 @@ in
         # locks. The wrapper reaps it and waits for the compositor lock.
         lock_cmd = "${hyprlock-session}/bin/hyprlock-session start";
         before_sleep_cmd = "${hyprlock-session}/bin/hyprlock-session start";
-        after_sleep_cmd = "hyprctl dispatch dpms on";
+        after_sleep_cmd = "hyprctl dispatch \"hl.dsp.dpms({ action = 'on' })\"";
       };
 
       listener = [
@@ -257,8 +257,8 @@ in
         }
         {
           timeout = 330;
-          on-timeout = "hyprctl dispatch dpms off";
-          on-resume = "hyprctl dispatch dpms on && restore-sync-brightness";
+          on-timeout = "hyprctl dispatch \"hl.dsp.dpms({ action = 'off' })\"";
+          on-resume = "hyprctl dispatch \"hl.dsp.dpms({ action = 'on' })\" && restore-sync-brightness";
         }
         {
           timeout = 1800;

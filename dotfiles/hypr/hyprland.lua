@@ -278,7 +278,14 @@ hl.bind(mod .. " + SHIFT + S", hl.dsp.window.move({ workspace = "special silent"
 hl.bind(mod .. " + U", hl.dsp.focus({ urgent_or_last = true }))
 
 hl.bind(mod .. " + C", hl.dsp.window.center())
-hl.bind(mod .. " + SHIFT + C", hl.dsp.exec_cmd("hyprctl dispatch resizeactive exact \"60% 70%\""))
+hl.bind(mod .. " + SHIFT + C", function()
+  local w = hl.get_active_window()
+  if not w or not w.monitor then return end
+  hl.dispatch(hl.dsp.window.resize({
+    x = math.floor(w.monitor.width * 0.6),
+    y = math.floor(w.monitor.height * 0.7),
+  }))
+end)
 hl.bind(mod .. " + CTRL + C", function()
   hl.dispatch(hl.dsp.window.float({ action = "toggle" }))
   hl.dispatch(hl.dsp.window.center())
@@ -348,9 +355,9 @@ hl.bind(mod .. " + F5", _toggle_animations)
 hl.bind(mod .. " + SHIFT + R", hl.dsp.exec_cmd("hypr-iio-toggle"))
 hl.bind(mod .. " + Space", hl.dsp.exec_cmd("hypr-touch-menu"))
 
--- Resize helpers (Hyprland 0.55.4: hl.dsp.window.resize broken — uses absolute not incremental)
+-- Resize helpers (Hyprland 0.57.2 supports absolute and relative window resize)
 -- Master layout: adjust mfact via layout toggle
--- Dwindle layout: resizeactive is broken in Lua binding, no workaround
+-- Dwindle layout: use hl.dsp.window.resize with relative = true
 local _mfact = 0.5
 local function adjust_mfact(delta)
   _mfact = math.max(0.05, math.min(0.95, _mfact + delta))
@@ -404,31 +411,27 @@ hl.bind("Print", hl.dsp.exec_cmd('grim -g "$(slurp)" - | wl-copy'))
 hl.bind("CTRL + Print", hl.dsp.exec_cmd('grim -g "$(slurp)" - | satty -f -'))
 hl.bind("SHIFT + Print", hl.dsp.exec_cmd("gnome-screenshot -i"))
 
+-- Zoom (cursor:zoom_factor is no longer a keyword under the Lua config)
+local function zoom(value)
+  return hl.dsp.exec_cmd(
+    "hyprctl eval \"hl.config({ cursor = { zoom_factor = " .. value .. " } })\"")
+end
+
 -- Zoom (mouse wheel)
-hl.bind(mod .. " + mouse_down", hl.dsp.exec_cmd(
-  "hyprctl -q keyword cursor:zoom_factor $(hyprctl getoption cursor:zoom_factor -j | jq '.float * 1.1')"))
-hl.bind(mod .. " + mouse_up", hl.dsp.exec_cmd(
-  "hyprctl -q keyword cursor:zoom_factor $(hyprctl getoption cursor:zoom_factor -j | jq '(.float * 0.9) | if . < 1 then 1 else . end')"))
+hl.bind(mod .. " + mouse_down", zoom("$(hyprctl getoption cursor:zoom_factor -j | jq '.float * 1.1')"))
+hl.bind(mod .. " + mouse_up", zoom("$(hyprctl getoption cursor:zoom_factor -j | jq '(.float * 0.9) | if . < 1 then 1 else . end')"))
 
 -- Zoom (keyboard, repeating: binde equivalent)
-hl.bind(mod .. " + equal", hl.dsp.exec_cmd(
-  "hyprctl -q keyword cursor:zoom_factor $(hyprctl getoption cursor:zoom_factor -j | jq '.float * 1.1')"),
-  { repeating = true })
-hl.bind(mod .. " + minus", hl.dsp.exec_cmd(
-  "hyprctl -q keyword cursor:zoom_factor $(hyprctl getoption cursor:zoom_factor -j | jq '(.float * 0.9) | if . < 1 then 1 else . end')"),
-  { repeating = true })
-hl.bind(mod .. " + KP_Add", hl.dsp.exec_cmd(
-  "hyprctl -q keyword cursor:zoom_factor $(hyprctl getoption cursor:zoom_factor -j | jq '.float * 1.1')"),
-  { repeating = true })
-hl.bind(mod .. " + KP_Subtract", hl.dsp.exec_cmd(
-  "hyprctl -q keyword cursor:zoom_factor $(hyprctl getoption cursor:zoom_factor -j | jq '(.float * 0.9) | if . < 1 then 1 else . end')"),
-  { repeating = true })
+hl.bind(mod .. " + equal", zoom("$(hyprctl getoption cursor:zoom_factor -j | jq '.float * 1.1')"), { repeating = true })
+hl.bind(mod .. " + minus", zoom("$(hyprctl getoption cursor:zoom_factor -j | jq '(.float * 0.9) | if . < 1 then 1 else . end')"), { repeating = true })
+hl.bind(mod .. " + KP_Add", zoom("$(hyprctl getoption cursor:zoom_factor -j | jq '.float * 1.1')"), { repeating = true })
+hl.bind(mod .. " + KP_Subtract", zoom("$(hyprctl getoption cursor:zoom_factor -j | jq '(.float * 0.9) | if . < 1 then 1 else . end')"), { repeating = true })
 
 -- Reset zoom
-hl.bind(mod .. " + SHIFT + mouse_up", hl.dsp.exec_cmd("hyprctl -q keyword cursor:zoom_factor 1"))
-hl.bind(mod .. " + SHIFT + mouse_down", hl.dsp.exec_cmd("hyprctl -q keyword cursor:zoom_factor 1"))
-hl.bind(mod .. " + SHIFT + minus", hl.dsp.exec_cmd("hyprctl -q keyword cursor:zoom_factor 1"))
-hl.bind(mod .. " + SHIFT + KP_Subtract", hl.dsp.exec_cmd("hyprctl -q keyword cursor:zoom_factor 1"))
+hl.bind(mod .. " + SHIFT + mouse_up", zoom("1"))
+hl.bind(mod .. " + SHIFT + mouse_down", zoom("1"))
+hl.bind(mod .. " + SHIFT + minus", zoom("1"))
+hl.bind(mod .. " + SHIFT + KP_Subtract", zoom("1"))
 
 -- Volume and brightness (locked = works when screens locked: bindl equivalent)
 for _, entry in ipairs({

@@ -58,7 +58,7 @@ end
 
 check(":alt + shift + space", "window.float", { action = "toggle" })
 check(":alt + shift + 0", "window.move", { workspace = "10" })
-check(":alt + shift + minus", "exec_cmd", "hyprctl -q keyword cursor:zoom_factor 1")
+check(":alt + shift + minus", "exec_cmd", "hyprctl eval \"hl.config({ cursor = { zoom_factor = 1 } })\"")
 check(":alt + r", "layout", "colresize +conf")
 check(":alt + x", "exec_cmd", "hypr-bar-toggle top")
 check(":alt + shift + x", "exec_cmd", "hypr-bar-toggle bottom")
@@ -87,6 +87,12 @@ for key, nxt in pairs({ h = false, k = false, l = true, j = true }) do
     { name = "window.swap", args = nxt and { next = true } or { prev = true } },
   }, "tiled " .. key)
 end
+equal(invoke_window(":alt + shift + c", {
+  floating = true,
+  monitor = { width = 1000, height = 800 },
+}), {
+  { name = "window.resize", args = { x = 600, y = 560 } },
+}, "absolute resize")
 check(":alt + p", "exec_cmd", "hypr-commands")
 check(":alt + slash", "exec_cmd", "hypr-commands")
 check(":alt + i", "exec_cmd", "hypr-focus-window")

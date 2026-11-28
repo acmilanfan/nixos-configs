@@ -94,6 +94,6 @@
     },
     "custom/window_toggle": {
         "format": "🪟",
-        "on-click": "hyprctl dispatch togglegroup"
+        "on-click": "hyprctl dispatch \"hl.dsp.group.toggle()\""
     }
 }
