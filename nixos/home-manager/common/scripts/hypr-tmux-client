@@ -15,8 +15,9 @@
 # (clients attached before the hook was installed) or the window is gone, it
 # walks up from the client until an ancestor owns a Hyprland window and picks
 # that app's most recently focused window. A tmux client PID is never a
-# Hyprland window PID: one terminal process (Ghostty) owns every window, so
-# focusing by client PID either fails or raises the wrong window.
+# Hyprland window PID: it is a child of the terminal process, and a single
+# Ghostty process can own several windows, so focusing by client PID either
+# fails or raises the wrong window.
 set -uo pipefail
 
 state_dir="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/hypr-tmux-clients"
