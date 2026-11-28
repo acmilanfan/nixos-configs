@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Hyprland 0.55.4: exact positioning/resizing not available via Lua API.
-# Use fullscreen + float + noborder as equivalent.
+# Use fullscreen + float + noborder as the expand behavior. Hyprland 0.57.2
+# also supports exact move/resize via the Lua API if this needs to change later.
 
 hyprctl dispatch "hl.dsp.window.fullscreen_state({internal = 0, client = 0})"
 hyprctl dispatch "hl.dsp.window.float()"

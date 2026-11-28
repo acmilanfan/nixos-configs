@@ -24,7 +24,7 @@ else
     hyprctl dispatch "hl.dsp.window.move({workspace = '$target_ws'})"
 fi
 
-# PiP window: center it on the target monitor (exact positioning not available in 0.55.4)
+# PiP window: center it on the target monitor.
 if [[ "$title" == "Picture-in-Picture" ]]; then
     hyprctl dispatch "hl.dsp.window.center()"
 fi
