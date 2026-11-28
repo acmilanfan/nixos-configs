@@ -1,5 +1,15 @@
 #!/usr/bin/env bash
 
+# Home Manager's programs.tmux.secureSocket exports TMUX_TMPDIR in login
+# shells, but Hyprland, Quickshell and Waybar are started outside one. Without
+# it, tmux picks the default /tmp server -- which here is a separate, detached
+# server (started by a systemd unit) with no clients, so selecting an agent
+# only changed that server's current pane and never switched the visible
+# client. Match the login-shell socket unless tmux already chose one.
+if [[ -z ${TMUX:-} && -z ${TMUX_TMPDIR:-} && -n ${XDG_RUNTIME_DIR:-} && ${OSTYPE:-} == linux* ]]; then
+  export TMUX_TMPDIR=$XDG_RUNTIME_DIR
+fi
+
 get_agents() {
   local rows
   rows=$(ai-agent-list)
@@ -9,13 +19,14 @@ get_agents() {
     return
   fi
 
-  local MAX_PRIO=0 STATUS="idle" C_COUNT=0 G_COUNT=0 A_COUNT=0
+  local MAX_PRIO=0 STATUS="idle" C_COUNT=0 G_COUNT=0 A_COUNT=0 O_COUNT=0
 
   while IFS='|' read -r pane_id state type project cwd title; do
     [ -z "$pane_id" ] && continue
     [[ "$type" == "Claude" ]] && ((C_COUNT++))
     [[ "$type" == "Gemini" ]] && ((G_COUNT++))
     [[ "$type" == "Antigravity" ]] && ((A_COUNT++))
+    [[ "$type" == "OpenCode" ]] && ((O_COUNT++))
 
     case "$state" in
       needs-input) [[ $MAX_PRIO -lt 3 ]] && MAX_PRIO=3 && STATUS="needs-input" ;;
@@ -24,7 +35,7 @@ get_agents() {
     esac
   done <<< "$rows"
 
-  if [ "$C_COUNT" -eq 0 ] && [ "$G_COUNT" -eq 0 ] && [ "$A_COUNT" -eq 0 ]; then
+  if [ "$C_COUNT" -eq 0 ] && [ "$G_COUNT" -eq 0 ] && [ "$A_COUNT" -eq 0 ] && [ "$O_COUNT" -eq 0 ]; then
     echo '{"text": "", "class": "none"}'
     return
   fi
@@ -33,6 +44,7 @@ get_agents() {
   [ "$C_COUNT" -gt 0 ] && LABEL="C:${C_COUNT}"
   [ "$G_COUNT" -gt 0 ] && LABEL="${LABEL:+$LABEL }G:${G_COUNT}"
   [ "$A_COUNT" -gt 0 ] && LABEL="${LABEL:+$LABEL }A:${A_COUNT}"
+  [ "$O_COUNT" -gt 0 ] && LABEL="${LABEL:+$LABEL }O:${O_COUNT}"
 
   ICON="󰧑"
   [[ "$STATUS" == "needs-input" ]] && ICON="󰀦"
@@ -47,12 +59,21 @@ focus_agent() {
   info=$(tmux list-panes -a -F '#{pane_id} #{session_name} #{window_index}' -f "#{m:#{pane_id},$pane_id}" 2>/dev/null)
   read -r p_id session win_idx <<< "$info"
   if [ -n "$p_id" ]; then
-    tmux switch-client -t "$session"
+    # Prefer the most recently active client; move that specific client so
+    # multi-client sessions do not switch whichever client tmux considers
+    # current.
+    local client_info client_tty client_pid _
+    client_info=$(tmux list-clients -F '#{client_tty}|#{client_pid}|#{client_activity}' 2>/dev/null | sort -t'|' -k3,3nr | head -1)
+    IFS='|' read -r client_tty client_pid _ <<< "$client_info"
+    if [ -n "$client_tty" ]; then
+      tmux switch-client -c "$client_tty" -t "$session"
+    else
+      tmux switch-client -t "$session" 2>/dev/null
+    fi
     tmux select-window -t "$session:$win_idx"
     tmux select-pane -t "$p_id"
-    client_pid=$(tmux list-clients -t "$session" -F '#{client_pid}' 2>/dev/null | head -1)
-    if [ -n "$client_pid" ]; then
-      hyprctl dispatch "hl.dsp.focus({window = 'pid:$client_pid'})"
+    if [ -n "$client_tty" ] && [ -n "$client_pid" ] && command -v hypr-tmux-client >/dev/null 2>&1; then
+      hypr-tmux-client focus "$client_tty" "$client_pid"
     fi
   fi
 }

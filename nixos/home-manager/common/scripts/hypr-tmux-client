@@ -1,0 +1,142 @@
+#!/usr/bin/env bash
+# hypr-tmux-client — map a tmux client's terminal to its Hyprland window.
+#
+# Usage:
+#   hypr-tmux-client record <client-tty> <client-pid>
+#   hypr-tmux-client focus  <client-tty> <client-pid>
+#   hypr-tmux-client detach <client-tty>
+#
+# record runs from tmux's client-attached hook. If the active Hyprland window
+# is an ancestor of the tmux client (i.e. the terminal the user attached
+# from), remember its address and stable id under XDG_RUNTIME_DIR.
+#
+# focus runs after the menu switched the tmux client. It focuses that exact
+# window, which also switches to the window's workspace. If no record exists
+# (clients attached before the hook was installed) or the window is gone, it
+# walks up from the client until an ancestor owns a Hyprland window and picks
+# that app's most recently focused window. A tmux client PID is never a
+# Hyprland window PID: one terminal process (Ghostty) owns every window, so
+# focusing by client PID either fails or raises the wrong window.
+set -uo pipefail
+
+state_dir="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/hypr-tmux-clients"
+
+tty_key() {
+  local tty=${1#/dev/}
+  printf '%s' "${tty//\//_}"
+}
+
+state_file() {
+  local key
+  key=$(tty_key "$1")
+  [ -n "$key" ] || return 1
+  printf '%s/%s' "$state_dir" "$key"
+}
+
+# The tmux server starts outside Hyprland and has no instance signature.
+ensure_hypr() {
+  command -v hyprctl >/dev/null 2>&1 || return 1
+  if [ -z "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then
+    local sig
+    sig=$(basename "$(ls -d "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"/hypr/* 2>/dev/null | head -1)" 2>/dev/null)
+    [ -n "$sig" ] && export HYPRLAND_INSTANCE_SIGNATURE=$sig
+  fi
+  [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] || return 1
+}
+
+is_ancestor() {
+  local target=$1 p=$2 i=0
+  [[ $target =~ ^[0-9]+$ ]] || return 1
+  [[ $p =~ ^[0-9]+$ ]] || return 1
+  while [ "$p" -gt 1 ] && [ "$i" -lt 32 ]; do
+    [ "$p" = "$target" ] && return 0
+    p=$(ps -o ppid= -p "$p" 2>/dev/null | tr -d ' ')
+    [[ $p =~ ^[0-9]+$ ]] || return 1
+    i=$((i + 1))
+  done
+  return 1
+}
+
+focus_window() {
+  local address=$1 stable=$2
+  [[ $address =~ ^0x[0-9a-fA-F]+$ ]] || return 1
+  [[ $stable =~ ^[0-9a-fA-F]+$ ]] || return 1
+  hyprctl eval "local w = hl.get_window('address:$address')
+if w and w.stable_id == tonumber('$stable', 16) then
+  hl.dispatch(hl.dsp.focus({window = w}))
+end" >/dev/null 2>&1
+}
+
+record() {
+  local tty=$1 pid=$2 active address stable win_pid file
+  [[ $pid =~ ^[0-9]+$ ]] || return 0
+  ensure_hypr || return 0
+  active=$(hyprctl -j activewindow 2>/dev/null) || return 0
+  [ -n "$active" ] && [ "$active" != "{}" ] || return 0
+  win_pid=$(jq -r '.pid // empty' <<< "$active" 2>/dev/null) || return 0
+  address=$(jq -r '.address // empty' <<< "$active" 2>/dev/null) || return 0
+  stable=$(jq -r '.stableId // empty' <<< "$active" 2>/dev/null) || return 0
+  [ -n "$win_pid" ] && [ -n "$address" ] && [ -n "$stable" ] || return 0
+  # Only record when the focused window really is this client's terminal.
+  is_ancestor "$win_pid" "$pid" || return 0
+  file=$(state_file "$tty") || return 0
+  mkdir -p "$state_dir" && chmod 700 "$state_dir" 2>/dev/null || return 0
+  printf '%s\t%s\n' "$address" "$stable" > "$file" || return 0
+}
+
+focus() {
+  local tty=$1 pid=$2 file address stable clients match p i
+  ensure_hypr || return 0
+
+  clients=$(hyprctl -j clients 2>/dev/null) || return 0
+  [ -n "$clients" ] || return 0
+
+  file=$(state_file "$tty") || return 0
+  if [ -r "$file" ]; then
+    IFS=$'\t' read -r address stable < "$file" || true
+    if [ -n "${address:-}" ] && [ -n "${stable:-}" ] &&
+      jq -e --arg a "$address" --arg s "$stable" '
+        any(.[];
+          ((.address // "") | ascii_downcase) == ($a | ascii_downcase)
+          and (((.stableId // "") | tostring | ascii_downcase) == ($s | ascii_downcase)))
+      ' <<< "$clients" >/dev/null 2>&1; then
+      focus_window "$address" "$stable"
+      return 0
+    fi
+  fi
+
+  # Stale or absent record: walk up from the tmux client to the terminal app,
+  # then pick that app's most recently focused window.
+  [[ $pid =~ ^[0-9]+$ ]] || return 0
+  p=$pid
+  i=0
+  while [ "$p" -gt 1 ] && [ "$i" -lt 32 ]; do
+    match=$(jq -r --argjson p "$p" '
+      [ .[] | select(.pid == $p) ]
+      | sort_by(.focusHistoryID // 999999)
+      | .[0] // empty
+      | [ .address, (.stableId | tostring) ] | @tsv
+    ' <<< "$clients" 2>/dev/null) || match=""
+    if [ -n "$match" ]; then
+      IFS=$'\t' read -r address stable <<< "$match"
+      focus_window "$address" "$stable" || true
+      return 0
+    fi
+    p=$(ps -o ppid= -p "$p" 2>/dev/null | tr -d ' ')
+    [[ $p =~ ^[0-9]+$ ]] || return 0
+    i=$((i + 1))
+  done
+}
+
+detach() {
+  local file
+  file=$(state_file "$1") || return 0
+  rm -f "$file" 2>/dev/null || true
+}
+
+case "${1:-}" in
+  record) shift; record "${1:-}" "${2:-}" ;;
+  focus)  shift; focus  "${1:-}" "${2:-}" ;;
+  detach) shift; detach "${1:-}" ;;
+  *) printf 'usage: %s {record|focus} <tty> <pid> | detach <tty>\n' "$0" >&2; exit 2 ;;
+esac

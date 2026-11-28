@@ -357,6 +357,7 @@ in
     (writeShellScriptBin "hypr-timer" (lib.readFile ./scripts/hypr-timer))
     (writeShellScriptBin "hypr-commands" (lib.readFile ./scripts/hypr-commands))
     (writeShellScriptBin "hypr-ai-agents" (lib.readFile ./scripts/hypr-ai-agents))
+    (writeShellScriptBin "hypr-tmux-client" (lib.readFile ./scripts/hypr-tmux-client))
     (writeShellScriptBin "hypr-expand-float" (lib.readFile ./scripts/hypr-expand-float))
     (writeShellScriptBin "hypr-focus-or-spawn" (lib.readFile ./scripts/hypr-focus-or-spawn))
     (writeShellScriptBin "hypr-reset-touch" (lib.readFile ./scripts/hypr-reset-touch))

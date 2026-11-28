@@ -1,4 +1,4 @@
-{ pkgs, lib, inputs, ... }:
+{ config, pkgs, lib, inputs, ... }:
 let
   tmuxUpdateEnv = pkgs.writeShellScriptBin "tmux-update-env" ''
     SOCK=$(tmux show-environment -g SSH_AUTH_SOCK | cut -d= -f2)
@@ -309,7 +309,11 @@ in
       set -g set-titles on
       set -g set-titles-string '#{session_name}:#{window_index}'
 
-      set-hook -g client-attached 'run-shell "${tmuxUpdateEnv}/bin/tmux-update-env"'
+      # Record the terminal window this client attached from, so the agent
+      # menus can focus the right window (and switch to its workspace). The
+      # helper exists only on Linux/Hyprland; the guard keeps macOS unchanged.
+      set-hook -g client-attached 'run-shell "${tmuxUpdateEnv}/bin/tmux-update-env; command -v hypr-tmux-client >/dev/null 2>&1 && hypr-tmux-client record #{client_tty} #{client_pid} >/dev/null 2>&1 || true"'
+      set-hook -g client-detached 'run-shell -b "command -v hypr-tmux-client >/dev/null 2>&1 && hypr-tmux-client detach #{client_tty} >/dev/null 2>&1 || true"'
 
       # Pin exact agent conversations (claude/agy) into every resurrect save
       set -g @resurrect-hook-post-save-layout '${agentPinSessions}/bin/agent-pin-sessions'
@@ -372,5 +376,40 @@ in
     (pkgs.writeShellScriptBin "tmux-agent-switcher" (lib.readFile ./scripts/tmux-agent-switcher))
     agentState
   ];
+
+  # `programs.tmux.secureSocket` puts the socket under /run for login shells,
+  # but systemd never sources the login-shell environment. The hand-written
+  # ~/.config/systemd/user/tmux.service therefore started its server on /tmp,
+  # splitting the machine into two servers: shells and the AI menu on /run,
+  # the service's detached agents on /tmp with no attached clients. Pin the
+  # unit to %t so every tmux client uses the same secure socket.
+  #
+  # This replaces the old hand-written unit on the next activation (Home
+  # Manager backs the file up). It does not restart the running service, so
+  # the existing /tmp server survives until the next reboot; restarting it
+  # would run ExecStop against the old server and kill its panes.
+  systemd.user.services.tmux = lib.mkIf pkgs.stdenv.isLinux {
+    Unit = {
+      Description = "tmux default session (detached)";
+      Documentation = [ "man:tmux(1)" ];
+    };
+    Service = {
+      Type = "forking";
+      Environment = [
+        "DISPLAY=:0"
+        "TMUX_TMPDIR=%t"
+        "PATH=${config.home.profileDirectory}/bin:/run/current-system/sw/bin"
+      ];
+      ExecStart = "${config.programs.tmux.package}/bin/tmux new-session -d";
+      ExecStop = [
+        "${resurrectPatched}/share/tmux-plugins/resurrect/scripts/save.sh"
+        "${config.programs.tmux.package}/bin/tmux kill-server"
+      ];
+      # tmux daemonises and owns its panes; ExecStop saves the layout and kills
+      # the server, so systemd must not sweep the cgroup when stopping.
+      KillMode = "none";
+    };
+    Install.WantedBy = [ "default.target" ];
+  };
 
 }
