@@ -18,9 +18,12 @@ PanelWindow {
 
     readonly property string screenName: screen ? screen.name : ""
     readonly property bool bottom: screenName === "eDP-2"
-    readonly property var bank: screenName === "eDP-1"
-        ? [11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
-        : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    // Laptop/virtual-laptop modes merge both banks onto the top screen.
+    readonly property var bank: dual
+        ? (screenName === "eDP-1"
+            ? [11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+            : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+        : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
     readonly property var monitor: Hyprland.monitorFor(screen)
     readonly property int activeWorkspaceId: monitor && monitor.activeWorkspace
         ? monitor.activeWorkspace.id : -1

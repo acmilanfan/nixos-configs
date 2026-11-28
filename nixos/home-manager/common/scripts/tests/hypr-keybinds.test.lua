@@ -93,7 +93,7 @@ check(":alt + i", "exec_cmd", "hypr-focus-window")
 check(":alt + a", "exec_cmd", "hypr-ai-agents --menu")
 check(":alt + y", "exec_cmd",
   [[hypr-focus-or-spawn yazi YAZI "alacritty --class yazi --title YAZI -e yazi"]])
-assert(get(":alt + ctrl + a").args:find("moveworkspacetomonitor", 1, true))
+check(":alt + ctrl + a", "exec_cmd", "yb-mode layout")
 check(":alt + space", "exec_cmd", "hypr-touch-menu")
 check(":alt + n", "exec_cmd", "swaync-client -t -sw")
 check(":super + t", "exec_cmd", "yb-touchpad window")

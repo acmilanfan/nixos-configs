@@ -15,12 +15,18 @@ KEYBOARD_PERCENT=${YB_MODE_KEYBOARD_PERCENT:-58}
 WVKBD=${YB_MODE_WVKBD:-@WVKBD@}
 WVKBD_FALLBACK_HEIGHT=${YB_MODE_WVKBD_HEIGHT:-560}
 PAD_MARGIN=${YB_MODE_PAD_MARGIN:-20}
+TOP_MONITOR=eDP-1
+BOTTOM_MONITOR=eDP-2
+# eDP-2 must always own a workspace, or Hyprland creates a new numeric one
+# there. This named workspace is the anchor for the touchpad window; it is
+# never part of the 1-20 key/bar banks and is garbage-collected when empty
+# and inactive after returning to dual-screen mode.
+PAD_WORKSPACE=yb-pad
 
 mkdir -p "$STATE_DIR"
 SIGNAL_FILE="$STATE_DIR/signal"
 MODE_FILE="$STATE_DIR/mode"
 OVERRIDE_FILE="$STATE_DIR/override"
-WVKBD_PID_FILE="$STATE_DIR/wvkbd.pid"
 
 read_signal() {
     local file value
@@ -99,6 +105,18 @@ hypr_eval() {
     hyprctl eval "$1" >/dev/null 2>&1 || true
 }
 
+# Run a long-lived child in Hyprland's session scope instead of this service's
+# cgroup: a yb-mode restart (e.g. a Home Manager switch) must not kill it.
+# Fall back to a direct spawn if Hyprland is unavailable.
+spawn_detached() {
+    local cmd
+    cmd=$(printf '%q ' "$@")
+    if hyprctl eval "hl.exec_cmd([[$cmd]])" >/dev/null 2>&1; then
+        return 0
+    fi
+    nohup "$@" >/dev/null 2>&1 &
+}
+
 focus_monitor() {
     hypr_eval "hl.dispatch(hl.dsp.focus({ monitor = \"$1\" }))"
 }
@@ -107,40 +125,121 @@ move_workspace() {
     hypr_eval "hl.dispatch(hl.dsp.workspace.move({ workspace = $1, monitor = \"$2\" }))"
 }
 
+monitor_exists() {
+    hyprctl monitors -j 2>/dev/null |
+        jq -e --arg mon "$1" '.[] | select(.name == $mon)' >/dev/null 2>&1
+}
+
+monitor_active_workspace_name() {
+    hyprctl monitors -j 2>/dev/null |
+        jq -r --arg mon "$1" '.[] | select(.name == $mon) | .activeWorkspace.name' 2>/dev/null |
+        head -n1
+}
+
+numeric_workspaces_on() {
+    hyprctl workspaces -j 2>/dev/null |
+        jq -r --arg mon "$1" '.[] | select(.monitor == $mon and .id > 0) | .id' 2>/dev/null
+}
+
+# The pad is a layer surface, but a window can still be sent to eDP-2 by a
+# keybind or drag, landing on the internal pad workspace. Rescue it onto the
+# active workspace of the top screen.
+rescue_bottom_windows() {
+    local addr
+    for addr in $(hyprctl clients -j 2>/dev/null |
+        jq -r --arg pad "$PAD_WORKSPACE" '.[] | select(.workspace.name == $pad) | .address' 2>/dev/null); do
+        hypr_eval "hl.dispatch(hl.dsp.window.move({ monitor = \"$TOP_MONITOR\", window = \"$addr\" }))"
+    done
+}
+
+top_rules_ok() {
+    local top bad
+    read -r top bad <<< "$(hyprctl workspacerules -j 2>/dev/null |
+        jq -r --arg top "$TOP_MONITOR" '[([.[] | select((.workspaceString | test("^([1-9]|1[0-9]|20)$")) and .monitor == $top)] | length), ([.[] | select((.workspaceString | test("^([1-9]|1[0-9]|20)$")) and .monitor != $top)] | length)] | @tsv' 2>/dev/null)" || return 0
+    [ -n "${top:-}" ] && [ -n "${bad:-}" ] || return 0
+    [ "$top" -ge 20 ] && [ "$bad" -eq 0 ]
+}
+
 set_workspace_rules_top() {
-    hypr_eval 'for i=1,20 do hl.workspace_rule({ workspace = tostring(i), monitor = "eDP-1" }) end'
+    hypr_eval "for i=1,20 do hl.workspace_rule({ workspace = tostring(i), monitor = \"$TOP_MONITOR\" }) end"
 }
 
 set_workspace_rules_dual() {
-    hypr_eval 'for i=1,10 do hl.workspace_rule({ workspace = tostring(i), monitor = "eDP-2" }) end'
-    hypr_eval 'for i=11,20 do hl.workspace_rule({ workspace = tostring(i), monitor = "eDP-1" }) end'
+    hypr_eval "for i=1,10 do hl.workspace_rule({ workspace = tostring(i), monitor = \"$BOTTOM_MONITOR\" }) end"
+    hypr_eval "for i=11,20 do hl.workspace_rule({ workspace = tostring(i), monitor = \"$TOP_MONITOR\" }) end"
+}
+
+# Give eDP-2 a non-numeric active workspace before moving its numeric ones.
+# This keeps Hyprland from filling the monitor with a new numeric workspace
+# and leaves the pad's output stable.
+ensure_pad_workspace() {
+    local active pad_id pad_monitor
+    monitor_exists "$BOTTOM_MONITOR" || return 0
+    active=$(monitor_active_workspace_name "$BOTTOM_MONITOR")
+    [ "$active" = "$PAD_WORKSPACE" ] && return 0
+
+    IFS=$'\t' read -r pad_id pad_monitor <<< "$(hyprctl workspaces -j 2>/dev/null |
+        jq -r --arg name "$PAD_WORKSPACE" \
+        '.[] | select(.name == $name) | [.id, .monitor] | @tsv' 2>/dev/null |
+        head -n1)"
+    if [ -n "$pad_id" ] && [ "$pad_monitor" != "$BOTTOM_MONITOR" ]; then
+        move_workspace "$pad_id" "$BOTTOM_MONITOR"
+    fi
+
+    focus_monitor "$BOTTOM_MONITOR"
+    hypr_eval "hl.dispatch(hl.dsp.focus({ workspace = \"name:$PAD_WORKSPACE\" }))"
 }
 
 move_workspaces_to_top() {
     local id
-    for id in $(hyprctl workspaces -j 2>/dev/null |
-        jq -r '.[] | select(.monitor=="eDP-2" and .windows>0) | .id' 2>/dev/null); do
-        move_workspace "$id" "eDP-1"
+    ensure_pad_workspace
+    for id in $(numeric_workspaces_on "$BOTTOM_MONITOR"); do
+        move_workspace "$id" "$TOP_MONITOR"
     done
-    focus_monitor eDP-1
+    focus_monitor "$TOP_MONITOR"
+}
+
+restore_dual_workspaces() {
+    local id active
+    for id in $(hyprctl workspaces -j 2>/dev/null |
+        jq -r --arg mon "$TOP_MONITOR" \
+        '.[] | select(.monitor == $mon and .id >= 1 and .id <= 10) | .id' 2>/dev/null); do
+        move_workspace "$id" "$BOTTOM_MONITOR"
+    done
+    for id in $(hyprctl workspaces -j 2>/dev/null |
+        jq -r --arg mon "$BOTTOM_MONITOR" \
+        '.[] | select(.monitor == $mon and .id >= 11 and .id <= 20) | .id' 2>/dev/null); do
+        move_workspace "$id" "$TOP_MONITOR"
+    done
+
+    # Laptop mode leaves only the pad placeholder on eDP-2. Activate a real
+    # workspace there so the bottom screen is usable as soon as it is exposed.
+    monitor_exists "$BOTTOM_MONITOR" || return 0
+    active=$(monitor_active_workspace_name "$BOTTOM_MONITOR")
+    if [ "$active" = "$PAD_WORKSPACE" ] || [ -z "$active" ]; then
+        focus_monitor "$BOTTOM_MONITOR"
+        hypr_eval 'hl.dispatch(hl.dsp.focus({ workspace = 1 }))'
+        focus_monitor "$TOP_MONITOR"
+    fi
 }
 
 enforce_top_only() {
-    local id focused
-    for id in $(hyprctl workspaces -j 2>/dev/null |
-        jq -r '.[] | select(.monitor=="eDP-2" and .windows>0) | .id' 2>/dev/null); do
-        move_workspace "$id" "eDP-1"
-    done
+    local focused
+    top_rules_ok || set_workspace_rules_top
+    if [ -n "$(numeric_workspaces_on "$BOTTOM_MONITOR")" ]; then
+        move_workspaces_to_top
+    fi
+    rescue_bottom_windows
     focused=$(hyprctl monitors -j 2>/dev/null |
         jq -r '.[] | select(.focused) | .name' 2>/dev/null) || focused=""
-    if [ "$focused" = "eDP-2" ]; then
-        focus_monitor eDP-1
+    if [ "$focused" = "$BOTTOM_MONITOR" ]; then
+        focus_monitor "$TOP_MONITOR"
     fi
 }
 
 black_bottom() {
     pkill -f 'swaybg -o eDP-2' 2>/dev/null || true
-    nohup swaybg -o eDP-2 -c '#000000' >/dev/null 2>&1 &
+    spawn_detached swaybg -o eDP-2 -c '#000000'
 }
 
 unblack_bottom() {
@@ -163,8 +262,8 @@ show_bottom_bar() {
     # The Quickshell shell owns the bottom panel when it is running.
     quickshell_shell_running && return 0
     if ! bottom_bar_running; then
-        nohup waybar -c "$HOME/.config/waybar/config-hypr-bottom" \
-            -s "$HOME/.config/waybar/style-hypr.css" >/dev/null 2>&1 &
+        spawn_detached waybar -c "$HOME/.config/waybar/config-hypr-bottom" \
+            -s "$HOME/.config/waybar/style-hypr.css"
         sleep 0.2
     fi
 }
@@ -228,18 +327,12 @@ open_pad() {
     geom=$(pad_geometry "$signal") || return 0
     read -r cx cy pw ph <<< "$geom"
     close_pad
-    nohup yb-touchpad window "$cx" "$cy" --size "${pw}x${ph}" >/dev/null 2>&1 &
+    spawn_detached yb-touchpad window "$cx" "$cy" --size "${pw}x${ph}"
     sleep 0.2
 }
 
 stop_wvkbd() {
-    local pid
-    pid=$(cat "$WVKBD_PID_FILE" 2>/dev/null || true)
-    if [ -n "$pid" ]; then
-        kill "$pid" 2>/dev/null || true
-    fi
     pkill -x wvkbd-mobintl 2>/dev/null || true
-    rm -f "$WVKBD_PID_FILE"
 }
 
 start_wvkbd() {
@@ -248,11 +341,10 @@ start_wvkbd() {
     kh=$(keyboard_height) || kh=$WVKBD_FALLBACK_HEIGHT
     # wvkbd creates its layer on the focused output; the patched build
     # anchors the keyboard to the top of that output.
-    focus_monitor eDP-2
-    nohup "$WVKBD" -H "$kh" -L "$kh" >/dev/null 2>&1 &
-    printf '%s\n' "$!" > "$WVKBD_PID_FILE"
+    focus_monitor "$BOTTOM_MONITOR"
+    spawn_detached "$WVKBD" -H "$kh" -L "$kh"
     sleep 0.3
-    focus_monitor eDP-1
+    focus_monitor "$TOP_MONITOR"
 }
 
 lock_rotation() {
@@ -263,8 +355,22 @@ unlock_rotation() {
     systemctl --user start hypr-iio-rotate.service >/dev/null 2>&1 || true
 }
 
+apply_layout() {
+    case "$1" in
+        dual)
+            set_workspace_rules_dual
+            restore_dual_workspaces
+            ;;
+        laptop | virtual-laptop)
+            set_workspace_rules_top
+            move_workspaces_to_top
+            rescue_bottom_windows
+            ;;
+    esac
+}
+
 apply_dual() {
-    set_workspace_rules_dual
+    apply_layout dual
     stop_wvkbd
     close_pad
     unblack_bottom
@@ -274,23 +380,21 @@ apply_dual() {
 
 apply_laptop() {
     local signal=$1
-    set_workspace_rules_top
+    apply_layout laptop
     black_bottom
     hide_bottom_bar
     stop_wvkbd
     close_pad
     lock_rotation
-    move_workspaces_to_top
     open_pad "$signal"
 }
 
 apply_virtual_laptop() {
-    set_workspace_rules_top
+    apply_layout virtual-laptop
     black_bottom
     hide_bottom_bar
     close_pad
     lock_rotation
-    move_workspaces_to_top
     start_wvkbd
     # The virtual keyboard owns the top; the pad takes the bottom.
     open_pad 1
@@ -392,9 +496,15 @@ case "${1:-status}" in
     status) status_line ;;
     daemon) run_daemon ;;
     cycle) cycle_mode ;;
+    layout)
+        ensure_wayland_env
+        signal=$(read_signal)
+        apply_layout "$(effective_mode "$signal")"
+        status_line
+        ;;
     auto|dual|laptop|virtual-laptop) set_mode "$1" ;;
     *)
-        echo "usage: yb-mode [status|daemon|auto|cycle|dual|laptop|virtual-laptop]" >&2
+        echo "usage: yb-mode [status|daemon|auto|cycle|layout|dual|laptop|virtual-laptop]" >&2
         exit 2
         ;;
 esac

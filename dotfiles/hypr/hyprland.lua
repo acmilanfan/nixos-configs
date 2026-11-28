@@ -284,9 +284,8 @@ hl.bind(mod .. " + CTRL + C", function()
   hl.dispatch(hl.dsp.window.center())
 end)
 
--- Force-move workspaces to their assigned monitors (Reset Layout)
-hl.bind(mod .. " + CTRL + A", hl.dsp.exec_cmd(
-  'bash -c "for i in {1..10}; do hyprctl dispatch moveworkspacetomonitor \\$i eDP-2; done; for i in {11..20}; do hyprctl dispatch moveworkspacetomonitor \\$i eDP-1; done"'))
+-- Restore the workspace layout for the current Yoga Book mode (Reset Layout)
+hl.bind(mod .. " + CTRL + A", hl.dsp.exec_cmd("yb-mode layout"))
 
 -- Workspaces (tags)
 for i = 1, 10 do
