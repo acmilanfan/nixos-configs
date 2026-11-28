@@ -59,6 +59,8 @@ end
 check(":alt + shift + space", "window.float", { action = "toggle" })
 check(":alt + shift + 0", "window.move", { workspace = "10" })
 check(":alt + shift + minus", "exec_cmd", "hyprctl eval \"hl.config({ cursor = { zoom_factor = 1 } })\"")
+check(":alt + h", "layout", "mfact -0.02")
+check(":alt + l", "layout", "mfact +0.02")
 check(":alt + r", "layout", "colresize +conf")
 check(":alt + x", "exec_cmd", "hypr-bar-toggle top")
 check(":alt + shift + x", "exec_cmd", "hypr-bar-toggle bottom")

@@ -356,21 +356,16 @@ hl.bind(mod .. " + SHIFT + R", hl.dsp.exec_cmd("hypr-iio-toggle"))
 hl.bind(mod .. " + Space", hl.dsp.exec_cmd("hypr-touch-menu"))
 
 -- Resize helpers (Hyprland 0.57.2 supports absolute and relative window resize)
--- Master layout: adjust mfact via layout toggle
--- Dwindle layout: use hl.dsp.window.resize with relative = true
-local _mfact = 0.5
-local function adjust_mfact(delta)
-  _mfact = math.max(0.05, math.min(0.95, _mfact + delta))
-  hl.config({ master = { mfact = _mfact }, general = { layout = "dwindle" } })
-  hl.config({ general = { layout = "master" } })
-end
+-- Master layout: the layout message changes the ratio and recalculates at once;
+-- setting master:mfact only updates the config value and leaves the windows
+-- where they are. Dwindle uses hl.dsp.window.resize with relative = true.
 
 -- Cycle the scrolling layout column through 50/70/100%; no-op elsewhere.
 hl.bind(mod .. " + R", hl.dsp.layout("colresize +conf"))
 
 -- Resize binds (master layout)
-hl.bind(mod .. " + H", function() adjust_mfact(-0.02) end, { repeating = true })
-hl.bind(mod .. " + L", function() adjust_mfact(0.02) end, { repeating = true })
+hl.bind(mod .. " + H", hl.dsp.layout("mfact -0.02"), { repeating = true })
+hl.bind(mod .. " + L", hl.dsp.layout("mfact +0.02"), { repeating = true })
 hl.bind(mod .. " + CTRL + K", hl.dsp.layout("orientationleft"))
 hl.bind(mod .. " + CTRL + J", hl.dsp.layout("orientationright"))
 
