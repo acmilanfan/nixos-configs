@@ -1,5 +1,9 @@
 { pkgs, lib, ... }: {
 
+  # Shared with tmux-agent-switcher; tmux's server environment does not source
+  # .zshrc, so the selector reads this file directly.
+  home.file.".config/fzf/fzfrc".source = ../../../dotfiles/fzf/fzfrc;
+
   home.packages = with pkgs; [ zsh-you-should-use ];
 
   programs.fzf = {
@@ -81,29 +85,9 @@
       fi
       _comp_options+=(globdots)
 
-      export FZF_DEFAULT_OPTS="$FZF_DEFAULT_OPTS \
-        --highlight-line \
-        --info=inline-right \
-        --ansi \
-        --layout=reverse \
-        --border=none \
-        --color=bg+:#29394f \
-        --color=bg:#1a1b26 \
-        --color=border:#719cd6 \
-        --color=fg:#cdcecf \
-        --color=gutter:#192330 \
-        --color=header:#f4a261 \
-        --color=hl+:#63cdcf \
-        --color=hl:#63cdcf \
-        --color=info:#aeafb0 \
-        --color=marker:#c94f6d \
-        --color=pointer:#81b29a \
-        --color=prompt:#719cd6 \
-        --color=query:#cdcecf:regular \
-        --color=scrollbar:#719cd6 \
-        --color=separator:#f4a261 \
-        --color=spinner:#719cd6 \
-      "
+      # Shared with tmux-agent-switcher so the prefix+A popup uses the same
+      # fzf theme; tmux's server environment does not source .zshrc.
+      export FZF_DEFAULT_OPTS_FILE="$HOME/.config/fzf/fzfrc"
       export TERM='xterm-256color'
 
       # Use vim keys in tab complete menu

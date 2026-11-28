@@ -9,6 +9,18 @@
 ROWS=$(ai-agent-list)
 [ -z "$ROWS" ] && exit 0
 
+# Keep the fzf look independent of how the tmux server was started: Linux's
+# systemd server has no FZF_DEFAULT_OPTS, while a macOS server started from a
+# shell does. Read the same rc file as .zshrc; if it hasn't been deployed yet,
+# leave inherited options alone and drop a stale file path.
+FZF_RC="$HOME/.config/fzf/fzfrc"
+if [ -r "$FZF_RC" ]; then
+  unset FZF_DEFAULT_OPTS
+  export FZF_DEFAULT_OPTS_FILE="$FZF_RC"
+else
+  unset FZF_DEFAULT_OPTS_FILE
+fi
+
 format_row() {
   local pane_id status type project cwd title
   IFS='|' read -r pane_id status type project cwd title <<< "$1"
@@ -41,7 +53,7 @@ esac
 # tmux client/window/pane switching (same logic as hypr-ai-agents focus_agent).
 case "$(uname -s)" in
   Darwin)
-    /usr/bin/open -g "hammerspoon://nanowm?cmd=focusAgent&pane=${PANE_ID//%/%25}"
+    "${TMUX_AGENT_OPEN_CMD:-/usr/bin/open}" -g "hammerspoon://nanowm?cmd=focusAgent&pane=${PANE_ID//%/%25}"
     ;;
   Linux)
     info=$(tmux list-panes -a -F '#{pane_id} #{session_name} #{window_index}' -f "#{m:#{pane_id},$PANE_ID}" 2>/dev/null)

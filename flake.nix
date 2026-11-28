@@ -405,7 +405,8 @@
             nixos/home-manager/common/scripts/tests/wt-setup.test.sh \
             nixos/home-manager/common/scripts/tests/worktree-remove.test.sh \
             nixos/home-manager/common/scripts/tests/pr-watch.test.sh \
-            nixos/home-manager/common/scripts/tests/ai-agent-list.test.sh
+            nixos/home-manager/common/scripts/tests/ai-agent-list.test.sh \
+            nixos/home-manager/common/scripts/tests/tmux-agent-switcher.test.sh
           do
             echo "== $t"
             bash "$t"
