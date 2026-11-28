@@ -2,6 +2,7 @@
   config,
   pkgs,
   lib,
+  unstable,
   ...
 }:
 let
@@ -39,6 +40,10 @@ in
 
   wayland.windowManager.hyprland = {
     enable = true;
+    package = unstable.hyprland;
+    # NixOS owns portal selection; the HM 26.05 module cannot override the
+    # 1.5.0 portal package because it no longer takes a `hyprland` argument.
+    portalPackage = null;
     xwayland.enable = true;
 
     # Whether to enable hyprland-session.target on hyprland startup
@@ -305,7 +310,6 @@ in
   };
 
   home.packages = with pkgs; [
-    hyprland
     waybar
     swaynotificationcenter
     brightnessctl
@@ -324,7 +328,6 @@ in
     nwg-drawer
     socat
     wvkbd
-    iio-hyprland
     hyprpolkitagent
     iwmenu
     pwmenu
@@ -444,7 +447,7 @@ in
     Service = {
       Environment = "PATH=${lib.makeBinPath [
         pkgs.bash
-        pkgs.hyprland
+        config.wayland.windowManager.hyprland.finalPackage
         pkgs.iio-sensor-proxy
         pkgs.jq
         pkgs.coreutils
@@ -459,11 +462,6 @@ in
     Install = {
       WantedBy = [ "graphical-session.target" ];
     };
-  };
-
-  xdg.portal = {
-    enable = true;
-    extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
   };
 
   };
