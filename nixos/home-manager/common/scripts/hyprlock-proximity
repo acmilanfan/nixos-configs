@@ -25,6 +25,11 @@ presence() {
   printf '%s\n' "$((a | b))"
 }
 
+if [ ! -f "$SENSOR1" ] && [ ! -f "$SENSOR2" ]; then
+  echo "No proximity sensors found; exiting." >&2
+  exit 0
+fi
+
 last_state=0
 was_locked=0
 iteration=0
