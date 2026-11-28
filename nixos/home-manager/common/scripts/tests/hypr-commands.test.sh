@@ -18,12 +18,16 @@ cat > "$FIXTURE/vicinae" <<'EOF'
 cat > "$FIXTURE/rows"
 printf '%s\n' "$CHOICE"
 EOF
+cat > "$FIXTURE/hypr-bar-toggle" <<'EOF'
+#!/usr/bin/env bash
+printf 'bars %s\n' "$*" >> "$FIXTURE/dispatch"
+EOF
 cat > "$FIXTURE/hyprctl" <<'EOF'
 #!/usr/bin/env bash
 [[ "$1" == dispatch ]] || exit 2
 printf '%s\n' "$2" >> "$FIXTURE/dispatch"
 EOF
-chmod +x "$FIXTURE/"{hyprctl,vicinae,hypr-quickshell-shell}
+chmod +x "$FIXTURE/"{hyprctl,vicinae,hypr-quickshell-shell,hypr-bar-toggle}
 
 check() {
     local choice=$1 expected=$2
@@ -38,6 +42,8 @@ check() {
 check 'Toggle Pseudo-Tile' 'hl.dsp.window.pseudo()'
 check 'Previous Master Orientation' 'hl.dsp.layout("orientationprev")'
 check 'Quickshell shell: Restart' 'shell restart'
+check 'Bars: Toggle all' 'bars all'
+check 'Bars: Top' 'bars top'
 check 'Not a command' ''
 check '' ''
 

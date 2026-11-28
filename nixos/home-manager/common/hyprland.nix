@@ -363,6 +363,7 @@ in
     (writeShellScriptBin "hypr-iio-toggle" (lib.readFile ./scripts/hypr-iio-toggle))
     (writeShellScriptBin "hypr-touch-action" (lib.readFile ./scripts/hypr-touch-action))
     (writeShellScriptBin "hypr-waybar-toggle" (lib.readFile ./scripts/hypr-waybar-toggle))
+    (writeShellScriptBin "hypr-bar-toggle" (lib.readFile ./scripts/hypr-bar-toggle))
     (writeShellScriptBin "hypr-idle-inhibit" (lib.readFile ./scripts/hypr-idle-inhibit))
     wlinhibit
     wtype
@@ -386,10 +387,12 @@ in
     Unit = {
       Description = "Trigger hyprlock on proximity sensor";
       After = [ "graphical-session.target" ];
+      PartOf = [ "graphical-session.target" ];
     };
     Service = {
       ExecStart = "${hyprlock-proximity}/bin/hyprlock-proximity";
-      Restart = "always";
+      Restart = "on-failure";
+      RestartSec = 2;
     };
     Install = {
       WantedBy = [ "graphical-session.target" ];
@@ -419,10 +422,12 @@ in
     Unit = {
       Description = "Lock hyprlock when human presence sensors report absence";
       After = [ "graphical-session.target" ];
+      PartOf = [ "graphical-session.target" ];
     };
     Service = {
       ExecStart = "${hyprlock-absence}/bin/hyprlock-absence";
-      Restart = "always";
+      Restart = "on-failure";
+      RestartSec = 2;
     };
     Install = {
       WantedBy = [ "graphical-session.target" ];
@@ -433,6 +438,7 @@ in
     Unit = {
       Description = "Auto-rotation for Hyprland (Dual Monitor and Touch)";
       After = [ "graphical-session.target" ];
+      PartOf = [ "graphical-session.target" ];
     };
     Service = {
       Environment = "PATH=${lib.makeBinPath [
@@ -446,7 +452,8 @@ in
         pkgs.libnotify
       ]}";
       ExecStart = "${hypr-iio-rotate-script}/bin/hypr-iio-rotate";
-      Restart = "on-failure";
+      Restart = "always";
+      RestartSec = 2;
     };
     Install = {
       WantedBy = [ "graphical-session.target" ];

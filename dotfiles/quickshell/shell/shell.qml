@@ -93,6 +93,11 @@ ShellRoot {
                 root.showBottom = !root.showBottom
             } else if (mode === "external") {
                 root.showExternal = !root.showExternal
+            } else if (mode === "all") {
+                const show = !(root.showTop || root.showBottom || root.showExternal)
+                root.showTop = show
+                root.showBottom = show
+                root.showExternal = show
             } else if (mode === "both") {
                 const show = !(root.showTop && root.showBottom)
                 root.showTop = show

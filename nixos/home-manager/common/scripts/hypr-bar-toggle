@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Usage: hypr-bar-toggle top|bottom|external|both|all
+what=${1:-all}
+
+if command -v hypr-quickshell-shell >/dev/null 2>&1; then
+  exec hypr-quickshell-shell bars "$what"
+fi
+
+case "$what" in
+  top) pkill -USR1 -f 'waybar.*top' ;;
+  bottom) pkill -USR1 -f 'waybar.*bottom' ;;
+  external) pkill -USR1 -f 'waybar.*external' ;;
+  both | all) hypr-waybar-toggle ;;
+  *)
+    echo "usage: ${0##*/} top|bottom|external|both|all" >&2
+    exit 2
+    ;;
+esac

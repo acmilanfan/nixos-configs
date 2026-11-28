@@ -139,8 +139,10 @@ hl.config({
 
 -- --- AUTOSTART ---
 hl.on("hyprland.start", function()
-  hl.exec_cmd("swww init")
-  hl.exec_cmd("swww img ~/.config/hypr/wallpapers/default.jpg")
+  -- awww replaced swww (no `init` subcommand, and no wallpaper asset is
+  -- shipped). Start the daemon, then use default.jpg if one was added;
+  -- otherwise fall back to the Tokyo Night background color.
+  hl.exec_cmd("sh -c 'awww-daemon >/dev/null 2>&1 & for i in 1 2 3 4 5 6 7 8 9 10; do awww query >/dev/null 2>&1 && break; sleep 0.2; done; if [ -f \"$HOME/.config/hypr/wallpapers/default.jpg\" ]; then awww img \"$HOME/.config/hypr/wallpapers/default.jpg\"; else awww clear 1a1b26; fi'")
   -- The Yoga Book runs the shell from a user service; other hosts use Waybar.
   hl.exec_cmd("sh -c 'command -v hypr-quickshell-shell >/dev/null || hypr-waybar-toggle on'")
   hl.exec_cmd("nm-applet")
@@ -230,10 +232,10 @@ hl.bind(mod .. " + SHIFT + V", hl.dsp.exec_cmd("vicinae vicinae://launch/clipboa
 hl.bind(mod .. " + SHIFT + CTRL + SUPER + L", hl.dsp.exec_cmd("hyprlock-session start"))
 
 hl.bind("CTRL + SHIFT + S", hl.dsp.exec_cmd("hypr-profile"))
-hl.bind(mod .. " + X", hl.dsp.exec_cmd('pkill -USR1 -f "waybar.*top"'))
-hl.bind(mod .. " + SHIFT + X", hl.dsp.exec_cmd('pkill -USR1 -f "waybar.*bottom"'))
-hl.bind(mod .. " + CTRL + X", hl.dsp.exec_cmd('pkill -USR1 -f "waybar.*external"'))
-hl.bind(mod .. " + SHIFT + CTRL + X", hl.dsp.exec_cmd("hypr-waybar-toggle"))
+hl.bind(mod .. " + X", hl.dsp.exec_cmd("hypr-bar-toggle top"))
+hl.bind(mod .. " + SHIFT + X", hl.dsp.exec_cmd("hypr-bar-toggle bottom"))
+hl.bind(mod .. " + CTRL + X", hl.dsp.exec_cmd("hypr-bar-toggle external"))
+hl.bind(mod .. " + SHIFT + CTRL + X", hl.dsp.exec_cmd("hypr-bar-toggle all"))
 
 -- Orgmode/terminal
 hl.bind(mod .. " + SHIFT + O", function()
