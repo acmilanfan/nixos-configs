@@ -1,6 +1,6 @@
---- a/src/helpers/Monitor.cpp
-+++ b/src/helpers/Monitor.cpp
-@@ -2596,7 +2596,12 @@
+--- a/src/output/Monitor.cpp
++++ b/src/output/Monitor.cpp
+@@ -2590,7 +2590,12 @@
      }
 
      if (STATE.buffer) {

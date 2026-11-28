@@ -1,4 +1,4 @@
-{ modulesPath, ... }: {
+{ modulesPath, lib, unstable, ... }: {
 
   imports = [
     (modulesPath + "/profiles/qemu-guest.nix")
@@ -14,18 +14,16 @@
   # guest-support/dynamic-resolution.)
   services.spice-vdagentd.enable = true;
 
-  # Hyprland (0.55.4, still in upstream main as of 2026-10) keeps the previous
-  # frame's buffer when testing/committing a new mode if only its format
-  # matches. virtio-gpu requires the primary plane to cover the whole CRTC, so
-  # every mode change was rejected (atomic: EINVAL; legacy: ENOSPC) and the
-  # display never left 1280x800. The patch also requires the size to match.
-  nixpkgs.overlays = [
-    (_: prev: {
-      hyprland = prev.hyprland.overrideAttrs (old: {
-        patches = (old.patches or [ ]) ++ [ ./hyprland-modeset-buffer-size.patch ];
-      });
+  # Hyprland (0.57.2) keeps the previous frame's buffer when testing/committing
+  # a new mode if only its format matches (src/output/Monitor.cpp). virtio-gpu
+  # requires the primary plane to cover the whole CRTC, so every mode change
+  # was rejected (atomic: EINVAL; legacy: ENOSPC) and the display never left
+  # 1280x800. The patch also requires the size to match.
+  programs.hyprland.package = lib.mkForce (
+    unstable.hyprland.overrideAttrs (old: {
+      patches = (old.patches or [ ]) ++ [ ./hyprland-modeset-buffer-size.patch ];
     })
-  ];
+  );
 
   # Matches what nixpkgs' virtualisation/disk-image.nix module (used only
   # when building the initial .qcow2 via system.build.images.qemu-efi) sets
