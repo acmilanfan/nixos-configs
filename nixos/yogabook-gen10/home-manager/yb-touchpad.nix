@@ -1,4 +1,4 @@
-{ pkgs, lib, ... }:
+{ pkgs, lib, config, ... }:
 let
   ybMode = pkgs.writeShellScriptBin "yb-mode" (
     builtins.replaceStrings
@@ -9,7 +9,7 @@ let
   ybModePath = lib.makeBinPath [
     pkgs.bash
     pkgs.coreutils
-    pkgs.hyprland
+    config.wayland.windowManager.hyprland.finalPackage
     pkgs.jq
     pkgs.procps
     pkgs.swaybg
